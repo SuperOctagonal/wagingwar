@@ -687,7 +687,8 @@ input[type=range]::-moz-range-thumb{width:15px;height:15px;border-radius:50%;bor
       <div class="rr-empty">Load a CSV to see upcoming races</div>
     </div>
   </div>
-</div> onclick="if(event.target===this)closeResultsModal()">
+</div>
+<div class="modal-overlay" id="resultsModal" onclick="if(event.target===this)closeResultsModal()">
   <div class="modal" onclick="event.stopPropagation()">
     <div class="modal-header">
       <div><div class="modal-title" id="modalTitle">Results</div><div class="modal-sub" id="modalSub"></div></div>
@@ -2508,10 +2509,7 @@ function renderResultsModal(resultsMap){
 function closeResultsModal(){
   document.getElementById('resultsModal').classList.remove('open');
 }
-// Close on overlay click
-document.getElementById('resultsModal').addEventListener('click',function(e){
-  if(e.target===this)closeResultsModal();
-});
+// resultsModal close handled below
 
 // ─── HELPERS ────────────────────────────────────────────────────────
 // ═══════════════════════════════════════════════════════
@@ -2763,7 +2761,7 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeFormModal();cl
 
 
 
-document.getElementById('resultsModal').addEventListener('click',function(e){if(e.target===this)closeResultsModal();});
+// resultsModal click-outside handled by onclick attribute on overlay div
 document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeFormModal();closeResultsModal();}});
 
 function toast(msg,type=''){
@@ -3887,6 +3885,11 @@ function initAuth(){
 }
 
 function hideLoginScreen(){
+  // Ensure modals are closed when entering app
+  const rm=document.getElementById('resultsModal');
+  if(rm) rm.classList.remove('open');
+  const fm=document.getElementById('formModal');
+  if(fm) fm.classList.remove('open');
   var ls = document.getElementById('login-screen');
   if(ls) ls.style.display = 'none';
 }
