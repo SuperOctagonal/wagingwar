@@ -2109,7 +2109,7 @@ async function fetchLiveOdds(){
     const scrMsg=newlyScratched.length>0?` · ${newlyScratched.length} new scratch${newlyScratched.length>1?'ings':'ing'}`:'';
     toast(`✓ Live odds: ${oddsCount} runners${scrMsg}`,'success');
     render(currentRace);
-  }catch(e){toast(`Live odds: ${e.message}`,'error');}
+  }catch(e){toast(`Live odds: ${e.message}`,'error');console.error('fetchLiveOdds error:',e);}
   finally{btn.classList.remove('loading');}
 }
 
@@ -2283,8 +2283,20 @@ function tabFetch(url){
   
   // On a real server — direct fetch works
   if(!isLocal){
-    return fetch(url,{headers:{'Accept':'application/json'}})
-      .then(r=>({ok:r.ok,status:r.status,json:()=>r.json()}));
+    return fetch(url,{headers:{'Accept':'application/json','Origin':'https://www.tab.com.au'}})
+      .then(r=>{
+        if(!r.ok) throw new Error(`HTTP ${r.status} from TAB API`);
+        return r.json();
+      })
+      .then(data=>({ok:true,status:200,json:()=>Promise.resolve(data)}))
+      .catch(err=>{
+        // CORS blocked — fall through to proxy
+        console.warn('Direct fetch failed, trying proxy:',err.message);
+        const proxyUrl=`https://api.codetabs.com/v1/proxy/?quest=${encodeURIComponent(url)}`;
+        return fetch(proxyUrl,{headers:{'Accept':'application/json'}})
+          .then(r=>r.json())
+          .then(data=>({ok:true,status:200,json:()=>Promise.resolve(data)}));
+      });
   }
 
   // Local — must use a proxy. Try each in order.
@@ -3783,7 +3795,7 @@ function showAccountPage(){
   html += '<div style="padding:16px">';
   html += '<div style="font-size:12px;color:#6b7280;margin-bottom:12px">Cancelling your subscription will end your access at the next billing date. Your bet history and data will be saved for 30 days.</div>';
   html += '<button id="acct-cancel-btn" style="background:#fee2e2;border:1.5px solid #fca5a5;border-radius:8px;padding:10px 20px;font-size:13px;font-weight:700;color:#dc2626;cursor:pointer">Cancel Subscription</button>';
-  html += '</div></div>'; 
+  html += '</div></div>';
 
   html += '</div></div>';
   main.innerHTML = html;
