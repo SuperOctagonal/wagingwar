@@ -1276,6 +1276,7 @@ const FACTOR_GROUPS_DEF=[
 let allRaces={},currentRace=null,liveOddsData={},resultsCache={},formCache={},currentResults=[];
 let allVenues={};  // venue -> [raceKeys] map, populated on CSV load
 window.currentTrackCond='good';
+window.ODDS_API_KEY=localStorage.getItem('odds_api_key')||''; // Persists between sessions
 let detectedHeaders={};
 const weights={};
 FACTORS.forEach(f=>{if(!f.scoreZero)weights[f.key]=10;});
@@ -1541,6 +1542,8 @@ function buildRaces({hdrs,rows},fname){
   document.getElementById('resultsBtn').style.display='';
   buildMeetingTabs(keys);
   buildMeetingList(keys);
+  // Auto-fetch live odds after CSV loads (if we have a current race)
+  setTimeout(()=>{if(currentRace)fetchLiveOdds();},800);
 
   toast(`✓ ${keys.length} races · ${rows.length} runners from ${fname}`,'success');
 }
@@ -2047,63 +2050,77 @@ async function fetchLiveOdds(){
   const btn=document.getElementById('liveBtn');
   btn.classList.add('loading');
   try{
-    // Betfair Exchange API — free delayed key for development
-    // URL: listMarketCatalogue to find the race market, then listMarketBook for prices
-    const venue=currentRace.venue||'';
-    const raceNum=currentRace.num;
+    // Calls our own Vercel serverless function /api/odds
+    // which proxies the TAB API server-side — no CORS, real AUD prices
     const date=formatDate(currentRace.date);
+    const jur=getJurisdiction(currentRace.venue);
+    const venue=encodeURIComponent(currentRace.venue);
+    const race=currentRace.num;
 
-    // Step 1: Search Betfair for today's win market for this race
-    const searchUrl=`https://api.betfair.com/exchange/betting/rest/v1.0/listMarketCatalogue/`;
-    const filter={
-      eventTypeIds:['7'], // Horse Racing
-      marketCountries:['AU'],
-      marketTypeCodes:['WIN'],
-      marketStartTime:{from:date+'T00:00:00Z',to:date+'T23:59:59Z'},
-      textQuery:venue
-    };
-    const catalogueResp=await tabFetch(
-      `https://api.betfair.com/exchange/betting/rest/v1.0/listMarketCatalogue/?filter=${encodeURIComponent(JSON.stringify(filter))}&marketProjection=["RUNNER_METADATA","EVENT"]&maxResults=20&locale=en`
-    );
-    const markets=await catalogueResp.json();
+    const url=`/api/odds?venue=${venue}&race=${race}&date=${date}&jur=${jur}`;
+    const resp=await fetch(url);
 
-    // Find matching race by name/number
-    const targetMarket=markets.find(m=>{
-      const n=(m.marketName||'').toUpperCase();
-      return n.includes(venue.toUpperCase().split(' ')[0])&&
-             (n.includes('R'+raceNum)||n.includes('RACE '+raceNum));
-    })||markets[0];
+    // If not found in primary jurisdiction, try others
+    let data=await resp.json();
+    if(!resp.ok||data.error){
+      // Try other jurisdictions
+      const others=['NSW','VIC','QLD','SA','WA'].filter(j=>j!==jur);
+      for(const j of others){
+        const r2=await fetch(`/api/odds?venue=${venue}&race=${race}&date=${date}&jur=${j}`);
+        const d2=await r2.json();
+        if(r2.ok&&d2.runners?.length){data=d2;break;}
+      }
+    }
 
-    if(!targetMarket){throw new Error('Race not found on Betfair');}
+    if(data.error) throw new Error(data.error);
 
-    // Step 2: Get runner prices from listMarketBook
-    const bookResp=await tabFetch(
-      `https://api.betfair.com/exchange/betting/rest/v1.0/listMarketBook/?marketIds=["${targetMarket.marketId}"]&priceProjection={"priceData":["EX_BEST_OFFERS"]}`
-    );
-    const books=await bookResp.json();
-    const book=books[0];
-
+    // Load odds + handle scratchings
     liveOddsData={};
-    (book?.runners||[]).forEach(runner=>{
-      const meta=targetMarket.runners?.find(r=>r.selectionId===runner.selectionId);
-      const name=(meta?.runnerName||'').toUpperCase().trim();
-      const price=runner.ex?.availableToBack?.[0]?.price;
-      if(name&&price){
-        liveOddsData[name]=price;
-        if(meta?.metadata?.CLOTH_NUMBER) liveOddsData[+meta.metadata.CLOTH_NUMBER]=price;
+    const newlyScratched=[];
+
+    // Get rank1 before updating scratchings
+    const rank1=currentRace.horses
+      .filter(h=>!h.scratched)
+      .map(h=>{const{total}=scoreHorse(h);return{name:h.name,total};})
+      .sort((a,b)=>b.total-a.total)[0]?.name;
+
+    (data.runners||[]).forEach(runner=>{
+      const name=(runner.name||'').toUpperCase().trim();
+      const win=+runner.win;
+
+      // Live odds into map
+      if(name&&win>0){
+        liveOddsData[name]=win;
+        if(runner.tabNo) liveOddsData[+runner.tabNo]=win;
+      }
+
+      // Scratching detection
+      if(runner.scratched){
+        const horse=currentRace.horses.find(h=>
+          fuzzyMatch(h.name.toUpperCase(),name)||String(h.tab)===String(runner.tabNo)
+        );
+        if(horse&&!horse.scratched){
+          horse.scratched=true;
+          horse.lateScratching=true;
+          newlyScratched.push(horse.name);
+        }
       }
     });
 
+    if(newlyScratched.length>0){
+      const wasRank1=newlyScratched.some(n=>fuzzyMatch(n.toUpperCase(),rank1?.toUpperCase()||''));
+      showScratchingAlert(newlyScratched,wasRank1);
+    }
+
     const count=Object.keys(liveOddsData).filter(k=>isNaN(+k)).length;
-    toast(`✓ Betfair live prices: ${count} runners`,'success');
+    const scrMsg=newlyScratched.length?` · ${newlyScratched.length} scratched`:'';
+    toast(`✓ TAB live odds: ${count} runners${scrMsg}`,'success');
     render(currentRace);
   }catch(e){
-    // Betfair needs auth — fall back to Racing Australia SP after results
-    toast('Betfair: '+e.message+' — use Results for SP','error');
+    toast('Live odds: '+e.message,'error');
     console.error('fetchLiveOdds:',e);
   }finally{btn.classList.remove('loading');}
 }
-
 
 
 // Fuzzy name match — handles NZ/IRE/GB suffixes
