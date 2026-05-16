@@ -39,7 +39,7 @@ body{background:#f0f2f4;color:#111827;font-family:'Space Grotesk',sans-serif;dis
 .rtab.done{color:#d1d5db}
 .rtab .rtn{font-size:14px;font-weight:800;line-height:1}
 .rtab .rtime{font-size:8px;font-weight:400;margin-top:1px}
-.layout{display:grid;grid-template-columns:220px minmax(0,1fr);flex:1;min-height:0;overflow:hidden;overflow:hidden}
+.layout{display:grid;grid-template-columns:220px minmax(0,1fr) 170px;flex:1;min-height:0;overflow:hidden}
 .leftrail{background:#fff;border-right:1px solid #e5e7eb;display:flex;flex-direction:column;overflow:hidden}
 .lr-section{padding:12px 14px 6px;flex-shrink:0}
 .lr-title{font-size:9px;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:1.2px;margin-bottom:8px}
@@ -192,6 +192,34 @@ input[type=range]::-moz-range-thumb{width:15px;height:15px;border-radius:50%;bor
 .race-tbl td.c-wscore,.race-tbl td.c-tscore{width:36px}
 
 /* TC buttons */
+/* ── RIGHT RAIL — Up Next ── */
+.rightrail{
+  background:#f8fafc;border-left:1px solid #e5e7eb;
+  display:flex;flex-direction:column;overflow:hidden;
+  font-family:'Space Grotesk',sans-serif;
+}
+.rr-header{
+  background:#1e2936;color:#fff;
+  font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:1px;
+  padding:8px 10px;flex-shrink:0;
+}
+.rr-list{flex:1;overflow-y:auto;scrollbar-width:none}
+.rr-list::-webkit-scrollbar{display:none}
+.rr-item{
+  padding:7px 10px;border-bottom:1px solid #e5e7eb;cursor:pointer;
+  transition:background .1s;position:relative;
+}
+.rr-item:hover{background:#ecfdf5}
+.rr-item.rr-active{background:#f0fdf4;border-left:3px solid #059669}
+.rr-item.rr-soon{border-left:3px solid #f59e0b;background:#fffbeb}
+.rr-item.rr-live{border-left:3px solid #059669}
+.rr-meeting{font-size:8px;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:.5px}
+.rr-race{font-size:11px;font-weight:700;color:#111827;line-height:1.2}
+.rr-time{font-size:9px;color:#6b7280;margin-top:1px}
+.rr-countdown{font-size:9px;font-weight:700;margin-top:2px}
+.rr-rank1{font-size:9px;color:#374151;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rr-rank1 span{font-weight:700;color:#059669}
+.rr-empty{padding:20px 10px;text-align:center;font-size:10px;color:#9ca3af}
 .tc-btn{background:#f1f5f9;border:1.5px solid #cbd5e1;border-radius:4px;padding:4px 0;font-size:9px;font-weight:700;cursor:pointer;font-family:'Segoe UI',sans-serif;color:#64748b;transition:all .15s;width:100%}
 .tc-btn:hover{border-color:#15803d;color:#15803d}
 .tc-active{background:#15803d!important;color:#fff!important;border-color:#15803d!important}
@@ -391,6 +419,7 @@ input[type=range]::-moz-range-thumb{width:15px;height:15px;border-radius:50%;bor
 
 
 .page-no-sidebar .leftrail { display: none; }
+.page-no-sidebar .rightrail { display: none; }
 .page-no-sidebar .layout { grid-template-columns: minmax(0,1fr); }
 
 
@@ -652,8 +681,13 @@ input[type=range]::-moz-range-thumb{width:15px;height:15px;border-radius:50%;bor
       <div class="empty-hint">Form · Speed · Conditions · Connections — tap any group score to see the factor breakdown. Hover shows individual metrics. My Odds from your QLD pricing matrix.</div>
     </div>
   </div>
-</div>
-<div class="modal-overlay" id="resultsModal" onclick="if(event.target===this)closeResultsModal()">
+  <div class="rightrail" id="rightRail">
+    <div class="rr-header">⏱ Up Next</div>
+    <div class="rr-list" id="upNextList">
+      <div class="rr-empty">Load a CSV to see upcoming races</div>
+    </div>
+  </div>
+</div> onclick="if(event.target===this)closeResultsModal()">
   <div class="modal" onclick="event.stopPropagation()">
     <div class="modal-header">
       <div><div class="modal-title" id="modalTitle">Results</div><div class="modal-sub" id="modalSub"></div></div>
@@ -1542,7 +1576,7 @@ function buildRaces({hdrs,rows},fname){
   document.getElementById('resultsBtn').style.display='';
   buildMeetingTabs(keys);
   buildMeetingList(keys);
-  // Auto-fetch live odds after CSV loads (if we have a current race)
+  buildUpNext();
   setTimeout(()=>{if(currentRace)fetchLiveOdds();},800);
 
   toast(`✓ ${keys.length} races · ${rows.length} runners from ${fname}`,'success');
@@ -1801,6 +1835,117 @@ function scoreOneFactorForH(h,f){
 
 const GRP_LABELS={form:{label:'Form',color:'#d97706'},speed:{label:'Speed',color:'#2563eb'},cond:{label:'Conditions',color:'#0891b2'},conn:{label:'Connections',color:'#7c3aed'}};
 const GRP_KEYS=['form','speed','cond','conn'];
+
+
+// ═══════════════════════════════════════════════════════
+// UP NEXT — right rail, shows next 10 races across all meetings
+// ═══════════════════════════════════════════════════════
+let upNextInterval=null;
+
+function buildUpNext(){
+  if(upNextInterval) clearInterval(upNextInterval);
+  renderUpNext();
+  upNextInterval=setInterval(renderUpNext,10000); // refresh every 10s
+}
+
+function parseRaceTime(timeStr, dateStr){
+  // timeStr like "11.48 am" or "02.08 pm", dateStr like "16/05/2026"
+  if(!timeStr) return null;
+  try{
+    const t=timeStr.toLowerCase().trim();
+    const ampm=t.includes('pm')?'pm':'am';
+    const nums=t.replace(/[^0-9.]/g,'').split('.');
+    let h=parseInt(nums[0]||0,10);
+    const m=parseInt(nums[1]||0,10);
+    if(ampm==='pm'&&h!==12) h+=12;
+    if(ampm==='am'&&h===12) h=0;
+    // Use today's date
+    const now=new Date();
+    return new Date(now.getFullYear(),now.getMonth(),now.getDate(),h,m,0);
+  }catch(e){return null;}
+}
+
+function renderUpNext(){
+  const list=document.getElementById('upNextList');
+  if(!list) return;
+  if(!allRaces||Object.keys(allRaces).length===0){
+    list.innerHTML='<div class="rr-empty">Load a CSV to see upcoming races</div>';
+    return;
+  }
+
+  const now=new Date();
+
+  // Collect all races with parsed times
+  const raceList=[];
+  Object.entries(allRaces).forEach(([key,rc])=>{
+    const t=parseRaceTime(rc.time, rc.date);
+    raceList.push({key,rc,jumpTime:t});
+  });
+
+  // Sort by jump time
+  raceList.sort((a,b)=>{
+    if(!a.jumpTime) return 1;
+    if(!b.jumpTime) return -1;
+    return a.jumpTime-b.jumpTime;
+  });
+
+  // Take next 10 — past races show as LIVE briefly, then prioritise upcoming
+  const upcoming=raceList.filter(r=>!r.jumpTime||(now-r.jumpTime)<300000); // within 5 min past
+  const show=upcoming.slice(0,10);
+
+  if(show.length===0){
+    list.innerHTML='<div class="rr-empty">No upcoming races</div>';
+    return;
+  }
+
+  list.innerHTML=show.map(({key,rc,jumpTime})=>{
+    // Get rank 1 horse
+    const active=(rc.horses||[]).filter(h=>!h.scratched);
+    let rank1Name='—', rank1Odds='';
+    if(active.length>0){
+      try{
+        const scored=active.map(h=>{
+          const s=scoreHorse(h);
+          return{name:h.name,total:s.total,myO:calculateMatrixOdds(active.length,active.indexOf(h))};
+        }).sort((a,b)=>b.total-a.total);
+        if(scored[0]){
+          rank1Name=scored[0].name.split(' ').slice(0,2).join(' '); // first 2 words
+          rank1Odds=scored[0].myO?'$'+formatRacingOdds(scored[0].myO):'';
+        }
+      }catch(e){}
+    }
+
+    // Countdown
+    const isActive=currentRace&&currentRace.venue===rc.venue&&currentRace.num===rc.num;
+    let countdownHTML='';
+    let itemCls='rr-item';
+    if(jumpTime){
+      const diff=jumpTime-now;
+      if(diff<0){
+        countdownHTML='<div class="rr-countdown" style="color:#059669;font-weight:800">● LIVE</div>';
+        itemCls+=' rr-live';
+      } else {
+        const mins=Math.floor(diff/60000);
+        const secs=Math.floor((diff%60000)/1000);
+        const col=mins<5?'#dc2626':mins<15?'#f59e0b':'#6b7280';
+        countdownHTML=`<div class="rr-countdown" style="color:${col}">${mins}m ${String(secs).padStart(2,'0')}s</div>`;
+        if(mins<15) itemCls+=' rr-soon';
+      }
+    }
+    if(isActive) itemCls+=' rr-active';
+
+    const scr=(rc.horses||[]).filter(h=>h.scratched).length;
+    const scrBadge=scr>0?` <span style="color:#dc2626;font-size:8px">${scr}S</span>`:'';
+
+    return `<div class="${itemCls}" onclick="selectMeeting('${rc.venue}');setTimeout(()=>selectRace(allRaces['${key}'],'${key}'),50)">
+      <div class="rr-meeting">${rc.venue.split(' ')[0]}${scrBadge}</div>
+      <div class="rr-race">R${rc.num} <span style="font-size:9px;color:#6b7280;font-weight:400">${rc.dist||''}m</span></div>
+      <div class="rr-time">${rc.time||''}</div>
+      ${countdownHTML}
+      <div class="rr-rank1">🥇 ${rank1Name}${rank1Odds?' <span>'+rank1Odds+'</span>':''}</div>
+    </div>`;
+  }).join('');
+}
 
 // ═══ PACE MAP — mirrors VBA Module_Pace_Analysis ═══
 function calcPaceMap(horse,raceVenue,raceDist,trackCond){
@@ -2629,7 +2774,196 @@ function toast(msg,type=''){
 
 function showDashboard(){
   const main=document.getElementById('main');
+  const now=new Date();
+
+  // ── Stats ──
   const settled=betLog.filter(b=>b.result!=='pending');
+  const staked=settled.reduce((a,b)=>a+(+b.stake||0),0);
+  const returned=settled.reduce((a,b)=>a+(b.result==='won'?(+b.stake||0)*(+b.odds||0):0),0);
+  const pl=returned-staked;
+  const roi=staked>0?(pl/staked*100).toFixed(1):0;
+  const wins=settled.filter(b=>b.result==='won').length;
+  const sr=settled.length>0?(wins/settled.length*100).toFixed(0):'0';
+
+  // ── Races sorted by time ──
+  const raceKeys=Object.keys(allRaces);
+  const allRacesSorted=raceKeys.map(k=>{
+    const rc=allRaces[k];
+    const t=parseRaceTime(rc.time,rc.date);
+    return{key:k,rc,jumpTime:t};
+  }).sort((a,b)=>{
+    if(!a.jumpTime)return 1;
+    if(!b.jumpTime)return -1;
+    return a.jumpTime-b.jumpTime;
+  });
+
+  // Split into upcoming and past
+  const upcoming=allRacesSorted.filter(r=>!r.jumpTime||r.jumpTime>now);
+  const live=allRacesSorted.filter(r=>r.jumpTime&&(now-r.jumpTime)<600000&&r.jumpTime<=now);
+  const past=allRacesSorted.filter(r=>r.jumpTime&&(now-r.jumpTime)>=600000);
+
+  // ── Get rank1 for a race ──
+  function getRank1(rc){
+    const active=(rc.horses||[]).filter(h=>!h.scratched);
+    if(!active.length)return null;
+    try{
+      const scored=active.map(h=>{
+        const s=scoreHorse(h);
+        return{name:h.name,total:s.total};
+      }).sort((a,b)=>b.total-a.total);
+      return scored[0]||null;
+    }catch(e){return null;}
+  }
+
+  // ── Race card ──
+  function raceCard({key,rc,jumpTime},highlight){
+    const rank1=getRank1(rc);
+    const scr=rc.horses.filter(h=>h.scratched).length;
+    const runners=rc.horses.filter(h=>!h.scratched).length;
+    const diff=jumpTime?jumpTime-now:null;
+    let timeHTML='';
+    if(diff!==null){
+      if(diff<0){
+        timeHTML=`<span style="background:#dcfce7;color:#15803d;border-radius:10px;padding:1px 7px;font-size:8px;font-weight:800">● LIVE</span>`;
+      } else {
+        const mins=Math.floor(diff/60000);
+        const col=mins<5?'#dc2626':mins<15?'#d97706':'#6b7280';
+        const bg=mins<5?'#fee2e2':mins<15?'#fef3c7':'#f3f4f6';
+        timeHTML=`<span style="background:${bg};color:${col};border-radius:10px;padding:1px 7px;font-size:8px;font-weight:700">${mins}m</span>`;
+      }
+    }
+    const border=highlight?'border-left:3px solid #f59e0b':'border-left:3px solid #e5e7eb';
+    return `<div onclick="selectMeeting('${rc.venue}');setTimeout(()=>{selectRace(allRaces['${key}'],'${key}');switchNav('racing');},50)" 
+      style="background:#fff;border:1px solid #e5e7eb;${border};border-radius:8px;padding:10px 12px;cursor:pointer;transition:all .15s;margin-bottom:6px"
+      onmouseover="this.style.background='#f0fdf4';this.style.borderColor='#059669'"
+      onmouseout="this.style.background='#fff';this.style.borderColor='#e5e7eb'">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+        <div style="display:flex;align-items:center;gap:6px">
+          <span style="background:#1e2936;color:#fff;border-radius:4px;padding:1px 7px;font-size:9px;font-weight:800;font-family:'JetBrains Mono'">${rc.venue.split(' ')[0]} R${rc.num}</span>
+          ${scr>0?`<span style="color:#dc2626;font-size:8px;font-weight:700">${scr}S</span>`:''}
+        </div>
+        <div style="display:flex;align-items:center;gap:4px">
+          ${timeHTML}
+          <span style="font-size:8px;color:#9ca3af">${rc.time||''}</span>
+        </div>
+      </div>
+      <div style="font-size:10px;color:#6b7280;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:4px">${rc.dist||''}m · ${rc.cls||''} · ${runners} rnrs</div>
+      ${rank1?`<div style="font-size:11px;font-weight:700;color:#111827;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">🥇 ${rank1.name}</div>`:'<div style="font-size:10px;color:#d1d5db">No data</div>'}
+    </div>`;
+  }
+
+  // ── Value alerts ──
+  const alerts=[];
+  raceKeys.forEach(k=>{
+    const rc=allRaces[k];
+    const active=rc.horses.filter(h=>!h.scratched);
+    const scored=active.map(h=>{const{total}=scoreHorse(h);return{...h,total};}).sort((a,b)=>b.total-a.total);
+    if(scored[0]){
+      const mkt=scored[0].rawOdds;
+      const myO=calculateMatrixOdds(active.length,0);
+      if(mkt&&myO){
+        const pct=(mkt-myO)/myO*100;
+        if(pct>=50) alerts.push({horse:scored[0].name,key:k,rc,myO,mkt,pct});
+      }
+    }
+  });
+
+  // ── HTML ──
+  const statItems=[
+    {lbl:'Bets',val:betLog.length,col:'#fff'},
+    {lbl:'Wins',val:wins,col:'#4ade80'},
+    {lbl:'Strike',val:sr+'%',col:+sr>=25?'#4ade80':'#fbbf24'},
+    {lbl:'P/L',val:(pl>=0?'+':'')+pl.toFixed(0),col:pl>=0?'#4ade80':'#f87171'},
+    {lbl:'ROI',val:(+roi>=0?'+':'')+roi+'%',col:+roi>=0?'#4ade80':'#f87171'},
+  ];
+
+  main.innerHTML=`
+  <div style="background:linear-gradient(135deg,#00471b,#0f172a);padding:16px 20px;flex-shrink:0">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+      <div>
+        <div style="font-family:'Bebas Neue';font-size:26px;letter-spacing:1px;color:#fff">Race Edge Dashboard</div>
+        <div style="font-size:9px;color:rgba(255,255,255,.4);font-family:'JetBrains Mono'">${raceKeys.length} races loaded · ${upcoming.length} upcoming · ${live.length} live</div>
+      </div>
+      <button onclick="switchNav('racing')" style="background:#fbbf24;color:#78350f;border:none;border-radius:6px;padding:7px 16px;font-size:11px;font-weight:800;cursor:pointer">→ Racing</button>
+    </div>
+    <div style="display:flex;gap:8px">
+      ${statItems.map(s=>`<div style="flex:1;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.1);border-radius:8px;padding:10px;text-align:center">
+        <div style="font-size:20px;font-weight:800;color:${s.col};font-family:'JetBrains Mono';line-height:1">${s.val}</div>
+        <div style="font-size:8px;color:rgba(255,255,255,.5);text-transform:uppercase;letter-spacing:.8px;margin-top:3px">${s.lbl}</div>
+      </div>`).join('')}
+    </div>
+  </div>
+
+  <div style="flex:1;overflow-y:auto;padding:14px 16px;background:#f8fafc">
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px">
+
+      <!-- LIVE + UPCOMING -->
+      <div>
+        ${live.length>0?`
+        <div style="font-size:9px;font-weight:700;color:#059669;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;display:flex;align-items:center;gap:5px">
+          <span style="width:6px;height:6px;border-radius:50%;background:#059669;display:inline-block;animation:blink 1s infinite"></span>Live Now
+        </div>
+        ${live.map(r=>raceCard(r,false)).join('')}
+        `:''}
+        <div style="font-size:9px;font-weight:700;color:#374151;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;margin-top:${live.length>0?10:0}px">
+          ⏱ Upcoming (${upcoming.length})
+        </div>
+        ${upcoming.length>0?upcoming.slice(0,8).map(r=>raceCard(r,false)).join('')
+          :'<div style="text-align:center;padding:20px;color:#9ca3af;font-size:10px">No upcoming races</div>'}
+      </div>
+
+      <!-- VALUE ALERTS -->
+      <div>
+        <div style="font-size:9px;font-weight:700;color:#374151;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">
+          🎯 Value Alerts (${alerts.length})
+        </div>
+        ${alerts.length===0
+          ?'<div style="text-align:center;padding:20px;color:#9ca3af;font-size:10px">No alerts — load CSV and fetch live odds</div>'
+          :alerts.slice(0,8).map(a=>`
+          <div onclick="selectMeeting('${a.rc.venue}');setTimeout(()=>{selectRace(allRaces['${a.key}'],'${a.key}');switchNav('racing');},50)"
+            style="background:#fff;border:1px solid #bbf7d0;border-left:3px solid #059669;border-radius:8px;padding:10px 12px;margin-bottom:6px;cursor:pointer"
+            onmouseover="this.style.background='#f0fdf4'" onmouseout="this.style.background='#fff'">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px">
+              <span style="background:#d1fae5;color:#065f46;border-radius:4px;padding:1px 6px;font-size:8px;font-weight:800">${a.rc.venue.split(' ')[0]} R${a.rc.num}</span>
+              <span style="font-size:11px;font-weight:800;color:#059669">▲+${a.pct.toFixed(0)}%</span>
+            </div>
+            <div style="font-size:11px;font-weight:700;color:#111827;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${a.horse}</div>
+            <div style="font-size:9px;color:#6b7280;font-family:'JetBrains Mono';margin-top:2px">My $${a.myO.toFixed(2)} · Mkt $${a.mkt.toFixed(2)}</div>
+          </div>`).join('')}
+      </div>
+
+      <!-- RECENT BETS -->
+      <div>
+        <div style="font-size:9px;font-weight:700;color:#374151;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;display:flex;justify-content:space-between">
+          <span>📋 Recent Bets</span>
+          <span onclick="switchNav('betlog')" style="color:#059669;cursor:pointer;font-weight:600">View all →</span>
+        </div>
+        ${betLog.length===0
+          ?'<div style="text-align:center;padding:20px;color:#9ca3af;font-size:10px">No bets logged yet</div>'
+          :betLog.slice(-8).reverse().map(b=>{
+            const pl2=b.result==='won'?(+b.stake||0)*((+b.odds||0)-1):b.result==='lost'?-(+b.stake||0):0;
+            const col=pl2>0?'#059669':pl2<0?'#dc2626':'#9ca3af';
+            const bg=b.result==='won'?'#d1fae5':b.result==='lost'?'#fee2e2':'#f3f4f6';
+            const fc=b.result==='won'?'#065f46':b.result==='lost'?'#991b1b':'#6b7280';
+            return `<div style="background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:9px 12px;margin-bottom:6px;display:flex;align-items:center;gap:8px">
+              <div style="width:26px;height:26px;border-radius:50%;background:${bg};color:${fc};display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;flex-shrink:0">
+                ${b.result==='won'?'✓':b.result==='lost'?'✗':'•'}
+              </div>
+              <div style="flex:1;min-width:0">
+                <div style="font-size:11px;font-weight:700;color:#111827;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${b.horse}</div>
+                <div style="font-size:8px;color:#9ca3af;font-family:'JetBrains Mono'">${b.race||''} · $${(+b.odds||0).toFixed(2)} · $${(+b.stake||0).toFixed(2)}</div>
+              </div>
+              <div style="text-align:right;flex-shrink:0">
+                <div style="font-size:12px;font-weight:800;color:${col};font-family:'JetBrains Mono'">${b.result==='pending'?'—':(pl2>=0?'+':'')+pl2.toFixed(2)}</div>
+                <div style="font-size:7px;color:#9ca3af">${b.result.toUpperCase()}</div>
+              </div>
+            </div>`;
+          }).join('')}
+      </div>
+
+    </div>
+  </div>`;
+}
   const staked=settled.reduce((a,b)=>a+(+b.stake||0),0);
   const returned=settled.reduce((a,b)=>a+(b.result==='won'?(+b.stake||0)*(+b.odds||0):0),0);
   const pl=returned-staked;
