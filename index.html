@@ -1172,6 +1172,29 @@ const HEADER_ALIASES = [
   ['Last-1 Margin',['last-1 margin']],
   ['Last-2 Margin',['last-2 margin']],
   ['Last-3 Margin',['last-3 margin']],
+  ['Last Date',       ['last date']],
+  ['Last-1 Date',     ['last-1 date']],
+  ['Last-2 Date',     ['last-2 date']],
+  ['Last-3 Date',     ['last-3 date']],
+  ['Last-1 Dist',     ['last-1 dist','last-1 distance']],
+  ['Last-2 Dist',     ['last-2 dist','last-2 distance']],
+  ['Last-3 Dist',     ['last-3 dist','last-3 distance']],
+  ['Last-1 Crse',     ['last-1 crse','last-1 course']],
+  ['Last-2 Crse',     ['last-2 crse','last-2 course']],
+  ['Last-3 Crse',     ['last-3 crse','last-3 course']],
+  ['Last-1 Class',    ['last-1 class','last-1 cls']],
+  ['Last-2 Class',    ['last-2 class','last-2 cls']],
+  ['Last-3 Class',    ['last-3 class','last-3 cls']],
+  ['Last Weight',     ['last weight']],
+  ['Last-1 Weight',   ['last-1 weight']],
+  ['Last-2 Weight',   ['last-2 weight']],
+  ['Last-3 Weight',   ['last-3 weight']],
+  ['Last-1 Base Rating',['last-1 base rating','last-1 base']],
+  ['Last-2 Base Rating',['last-2 base rating','last-2 base']],
+  ['Last-3 Base Rating',['last-3 base rating','last-3 base']],
+  ['Last-1 WFA Rating', ['last-1 wfa rating','last-1 wfa']],
+  ['Last-2 WFA Rating', ['last-2 wfa rating','last-2 wfa']],
+  ['Last-3 WFA Rating', ['last-3 wfa rating','last-3 wfa']],
   ['Jockey',       ['jockey','joc']],
   ['Trainer',      ['trainer','trn']],
   ['Days Since Last Start',['days since last start','days since']],
@@ -3500,7 +3523,7 @@ function showHorseForm(e, idx){
   var avgSP=spArr.length>0?'$'+(spArr.reduce(function(a,b){return a+b;},0)/spArr.length).toFixed(2):'--';
 
   // Recent runs
-  var runsHTML='<div class="hfc-run-hdr"><span>Pos</span><span>Date · Track · Dist · Class</span><span>SP</span><span>Margin</span><span>Rtg</span></div>';
+  var runsHTML='<div class="hfc-run-hdr"><span></span><span>Date · Track · Dist · Class</span><span>SP</span><span>Margin</span><span>Rtg</span></div>';
   for(var ri=0;ri<4;ri++){
     var pos=h.lastFin?h.lastFin[ri]:null;
     var sp=Array.isArray(h.lastSP)?h.lastSP[ri]:(ri===0?h.lastSP:null);
