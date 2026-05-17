@@ -391,7 +391,7 @@ input[type=range]::-moz-range-thumb{width:15px;height:15px;border-radius:50%;bor
 .hfc-run.w .hfc-rpos{background:#fffbeb!important}
 .hfc-rpos{width:18px;height:18px;border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:800}
 .hfc-rpos.p1{background:linear-gradient(135deg,#fbbf24,#d97706);color:#fff}.hfc-rpos.p23{background:#86efac;color:#065f46}.hfc-rpos.px{background:#f3f4f6;color:#9ca3af}
-.hfc-rpos-inner.p1{background:linear-gradient(135deg,#fbbf24,#d97706);color:#fff;width:18px;height:18px;border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;margin:auto}.hfc-rpos-inner.p23{background:#86efac;color:#065f46;width:18px;height:18px;border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;margin:auto}.hfc-rpos-inner.px{background:#f3f4f6;color:#9ca3af;width:18px;height:18px;border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;margin:auto}
+.hfc-rpos-inner.p1{background:linear-gradient(135deg,#fbbf24,#d97706);color:#fff;width:18px;height:18px;border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;margin:auto}.hfc-rpos-inner.p23{background:#86efac;color:#065f46;width:18px;height:18px;border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;margin:auto}.hfc-rpos-inner.px{background:#f3f4f6;color:#9ca3af;width:18px;height:18px;border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:400;margin:auto}
 .hfc-ri{font-size:8px;color:#374151;font-weight:600;display:table-cell;padding:3px 4px;max-width:155px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}.hfc-rpos{display:table-cell;padding:3px 2px;width:22px;vertical-align:middle}.hfc-rpos-inner{width:18px;height:18px;border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;margin:auto}.hfc-rsp{font-size:9px;font-weight:700;color:#92400e;text-align:right;display:table-cell;padding:3px 4px;width:52px;white-space:nowrap}.hfc-rm{font-size:8px;color:#6b7280;text-align:right;display:table-cell;padding:3px 4px;width:44px;white-space:nowrap}.hfc-rdtl{font-size:7px;color:#9ca3af;text-align:right;display:table-cell;padding:3px 2px;width:34px;white-space:nowrap}
 .hfc-run-hdr{display:table-row;font-size:7px;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:.5px}
 .hfc-foot{padding:5px 13px;border-top:1px solid #e5e7eb;display:flex;align-items:center;justify-content:center}
@@ -3526,7 +3526,7 @@ function showHorseForm(e, idx){
   // Recent runs
   var runsHTML='<table class="hfc-runs-tbl"><tr class="hfc-run-hdr"><td style="width:22px"></td><td>DATE · TRACK · DIST · CLASS</td><td style="width:52px;text-align:right">SP</td><td style="width:44px;text-align:right">MARGIN</td><td style="width:34px;text-align:right">RTG</td></tr>';
   var anyRun=false;
-  for(var ri=0;ri<4;ri++){
+  for(var ri=0;ri<3;ri++){
     var pos=h.lastFin?h.lastFin[ri]:null;
     var sp=Array.isArray(h.lastSP)?h.lastSP[ri]:(ri===0?h.lastSP:null);
     var dtl=h.lastRunDetails?h.lastRunDetails[ri]:null;
@@ -3545,7 +3545,7 @@ function showHorseForm(e, idx){
     var spStr=sp&&!isNaN(+sp)?'$'+(+sp).toFixed(2):'—';
     var mgStr=margin!=null?margin+'L':'—';
     var rtgStr=rating?rating.toFixed(1):'—';
-    var dateShort=date?date.replace(/(\d{2})\/(\d{2})\/(\d{4})/,'$1/$2'):'';
+    var dateShort=date?date.replace(/(\d+)\/(\d+)\/(\d+)/,'$1/$2'):'';
     var detail=[dateShort,crse,dist2,cls].filter(Boolean).join(' · ');
     if(wtVal) detail+=' <span style="color:#9ca3af">'+wtVal+'kg</span>';
     runsHTML+='<tr style="'+rowBg+'">';
