@@ -386,13 +386,14 @@ input[type=range]::-moz-range-thumb{width:15px;height:15px;border-radius:50%;bor
 .hfc-stat{text-align:center;padding:6px 3px;border-right:1px solid #f3f4f6}.hfc-stat:last-child{border-right:none}
 .hfc-sv{font-size:11px;font-weight:800;color:#111827;line-height:1}.hfc-sv.g{color:#059669}
 .hfc-sl{font-size:7px;color:#9ca3af;text-transform:uppercase;letter-spacing:.8px;margin-top:2px}
-.hfc-runs{padding:7px 13px}.hfc-rt{font-size:7px;font-weight:700;color:#9ca3af;text-transform:uppercase;margin-bottom:5px}
-.hfc-run{display:grid;grid-template-columns:22px auto 52px 44px 34px;align-items:center;gap:4px;margin-bottom:3px;padding:3px 5px;border-radius:4px;background:#fafafa}
-.hfc-run.w{background:#fffbeb;border-left:3px solid #fbbf24}
+.hfc-runs{padding:7px 13px}.hfc-rt{font-size:7px;font-weight:700;color:#9ca3af;text-transform:uppercase;margin-bottom:5px}.hfc-runs-tbl{display:table;width:100%;border-collapse:collapse}.hfc-run-bg{background:#fafafa;border-radius:4px}.hfc-run-bg.w{background:#fffbeb}
+.hfc-run{display:table-row;margin-bottom:3px}
+.hfc-run.w .hfc-rpos{background:#fffbeb!important}
 .hfc-rpos{width:18px;height:18px;border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:800}
 .hfc-rpos.p1{background:linear-gradient(135deg,#fbbf24,#d97706);color:#fff}.hfc-rpos.p23{background:#86efac;color:#065f46}.hfc-rpos.px{background:#f3f4f6;color:#9ca3af}
-.hfc-ri{font-size:8px;color:#374151;font-weight:600;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;min-width:0}.hfc-rsp{font-size:9px;font-weight:700;color:#92400e;text-align:right}.hfc-rm{font-size:8px;color:#6b7280;text-align:right}.hfc-rdtl{font-size:7px;color:#9ca3af;text-align:right}
-.hfc-run-hdr{display:grid;grid-template-columns:22px auto 52px 44px 34px;gap:4px;padding:2px 5px;font-size:7px;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:.5px;margin-bottom:2px}
+.hfc-rpos-inner.p1{background:linear-gradient(135deg,#fbbf24,#d97706);color:#fff;width:18px;height:18px;border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;margin:auto}.hfc-rpos-inner.p23{background:#86efac;color:#065f46;width:18px;height:18px;border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;margin:auto}.hfc-rpos-inner.px{background:#f3f4f6;color:#9ca3af;width:18px;height:18px;border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;margin:auto}
+.hfc-ri{font-size:8px;color:#374151;font-weight:600;display:table-cell;padding:3px 4px;max-width:155px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}.hfc-rpos{display:table-cell;padding:3px 2px;width:22px;vertical-align:middle}.hfc-rpos-inner{width:18px;height:18px;border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;margin:auto}.hfc-rsp{font-size:9px;font-weight:700;color:#92400e;text-align:right;display:table-cell;padding:3px 4px;width:52px;white-space:nowrap}.hfc-rm{font-size:8px;color:#6b7280;text-align:right;display:table-cell;padding:3px 4px;width:44px;white-space:nowrap}.hfc-rdtl{font-size:7px;color:#9ca3af;text-align:right;display:table-cell;padding:3px 2px;width:34px;white-space:nowrap}
+.hfc-run-hdr{display:table-row;font-size:7px;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:.5px}
 .hfc-foot{padding:5px 13px;border-top:1px solid #e5e7eb;display:flex;align-items:center;justify-content:center}
 .hfc-pbtn{background:#00471b;color:#fff;border:none;border-radius:4px;padding:4px 10px;font-size:9px;font-weight:700;cursor:pointer;pointer-events:all}
 .bet-btn{background:#00471b;color:#fff;border:none;border-radius:5px;padding:5px 8px;font-size:9px;font-weight:700;cursor:pointer;width:100%;transition:background .15s;display:block}
@@ -3523,7 +3524,8 @@ function showHorseForm(e, idx){
   var avgSP=spArr.length>0?'$'+(spArr.reduce(function(a,b){return a+b;},0)/spArr.length).toFixed(2):'--';
 
   // Recent runs
-  var runsHTML='<div class="hfc-run-hdr"><span></span><span>Date · Track · Dist · Class</span><span>SP</span><span>Margin</span><span>Rtg</span></div>';
+  var runsHTML='<table class="hfc-runs-tbl"><tr class="hfc-run-hdr"><td style="width:22px"></td><td>DATE · TRACK · DIST · CLASS</td><td style="width:52px;text-align:right">SP</td><td style="width:44px;text-align:right">MARGIN</td><td style="width:34px;text-align:right">RTG</td></tr>';
+  var anyRun=false;
   for(var ri=0;ri<4;ri++){
     var pos=h.lastFin?h.lastFin[ri]:null;
     var sp=Array.isArray(h.lastSP)?h.lastSP[ri]:(ri===0?h.lastSP:null);
@@ -3534,26 +3536,28 @@ function showHorseForm(e, idx){
     var cls=dtl&&dtl.cls?dtl.cls:'';
     var margin=dtl&&dtl.margin!=null?dtl.margin:(ri===0?h.lastMargin:null);
     var rating=dtl&&dtl.rating?dtl.rating:null;
-    var runWt=dtl&&dtl.wt?dtl.wt+'kg':'';
+    var wtVal=dtl&&dtl.wt&&dtl.wt>40&&dtl.wt<75?dtl.wt:null;
     if(!pos&&!sp&&!date&&!dist2) continue;
+    anyRun=true;
     var pc=pos===1?'p1':(pos&&pos<=3)?'p23':'px';
-    var rc2=pos===1?'w':'';
+    var rowBg=pos===1?'background:#fffbeb':'background:#fafafa';
     var posStr=pos?pos:'—';
     var spStr=sp&&!isNaN(+sp)?'$'+(+sp).toFixed(2):'—';
     var mgStr=margin!=null?margin+'L':'—';
     var rtgStr=rating?rating.toFixed(1):'—';
     var dateShort=date?date.replace(/(\d{2})\/(\d{2})\/(\d{4})/,'$1/$2'):'';
     var detail=[dateShort,crse,dist2,cls].filter(Boolean).join(' · ');
-    runsHTML+='<div class="hfc-run '+rc2+'">';
-    runsHTML+='<div class="hfc-rpos '+pc+'">'+posStr+'</div>';
-    var wtOk = dtl&&dtl.wt&&dtl.wt>40&&dtl.wt<75;
-    runsHTML+='<div class="hfc-ri">'+(detail||'—')+(wtOk?'<span style="font-size:7px;color:#9ca3af"> '+dtl.wt+'kg</span>':'')+'</div>';
-    runsHTML+='<div class="hfc-rsp">'+spStr+'</div>';
-    runsHTML+='<div class="hfc-rm">'+mgStr+'</div>';
-    runsHTML+='<div class="hfc-rdtl">'+rtgStr+'</div>';
-    runsHTML+='</div>';
+    if(wtVal) detail+=' <span style="color:#9ca3af">'+wtVal+'kg</span>';
+    runsHTML+='<tr style="'+rowBg+'">';
+    runsHTML+='<td style="padding:3px 2px;width:22px;vertical-align:middle"><div class="hfc-rpos-inner '+pc+'">'+posStr+'</div></td>';
+    runsHTML+='<td style="padding:3px 4px;font-size:8px;font-weight:600;color:#374151;max-width:155px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">'+detail+'</td>';
+    runsHTML+='<td style="padding:3px 4px;font-size:9px;font-weight:700;color:#92400e;text-align:right;white-space:nowrap">'+spStr+'</td>';
+    runsHTML+='<td style="padding:3px 4px;font-size:8px;color:#6b7280;text-align:right;white-space:nowrap">'+mgStr+'</td>';
+    runsHTML+='<td style="padding:3px 2px;font-size:7px;color:#9ca3af;text-align:right;white-space:nowrap">'+rtgStr+'</td>';
+    runsHTML+='</tr>';
   }
-  if(runsHTML.indexOf('hfc-run ') === -1) runsHTML+='<div style="font-size:9px;color:#9ca3af;padding:4px 5px">No run history in CSV</div>';
+  runsHTML+='</table>'
+  if(!anyRun) runsHTML='<table class="hfc-runs-tbl"><tr><td colspan="5" style="font-size:9px;color:#9ca3af;padding:4px 5px">No run history in CSV</td></tr></table>';
 
   var html='';
   html+='<div class="hfc-hdr"><div class="hfc-name">'+h.name+' <span style="font-size:10px;font-weight:500;opacity:.75">('+bp+') · '+wt+'</span></div><div style="font-size:9px;color:rgba(255,255,255,.6)">'+daysStr+'</div></div>';
