@@ -376,21 +376,22 @@ input[type=range]::-moz-range-thumb{width:15px;height:15px;border-radius:50%;bor
 .toast.success{background:#065f46;border:1px solid #059669}
 .toast.error{background:#7f1d1d;border:1px solid #dc2626}
 .toast.info{background:#1e3a5f;border:1px solid #3b82f6}
-.horse-form-card{display:none;position:fixed;z-index:9999;background:#fff;border:1.5px solid #00471b;border-radius:10px;box-shadow:0 8px 32px rgba(0,0,0,.18);width:300px;overflow:hidden;pointer-events:none}
+.horse-form-card{display:none;position:fixed;z-index:9999;background:#fff;border:1.5px solid #00471b;border-radius:10px;box-shadow:0 8px 32px rgba(0,0,0,.18);width:380px;overflow:hidden;pointer-events:none}
 .hfc-hdr{background:#00471b;padding:9px 13px;display:flex;align-items:center;justify-content:space-between}
 .hfc-name{font-size:12px;font-weight:800;color:#fff}.hfc-barrier{background:rgba(255,255,255,.2);color:#fff;border-radius:4px;padding:2px 7px;font-size:9px;font-weight:700}
-.hfc-meta{padding:6px 13px;background:#f0fdf4;border-bottom:1px solid #e5e7eb;font-size:9px;color:#374151;display:flex;gap:10px;flex-wrap:wrap}.hfc-meta b{color:#00471b}
+.hfc-meta{padding:6px 13px;background:#f0fdf4;border-bottom:1px solid #e5e7eb;font-size:9px;color:#374151;display:flex;gap:8px;flex-wrap:wrap}.hfc-meta b{color:#00471b}
+.hfc-prize-row{padding:5px 13px;background:#fffbeb;border-bottom:1px solid #e5e7eb;display:flex;gap:16px;font-size:9px;color:#374151}.hfc-prize-row b{color:#92400e}
 .hfc-stats{display:grid;grid-template-columns:repeat(4,1fr);border-bottom:1px solid #e5e7eb}
 .hfc-stat{text-align:center;padding:6px 3px;border-right:1px solid #f3f4f6}.hfc-stat:last-child{border-right:none}
-.hfc-sv{font-size:13px;font-weight:800;color:#111827;line-height:1}.hfc-sv.g{color:#059669}
+.hfc-sv{font-size:11px;font-weight:800;color:#111827;line-height:1}.hfc-sv.g{color:#059669}
 .hfc-sl{font-size:7px;color:#9ca3af;text-transform:uppercase;letter-spacing:.8px;margin-top:2px}
 .hfc-runs{padding:7px 13px}.hfc-rt{font-size:7px;font-weight:700;color:#9ca3af;text-transform:uppercase;margin-bottom:5px}
-.hfc-run{display:grid;grid-template-columns:20px 1fr 44px 36px;align-items:center;gap:5px;margin-bottom:3px;padding:3px 5px;border-radius:4px;background:#fafafa}
+.hfc-run{display:grid;grid-template-columns:20px 1fr 50px 40px 36px;align-items:center;gap:4px;margin-bottom:3px;padding:3px 5px;border-radius:4px;background:#fafafa}
 .hfc-run.w{background:#fffbeb;border-left:3px solid #fbbf24}
 .hfc-rpos{width:18px;height:18px;border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:800}
 .hfc-rpos.p1{background:linear-gradient(135deg,#fbbf24,#d97706);color:#fff}.hfc-rpos.p23{background:#86efac;color:#065f46}.hfc-rpos.px{background:#f3f4f6;color:#9ca3af}
-.hfc-ri{font-size:8px;color:#374151;font-weight:600}.hfc-rsp{font-size:9px;font-weight:700;color:#92400e;text-align:right}.hfc-rm{font-size:8px;color:#6b7280;text-align:right}
-.hfc-foot{padding:6px 13px;border-top:1px solid #e5e7eb;display:flex;align-items:center;justify-content:space-between}
+.hfc-ri{font-size:8px;color:#374151;font-weight:600}.hfc-rsp{font-size:9px;font-weight:700;color:#92400e;text-align:right}.hfc-rm{font-size:8px;color:#6b7280;text-align:right}.hfc-rdtl{font-size:7px;color:#9ca3af;text-align:right}
+.hfc-foot{padding:5px 13px;border-top:1px solid #e5e7eb;display:flex;align-items:center;justify-content:center}
 .hfc-pbtn{background:#00471b;color:#fff;border:none;border-radius:4px;padding:4px 10px;font-size:9px;font-weight:700;cursor:pointer;pointer-events:all}
 .bet-btn{background:#00471b;color:#fff;border:none;border-radius:5px;padding:5px 8px;font-size:9px;font-weight:700;cursor:pointer;width:100%;transition:background .15s;display:block}
 .bet-btn:hover{background:#005a22}
@@ -1544,6 +1545,7 @@ function buildRaces({hdrs,rows},fname){
       'Wrat':safeNum(col(r,'Wrat')),
       'Trat':safeNum(col(r,'Trat')),
       'Average Prizemoney':safeNum(col(r,'Average Prizemoney')),
+      'Total Prizemoney':safeNum(col(r,'Total Prizemoney'))||safeNum(col(r,'Career Prizemoney'))||safeNum(col(r,'Prize Money'))||null,
       'BP':safeNum(col(r,'BP')),
       'Weight':safeNum(col(r,'Weight')),
       'Days Since Last Start':safeNum(col(r,'Days Since Last Start')),
@@ -1562,6 +1564,12 @@ function buildRaces({hdrs,rows},fname){
       espd:(col(r,'Espd')||'').trim(),
       pace:(col(r,'Pace')||'').trim(),
       courseStarts:safeNum(col(r,'Course Starts'))||0,
+      courseWins:cw||0,
+      distWins:dw||0,
+      distStarts:ds||0,
+      goodWins:gw||0, goodStarts:gs||0,
+      softWins:sw||0, softStarts:ss||0,
+      heavyWins:hw||0, heavyStarts:hs||0,
       avgSP, spWeight,
       avgFin, finWeight,
       jocWin:jocStarts>0?jocWins/jocStarts:null,
@@ -2656,7 +2664,7 @@ async function openFormModal(horseName, tabNo){
       <span>⚠</span><br>${e.message}<br>
       <small style="color:var(--text4);display:block;margin-top:8px">
         Form is only available for today's races via TAB API.<br>
-        For past races use racingaustralia.horse or punters.com.au
+        For past races use racingaustralia.horse
       </small>
     </div>`;
   }
@@ -3437,71 +3445,108 @@ function showHorseForm(e, idx){
   if(!card || !h) return;
 
   var pct = function(a,b){ return b>0 ? Math.round(a/b*100) : 0; };
-  var sr = pct(h.wins, h.starts);
-  var pr = pct((h.wins+(h.places||0)), h.starts);
-  var csr = pct(h.courseWins||0, h.courseStarts||0);
-  var dsr = pct(h.distWins||0, h.distStarts||0);
-  var spArr = (Array.isArray(h.lastSP)?h.lastSP:[h.lastSP]).filter(function(v){return v!=null&&v>0;});
-  var avgSP = spArr.length>0 ? '$'+(spArr.reduce(function(a,b){return a+b;},0)/spArr.length).toFixed(2) : '--';
+  var rec = function(s,w,sc,t){ return s+'-'+w+'-'+(sc||0)+'-'+(t||0); };
+
+  // Career record
+  var careerRec = rec(h.starts, h.wins, h.seconds, h.thirds);
+  var winSR = pct(h.wins, h.starts);
+  var placeSR = pct(h.wins+(h.places||0), h.starts);
+
+  // Course record
+  var cStarts = h.courseStarts||0, cWins = h.courseWins||0;
+  var courseRec = cStarts > 0 ? cStarts+'-'+cWins+'-?-?' : '0-0-0-0';
+
+  // Distance record
+  var dStarts = h.distStarts||0, dWins = h.distWins||0;
+  var distRec = dStarts > 0 ? dStarts+'-'+dWins+'-?-?' : '0-0-0-0';
+
+  // Track condition records
+  var gRec = (h.goodStarts||0)+'-'+(h.goodWins||0);
+  var sRec = (h.softStarts||0)+'-'+(h.softWins||0);
+  var hvRec = (h.heavyStarts||0)+'-'+(h.heavyWins||0);
+
+  // Prize
+  var avgPrize = h['Average Prizemoney'];
+  var totalPrize = h['Total Prizemoney'];
+  var avgStr = avgPrize ? '$'+(avgPrize>=1000?(avgPrize/1000).toFixed(0)+'k':avgPrize) : '--';
+  var totStr = totalPrize ? '$'+(totalPrize>=1000?(totalPrize/1000).toFixed(0)+'k':totalPrize) : '--';
+
+  // Meta
   var days = h['Days Since Last Start'];
   var daysStr = days ? days+'d ago' : '--';
-  var avgPrize = h['Average Prizemoney'];
-  var prizeStr = avgPrize ? '$'+(avgPrize>=1000?(avgPrize/1000).toFixed(0)+'k':avgPrize) : '--';
   var bp = h['BP'] || '?';
   var wt = h['Weight'] ? h['Weight']+'kg' : '--';
+  var avgSP = (function(){
+    var spArr = (Array.isArray(h.lastSP)?h.lastSP:[h.lastSP]).filter(function(v){return v!=null&&v>0;});
+    return spArr.length>0 ? '$'+(spArr.reduce(function(a,b){return a+b;},0)/spArr.length).toFixed(2) : '--';
+  })();
 
-  var runs = [
-    {sp:Array.isArray(h.lastSP)?h.lastSP[0]:h.lastSP, margin:h.lastMargin, pos:h.lastFin?h.lastFin[0]:null, label:'Last run'},
-    {sp:Array.isArray(h.lastSP)?h.lastSP[1]:h.sp1, margin:null, pos:h.lastFin?h.lastFin[1]:null, label:'2 runs ago'},
-    {sp:Array.isArray(h.lastSP)?h.lastSP[2]:h.sp2, margin:null, pos:h.lastFin?h.lastFin[2]:null, label:'3 runs ago'},
-    {sp:Array.isArray(h.lastSP)?h.lastSP[3]:h.sp3, margin:null, pos:h.lastFin?h.lastFin[3]:null, label:'4 runs ago'},
-  ].filter(function(r){return r.sp!=null||r.pos!=null;});
-
+  // Recent runs — always show 4 slots
+  var runLabels = ['Last run','2 runs ago','3 runs ago','4 runs ago'];
   var runsHTML = '';
-  runs.forEach(function(run){
-    var rc2 = run.pos===1 ? 'w' : '';
-    var pc = run.pos===1 ? 'p1' : run.pos<=3&&run.pos ? 'p23' : 'px';
-    var ps = run.pos ? run.pos : '?';
-    var sp = run.sp && !isNaN(+run.sp) ? '$'+(+run.sp).toFixed(2) : '--';
-    var mg = run.margin!=null ? run.margin+'L' : '--';
+  for(var ri=0; ri<4; ri++){
+    var pos = h.lastFin ? h.lastFin[ri] : null;
+    var sp = Array.isArray(h.lastSP) ? h.lastSP[ri] : (ri===0?h.lastSP:null);
+    var margin = ri===0 ? h.lastMargin : null;
+    var pc = pos===1 ? 'p1' : (pos<=3&&pos) ? 'p23' : 'px';
+    var rc2 = pos===1 ? 'w' : '';
+    var posStr = pos ? pos : '—';
+    var spStr = sp && !isNaN(+sp) ? '$'+(+sp).toFixed(2) : '—';
+    var mgStr = margin!=null ? margin+'L' : '—';
+    // Last run details from CSV
+    var dtl = '';
+    if(ri===0 && (h.lastDist||h.lastClass||h.lastCrse)){
+      dtl = [h.lastDist,h.lastClass,h.lastCrse].filter(Boolean).join(' · ');
+    }
     runsHTML += '<div class="hfc-run '+rc2+'">';
-    runsHTML += '<div class="hfc-rpos '+pc+'">'+ps+'</div>';
-    runsHTML += '<div class="hfc-ri">'+run.label+'</div>';
-    runsHTML += '<div class="hfc-rsp">'+sp+'</div>';
-    runsHTML += '<div class="hfc-rm">'+mg+'</div>';
+    runsHTML += '<div class="hfc-rpos '+pc+'">'+posStr+'</div>';
+    runsHTML += '<div class="hfc-ri">'+runLabels[ri]+(dtl?'<br><span style="font-size:7px;color:#9ca3af">'+dtl+'</span>':'')+'</div>';
+    runsHTML += '<div class="hfc-rsp">'+spStr+'</div>';
+    runsHTML += '<div class="hfc-rm">'+mgStr+'</div>';
     runsHTML += '</div>';
-  });
-  if(!runsHTML) runsHTML = '<div style="font-size:9px;color:#9ca3af;padding:3px 0">No run data in CSV</div>';
+  }
 
   var html = '';
-  html += '<div class="hfc-hdr"><div class="hfc-name">'+h.name+'</div><div class="hfc-barrier">B'+bp+' . '+wt+'</div></div>';
-  html += '<div class="hfc-meta"><span>Jockey: <b>'+(h.jname||'--')+'</b></span><span>Trainer: <b>'+(h.trainer||'--')+'</b></span><span>Last run: <b>'+daysStr+'</b></span><span>Avg prize: <b>'+prizeStr+'</b></span></div>';
+  html += '<div class="hfc-hdr"><div class="hfc-name">'+h.name+'</div><div class="hfc-barrier">B'+bp+' · '+wt+'</div></div>';
+  html += '<div class="hfc-meta"><span>Jockey: <b>'+(h.jname||'--')+'</b></span><span>Trainer: <b>'+(h.trainer||'--')+'</b></span><span>Last run: <b>'+daysStr+'</b></span></div>';
+  html += '<div class="hfc-prize-row"><span>Total Prize: <b>'+totStr+'</b></span><span>Avg Prize: <b>'+avgStr+'</b></span><span>Avg SP: <b>'+avgSP+'</b></span></div>';
+
+  // Row 1: Career record + strike rates
   html += '<div class="hfc-stats">';
-  html += '<div class="hfc-stat"><div class="hfc-sv '+(sr>=20?'g':'')+'">'+sr+'%</div><div class="hfc-sl">Win SR</div></div>';
-  html += '<div class="hfc-stat"><div class="hfc-sv '+(pr>=40?'g':'')+'">'+pr+'%</div><div class="hfc-sl">Place SR</div></div>';
-  html += '<div class="hfc-stat"><div class="hfc-sv">'+h.starts+'-'+h.wins+'-'+(h.seconds||0)+'-'+(h.thirds||0)+'</div><div class="hfc-sl">S-W-2-3</div></div>';
-  html += '<div class="hfc-stat"><div class="hfc-sv">'+avgSP+'</div><div class="hfc-sl">Avg SP</div></div>';
+  html += '<div class="hfc-stat"><div class="hfc-sv">'+careerRec+'</div><div class="hfc-sl">S-W-2-3</div></div>';
+  html += '<div class="hfc-stat"><div class="hfc-sv '+(winSR>=20?'g':'')+'">'+winSR+'%</div><div class="hfc-sl">Win SR</div></div>';
+  html += '<div class="hfc-stat"><div class="hfc-sv '+(placeSR>=40?'g':'')+'">'+placeSR+'%</div><div class="hfc-sl">Place SR</div></div>';
+  html += '<div class="hfc-stat"><div class="hfc-sv">'+h.starts+'</div><div class="hfc-sl">Starts</div></div>';
   html += '</div>';
+
+  // Row 2: Course + Distance records
   html += '<div class="hfc-stats" style="border-top:1px solid #e5e7eb">';
-  html += '<div class="hfc-stat"><div class="hfc-sv">'+(h.courseWins||0)+'/'+(h.courseStarts||0)+'</div><div class="hfc-sl">Course</div></div>';
-  html += '<div class="hfc-stat"><div class="hfc-sv">'+csr+'%</div><div class="hfc-sl">Course SR</div></div>';
-  html += '<div class="hfc-stat"><div class="hfc-sv">'+(h.distWins||0)+'/'+(h.distStarts||0)+'</div><div class="hfc-sl">Dist</div></div>';
-  html += '<div class="hfc-stat"><div class="hfc-sv">'+dsr+'%</div><div class="hfc-sl">Dist SR</div></div>';
+  html += '<div class="hfc-stat"><div class="hfc-sv">'+courseRec+'</div><div class="hfc-sl">Course S-W-2-3</div></div>';
+  html += '<div class="hfc-stat"><div class="hfc-sv">'+pct(cWins,cStarts)+'%</div><div class="hfc-sl">Course SR</div></div>';
+  html += '<div class="hfc-stat"><div class="hfc-sv">'+distRec+'</div><div class="hfc-sl">Dist S-W-2-3</div></div>';
+  html += '<div class="hfc-stat"><div class="hfc-sv">'+pct(dWins,dStarts)+'%</div><div class="hfc-sl">Dist SR</div></div>';
   html += '</div>';
-  html += '<div class="hfc-runs"><div class="hfc-rt">Recent Runs</div>'+runsHTML+'</div>';
-  html += '<div class="hfc-foot"><span style="font-size:9px;color:#9ca3af">Click name for full form</span><button class="hfc-pbtn" id="hfc-pb">Punters.com.au</button></div>';
+
+  // Row 3: Track conditions
+  html += '<div class="hfc-stats" style="border-top:1px solid #e5e7eb">';
+  html += '<div class="hfc-stat"><div class="hfc-sv">'+gRec+'</div><div class="hfc-sl" style="color:#059669">Good S-W</div></div>';
+  html += '<div class="hfc-stat"><div class="hfc-sv">'+sRec+'</div><div class="hfc-sl" style="color:#d97706">Soft S-W</div></div>';
+  html += '<div class="hfc-stat"><div class="hfc-sv">'+hvRec+'</div><div class="hfc-sl" style="color:#6b7280">Heavy S-W</div></div>';
+  html += '<div class="hfc-stat"><div class="hfc-sv">—</div><div class="hfc-sl" style="color:#7c3aed">Synth S-W</div></div>';
+  html += '</div>';
+
+  html += '<div class="hfc-runs"><div class="hfc-rt">Recent Runs — Pos · SP · Margin</div>'+runsHTML+'</div>';
+  html += '<div class="hfc-foot"><span style="font-size:9px;color:#9ca3af">Data from EveryRace CSV · PuntingForm coming soon</span></div>';
 
   card.innerHTML = html;
-  var pb = card.querySelector('#hfc-pb');
-  if(pb) pb.onclick = function(){ openPuntersForm(h.name); };
   card.style.display = 'block';
 
-  var cw = 300;
+  var cw2 = 380;
   var left = e.clientX + 14;
   var top2 = e.clientY - 80;
-  if(left+cw > window.innerWidth-8) left = e.clientX-cw-14;
+  if(left+cw2 > window.innerWidth-8) left = e.clientX-cw2-14;
   if(top2 < 8) top2 = 8;
-  if(top2+400 > window.innerHeight) top2 = window.innerHeight-410;
+  if(top2+520 > window.innerHeight) top2 = window.innerHeight-530;
   card.style.left = left+'px';
   card.style.top = top2+'px';
 }
