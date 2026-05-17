@@ -376,12 +376,13 @@ input[type=range]::-moz-range-thumb{width:15px;height:15px;border-radius:50%;bor
 .toast.success{background:#065f46;border:1px solid #059669}
 .toast.error{background:#7f1d1d;border:1px solid #dc2626}
 .toast.info{background:#1e3a5f;border:1px solid #3b82f6}
-.horse-form-card{display:none;position:fixed;z-index:9999;background:#fff;border:1.5px solid #00471b;border-radius:10px;box-shadow:0 8px 32px rgba(0,0,0,.18);width:420px;overflow:hidden;pointer-events:none}
+.horse-form-card{display:none;position:fixed;z-index:9999;background:#fff;border:1.5px solid #00471b;border-radius:10px;box-shadow:0 8px 32px rgba(0,0,0,.18);width:440px;overflow:hidden;pointer-events:none}
 .hfc-hdr{background:#00471b;padding:9px 13px;display:flex;align-items:center;justify-content:space-between}
 .hfc-name{font-size:12px;font-weight:800;color:#fff}.hfc-barrier{background:rgba(255,255,255,.2);color:#fff;border-radius:4px;padding:2px 7px;font-size:9px;font-weight:700}
 .hfc-meta{padding:6px 13px;background:#f0fdf4;border-bottom:1px solid #e5e7eb;font-size:9px;color:#374151;display:flex;gap:8px;flex-wrap:wrap}.hfc-meta b{color:#00471b}
 .hfc-prize-row{padding:5px 13px;background:#fffbeb;border-bottom:1px solid #e5e7eb;display:flex;gap:16px;font-size:9px;color:#374151}.hfc-prize-row b{color:#92400e}
 .hfc-stats{display:grid;grid-template-columns:repeat(4,1fr);border-bottom:1px solid #e5e7eb}
+.hfc-stats-5{grid-template-columns:repeat(5,1fr)}
 .hfc-stat{text-align:center;padding:6px 3px;border-right:1px solid #f3f4f6}.hfc-stat:last-child{border-right:none}
 .hfc-sv{font-size:11px;font-weight:800;color:#111827;line-height:1}.hfc-sv.g{color:#059669}
 .hfc-sl{font-size:7px;color:#9ca3af;text-transform:uppercase;letter-spacing:.8px;margin-top:2px}
@@ -1578,6 +1579,7 @@ function buildRaces({hdrs,rows},fname){
       goodWins:gw||0, goodStarts:gs||0, goodPlaces:safeNum(col(r,'Good Places'))||0,
       softWins:sw||0, softStarts:ss||0, softPlaces:safeNum(col(r,'Soft Places'))||0,
       heavyWins:hw||0, heavyStarts:hs||0, heavyPlaces:safeNum(col(r,'Heavy Places'))||0,
+      firmWins:safeNum(col(r,'Firm Wins'))||0, firmStarts:safeNum(col(r,'Firm Starts'))||0, firmPlaces:safeNum(col(r,'Firm Places'))||0,
       synthStarts:0, synthWins:0, synthPlaces:0,
       avgSP, spWeight,
       avgFin, finWeight,
@@ -3473,9 +3475,11 @@ function showHorseForm(e, idx){
   var gS=h.goodStarts||0, gW=h.goodWins||0, gP=h.goodPlaces||0;
   var sS=h.softStarts||0, sW=h.softWins||0, sP=h.softPlaces||0;
   var hvS=h.heavyStarts||0, hvW=h.heavyWins||0, hvP=h.heavyPlaces||0;
+  var fmS=h.firmStarts||0, fmW=h.firmWins||0, fmP=h.firmPlaces||0;
   var gRec = gS+'-'+gW+'-'+gP;
   var sRec = sS+'-'+sW+'-'+sP;
   var hvRec = hvS+'-'+hvW+'-'+hvP;
+  var fmRec = fmS+'-'+fmW+'-'+fmP;
 
   // Prize — strip commas for Prize Money column
   var totalPrize = h['Total Prizemoney'];
@@ -3537,7 +3541,95 @@ function showHorseForm(e, idx){
 
   var html = '';
   // Header — name + barrier·weight inline
-  html += '<div class="hfc-hdr"><div class="hfc-name">'+h.name+' <span style="font-size:10px;font-weight:500;opacity:.75">B'+bp+' · '+wt+'</span></div><div style="font-size:9px;color:rgba(255,255,255,.6)">'+daysStr+'</div></div>';
+  html += '<div class="hfc-hdr"><div class="hfc-name">'+h.name+' <span style="font-size:10px;font-weight:500;opacity:.75">('+bp+') · '+wt+'</span></div><div style="font-size:9px;color:rgba(255,255,255,.6)">'+daysStr+'</div></div>';
+
+  // Prize + SP row
+  html += '<div class="hfc-prize-row"><span>Total Prize: <b>'+totStr+'</b></span><span>Avg Prize: <b>'+avgStr+'</b></span><span>Avg SP: <b>'+avgSP+'</b></span></div>';
+
+  // Jockey + Trainer
+  html += '<div class="hfc-meta"><span>J: <b>'+(h.jname||'--')+'</b></span><span>T: <b>'+(h.trainer||'--')+'</b></span></div>';
+
+  // Row 1: Career record
+  html += '<div class="hfc-stats">';
+  html += '<div class="hfc-stat"><div class="hfc-sv">'+careerRec+'</div><div class="hfc-sl">Career S-W-2-3</div></div>';
+  html += '<div class="hfc-stat"><div class="hfc-sv '+(parseInt(winSR)>=20?'g':'')+'">'+winSR+'</div><div class="hfc-sl">Win SR</div></div>';
+  html += '<div class="hfc-stat"><div class="hfc-sv '+(parseInt(placeSR)>=40?'g':'')+'">'+placeSR+'</div><div class="hfc-sl">Place SR</div></div>';
+  html += '<div class="hfc-stat"><div class="hfc-sv">'+avgSP+'</div><div class="hfc-sl">Avg SP</div></div>';
+  html += '</div>';
+
+  // Row 2: Course + Distance
+  html += '<div class="hfc-stats" style="border-top:1px solid #e5e7eb">';
+  html += '<div class="hfc-stat"><div class="hfc-sv">'+courseRec+'</div><div class="hfc-sl">Course S-W</div></div>';
+  html += '<div class="hfc-stat"><div class="hfc-sv">'+pct(cW,cS)+'</div><div class="hfc-sl">Course SR</div></div>';
+  html += '<div class="hfc-stat"><div class="hfc-sv">'+distRec+'</div><div class="hfc-sl">Dist S-W</div></div>';
+  html += '<div class="hfc-stat"><div class="hfc-sv">'+pct(dW,dS)+'</div><div class="hfc-sl">Dist SR</div></div>';
+  html += '</div>';
+
+  // Row 3: Track conditions — S-W-P format
+  // Track cond — colour best condition
+  var bestCond='', bestWinPct=0;
+  if(gS>0&&gW/gS>bestWinPct){bestWinPct=gW/gS;bestCond='good';}
+  if(sS>0&&sW/sS>bestWinPct){bestWinPct=sW/sS;bestCond='soft';}
+  if(hvS>0&&hvW/hvS>bestWinPct){bestWinPct=hvW/hvS;bestCond='heavy';}
+  if(fmS>0&&fmW/fmS>bestWinPct){bestWinPct=fmW/fmS;bestCond='firm';}
+  var condBg={good:'#f0fdf4',soft:'#fffbeb',heavy:'#f3f4f6',firm:'#fff7ed'};
+  var mkCond=function(rec,cond,label,color){
+    var bg=bestCond===cond?'background:'+condBg[cond]+';':'';
+    return '<div class="hfc-stat" style="'+bg+'"><div class="hfc-sv">'+rec+'</div><div class="hfc-sl" style="color:'+color+'">'+label+'</div></div>';
+  };
+  html += '<div class="hfc-stats" style="border-top:1px solid #e5e7eb">';
+  html += mkCond(fmRec,'firm','Firm S-W-P','#b45309');
+  html += mkCond(gRec,'good','Good S-W-P','#059669');
+  html += mkCond(sRec,'soft','Soft S-W-P','#d97706');
+  html += mkCond(hvRec,'heavy','Heavy S-W-P','#6b7280');
+
+  html += '</div>';
+  // Recent runs — always show all 4, with full detail from lastRunDetails
+  var runLabels = ['Last run','2 runs ago','3 runs ago','4 runs ago'];
+  var runsHTML = '<div class="hfc-run-hdr"><span>Run</span><span>Track / Dist / Class</span><span>SP</span><span>Margin</span><span>Rtg</span></div>';
+  var anyRun = false;
+  for(var ri=0; ri<4; ri++){
+    var pos = h.lastFin ? h.lastFin[ri] : null;
+    var sp = Array.isArray(h.lastSP) ? h.lastSP[ri] : (ri===0?h.lastSP:null);
+    var dtl = h.lastRunDetails ? h.lastRunDetails[ri] : null;
+    var date = dtl&&dtl.date ? dtl.date : '';
+    var dist = dtl&&dtl.dist ? dtl.dist+'m' : '';
+    var crse = dtl&&dtl.crse ? dtl.crse : '';
+    var cls = dtl&&dtl.cls ? dtl.cls : '';
+    var margin = dtl&&dtl.margin!=null ? dtl.margin : (ri===0?h.lastMargin:null);
+    var rating = dtl&&dtl.rating ? dtl.rating : null;
+    var runWt = dtl&&dtl.wt ? dtl.wt+'kg' : '';
+
+    // Skip if truly no data at all
+    if(!pos && !sp && !date && !dist) {
+      if(ri===0) { runsHTML += '<div style="font-size:9px;color:#9ca3af;padding:4px 5px">No run history in CSV</div>'; }
+      continue;
+    }
+    anyRun = true;
+
+    var pc = pos===1 ? 'p1' : (pos&&pos<=3) ? 'p23' : 'px';
+    var rc2 = pos===1 ? 'w' : '';
+    var posStr = pos ? pos : '—';
+    var spStr = sp && !isNaN(+sp) ? '$'+(+sp).toFixed(2) : '—';
+    var mgStr = margin!=null ? margin+'L' : '—';
+    var rtgStr = rating ? rating.toFixed(1) : '—';
+    var detail = [crse,dist,cls].filter(Boolean).join(' · ');
+    var dateShort = date ? date.replace(/(\d+)\/(\d+)\/(\d+)/,'$1/$2') : '';
+    // Show pos/field — we don't have field size per run from CSV, just show pos
+    var posField = pos ? pos : '—';
+
+    runsHTML += '<div class="hfc-run '+rc2+'">';
+    runsHTML += '<div class="hfc-rpos '+pc+'">'+posField+'</div>';
+    runsHTML += '<div class="hfc-ri">'+(dateShort?'<span style="font-size:7px;color:#9ca3af">'+dateShort+'</span><br>':'')+(detail||runLabels[ri])+(runWt?'<span style="font-size:7px;color:#9ca3af"> · '+runWt+'</span>':'')+'</div>';
+    runsHTML += '<div class="hfc-rsp">'+spStr+'</div>';
+    runsHTML += '<div class="hfc-rm">'+mgStr+'</div>';
+    runsHTML += '<div class="hfc-rdtl">'+rtgStr+'</div>';
+    runsHTML += '</div>';
+  }
+
+  var html = '';
+  // Header — name + barrier·weight inline
+  html += '<div class="hfc-hdr"><div class="hfc-name">'+h.name+' <span style="font-size:10px;font-weight:500;opacity:.75">('+bp+') · '+wt+'</span></div><div style="font-size:9px;color:rgba(255,255,255,.6)">'+daysStr+'</div></div>';
 
   // Prize + SP row
   html += '<div class="hfc-prize-row"><span>Total Prize: <b>'+totStr+'</b></span><span>Avg Prize: <b>'+avgStr+'</b></span><span>Avg SP: <b>'+avgSP+'</b></span></div>';
