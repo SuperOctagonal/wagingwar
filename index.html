@@ -2860,7 +2860,7 @@ function showDashboard(){
   // Upcoming races sorted by time
   const upcoming = [];
   const now = new Date();
-  if(window.allRaces){
+  if(Object.keys(allRaces).length){
     Object.entries(allRaces).forEach(([key,rc])=>{
       if(!rc.time) return;
       const sorted = [...(rc.horses||[])].filter(h=>!h.scratched).sort((a,b)=>b.score-a.score);
@@ -2957,10 +2957,14 @@ function showDashboard(){
         const liveO = r1&&r1.liveOdd||0;
         const val = myO&&liveO ? ((liveO-myO)/myO*100).toFixed(0) : '';
         const vc = valColor(val);
-        const isLive = race.time && (()=>{const [h,m2]=race.time.split(':');const raceDate=new Date();raceDate.setHours(+h,+m2,0);return Math.abs(raceDate-now)<15*60*1000;})();
+        const isLive = race.time && (()=>{const [h2,m2]=race.time.split(':');const raceDate=new Date();raceDate.setHours(+h2,+m2,0);return Math.abs(raceDate-now)<15*60*1000;})();
+        const dispTime = isLive?'●LIVE':race.time;
+        const dispSub = val ? vc.txt : (myO?'$'+myO.toFixed(2):'—');
+        const subBg = val ? vc.bg : (myO?'#e0e7ff':'#f1f5f9');
+        const subColor = val ? vc.color : (myO?'#3730a3':'#64748b');
         html += `<td style="background:${isLive?'#f0fdf4':rowBg};border:0.5px solid #e0e7ff;text-align:center;padding:5px 2px;cursor:pointer;transition:background .15s" onclick="selectMeeting('${m.venue}');setTimeout(()=>{selectRace(allRaces['${race.key}'],'${race.key}');switchNav('racing');},50)" onmouseover="this.style.background='#eff6ff'" onmouseout="this.style.background='${isLive?'#f0fdf4':rowBg}'" title="${r1?r1.name+' · My$'+myO:''}">`;
-        html += `<div style="font-size:10px;font-weight:500;color:${isLive?'#059669':'#1e3a8a'}">${isLive?'●LIVE':race.time}</div>`;
-        html += `<div style="display:inline-block;font-size:9px;font-weight:500;padding:1px 3px;border-radius:3px;margin-top:1px;background:${vc.bg};color:${vc.color}">${vc.txt}</div>`;
+        html += `<div style="font-size:10px;font-weight:500;color:${isLive?'#059669':'#1e3a8a'}">${dispTime}</div>`;
+        html += `<div style="display:inline-block;font-size:9px;font-weight:500;padding:1px 3px;border-radius:3px;margin-top:1px;background:${subBg};color:${subColor}">${dispSub}</div>`;
         html += `</td>`;
       }
       html += `</tr>`;
@@ -2976,7 +2980,7 @@ function showDashboard(){
   html += `<div style="background:#f0fdf4;border:1.5px solid #86efac;border-radius:14px;padding:11px 12px;flex:1">`;
   html += `<div style="font-size:10px;font-weight:500;color:#166534;text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px;opacity:.75">Next up</div>`;
   const nextRaces = upcoming.slice(0,4);
-  if(!nextRaces.length) html += `<div style="font-size:11px;color:#166534;opacity:.6">Load CSV to see upcoming races</div>`;
+  if(!nextRaces.length) html += `<div style="font-size:11px;color:#166534;opacity:.6">${Object.keys(allRaces).length?'All races have passed or no data':'Load CSV to see upcoming races'}</div>`;
   nextRaces.forEach(r=>{
     html += `<div style="padding:5px 0;border-bottom:0.5px solid rgba(22,101,52,.15);cursor:pointer" onclick="selectMeeting('${r.venue}');setTimeout(()=>{selectRace(allRaces['${r.key}'],'${r.key}');switchNav('racing');},50)">`;
     html += `<div style="font-size:10px;font-weight:500;color:#059669">${r.time}</div>`;
@@ -3078,6 +3082,7 @@ function showTrackConditions(){
     const cl=c.toLowerCase();
     if(cl.includes('good 3')) return {bg:'#dcfce7',color:'#166534',label:'Good 3'};
     if(cl.includes('good 4')) return {bg:'#dcfce7',color:'#166534',label:'Good 4'};
+    if(cl==='good') return {bg:'#dcfce7',color:'#166534',label:'Good'};
     if(cl.includes('soft 5')) return {bg:'#fef9c3',color:'#854d0e',label:'Soft 5'};
     if(cl.includes('soft 6')) return {bg:'#fef9c3',color:'#854d0e',label:'Soft 6'};
     if(cl.includes('soft 7')) return {bg:'#fed7aa',color:'#9a3412',label:'Soft 7'};
@@ -3106,7 +3111,7 @@ function showTrackConditions(){
       rows += `<tr style="border-bottom:0.5px solid #e0e7ff;background:${rowBg}">
         <td style="padding:10px 12px;font-size:12px;font-weight:500;color:#1e3a8a;cursor:pointer" onclick="selectMeeting('${m.venue}');switchNav('racing')">${m.venue}<br><span style="font-size:10px;color:#64748b;font-weight:400">${m.state||''}</span></td>
         <td style="padding:10px 8px"><div style="display:flex;gap:3px;flex-wrap:wrap">${races}</div></td>
-        <td style="padding:10px 12px"><span style="display:inline-block;font-size:11px;font-weight:500;padding:3px 8px;border-radius:6px;background:${cc.bg};color:${cc.color}">${cc.label||m.cond}</span></td>
+        <td style="padding:10px 12px"><span style="display:inline-block;font-size:11px;font-weight:500;padding:3px 8px;border-radius:6px;background:${cc.bg};color:${cc.color}">${cc.label||(m.cond?m.cond.charAt(0).toUpperCase()+m.cond.slice(1):'Good')}</span></td>
         <td style="padding:10px 12px;font-size:11px;color:#64748b">—</td>
         <td style="padding:10px 12px;font-size:11px;color:#64748b">—</td>
         <td style="padding:10px 12px;font-size:10px;color:#9ca3af">From CSV</td>
