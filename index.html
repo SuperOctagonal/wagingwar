@@ -2841,7 +2841,7 @@ function showDashboard(){
 
   // Value alerts from loaded races
   const alerts = [];
-  if(window.allRaces){
+  if(Object.keys(allRaces).length){
     Object.entries(allRaces).forEach(([key,rc])=>{
       if(!rc.horses||!rc.horses.length) return;
       const sorted = [...rc.horses].filter(h=>!h.scratched).sort((a,b)=>b.score-a.score);
@@ -2900,13 +2900,13 @@ function showDashboard(){
 
   // Race grid
   html += `<div style="background:#f8faff;border:1.5px solid #dbeafe;border-radius:14px;overflow:hidden">`;
-  if(!window.allRaces||!Object.keys(allRaces).length){
+  if(!Object.keys(allRaces).length){
     html += `<div style="padding:30px;text-align:center;color:#64748b;font-size:13px">Upload a CSV to see today's race grid</div>`;
   } else {
     // Build meeting → races map
     const meetings = {};
     Object.entries(allRaces).forEach(([key,rc])=>{
-      if(!meetings[rc.venue]) meetings[rc.venue] = {venue:rc.venue, cond:rc.cond||'Good', races:[]};
+      if(!meetings[rc.venue]) meetings[rc.venue] = {venue:rc.venue, cond:(window.currentTrackCond||'good'), races:[]};
       meetings[rc.venue].races.push({key,num:rc.num,time:rc.time,horses:rc.horses||[]});
     });
     Object.values(meetings).forEach(m=>m.races.sort((a,b)=>+a.num-+b.num));
@@ -3053,8 +3053,8 @@ function showDashboard(){
   html += `</div>`;
 
   // Today's summary
-  const totalMeetings = window.allRaces ? new Set(Object.values(allRaces).map(r=>r.venue)).size : 0;
-  const totalRaces = window.allRaces ? Object.keys(allRaces).length : 0;
+  const totalMeetings = Object.keys(allRaces).length ? new Set(Object.values(allRaces).map(r=>r.venue)).size : 0;
+  const totalRaces = Object.keys(allRaces).length;
   const highVal = alerts.length;
   html += `<div style="background:#fee2e2;border:1.5px solid #fca5a5;border-radius:14px;padding:11px 12px">`;
   html += `<div style="font-size:10px;font-weight:500;color:#991b1b;text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px;opacity:.75">Today's summary</div>`;
@@ -3093,10 +3093,10 @@ function showTrackConditions(){
 
   // Build meeting list from allRaces
   let rows = '';
-  if(window.allRaces && Object.keys(allRaces).length){
+  if(Object.keys(allRaces).length){
     const meetings = {};
     Object.entries(allRaces).forEach(([key,rc])=>{
-      if(!meetings[rc.venue]) meetings[rc.venue]={venue:rc.venue,cond:rc.cond||'Good',races:[],state:rc.state||''};
+      if(!meetings[rc.venue]) meetings[rc.venue]={venue:rc.venue,cond:(window.currentTrackCond||'good'),races:[],state:''};
       meetings[rc.venue].races.push(rc.num);
     });
     Object.values(meetings).sort((a,b)=>a.venue.localeCompare(b.venue)).forEach((m,i)=>{
