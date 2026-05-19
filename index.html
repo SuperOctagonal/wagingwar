@@ -180,7 +180,6 @@ input[type=range]::-moz-range-thumb{width:15px;height:15px;border-radius:50%;bor
 .c-grp-rnk{font-size:9px;font-weight:600;color:#94a3b8;font-family:'JetBrains Mono',monospace}
 
 /* Weight / Time score */
-.race-tbl td.c-wscore,.race-tbl td.c-tscore{width:38px;text-align:center;font-family:'JetBrains Mono',monospace;font-size:11px;color:#374151}
 
 /* Output cells — all same 11px */
 .race-tbl td.c-score{width:42px;text-align:center;font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700}
@@ -189,7 +188,6 @@ input[type=range]::-moz-range-thumb{width:15px;height:15px;border-radius:50%;bor
 .race-tbl td.c-val{width:48px;text-align:center;font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700}
 .race-tbl td.c-bet{width:46px;text-align:center;padding:0 4px!important}
 .race-tbl td.c-pace{width:120px;min-width:0;padding:0 8px!important;white-space:nowrap}
-.race-tbl td.c-wscore,.race-tbl td.c-tscore{width:36px}
 
 /* TC buttons */
 /* ── RIGHT RAIL — Up Next ── */
@@ -2203,8 +2201,6 @@ function render(rc){
       <td class="c-last4"><div class="fin-pips">${fpHtml||'<span style="color:#d1d5db;font-size:9px">FS</span>'}</div></td>
       <td class="c-rec">${rec}</td>
       ${grpCells}
-      <td class="c-wscore">${r['Wrat']||'—'}</td>
-      <td class="c-tscore">${r['Trat']||'—'}</td>
       <td class="c-score" style="color:${totalCls}">${r.totalFromGroups.toFixed(1)}</td>
       <td class="c-myodds">${myO?'$'+formatRacingOdds(myO):'—'}</td>
       <td class="c-liveodds" style="color:${liveOdd?'#111827':'#9ca3af'}">${liveOdd?'$'+liveOdd.toFixed(2):mkt?'$'+mkt.toFixed(2):'—'}</td>
@@ -2231,8 +2227,6 @@ function render(rc){
       <th class="th-speed" style="width:62px">Speed</th>
       <th class="th-cond" style="width:62px" id="th-cond">${tcLabel}</th>
       <th class="th-conn" style="width:62px">Conn</th>
-      <th style="width:36px">Wt</th>
-      <th style="width:36px">Tm</th>
       <th style="width:46px">Score</th>
       <th style="width:50px">My $</th>
       <th style="width:50px">Live $</th>
