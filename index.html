@@ -622,6 +622,8 @@ input[type=range]::-moz-range-thumb{width:15px;height:15px;border-radius:50%;bor
 .rcard.compact .rc-output{padding:2px 8px;display:flex;flex-direction:column;justify-content:flex-start;align-items:flex-start;gap:2px;padding-top:6px}.rh-sub{color:#374151!important}.li{color:#374151!important}.hstarts{color:#374151!important}.grp-score.lo,.grp-score.mid{color:#374151!important}.out-mkt{color:#374151!important}.rcard.compact .out-mkt{color:#374151!important}.out-val.neu{color:#374151!important}.out-score.rx{color:#6b7280!important}.rr-time{color:#374151!important}.ps-lbl{color:#374151!important}
 /* ── MOBILE RESPONSIVE ── */
 @media (max-width: 768px) {
+  /* Landing page - prevent horizontal overflow */
+  #landing { overflow-x:hidden; max-width:100vw }
   /* Landing page nav */
   .lp-nav { padding:0 16px; gap:8px; height:52px }
   .lp-navlink { display:none }
@@ -630,6 +632,12 @@ input[type=range]::-moz-range-thumb{width:15px;height:15px;border-radius:50%;bor
   .lp-hero-sub { font-size:14px }
   .lp-cta-primary, .lp-cta-secondary { padding:12px 24px; font-size:13px; width:100% }
   .lp-hero-stats { gap:24px; flex-wrap:wrap }
+  .lp-section { padding:40px 16px !important }
+  section[id^="lp-"] { padding:40px 16px !important }
+  .lp-pricing { grid-template-columns:1fr !important }
+  .lp-footer { padding:32px 16px !important }
+  /* Prevent any element causing horizontal overflow */
+  .lp-features-grid, .lp-how-grid { grid-template-columns:1fr !important }
   /* App Nav - hide desktop elements */
   .nav-sep { display:none }
   .navbtn { display:none }
