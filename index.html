@@ -96,7 +96,7 @@ body{background:#f1f5f9;color:#111827;font-family:'Space Grotesk',sans-serif;fon
 .runner-table th{background:#f8fafc;padding:5px 10px;font-size:8px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:.5px;border-bottom:0.5px solid #e5e7eb;white-space:nowrap;position:sticky;top:0;z-index:1}
 .runner-table th.r{text-align:right}
 .runner-table th.c{text-align:center}
-.runner-table td{padding:6px 10px;border-bottom:0.5px solid #f3f4f6;vertical-align:middle;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.runner-table td{padding:5px 7px;border-bottom:0.5px solid #f3f4f6;vertical-align:middle;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .runner-table tr:last-child td{border-bottom:none}
 .runner-table tr.rank1 td{background:#fffbeb}
 .runner-table tr:hover td{background:#f9fafb}
@@ -120,9 +120,9 @@ body{background:#f1f5f9;color:#111827;font-family:'Space Grotesk',sans-serif;fon
 .val-neu{color:#374151}
 
 /* Pace bar */
-.pace-bar-wrap{width:60px}
-.pace-bar-track{height:4px;background:#f1f5f9;border-radius:2px;overflow:hidden;margin-bottom:2px}
-.pace-bar-fill{height:100%;border-radius:2px}
+.pace-bar-wrap{width:130px;display:flex;flex-direction:column;gap:2px}
+.pace-bar-track{height:7px;background:#f1f5f9;border-radius:4px;overflow:hidden}
+.pace-bar-fill{height:100%;border-radius:4px}
 .pace-lbl{font-size:8px;font-weight:600}
 
 /* Log bet button */
@@ -575,7 +575,7 @@ function renderRaceTable(rc, results, scratched, hasLive, liveOddsData) {
     return `<tr class="${rowClass}" data-idx="${i}">
       <td style="width:28px;text-align:center"><span class="rk ${rkClass}">${rank}</span></td>
       <td style="width:20px;text-align:center"><span style="background:#1e40af;color:#fff;font-size:8px;font-weight:700;padding:1px 3px;border-radius:2px">${r.tab||''}</span></td>
-      <td>
+      <td style="max-width:220px">
         <div class="horse-name" onclick="showHorseForm(event,${i})">${r.name}${bp?' <span style="font-weight:400;color:#9ca3af;font-size:10px">('+bp+')</span>':''}</div>
         <div class="horse-detail">${(r['Weight']||'')}kg · ${jShort} · ${r.trainer||''}</div>
       </td>
@@ -584,10 +584,12 @@ function renderRaceTable(rc, results, scratched, hasLive, liveOddsData) {
       <td style="width:60px;text-align:right"><span class="odds-val" style="color:#059669">${myO ? '$'+formatRacingOdds(myO) : '—'}</span></td>
       <td style="width:60px;text-align:right"><span class="odds-val" style="color:#1d4ed8">${dispOdds ? '$'+dispOdds : '—'}</span></td>
       <td style="width:58px;text-align:right"><span class="${valClass}">${valStr}</span></td>
-      <td style="width:72px">
+      <td style="width:140px">
         <div class="pace-bar-wrap">
-          <div class="pace-bar-track"><div class="pace-bar-fill" style="width:${pmBarW};background:${pm?pm.color:'#e5e7eb'}"></div></div>
-          <span class="pace-lbl" style="color:${pm?pm.color:'#9ca3af'}">${pm?pm.role.slice(0,3).toUpperCase():'—'}</span>
+          <div style="display:flex;align-items:center;gap:5px">
+            <span class="pace-lbl" style="color:${pm?pm.color:'#9ca3af'};min-width:22px;font-size:9px">${pm?pm.role.slice(0,3).toUpperCase():'—'}</span>
+            <div class="pace-bar-track" style="flex:1"><div class="pace-bar-fill" style="width:${pmBarW};background:${pm?pm.color:'#e5e7eb'}"></div></div>
+          </div>
         </div>
       </td>
       <td style="width:70px"><button class="log-btn" onclick="quickAddBet(event,${i})">Log Bet</button></td>
@@ -602,13 +604,13 @@ function renderRaceTable(rc, results, scratched, hasLive, liveOddsData) {
       <thead><tr>
         <th style="width:28px" class="c">#</th>
         <th style="width:20px" class="c">Tab</th>
-        <th>Horse / Jockey / Trainer</th>
+        <th style="max-width:220px">Horse / Jockey / Trainer</th>
         <th style="width:44px" class="c">Form</th>
         <th style="width:54px" class="r">Score</th>
         <th style="width:60px" class="r">Edge $</th>
         <th style="width:60px" class="r">Live $</th>
         <th style="width:58px" class="r">Value</th>
-        <th style="width:72px">Pace</th>
+        <th style="width:140px">Pace</th>
         <th style="width:70px"></th>
       </tr></thead>
       <tbody>${rows}${scrHTML}</tbody>
