@@ -307,7 +307,7 @@ body{background:#f1f5f9;color:#111827;font-family:'Space Grotesk',sans-serif;fon
   </div>
   <div class="nav-right">
     <div class="live-badge" id="live-badge"><div class="dot"></div>Live odds</div>
-    <button class="acct-btn" onclick="toggleAcctDropdown()"><i class="ti ti-user" style="font-size:14px"></i> <span id="acct-name">Sign in</span></button>
+    <button class="acct-btn" id="acct-btn" onclick="toggleAcctDropdown()"><i class="ti ti-user" style="font-size:14px"></i> <span id="acct-name">Sign in</span></button>
   </div>
 </div>
 
@@ -829,7 +829,7 @@ function showPaceMapPage() {
     let txt = '';
     if (leaders.length >= 3) txt += `Hot pace expected with ${leaders.length} natural leaders fighting for the front. `;
     else if (leaders.length === 0) txt += `No clear leader identified — the pace scenario is uncertain. `;
-    else txt += `${leaders.length} natural leader${leaders.length>1?'s':(leaders[0]?' ('+leaders[0].name+')'':'')}. `;
+    else txt += leaders.length > 1 ? `${leaders.length} natural leaders. ` : leaders[0] ? `${leaders[0].name} is the natural leader. ` : '';
     txt += leaders.length >= 2 ? `Multiple leaders should set a strong tempo which may suit horses settling back. ` : '';
     if (tc === 'heavy' || tc === 'soft') txt += `On a wet track, early leaders often tire — closers from barrier draws hold an advantage.`;
     else txt += `On a good track with ${rc.dist}m, ${rc.dist>1400?'stamina':'early speed'} should be a key factor.`;
@@ -1086,8 +1086,11 @@ function submitQB() {
 // ── TOAST ──
 function toast(msg, dur=2200) {
   const el = document.getElementById('toast');
+  if(!el) return;
+  // dur may be a string like 'success' from engine - handle gracefully
+  const ms = typeof dur === 'number' ? dur : 2200;
   el.textContent = msg; el.classList.add('show');
-  setTimeout(()=>el.classList.remove('show'), dur);
+  setTimeout(()=>el.classList.remove('show'), ms);
 }
 
 // ── MOBILE NAV ──
@@ -1647,7 +1650,7 @@ function updateTotalW(){
 }
 
 function handleFile(file){
-  document.getElementById('fileHint').textContent=file.name;
+  var _fh=document.getElementById('fileHint'); if(_fh)_fh.textContent=file.name;
   const r=new FileReader();
   r.onload=e=>buildRaces(parseCSV(e.target.result),file.name);
   r.readAsText(file);
@@ -1798,8 +1801,8 @@ function buildRaces({hdrs,rows},fname){
   const keys=Object.keys(allRaces).sort((a,b)=>{const[va,ra]=a.split('_R');const[vb,rb]=b.split('_R');return va<vb?-1:va>vb?1:+ra-+rb;});
   if(keys.length===0){toast('No races found — check Race Number column','error');return;}
 
-  document.getElementById('liveBtn').style.display='';
-  document.getElementById('resultsBtn').style.display='';
+  var _lb=document.getElementById('liveBtn'); if(_lb)_lb.style.display='';
+  var _rb=document.getElementById('resultsBtn'); if(_rb)_rb.style.display='';
   buildMeetingTabs(keys);
   buildMeetingList(keys);
   buildSidebarMeetings();
@@ -1945,7 +1948,7 @@ function buildMeetingTabs(keys){
   const meetingNav=document.getElementById('meetingNav');
   if(!mtabs)return;
 
-  meetingNav.style.display='';
+  if(meetingNav)meetingNav.style.display='';
   mtabs.innerHTML='';
   let firstVenue=null;
 
@@ -1998,6 +2001,7 @@ function buildRaceTabs(keys){
 function buildMeetingList(keys){
   // Legacy sidebar meeting list — keep for compatibility but not primary nav
   const wrap=document.getElementById('meetingListWrap');
+  if(!wrap)return;
   if(wrap)wrap.style.display='none'; // hide sidebar list — meeting tabs handle this now
 }
 
@@ -2729,7 +2733,7 @@ function fuzzyMatch(a,b){
 
 // Show scratching alert banner
 function showScratchingAlert(names, wasRank1){
-  let banner=document.getElementById('scratch-banner');
+  let banner=document.getElementById('scratch-banner'); if(!banner){banner=document.createElement('div');banner.id='scratch-banner';document.body.appendChild(banner);}
   if(!banner){
     banner=document.createElement('div');
     banner.id='scratch-banner';
@@ -3545,6 +3549,8 @@ function showTrackConditions(){
 function switchNav(tab){
   var body=document.body;
   var meetingNav=document.getElementById('meetingNav');
+  var page=tab==='racing'?'races':tab;
+  navTo(page);
   if(tab==='racing'){
     body.classList.remove('page-no-sidebar');
     if(meetingNav)meetingNav.style.display='';
@@ -4453,7 +4459,7 @@ function setTrackCond(cond){
   var labels={good:'Good',soft:'Soft',heavy:'Heavy',synthetic:'Synthetic'};
   toast('Track condition: '+labels[cond],'success');
   // Update cond group header
-  var th=document.getElementById('th-cond');
+  var th=document.getElementById('th-cond'); if(!th)return;
   if(th) th.innerHTML='● '+labels[cond];
 }
 
@@ -4625,7 +4631,7 @@ function showAccountPage(){
   main.innerHTML = html;
 
   // Wire all buttons after DOM insert
-  document.getElementById('acct-logout-hdr').onclick = function(){ doLogout(); };
+  var _alh=document.getElementById('acct-logout-hdr'); if(_alh)_alh.onclick=function(){ doLogout(); };
   document.getElementById('acct-pw-btn').onclick = function(){ toast('Password reset email sent to '+( currentUser?currentUser.email:'you'),'success'); };
   document.getElementById('acct-email-btn').onclick = function(){ toast('Email change coming with Clerk integration','success'); };
   document.getElementById('acct-notif-btn').onclick = function(){ switchNav('settings'); };
@@ -4716,4 +4722,25 @@ document.addEventListener('DOMContentLoaded',function(){
 });
 </script>
 </body>
+
+<!-- Stub elements for engine compatibility -->
+<div id="liveBtn" style="display:none"></div>
+<div id="resultsBtn" style="display:none"></div>
+<div id="meetingNav" style="display:none"><div id="meetingTabs2"></div></div>
+<div id="meetingListWrap" style="display:none"></div>
+<div id="weightsArea" style="display:none"></div>
+<div id="totalW" style="display:none"></div>
+<div id="fileHint" style="display:none"></div>
+<div id="th-cond" style="display:none"></div>
+<div id="scratch-banner" style="display:none"></div>
+<div id="resultsModal" style="display:none"><div id="modalBody"></div><div id="modalTitle"></div><div id="modalSub"></div></div>
+<div id="formModal" style="display:none"></div>
+<div id="login-screen" style="display:none"></div>
+<div id="lp-modal-bg" style="display:none"><input id="login-email"><input id="login-password"><div id="login-error"></div></div>
+<div id="acct-dropdown" style="display:none"><div id="acct-email"></div><div id="acct-status"></div><div id="acct-logout-hdr"></div><button id="acct-pw-btn"></button><button id="acct-email-btn"></button><button id="acct-notif-btn"></button><button id="acct-bill-btn"></button><button id="acct-cancel-btn"></button><button id="acct-logout-btn"></button></div>
+<div id="mob-sidebar-btn" style="display:none"></div>
+<div id="mobSheetOverlay" style="display:none"></div>
+<div id="mobSheet" style="display:none"><div id="mobSheetTitle"></div><div id="mobSheetContent"></div></div>
+<div id="horseFormCard" style="display:none"></div>
+<div id="mob-nav-drawer" style="display:none"></div>
 </body></html>
