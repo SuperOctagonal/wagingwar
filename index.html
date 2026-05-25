@@ -312,12 +312,12 @@ body{background:#f1f5f9;color:#111827;font-family:'Space Grotesk',sans-serif;fon
 </div>
 
 <!-- MEETING TABS (races page only) -->
-<div class="meetingbar" id="meetingBar" style="display:none">
+<div class="meetingbar" id="meetingBar">
   <div id="meetingTabs"></div>
 </div>
 
 <!-- RACE TABS (races page only) -->
-<div class="racebar" id="raceBar" style="display:none">
+<div class="racebar" id="raceBar">
   <div id="raceTabs"></div>
 </div>
 
@@ -325,7 +325,7 @@ body{background:#f1f5f9;color:#111827;font-family:'Space Grotesk',sans-serif;fon
 <div class="app-body" id="appBody">
 
   <!-- LEFT RAIL -->
-  <div class="leftrail" id="leftRail" style="display:none">
+  <div class="leftrail" id="leftRail">
     <!-- CSV Upload -->
     <div id="csv-section">
       <div class="csv-zone" onclick="document.getElementById('fileIn').click()" id="csvZone" ondragover="event.preventDefault();this.classList.add('drag')" ondragleave="this.classList.remove('drag')" ondrop="handleDrop(event)">
@@ -366,7 +366,7 @@ body{background:#f1f5f9;color:#111827;font-family:'Space Grotesk',sans-serif;fon
   </div>
 
   <!-- RIGHT RAIL -->
-  <div class="rightrail" id="rightRail" style="display:none">
+  <div class="rightrail" id="rightRail">
     <div class="rr-header"><i class="ti ti-clock" style="font-size:11px"></i> Up next</div>
     <div class="rr-list" id="upNextList"></div>
     <div class="ai-panel">
@@ -433,8 +433,8 @@ function navTo(page) {
   if (btn) btn.classList.add('active');
 
   const isRaces = page === 'races';
-  document.getElementById('meetingBar').style.display = isRaces ? 'block' : 'none';
-  document.getElementById('raceBar').style.display = isRaces ? 'block' : 'none';
+  document.getElementById('meetingBar').style.display = isRaces ? 'flex' : 'none';
+  document.getElementById('raceBar').style.display = isRaces ? 'flex' : 'none';
   document.getElementById('leftRail').style.display = isRaces ? 'flex' : 'none';
   document.getElementById('rightRail').style.display = isRaces ? 'flex' : 'none';
   document.getElementById('appBody').className = isRaces ? 'app-body' : 'app-body no-rails';
