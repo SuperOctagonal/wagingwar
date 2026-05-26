@@ -425,7 +425,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
 <!-- TOP NAV -->
 <div class="topnav">
-  <span class="brand" onclick="navTo('races')" style="cursor:pointer">Race<span>Edge</span></span>
+  <span class="brand" onclick="event.preventDefault();event.stopPropagation();navTo('races');" style="cursor:pointer">Race<span>Edge</span></span>
   <div class="nav-links">
     <button class="navbtn active" id="nav-races" onclick="navTo('races')">Races</button>
     <button class="navbtn" id="nav-today" onclick="navTo('today')">Today</button>
@@ -449,7 +449,7 @@ document.addEventListener('DOMContentLoaded', function() {
 </div>
 
 <!-- RACE TABS (races page only) -->
-<div class="racebar" id="raceBar">
+<div class="racebar" id="raceBar" style="display:none!important">
   <div id="raceTabs"></div>
 </div>
 
@@ -5311,11 +5311,6 @@ function setTrackCond(cond){
 }
 
 function openLoginModal(){
-  if(window.Clerk){
-    var returnUrl = encodeURIComponent(window.location.href);
-    window.location.href = 'https://cosmic-halibut-48.clerk.accounts.dev/sign-in?redirect_url=' + returnUrl;
-    return;
-  }
   var m = document.getElementById('lp-modal-bg');
   if(m){
     document.documentElement.style.overflow='visible';
