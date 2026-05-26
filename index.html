@@ -5311,8 +5311,9 @@ function setTrackCond(cond){
 }
 
 function openLoginModal(){
-  if(window.Clerk && window.Clerk.loaded){
-    window.Clerk.openSignIn();
+  if(window.Clerk){
+    var returnUrl = encodeURIComponent(window.location.href);
+    window.location.href = 'https://cosmic-halibut-48.clerk.accounts.dev/sign-in?redirect_url=' + returnUrl;
     return;
   }
   var m = document.getElementById('lp-modal-bg');
