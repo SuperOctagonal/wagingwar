@@ -9,7 +9,7 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css">
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
-html{height:100%}body{height:100%;overflow:hidden}
+html,body{height:100%;overflow:hidden}
 body{background:#f1f5f9;color:#111827;font-family:'Space Grotesk',sans-serif;font-size:13px;display:flex;flex-direction:column}
 
 /* ── TOP NAV ── */
@@ -378,6 +378,48 @@ body{background:#f1f5f9;color:#111827;font-family:'Space Grotesk',sans-serif;fon
 .hfc-foot{padding:8px 14px;border-top:1px solid #e5e7eb;display:flex;align-items:center;justify-content:space-between}
 .hfc-foot span{font-size:9px;color:#9ca3af}
 </style>
+<script>
+  // Clerk configuration
+  window.__CLERK_PUBLISHABLE_KEY = 'pk_test_Y29zbWljLWhhbGlidXQtNDguY2xlcmsuYWNjb3VudHMuZGV2JA';
+
+// ── CLERK AUTH INTEGRATION ──
+document.addEventListener('DOMContentLoaded', function() {
+  window.addEventListener('load', function() {
+    if (!window.Clerk) return;
+    window.Clerk.load().then(function() {
+      // Handle existing session on page load
+      if (window.Clerk.user) {
+        var u = window.Clerk.user;
+        currentUser = {
+          name: u.firstName || u.emailAddresses[0].emailAddress.split('@')[0],
+          email: u.emailAddresses[0].emailAddress,
+          status: 'Active Subscriber'
+        };
+        updateAcctBtn();
+      }
+      // Listen for sign in/out
+      window.Clerk.addListener(function(resources) {
+        if (resources.user) {
+          var u = resources.user;
+          currentUser = {
+            name: u.firstName || u.emailAddresses[0].emailAddress.split('@')[0],
+            email: u.emailAddresses[0].emailAddress,
+            status: 'Active Subscriber'
+          };
+          updateAcctBtn();
+        } else {
+          currentUser = null;
+          updateAcctBtn();
+        }
+      });
+    });
+  });
+});
+</script>
+<script async crossorigin="anonymous" data-clerk-publishable-key="pk_test_Y29zbWljLWhhbGlidXQtNDguY2xlcmsuYWNjb3VudHMuZGV2JA"
+  src="https://cosmic-halibut-48.clerk.accounts.dev/npm/@clerk/clerk-js@latest/dist/clerk.browser.js"
+  type="text/javascript">
+</script>
 </head>
 <body>
 
@@ -5269,43 +5311,34 @@ function setTrackCond(cond){
 }
 
 function openLoginModal(){
+  if(window.Clerk && window.Clerk.loaded){
+    window.Clerk.openSignIn();
+    return;
+  }
   var m = document.getElementById('lp-modal-bg');
   if(m){
-    document.documentElement.style.overflow = 'visible';
-    m.style.cssText = 'display:flex!important;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:99999;align-items:center;justify-content:center';
+    document.documentElement.style.overflow='visible';
+    m.style.cssText='display:flex!important;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:99999;align-items:center;justify-content:center';
     setTimeout(function(){ var el=document.getElementById('login-email'); if(el)el.focus(); },100);
   }
 }
 
 function closeLoginModal(){
   var m = document.getElementById('lp-modal-bg');
-  if(m) m.style.cssText = 'display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:99999;align-items:center;justify-content:center';
-  document.documentElement.style.overflow = '';
+  if(m) m.style.display='none';
 }
 
 function doLogin(){
+  // Legacy fallback - Clerk handles real auth
   var email = document.getElementById('login-email').value.trim();
   var pass = document.getElementById('login-password').value;
   var err = document.getElementById('login-error');
-  if(!email || !pass){
-    err.textContent = 'Please enter your email and password.';
-    err.style.display = 'block'; return;
-  }
-  err.style.display = 'none';
-  // DEMO mode - accepts any credentials. Replace with Clerk later.
-  var namePart = email.split('@')[0];
-  currentUser = {
-    name: namePart.charAt(0).toUpperCase() + namePart.slice(1),
-    email: email,
-    status: 'Active Subscriber',
-    plan: 'Monthly - $29/mo',
-    renewDate: 'Jun 15, 2026'
-  };
-  localStorage.setItem('re_user', JSON.stringify(currentUser));
+  if(!email || !pass){ if(err){ err.textContent='Please enter your email and password.'; err.style.display='block'; } return; }
+  if(err) err.style.display='none';
   closeLoginModal();
-  hideLoginScreen();
+  currentUser = { name: email.split('@')[0], email: email, status: 'Demo User' };
   updateAcctBtn();
-  toast('Welcome back, ' + currentUser.name + '!', 'success');
+  toast('Signed in as ' + currentUser.name, 'success');
 }
 
 function doGoogleLogin(){
@@ -5313,12 +5346,17 @@ function doGoogleLogin(){
 }
 
 function doLogout(){
+  if(window.Clerk && window.Clerk.loaded){
+    window.Clerk.signOut().then(function(){
+      currentUser = null;
+      updateAcctBtn();
+      toast('Signed out','success');
+    });
+    return;
+  }
   currentUser = null;
-  localStorage.removeItem('re_user');
-  var dd = document.getElementById('acct-dropdown');
-  if(dd) dd.classList.remove('open');
-  closeLoginModal();
-  showLoginScreen();
+  updateAcctBtn();
+  toast('Signed out','success');
 }
 
 function toggleAcctDropdown(){
