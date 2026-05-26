@@ -689,6 +689,14 @@ function renderRaceTable(rc, results, scratched, hasLive, liveOddsData) {
           <i class="ti ti-cloud" style="font-size:10px"></i> ${tcLabel}
           <i class="ti ti-pencil" style="font-size:9px;opacity:.5"></i>
         </span>
+        ${(()=>{
+          const fs = results[0] && results[0].fieldStrength;
+          if(!fs) return '';
+          const fsN = parseFloat(fs);
+          const fsColor = fsN >= 2 ? '#059669' : fsN >= 0 ? '#d97706' : '#dc2626';
+          const fsLabel = fsN >= 2 ? 'Strong field' : fsN >= 0 ? 'Average field' : 'Weak field';
+          return '<span style="padding:1px 6px;border-radius:3px;font-size:9px;font-weight:600;background:'+fsColor+'15;color:'+fsColor+';border:0.5px solid '+fsColor+'40" title="Field Strength: '+fsN+'">⚡ '+fsLabel+'</span>';
+        })()}
         <span style="font-size:10px;color:#9ca3af">${rc.time||''} · ${results.length} runners</span>
       </div>
     </div>
@@ -803,61 +811,91 @@ function renderRaceTable(rc, results, scratched, hasLive, liveOddsData) {
       const winPct = starts>0?Math.round(wins/starts*100):0;
       const placePct = starts>0?Math.round((wins+seconds+thirds)/starts*100):0;
       const fins = (r.lastFin||[]).slice(0,8);
+
+      // Run boxes (last 8)
       const runsHTML = fins.map(v => {
         if(v===null||v===undefined||v==='') return '';
-        const n = +v;
-        const cls = n===1?'fv-r1':n<=3?'fv-r23':'fv-rx';
-        return `<div class="fv-run ${cls}">${n>9?'0':n}</div>`;
+        const n = +v; const cls = n===1?'fv-r1':n<=3?'fv-r23':'fv-rx';
+        return '<div class="fv-run '+cls+'">'+(n>9?'0':n)+'</div>';
       }).join('');
-      const gRec = `${r.goodStarts||0}-${r.goodWins||0}-${(r.goodPlaces||0)}`;
-      const sRec = `${r.softStarts||0}-${r.softWins||0}-${(r.softPlaces||0)}`;
-      const hvRec = `${r.heavyStarts||0}-${r.heavyWins||0}-${(r.heavyPlaces||0)}`;
-      const cRec = `${r.courseStarts||0}-${r.courseWins||0}`;
-      const dRec = `${r.distStarts||0}-${r.distWins||0}`;
-      const avgSP = r.lastSP ? '$'+parseFloat(r.lastSP).toFixed(2) : '—';
+
+      // Track records
+      const gRec = (r.goodStarts||0)>0?`${r.goodWins||0}W ${r.goodPlaces||0}P / ${r.goodStarts}S`:'—';
+      const sRec = (r.softStarts||0)>0?`${r.softWins||0}W ${r.softPlaces||0}P / ${r.softStarts}S`:'—';
+      const hvRec = (r.heavyStarts||0)>0?`${r.heavyWins||0}W ${r.heavyPlaces||0}P / ${r.heavyStarts}S`:'—';
+      const cRec = (r.courseStarts||0)>0?`${r.courseWins||0}W / ${r.courseStarts}S`:'—';
+      const dRec = (r.distStarts||0)>0?`${r.distWins||0}W / ${r.distStarts}S`:'—';
+
+      // Joc/Trn combo
+      const jtS = r.jocTrnStarts||0;
+      const jtW = r.jocTrnWins||0;
+      const jtP = r.jocTrnPlaces||0;
+      const jtRec = jtS>0 ? `${jtW}W ${jtP}P / ${jtS}S (${Math.round(jtW/jtS*100)}%)` : '—';
+      const jtColor = jtS>0&&jtW/jtS>=0.3?'#059669':jtS>0&&jtW/jtS>=0.15?'#d97706':'#374151';
+
+      // Prep run (1Up = first-up)
+      const rfs = r.curRFS||0;
+      const upLabel = rfs===0?'1st-up':rfs===1?'2nd-up':rfs===2?'3rd-up':`${rfs+1}th-up`;
+      const upKey = rfs===0?'prepRuns1':rfs===1?'prepRuns2':'prepRuns3';
+      const upW = r[upKey+'W']||0, upP = r[upKey+'P']||0, upS = r[upKey+'S']||0;
+      const upRec = upS>0?`${upW}W ${upP}P / ${upS}S`:'No data';
+      const upColor = upS>0&&upW/upS>=0.25?'#059669':upS>0&&upW/upS>=0.1?'#d97706':'#374151';
+
+      // Win jockey back?
+      const wjb = r.winJockBack||'';
+      const wjbBadge = wjb?`<span style="font-size:9px;background:#dcfce7;color:#166534;padding:1px 5px;border-radius:3px;margin-left:4px">WJ back</span>`:'';
+
+      // Impact ratings
+      const impForm = r.impactForm ? parseFloat(r.impactForm).toFixed(2) : null;
+      const impDist = r.impactDist ? parseFloat(r.impactDist).toFixed(2) : null;
+
       const rowBg = rank===1?'background:#fffbeb':'';
       const rowBorderL = rank===1?'border-left:3px solid #fbbf24':'border-left:3px solid transparent';
 
       return `<div class="fv-row" style="${rowBg};${rowBorderL}">
-        <span class="fv-rank ${rkClass}">${rank}</span>
-        <div class="fv-horse">
-          <div class="fv-hname" onmouseenter="showHorseForm(event,${i})" onmouseleave="hideHorseForm()" style="cursor:pointer">${r.name}${bp?` <span style="color:#9ca3af;font-weight:400">(${bp})</span>`:''}</div>
-          <div class="fv-hjt">${r['Weight']||''}kg · ${jShort}</div>
-          <div class="fv-hjt" style="color:#6b7280">${r.trainer||''}</div>
-        </div>
-        <div class="fv-stats">
-          <div class="fv-stat">
-            <div class="fv-sv">${starts}-${wins}-${seconds}-${thirds}</div>
-            <div class="fv-sl">Career</div>
+        <div style="display:flex;align-items:flex-start;gap:10px;flex:1;min-width:0">
+          <span class="fv-rank ${rkClass}">${rank}</span>
+          <div style="flex:0 0 155px;min-width:0">
+            <div class="fv-hname" onmouseenter="showHorseForm(event,${i})" onmouseleave="hideHorseForm()" style="cursor:pointer">${r.name}${bp?` <span style="color:#9ca3af;font-weight:400;font-size:10px">(${bp})</span>`:''}${wjbBadge}</div>
+            <div class="fv-hjt">${r['Weight']||''}kg · ${jShort}</div>
+            <div class="fv-hjt" style="color:#6b7280">${r.trainer||''}</div>
+            ${r.sire?`<div style="font-size:9px;color:#9ca3af;margin-top:1px">By ${r.sire}</div>`:''}
           </div>
-          <div class="fv-stat">
-            <div class="fv-sv">${winPct}%</div>
-            <div class="fv-sl">Win %</div>
+          <div style="flex:1;display:grid;grid-template-columns:repeat(4,1fr);gap:6px">
+
+            <div style="background:#f8fafc;border-radius:6px;padding:5px 7px">
+              <div style="font-size:8px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:.3px;margin-bottom:3px">Career</div>
+              <div style="font-size:11px;font-weight:600;font-family:'JetBrains Mono'">${starts}-${wins}-${seconds}-${thirds}</div>
+              <div style="font-size:9px;color:#6b7280;margin-top:1px">${winPct}% win · ${placePct}% place</div>
+            </div>
+
+            <div style="background:#f8fafc;border-radius:6px;padding:5px 7px">
+              <div style="font-size:8px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:.3px;margin-bottom:3px">Course / Dist</div>
+              <div style="font-size:10px;font-weight:500">${cRec}</div>
+              <div style="font-size:9px;color:#6b7280;margin-top:1px">${dRec}</div>
+            </div>
+
+            <div style="background:#f8fafc;border-radius:6px;padding:5px 7px">
+              <div style="font-size:8px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:.3px;margin-bottom:3px">Track conditions</div>
+              <div style="font-size:9px"><span style="color:#059669">G:</span> ${gRec}</div>
+              <div style="font-size:9px;margin-top:1px"><span style="color:#1d4ed8">S:</span> ${sRec}</div>
+              <div style="font-size:9px;margin-top:1px"><span style="color:#6b7280">H:</span> ${hvRec}</div>
+            </div>
+
+            <div style="background:#f8fafc;border-radius:6px;padding:5px 7px">
+              <div style="font-size:8px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:.3px;margin-bottom:3px">Joc / Trn combo</div>
+              <div style="font-size:10px;font-weight:600;color:${jtColor}">${jtRec}</div>
+              <div style="font-size:8px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:.3px;margin-top:5px;margin-bottom:2px">${upLabel} record</div>
+              <div style="font-size:10px;font-weight:600;color:${upColor}">${upRec}</div>
+            </div>
+
           </div>
-          <div class="fv-stat">
-            <div class="fv-sv">${placePct}%</div>
-            <div class="fv-sl">Place %</div>
+          <div style="display:flex;align-items:center;gap:3px;flex-shrink:0;padding-top:4px">
+            ${runsHTML}
           </div>
-          <div class="fv-stat">
-            <div class="fv-sv">${avgSP}</div>
-            <div class="fv-sl">Last SP</div>
+          <div style="padding-top:2px;flex-shrink:0">
+            <button class="log-btn" onclick="quickAddBet(event,${i})">Log Bet</button>
           </div>
-          <div class="fv-stat">
-            <div class="fv-sv">${cRec}</div>
-            <div class="fv-sl">Course</div>
-          </div>
-          <div class="fv-stat">
-            <div class="fv-sv">${dRec}</div>
-            <div class="fv-sl">Dist</div>
-          </div>
-          <div class="fv-stat" style="border-right:none">
-            <div class="fv-sv" style="font-size:9px;color:#059669">${gRec}</div>
-            <div class="fv-sl" style="color:#059669">Good</div>
-          </div>
-        </div>
-        <div class="fv-runs">${runsHTML}</div>
-        <div style="display:flex;align-items:center;padding-left:8px;flex-shrink:0">
-          <button class="log-btn" onclick="quickAddBet(event,${i})">Log Bet</button>
         </div>
       </div>`;
     }).join('');
@@ -866,18 +904,19 @@ function renderRaceTable(rc, results, scratched, hasLive, liveOddsData) {
       Scratched: ${scratched.map(h=>h.name).join(' · ')}</div>` : '';
 
     return `<div class="form-view-wrap">
-      <div style="display:flex;align-items:center;padding:6px 14px;background:#f8fafc;border-bottom:0.5px solid #e5e7eb;gap:0">
-        <div style="width:22px"></div>
-        <div style="flex:0 0 160px;font-size:8px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:.3px;padding-left:12px">Horse / Trainer</div>
-        <div style="flex:1;display:grid;grid-template-columns:repeat(7,1fr);gap:0">
-          ${['Career','Win %','Place %','Last SP','Course','Dist','Good'].map(h=>`<div style="text-align:center;font-size:8px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:.3px">${h}</div>`).join('')}
+      <div style="display:flex;align-items:center;padding:5px 14px;background:#f8fafc;border-bottom:0.5px solid #e5e7eb;gap:8px;font-size:8px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:.3px">
+        <div style="width:22px">#</div>
+        <div style="width:155px;padding-left:0">Horse</div>
+        <div style="flex:1;display:grid;grid-template-columns:repeat(4,1fr);gap:6px">
+          <div>Career</div><div>Course / Dist</div><div>Conditions</div><div>Combos & Prep</div>
         </div>
-        <div style="flex:0 0 auto;font-size:8px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:.3px;padding-right:8px">Last 8</div>
+        <div style="width:140px;text-align:center">Last 8</div>
         <div style="width:60px"></div>
       </div>
       ${rows}${scrHTML}
     </div>`;
   }
+
 
   // ── Pace Map view ──
   function buildPaceView() {
@@ -901,7 +940,9 @@ function renderRaceTable(rc, results, scratched, hasLive, liveOddsData) {
         </div>
         <div style="width:150px;flex-shrink:0;overflow:hidden">
           <div style="font-size:11px;font-weight:600;color:#111827;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${h.name}</div>
-          <div style="font-size:9px;color:#9ca3af;margin-top:1px">${(h.jname||'').split(' ').slice(-1)[0]||''}</div>
+          ${h.pm.hasTPPC
+            ? '<div style=\"font-size:8px;color:#9ca3af;margin-top:1px\">F:'+Math.round(h.pm.tppcFront||0)+'% P:'+Math.round(h.pm.tppcOnpc||0)+'% M:'+Math.round(h.pm.tppcMid||0)+'% B:'+Math.round(h.pm.tppcBack||0)+'% <span style=\"color:#059669;font-weight:600\">✓CSV</span></div>'
+            : '<div style=\"font-size:8px;color:#d97706;margin-top:1px\">Estimated</div>'}
         </div>
         <div style="width:70px;flex-shrink:0">
           <span style="font-size:10px;font-weight:600;color:${h.pm.color};background:${h.pm.color}15;padding:2px 8px;border-radius:10px;white-space:nowrap">${h.pm.role}</span>
@@ -2432,6 +2473,39 @@ function buildRaces({hdrs,rows},fname){
       jocWin:jocStarts>0?jocWins/jocStarts:null,
       trnWin:trnStarts>0?trnWins/trnStarts:null,
       rawOdds:oddsVal,
+      // TPPC pace position probabilities (from CSV)
+      tppcFront:safeNum(col(r,'TPPC-Front'))||null,
+      tppcOnpc:safeNum(col(r,'TPPC-Onpc'))||null,
+      tppcMid:safeNum(col(r,'TPPC-Mid'))||null,
+      tppcBack:safeNum(col(r,'TPPC-Back'))||null,
+      // Field strength
+      fieldStrength:safeNum(col(r,'Field Strength'))||null,
+      // Jockey/Trainer combo
+      jocTrnWins:safeNum(col(r,'Joc/Trn Wins'))||0,
+      jocTrnPlaces:safeNum(col(r,'Joc/Trn Places'))||0,
+      jocTrnStarts:safeNum(col(r,'Joc/Trn Starts'))||0,
+      // Prep runs (1Up = first-up this prep)
+      prepRuns1W:safeNum(col(r,'1Up Wins'))||0,
+      prepRuns1P:safeNum(col(r,'1Up Places'))||0,
+      prepRuns1S:safeNum(col(r,'1Up Starts'))||0,
+      prepRuns2W:safeNum(col(r,'2Up Wins'))||0,
+      prepRuns2P:safeNum(col(r,'2Up Places'))||0,
+      prepRuns2S:safeNum(col(r,'2Up Starts'))||0,
+      prepRuns3W:safeNum(col(r,'3Up Wins'))||0,
+      prepRuns3P:safeNum(col(r,'3Up Places'))||0,
+      prepRuns3S:safeNum(col(r,'3Up Starts'))||0,
+      curRFS:safeNum(col(r,'Cur RFS Wins'))||0,
+      // Impact ratings
+      impactForm:safeNum(col(r,'Impact Form'))||null,
+      impactDist:safeNum(col(r,'Impact Dist'))||null,
+      // Sire/Dam for Form tab
+      sire:(col(r,'Sire')||'').trim(),
+      dam:(col(r,'Dam')||'').trim(),
+      // Last 4-7 SP for avg calculation
+      lastSP4:safeNum(col(r,'Last-3 SP'))||null,
+      lastSP5:safeNum(col(r,'Last-4 Weight'))||null,
+      // Win Jockey Back On
+      winJockBack:(col(r,'Win Jock Back On')||'').trim(),
     });
   });
 
@@ -2835,38 +2909,61 @@ function getTopHorse(rc){
 // ═══ PACE MAP — mirrors VBA Module_Pace_Analysis ═══
 function calcPaceMap(horse,raceVenue,raceDist,trackCond){
   var espdStr=(horse.espd||'').toUpperCase().trim();
-  if(!espdStr||espdStr==='NA'||espdStr==='') return null;
-  var espdNum=parseInt(espdStr.replace(/[A-Z]/g,''),10)||5;
+  if(!espdStr||espdStr==='NA'||espdStr==='') espdStr='';
+  var espdNum=espdStr?parseInt(espdStr.replace(/[A-Z]/g,''),10)||5:5;
   var role,color;
+
+  // ── Use TPPC data from CSV if available (more accurate than calculated) ──
+  var tppcFront=horse.tppcFront, tppcOnpc=horse.tppcOnpc;
+  var tppcMid=horse.tppcMid, tppcBack=horse.tppcBack;
+  var hasTPPC = tppcFront!==null && tppcFront!==undefined;
+
   if(espdNum<=3){role='Leader';color='#00b050';}
   else if(espdNum<=5){role='Presser';color='#7ec820';}
   else if(espdNum===6){role='Midfield';color='#ffc000';}
   else if(espdNum<=8){role='Closer';color='#ff8000';}
   else{role='Backmarker';color='#dc3545';}
-  // Turn pressure
-  function tp(v,d){
-    v=(v||'').toUpperCase();
-    if(v.indexOf('IPSWICH')>=0) return d<=1050?1.6:d<=1300?1.3:1.0;
-    if(v.indexOf('DOOMBEN')>=0) return d<=1050?1.8:d<=1300?1.45:d<=1420?1.0:d<=1650?1.5:1.0;
-    if(v.indexOf('EAGLE')>=0||v.indexOf('EAGLEFARM')>=0) return 0.8;
-    if(v.indexOf('SUNSHINE')>=0) return 0.8;
-    if(v.indexOf('GOLD')>=0) return d<=1200?1.2:1.0;
-    if(v.indexOf('TOOWOOMBA')>=0) return 1.3;
-    return 1.0;
+
+  // If TPPC available, use front+onpc as the primary pace % (actual data beats estimate)
+  var pct;
+  if(hasTPPC) {
+    // TPPC-Front = probability horse leads, TPPC-Onpc = probability pressing
+    // Use the dominant position as role indicator
+    var front=tppcFront||0, onpc=tppcOnpc||0, mid=tppcMid||0, back=tppcBack||0;
+    var maxP=Math.max(front,onpc,mid,back);
+    if(maxP===front&&front>20){role='Leader';color='#00b050';}
+    else if(maxP===onpc||(front+onpc>50)){role='Presser';color='#7ec820';}
+    else if(maxP===mid){role='Midfield';color='#ffc000';}
+    else if(maxP===back&&back>onpc){role='Closer';color='#ff8000';}
+    else if(back>40){role='Backmarker';color='#dc3545';}
+    // Pace score = front% + onpc% combined (how "on-pace" this horse is)
+    pct=Math.min(98,Math.max(2,Math.round(front+onpc)));
+  } else {
+    // Fallback to original calculation
+    function tp(v,d){
+      v=(v||'').toUpperCase();
+      if(v.indexOf('IPSWICH')>=0) return d<=1050?1.6:d<=1300?1.3:1.0;
+      if(v.indexOf('DOOMBEN')>=0) return d<=1050?1.8:d<=1300?1.45:d<=1420?1.0:d<=1650?1.5:1.0;
+      if(v.indexOf('EAGLE')>=0||v.indexOf('EAGLEFARM')>=0) return 0.8;
+      if(v.indexOf('SUNSHINE')>=0) return 0.8;
+      if(v.indexOf('GOLD')>=0) return d<=1200?1.2:1.0;
+      if(v.indexOf('TOOWOOMBA')>=0) return 1.3;
+      return 1.0;
+    }
+    var turnMult=tp(raceVenue,raceDist);
+    var espdScore=Math.max(0,(10-espdNum)/9)*50;
+    var earlyScore=Math.max(0,(10-espdNum)/9)*18;
+    var bp=+(horse['BP']||horse.BP||5);
+    var styleM=espdNum<=4?1.0:espdNum<=6?0.5:0.2;
+    var barrierScore=Math.max(0,(16-bp)/15)*14*styleM*turnMult;
+    var tc=(trackCond||'good').toLowerCase();
+    var condScore=10;
+    if(tc==='soft'||tc==='heavy'){condScore=espdNum<=4?12:espdNum>=8?7:10;}
+    var cs=horse.courseStarts||0;
+    var courseScore=cs===0?0:cs===1?1:cs<=4?2.5:4;
+    pct=Math.min(100,Math.max(2,espdScore+earlyScore+barrierScore+condScore+courseScore));
   }
-  var turnMult=tp(raceVenue,raceDist);
-  var espdScore=Math.max(0,(10-espdNum)/9)*50;
-  var earlyScore=Math.max(0,(10-espdNum)/9)*18;
-  var bp=+(horse['BP']||horse.BP||5);
-  var styleM=espdNum<=4?1.0:espdNum<=6?0.5:0.2;
-  var barrierScore=Math.max(0,(16-bp)/15)*14*styleM*turnMult;
-  var tc=(trackCond||'good').toLowerCase();
-  var condScore=10;
-  if(tc==='soft'||tc==='heavy'){condScore=espdNum<=4?12:espdNum>=8?7:10;}
-  var cs=horse.courseStarts||0;
-  var courseScore=cs===0?0:cs===1?1:cs<=4?2.5:4;
-  var pct=Math.min(100,Math.max(2,espdScore+earlyScore+barrierScore+condScore+courseScore));
-  return{pct:Math.round(pct),role,color,espdNum,espdStr,paceStr:horse.pace||''};
+  return{pct:Math.round(pct),role,color,espdNum,espdStr,paceStr:horse.pace||'',hasTPPC,tppcFront,tppcOnpc,tppcMid,tppcBack};
 }
 
 function render(rc){
