@@ -9,7 +9,7 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css">
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
-html,body{height:100%;overflow:hidden}
+html{height:100%}body{height:100%;overflow:hidden}
 body{background:#f1f5f9;color:#111827;font-family:'Space Grotesk',sans-serif;font-size:13px;display:flex;flex-direction:column}
 
 /* ── TOP NAV ── */
@@ -1875,13 +1875,6 @@ function buildUpNext() {
 
 // ── INIT ──
 window.addEventListener('DOMContentLoaded', () => {
-  // Wire sign in + brand buttons via delegation
-  document.addEventListener('click', function(e) {
-    var acctBtn = e.target.closest('#acct-btn');
-    if (acctBtn) { e.stopPropagation(); if (typeof toggleAcctDropdown === 'function') toggleAcctDropdown(); return; }
-    var brand = e.target.closest('.brand');
-    if (brand) { if (typeof navTo === 'function') navTo('races'); return; }
-  });
   if (typeof initAuth === 'function') initAuth();
   if (typeof updateBetBadge === 'function') updateBetBadge();
   if (window.innerWidth <= 900) {
@@ -5277,12 +5270,17 @@ function setTrackCond(cond){
 
 function openLoginModal(){
   var m = document.getElementById('lp-modal-bg');
-  if(m){ m.style.display='flex'; setTimeout(function(){ var el=document.getElementById('login-email'); if(el)el.focus(); },100); }
+  if(m){
+    document.documentElement.style.overflow = 'visible';
+    m.style.cssText = 'display:flex!important;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:99999;align-items:center;justify-content:center';
+    setTimeout(function(){ var el=document.getElementById('login-email'); if(el)el.focus(); },100);
+  }
 }
 
 function closeLoginModal(){
   var m = document.getElementById('lp-modal-bg');
-  if(m) m.style.display='none';
+  if(m) m.style.cssText = 'display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:99999;align-items:center;justify-content:center';
+  document.documentElement.style.overflow = '';
 }
 
 function doLogin(){
