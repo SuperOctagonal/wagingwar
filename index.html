@@ -1875,6 +1875,13 @@ function buildUpNext() {
 
 // ── INIT ──
 window.addEventListener('DOMContentLoaded', () => {
+  // Wire sign in + brand buttons via delegation
+  document.addEventListener('click', function(e) {
+    var acctBtn = e.target.closest('#acct-btn');
+    if (acctBtn) { e.stopPropagation(); if (typeof toggleAcctDropdown === 'function') toggleAcctDropdown(); return; }
+    var brand = e.target.closest('.brand');
+    if (brand) { if (typeof navTo === 'function') navTo('races'); return; }
+  });
   if (typeof initAuth === 'function') initAuth();
   if (typeof updateBetBadge === 'function') updateBetBadge();
   if (window.innerWidth <= 900) {
