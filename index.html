@@ -407,9 +407,14 @@ document.addEventListener('DOMContentLoaded', function() {
             status: 'Active Subscriber'
           };
           updateAcctBtn();
+          // Navigate to pending page or races after sign in
+          var dest = window._pendingNav || 'races';
+          window._pendingNav = null;
+          navTo(dest);
         } else {
           currentUser = null;
           updateAcctBtn();
+          navTo('home');
         }
       });
     });
@@ -587,6 +592,14 @@ const PG = {
 let currentPage = 'home';
 
 function navTo(page) {
+  // Auth gate — non-home pages require sign in
+  var publicPages = ['home'];
+  if (!publicPages.includes(page) && !currentUser) {
+    // Not signed in — open Clerk sign in then redirect after
+    window._pendingNav = page;
+    openLoginModal();
+    return;
+  }
   currentPage = page;
   document.querySelectorAll('.navbtn').forEach(b => b.classList.remove('active'));
   const btn = document.getElementById('nav-' + page);
