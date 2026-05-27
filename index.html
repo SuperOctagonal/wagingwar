@@ -1190,6 +1190,12 @@ function closeTCModal() {
 function showHome() {
   var main = document.getElementById('main');
   if (!main) return;
+  // Hide sidebar and rails on home page
+  var lr = document.getElementById('leftRail'); if(lr) lr.style.display='none';
+  var rr = document.getElementById('rightRail'); if(rr) rr.style.display='none';
+  var ab = document.getElementById('appBody'); if(ab) ab.className='app-body no-rails';
+  var mb = document.getElementById('meetingBar'); if(mb) mb.style.display='none';
+  var rb = document.getElementById('raceBar'); if(rb) rb.style.display='none';
   main.style.overflowY = 'auto';
   main.innerHTML = '<div style="max-width:900px;margin:0 auto;padding:40px 24px">'
     + '<div style="text-align:center;margin-bottom:48px">'
@@ -5396,12 +5402,14 @@ function doLogout(){
     window.Clerk.signOut().then(function(){
       currentUser = null;
       updateAcctBtn();
+      navTo('home');
       toast('Signed out','success');
     });
     return;
   }
   currentUser = null;
   updateAcctBtn();
+  navTo('home');
   toast('Signed out','success');
 }
 
