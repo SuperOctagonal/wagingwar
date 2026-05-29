@@ -510,6 +510,7 @@ document.addEventListener('DOMContentLoaded', function() {
     <button class="navbtn" id="nav-mybets" onclick="navTo('mybets')">My Bets</button>
     <button class="navbtn" id="nav-insights" onclick="navTo('insights')">Insights</button>
     <button class="navbtn" id="nav-community" onclick="navTo('community')">Community</button>
+    <button class="navbtn" id="nav-competitions" onclick="navTo('competitions')">Competitions</button>
     <button class="navbtn" id="nav-blackbook" onclick="navTo('blackbook')">Blackbook</button>
     <button class="navbtn" id="nav-learn" onclick="navTo('learn')">Learn</button>
   </div>
@@ -593,6 +594,7 @@ document.addEventListener('DOMContentLoaded', function() {
   <div class="mob-tab" id="mobTab-insights" onclick="mobTabNav('insights')"><i class="ti ti-chart-bar" style="font-size:15px;display:block;margin-bottom:1px"></i>Insights</div>
   <div class="mob-tab" id="mobTab-results" onclick="mobTabNav('results')"><i class="ti ti-flag-check" style="font-size:15px;display:block;margin-bottom:1px"></i>Results</div>
   <div class="mob-tab" id="mobTab-community" onclick="mobTabNav('community')"><i class="ti ti-users" style="font-size:15px;display:block;margin-bottom:1px"></i>Community</div>
+  <div class="mob-tab" id="mobTab-competitions" onclick="mobTabNav('competitions')"><i class="ti ti-trophy" style="font-size:15px;display:block;margin-bottom:1px"></i>Comps</div>
 </div>
 
 <!-- MOBILE CSV STRIP -->
@@ -705,6 +707,7 @@ function navTo(page) {
   else if (page === 'mybets') showMyBets();
   else if (page === 'insights') showInsights();
   else if (page === 'community') showCommunity();
+  else if (page === 'competitions') showCompetitions();
   else if (page === 'blackbook') showBlackbook();
   else if (page === 'learn') showLearn();
   else if (page === 'settings') showSettingsPage();
@@ -1948,272 +1951,275 @@ function showInsights() {
 }
 
 // ── COMMUNITY PAGE ──
-function showCommunity() {
-  const main = document.getElementById('main');
-  const isMob = window.innerWidth <= 900;
+function showCommunity(){
+  const main=document.getElementById('main');
+  const isMob=window.innerWidth<=900;
+  const u=currentUser||{};
+  const initial=(u.name||'A').charAt(0).toUpperCase();
+  const tiers=[
+    {name:'Adaminaby Picnic Maiden',pts:0},{name:'Burrumbeet Maiden',pts:50},{name:'Tumut Maiden',pts:120},
+    {name:'Moruya Maiden',pts:1000},{name:'Mildura BM58',pts:2500},{name:'Grafton BM70',pts:15000},
+    {name:'Ipswich BM72',pts:25000},{name:'Newcastle BM84',pts:60000},{name:'Flemington Open',pts:85000},
+    {name:'Listed',pts:150000},{name:'Group 3',pts:185000},{name:'Group 2',pts:235000},
+    {name:'Cox Plate',pts:300000},{name:'Melbourne Cup',pts:5000000}
+  ];
+  const userPts=0;
+  const currentTier=tiers.filter(t=>t.pts<=userPts).pop()||tiers[0];
+  const nextTier=tiers.find(t=>t.pts>userPts)||tiers[tiers.length-1];
+  const pctToNext=nextTier.pts>0?Math.min(100,Math.round((userPts/nextTier.pts)*100)):2;
+  const badges=[
+    {icon:'🏁',name:'First Start'},{icon:'🎯',name:'Sharp'},{icon:'🔥',name:'On Fire'},
+    {icon:'📈',name:'In The Black'},{icon:'💎',name:'Big Odds'},{icon:'🌧️',name:'Mudlark'},
+    {icon:'🗣️',name:'First Words'},{icon:'🤝',name:'Ambassador'},{icon:'📚',name:'Scholar'},{icon:'👑',name:'Group 1'},
+  ];
+  const posts=[
+    {user:'JPunter88',tier:'Newcastle BM84',tBg:'#dcfce7',tClr:'#166534',cat:'Winning Bet',cBg:'#fef9c3',cClr:'#854d0e',title:'Backed Rank 1 at Flemington — $8.50 — bolted in by 3 lengths',votes:89,replies:31,time:'5h ago',hot:true,sec:'wins'},
+    {user:'TrackRat_WA',tier:'Ascot Open',tBg:'#fef3c7',tClr:'#92400e',cat:'Tips & Analysis',cBg:'#dcfce7',cClr:'#166534',title:'Track bias at Doomben today — closers dominating after rail position change',votes:47,replies:23,time:'2h ago',hot:false,sec:'tips'},
+    {user:'MeggsK',tier:'Moonee Valley Open',tBg:'#dbeafe',tClr:'#1e40af',cat:"Today\'s Races",cBg:'#dbeafe',cClr:'#1e40af',title:'Doomben R6 — Rank 1 at $12, market $4.50. Value% +166%. Thoughts?',votes:34,replies:19,time:'3h ago',hot:false,sec:'races'},
+    {user:'NewMember247',tier:'Walgett Maiden',tBg:'#f3f4f6',tClr:'#374151',cat:'Winning Bet',cBg:'#fef9c3',cClr:'#854d0e',title:'First win with the system! Rank 2 at $6.50 at Caulfield — stoked!',votes:12,replies:8,time:'1h ago',hot:false,sec:'wins'},
+    {user:'DoombenDaily',tier:'Gold Coast BM84',tBg:'#f3f4f6',tClr:'#374151',cat:"Today\'s Races",cBg:'#dbeafe',cClr:'#1e40af',title:'Eagle Farm R4 — hot tempo on the pace map, closers should dominate',votes:22,replies:14,time:'45m ago',hot:true,sec:'races'},
+    {user:'SpringCarnival',tier:'Gosford BM78',tBg:'#f3f4f6',tClr:'#374151',cat:'System Feedback',cBg:'#f3e8ff',cClr:'#6b21a8',title:'How does the system handle horses returning from a long spell?',votes:8,replies:6,time:'2d ago',hot:false,sec:'feedback'},
+  ];
+  const sections=[
+    {id:'all',icon:'ti-layout-list',label:'All Posts'},{id:'races',icon:'ti-horse-toy',label:"Today\'s Races"},
+    {id:'tips',icon:'ti-bulb',label:'Tips & Analysis'},{id:'wins',icon:'ti-trophy',label:'Winning Bets'},
+    {id:'feedback',icon:'ti-settings',label:'System Feedback'},{id:'chat',icon:'ti-messages',label:'General Chat'},
+  ];
+  const lb=[
+    {rank:1,user:'TrackRat_WA',tier:'Ascot Open',roi:'+184%',pts:'+2,840',tBg:'#fef3c7',tClr:'#92400e'},
+    {rank:2,user:'JPunter88',tier:'Newcastle BM84',roi:'+147%',pts:'+1,920',tBg:'#dcfce7',tClr:'#166534'},
+    {rank:3,user:'MeggsK',tier:'Moonee Valley',roi:'+122%',pts:'+1,540',tBg:'#dbeafe',tClr:'#1e40af'},
+    {rank:4,user:'DoombenDaily',tier:'Gold Coast BM84',roi:'+71%',pts:'+890',tBg:'#f3f4f6',tClr:'#374151'},
+    {rank:5,user:'SpringCarnival',tier:'Gosford BM78',roi:'+44%',pts:'+640',tBg:'#f3f4f6',tClr:'#374151'},
+  ];
+  const af=window._communityFilter||'all';
+  const at=window._communityMobTab||'feed';
 
-  if(isMob){
-    // Mobile: fully stacked vertical layout
-    main.innerHTML = `<div style="display:flex;flex-direction:column;height:100%;overflow-y:auto">
-
-      <!-- Profile strip -->
-      <div style="background:#1a2634;padding:12px 14px;display:flex;align-items:center;gap:10px;flex-shrink:0">
-        <div style="width:36px;height:36px;border-radius:50%;background:#dbeafe;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:#1e40af;flex-shrink:0">A</div>
-        <div style="flex:1;min-width:0">
-          <div style="font-size:12px;font-weight:600;color:#fff">Your Profile</div>
-          <div style="display:inline-flex;align-items:center;gap:3px;padding:1px 6px;border-radius:4px;background:#fef3c7;color:#92400e;font-size:9px;font-weight:600;margin-top:2px"><i class="ti ti-trophy" style="font-size:9px"></i> Adaminaby Maiden</div>
-        </div>
-        <div style="text-align:right;flex-shrink:0">
-          <div style="font-size:9px;color:rgba(255,255,255,.5);margin-bottom:2px">0 pts · 50 to next tier</div>
-          <div style="height:4px;width:80px;background:rgba(255,255,255,.15);border-radius:2px;overflow:hidden"><div style="width:2%;height:100%;background:#fbbf24;border-radius:2px"></div></div>
-        </div>
-      </div>
-
-      <!-- Stats row -->
-      <div style="background:#fff;display:flex;border-bottom:0.5px solid #f3f4f6;flex-shrink:0">
-        ${[['Members online','2,847','#22c55e'],['Posts today','128','#374151'],['Total members','14,203','#374151']].map(([l,v,c])=>
-          `<div style="flex:1;padding:8px 4px;text-align:center;border-right:0.5px solid #f3f4f6">
-            <div style="font-size:13px;font-weight:700;color:${c};font-family:'JetBrains Mono'">${v}</div>
-            <div style="font-size:8px;color:#9ca3af;margin-top:1px">${l}</div>
-          </div>`
-        ).join('')}
-      </div>
-
-      <!-- Weekly ROI leaderboard -->
-      <div style="background:#fff;border-bottom:0.5px solid #e5e7eb;padding:10px 14px;flex-shrink:0">
-        <div style="font-size:10px;font-weight:700;color:#374151;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Weekly ROI</div>
-        <div style="display:flex;flex-direction:column;gap:0">
-          ${[
-            {rank:1,user:'TrackRat_WA',tier:'Ascot Open',roi:'+184%',tierBg:'#fef3c7',tierColor:'#92400e'},
-            {rank:2,user:'JPunter88',tier:'Newcastle BM84',roi:'+147%',tierBg:'#dcfce7',tierColor:'#166534'},
-            {rank:3,user:'MeggsK',tier:'Moonee Valley',roi:'+122%',tierBg:'#dbeafe',tierColor:'#1e40af'},
-          ].map(r=>`
-            <div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:0.5px solid #f9fafb">
-              <span style="font-size:11px;font-weight:700;width:16px;color:#d97706">${r.rank}</span>
-              <div style="width:24px;height:24px;border-radius:50%;background:${r.tierBg};display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:600;color:${r.tierColor};flex-shrink:0">${r.user[0]}</div>
-              <div style="flex:1;min-width:0">
-                <div style="font-size:11px;font-weight:600">${r.user}</div>
-                <div style="font-size:9px;padding:0 4px;border-radius:3px;background:${r.tierBg};color:${r.tierColor};display:inline-block">${r.tier}</div>
-              </div>
-              <span style="font-size:12px;font-weight:700;color:#059669">${r.roi}</span>
-            </div>
-          `).join('')}
-        </div>
-      </div>
-
-      <!-- Forum header -->
-      <div style="background:#fff;border-bottom:0.5px solid #e5e7eb;padding:10px 14px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0">
-        <div style="font-size:13px;font-weight:600">Today's races</div>
-        <button onclick="showNewPost()" style="display:inline-flex;align-items:center;gap:4px;padding:6px 10px;border-radius:6px;background:#00471b;color:#fff;border:none;font-size:11px;font-weight:600;cursor:pointer">
-          <i class="ti ti-pencil" style="font-size:12px"></i> New post
-        </button>
-      </div>
-
-      <!-- Tab bar -->
-      <div style="background:#fff;border-bottom:0.5px solid #e5e7eb;display:flex;padding:0 14px;flex-shrink:0;overflow-x:auto;scrollbar-width:none">
-        ${['Hot','Latest','Top this week','Unanswered'].map((t,i)=>
-          `<div style="padding:8px 10px;font-size:11px;font-weight:${i===0?'600':'500'};color:${i===0?'#00471b':'#9ca3af'};border-bottom:2px solid ${i===0?'#00471b':'transparent'};cursor:pointer;white-space:nowrap">${t}</div>`
-        ).join('')}
-      </div>
-
-      <!-- Pinned -->
-      <div style="background:#fafafa;border-bottom:0.5px solid #e5e7eb;padding:8px 14px;display:flex;align-items:center;gap:8px;flex-shrink:0">
-        <i class="ti ti-pin" style="font-size:13px;color:#6b21a8;flex-shrink:0"></i>
-        <div style="font-size:11px;color:#374151;flex:1;line-height:1.4">Welcome to Waging War Community — share your analysis and climb the tier ladder</div>
-        <span style="font-size:9px;color:#9ca3af;flex-shrink:0">Pinned</span>
-      </div>
-
-      <!-- Posts -->
-      <div style="flex:1">
-        ${[
-          {user:'JPunter88',tier:'Newcastle BM84',tierBg:'#dcfce7',tierColor:'#166534',cat:'Winning bet',catBg:'#fef9c3',catColor:'#854d0e',title:'Backed Rank 1 at Flemington this morning — $8.50 — bolted in by 3 lengths',votes:89,replies:31,time:'5h ago',hot:true},
-          {user:'TrackRat_WA',tier:'Ascot Open',tierBg:'#fef3c7',tierColor:'#92400e',cat:'Tips & analysis',catBg:'#dcfce7',catColor:'#166534',title:'Track bias at Doomben today — closers dominating after rail position change',votes:47,replies:23,time:'2h ago',hot:false},
-          {user:'MeggsK',tier:'Moonee Valley',tierBg:'#dbeafe',tierColor:'#1e40af',cat:"Today's races",catBg:'#dbeafe',catColor:'#1e40af',title:'Doomben R6 — system Rank 1 at $12, market has it at $4.50. Value% +166%. Thoughts?',votes:34,replies:19,time:'3h ago',hot:false},
-          {user:'NewMember247',tier:'Walgett Maiden',tierBg:'#f3f4f6',tierColor:'#374151',cat:'Winning bet',catBg:'#fef9c3',catColor:'#854d0e',title:'First win with the system! Rank 2 at $6.50 at Caulfield — stoked',votes:12,replies:8,time:'1h ago',hot:false},
-        ].map(p=>`
-          <div style="padding:10px 14px;border-bottom:0.5px solid #f3f4f6;background:#fff;cursor:pointer" onmouseover="this.style.background='#fafafa'" onmouseout="this.style.background='#fff'">
-            <div style="display:flex;align-items:center;gap:5px;margin-bottom:4px">
-              <span style="font-size:9px;font-weight:600;padding:1px 6px;border-radius:3px;background:${p.catBg};color:${p.catColor}">${p.cat}</span>
-              ${p.hot?'<span style="font-size:9px;font-weight:600;padding:1px 5px;border-radius:8px;background:#fef3c7;color:#92400e">🔥 Hot</span>':''}
-            </div>
-            <div style="font-size:12px;font-weight:500;color:#111827;line-height:1.4;margin-bottom:6px">${p.title}</div>
-            <div style="display:flex;align-items:center;gap:6px">
-              <div style="width:18px;height:18px;border-radius:50%;background:${p.tierBg};display:inline-flex;align-items:center;justify-content:center;font-size:8px;font-weight:600;color:${p.tierColor}">${p.user[0]}</div>
-              <span style="font-size:10px;font-weight:500;color:#374151">${p.user}</span>
-              <span style="font-size:9px;padding:1px 5px;border-radius:3px;background:${p.tierBg};color:${p.tierColor}">${p.tier}</span>
-              <span style="margin-left:auto;font-size:10px;color:#9ca3af"><i class="ti ti-message" style="font-size:10px"></i> ${p.replies}</span>
-              <span style="font-size:10px;color:#9ca3af">▲ ${p.votes}</span>
-              <span style="font-size:10px;color:#9ca3af">${p.time}</span>
-            </div>
-          </div>
-        `).join('')}
-      </div>
-    </div>`;
-    return;
+  function pCard(compact){
+    return '<div style="padding:'+(compact?'10px 14px':'14px')+';'+(compact?'background:#1a2634;flex-shrink:0':'border-bottom:0.5px solid #f3f4f6')+'">'
+      +'<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">'
+      +'<div style="width:'+(compact?34:42)+'px;height:'+(compact?34:42)+'px;border-radius:50%;background:#dbeafe;display:flex;align-items:center;justify-content:center;font-size:'+(compact?13:16)+'px;font-weight:700;color:#1e40af;flex-shrink:0">'+initial+'</div>'
+      +'<div style="flex:1;min-width:0"><div style="font-size:12px;font-weight:600;color:'+(compact?'#fff':'#111827')+'">'+(u.name||'Your Profile')+'</div>'
+      +'<div style="font-size:9px;font-weight:700;padding:2px 7px;border-radius:4px;background:#fef3c7;color:#92400e;display:inline-block;margin-top:2px">🐴 '+currentTier.name+'</div></div>'
+      +(compact?'<div style="text-align:right"><div style="font-size:11px;font-weight:700;color:#fbbf24">'+userPts+' pts</div><div style="font-size:9px;color:rgba(255,255,255,.4)">→ '+nextTier.pts.toLocaleString()+'</div></div>':'')
+      +'</div>'
+      +'<div style="height:4px;background:'+(compact?'rgba(255,255,255,.12)':'#f1f5f9')+';border-radius:2px;overflow:hidden;margin-bottom:3px">'
+      +'<div style="width:'+pctToNext+'%;height:100%;background:#fbbf24;border-radius:2px"></div></div>'
+      +'<div style="font-size:9px;color:'+(compact?'rgba(255,255,255,.4)':'#9ca3af')+'">'+(nextTier.pts-userPts).toLocaleString()+' pts to '+nextTier.name+'</div>'
+      +(!compact?'<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:8px"><span style="font-size:8px;background:#f1f5f9;color:#6b7280;padding:2px 6px;border-radius:3px">0 pts</span><span style="font-size:8px;background:#f1f5f9;color:#6b7280;padding:2px 6px;border-radius:3px">0 bets</span><span style="font-size:8px;background:#f1f5f9;color:#6b7280;padding:2px 6px;border-radius:3px">0 posts</span></div>':'')
+      +'</div>';
   }
 
-  // Desktop: 3-column layout
-  main.innerHTML = `<div style="display:grid;grid-template-columns:220px 1fr 220px;height:100%;overflow:hidden">
+  function feedPanel(){
+    const filtered=af==='all'?posts:posts.filter(p=>p.sec===af);
+    return '<div style="background:#fff;border-bottom:0.5px solid #e5e7eb;padding:10px 14px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0">'
+      +'<div style="font-size:13px;font-weight:600">Community</div>'
+      +'<button onclick="showNewPost()" style="display:inline-flex;align-items:center;gap:4px;padding:6px 12px;border-radius:6px;background:#00471b;color:#fff;border:none;font-size:11px;font-weight:600;cursor:pointer;font-family:Space Grotesk,sans-serif"><i class=\"ti ti-pencil\" style=\"font-size:12px\"></i> New post</button>'
+      +'</div>'
+      +'<div style="background:#fff;border-bottom:0.5px solid #e5e7eb;display:flex;overflow-x:auto;scrollbar-width:none;flex-shrink:0;padding:0 8px">'
+      +sections.map(s=>'<div onclick=\"communityFilter(\\'+s.id+'\\)\" style=\"padding:8px 8px;font-size:11px;font-weight:'+(af===s.id?600:500)+';color:'+(af===s.id?'#00471b':'#9ca3af')+';border-bottom:2px solid '+(af===s.id?'#00471b':'transparent')+';cursor:pointer;white-space:nowrap\">'+(s.label.replace(/'/g,"\\'"))+'</div>').join('')
+      +'</div>'
+      +'<div style="background:#fef9c3;border-bottom:0.5px solid #fde68a;padding:6px 14px;display:flex;align-items:center;gap:6px;flex-shrink:0">'
+      +'<i class=\"ti ti-info-circle\" style=\"font-size:12px;color:#d97706;flex-shrink:0\"></i>'
+      +'<span style=\"font-size:10px;color:#92400e\">Posts are member opinions only — not financial advice.</span></div>'
+      +'<div style="flex:1;overflow-y:auto">'
+      +(filtered.length===0?'<div style=\"padding:40px;text-align:center;color:#9ca3af;font-size:12px\">No posts in this section yet</div>':
+        filtered.map(p=>'<div style=\"padding:10px 14px;border-bottom:0.5px solid #f3f4f6;background:#fff;cursor:pointer\" onmouseover=\"this.style.background=\\'#fafafa\\'\" onmouseout=\"this.style.background=\\'#fff\\'">'
+          +'<div style=\"display:flex;gap:10px\">'
+          +'<div style=\"display:flex;flex-direction:column;align-items:center;gap:2px;flex-shrink:0;padding-top:2px\">'
+          +'<span style=\"font-size:13px;color:#d1d5db;cursor:pointer;line-height:1\" onmouseover=\"this.style.color=\\'#059669\\'\" onmouseout=\"this.style.color=\\'#d1d5db\\'">&amp;#9650;</span>'
+          +'<span style=\"font-size:11px;font-weight:700;color:#111827\">'+p.votes+'</span></div>'
+          +'<div style=\"flex:1;min-width:0\">'
+          +'<div style=\"display:flex;align-items:center;gap:5px;flex-wrap:wrap;margin-bottom:4px\">'
+          +'<span style=\"font-size:9px;font-weight:600;padding:1px 6px;border-radius:3px;background:'+p.cBg+';color:'+p.cClr+'\">'+p.cat+'</span>'
+          +(p.hot?'<span style=\"font-size:9px;font-weight:700;padding:1px 6px;border-radius:8px;background:#fef3c7;color:#92400e\">🔥 Hot</span>':'')
+          +'</div>'
+          +'<div style=\"font-size:12px;font-weight:500;color:#111827;line-height:1.45;margin-bottom:5px\">'+p.title+'</div>'
+          +'<div style=\"display:flex;align-items:center;gap:6px;flex-wrap:wrap\">'
+          +'<div style=\"width:17px;height:17px;border-radius:50%;background:'+p.tBg+';display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:700;color:'+p.tClr+'\">'+p.user[0]+'</div>'
+          +'<span style=\"font-size:10px;font-weight:600;color:#374151\">'+p.user+'</span>'
+          +'<span style=\"font-size:9px;padding:1px 5px;border-radius:3px;background:'+p.tBg+';color:'+p.tClr+'\">'+p.tier+'</span>'
+          +'<span style=\"font-size:10px;color:#9ca3af;margin-left:auto\"><i class=\"ti ti-message\" style=\"font-size:10px\"></i> '+p.replies+'</span>'
+          +'<span style=\"font-size:10px;color:#9ca3af\">'+p.time+'</span>'
+          +'</div></div></div></div>').join(''))
+      +'</div>';
+  }
 
-    <!-- LEFT: Profile + sections -->
-    <div style="border-right:0.5px solid #e5e7eb;background:#fff;display:flex;flex-direction:column;overflow-y:auto">
-      <div style="padding:14px;border-bottom:0.5px solid #f3f4f6">
-        <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
-          <div style="width:40px;height:40px;border-radius:50%;background:#dbeafe;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:#1e40af;flex-shrink:0">A</div>
-          <div>
-            <div style="font-size:13px;font-weight:600">Your Profile</div>
-            <div style="display:inline-flex;align-items:center;gap:3px;padding:2px 6px;border-radius:4px;background:#fef3c7;color:#92400e;font-size:10px;font-weight:500;margin-top:2px">
-              <i class="ti ti-trophy" style="font-size:10px"></i> Adaminaby Maiden
-            </div>
-          </div>
-        </div>
-        <div style="margin-bottom:6px">
-          <div style="display:flex;justify-content:space-between;font-size:10px;color:#9ca3af;margin-bottom:3px"><span>0 pts</span><span>50 pts next tier</span></div>
-          <div style="height:5px;background:#f1f5f9;border-radius:3px;overflow:hidden"><div style="width:2%;height:100%;background:#d97706;border-radius:3px"></div></div>
-        </div>
-        <div style="display:flex;gap:3px;flex-wrap:wrap">
-          <span style="font-size:8px;background:#f1f5f9;color:#6b7280;padding:2px 5px;border-radius:3px">0 pts total</span>
-          <span style="font-size:8px;background:#f1f5f9;color:#6b7280;padding:2px 5px;border-radius:3px">0 bets</span>
-          <span style="font-size:8px;background:#f1f5f9;color:#6b7280;padding:2px 5px;border-radius:3px">0 posts</span>
-        </div>
-      </div>
-      <div style="padding:10px 14px;border-bottom:0.5px solid #f3f4f6">
-        <div style="font-size:9px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Sections</div>
-        ${(function(){
-          var secs=[['ti-flame',"Today's races",'races'],['ti-bulb','Tips & analysis','tips'],['ti-trophy','Winning bets','wins'],['ti-settings','System feedback','feedback'],['ti-messages','General chat','general']];
-          return secs.map(function(s){
-            var icon=s[0],label=s[1],id=s[2];
-            var active=id==='races'?'background:#f0fdf4;font-weight:500':'';
-            return '<div onclick="setCommunitySection(\''+id+'\')" id="csec-'+id+'" style="display:flex;align-items:center;gap:7px;padding:6px 8px;border-radius:6px;cursor:pointer;color:#374151;font-size:12px;margin-bottom:1px;'+active+'">'
-              +'<i class="ti '+icon+'" style="font-size:14px;color:#00471b"></i>'+label
-              +'</div>';
-          }).join('');
-        })()}
-      </div>
-      <div style="padding:10px 14px">
-        <div style="font-size:9px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">My badges</div>
-        <div style="display:flex;flex-wrap:wrap;gap:4px">
-          ${['🏁','🎯','🔥','🌧️','📈','📚','🤝','⚡','👑','🏇'].map((b,i) =>
-            `<div style="width:26px;height:26px;border-radius:5px;${i<1?'background:#fef3c7;border:0.5px solid #fbbf24':'background:#f1f5f9;border:0.5px solid #e5e7eb'};display:flex;align-items:center;justify-content:center;font-size:13px" title="${i<1?'First Post':'Locked'}">${b}</div>`
-          ).join('')}
-        </div>
-      </div>
-    </div>
+  function lbPanel(){
+    return '<div style="background:#fff;border-bottom:0.5px solid #e5e7eb;padding:10px 14px;flex-shrink:0">'
+      +'<div style="font-size:13px;font-weight:600">Leaderboards</div>'
+      +'<div style="font-size:10px;color:#9ca3af">Resets every Monday</div></div>'
+      +'<div style="flex:1;overflow-y:auto">'
+      +'<div style="padding:12px 14px;border-bottom:0.5px solid #f3f4f6">'
+      +'<div style="font-size:10px;font-weight:700;color:#374151;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Weekly ROI</div>'
+      +lb.map(r=>'<div style=\"display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:0.5px solid #f9fafb\">'
+        +'<span style=\"font-size:13px;width:20px\">'+(r.rank===1?'🥇':r.rank===2?'🥈':r.rank===3?'🥉':r.rank)+'</span>'
+        +'<div style=\"width:26px;height:26px;border-radius:50%;background:'+r.tBg+';display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:'+r.tClr+';flex-shrink:0\">'+r.user[0]+'</div>'
+        +'<div style=\"flex:1;min-width:0\"><div style=\"font-size:11px;font-weight:600;color:#111827\">'+r.user+'</div>'
+        +'<div style=\"font-size:8px;padding:1px 4px;border-radius:2px;background:'+r.tBg+';color:'+r.tClr+';display:inline-block;margin-top:1px\">'+r.tier+'</div></div>'
+        +'<span style=\"font-size:12px;font-weight:700;color:#059669\">'+r.roi+'</span></div>').join('')
+      +'</div>'
+      +'<div style="padding:12px 14px;border-bottom:0.5px solid #f3f4f6">'
+      +'<div style="font-size:10px;font-weight:700;color:#374151;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Top Contributors</div>'
+      +lb.map(r=>'<div style=\"display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:0.5px solid #f9fafb\">'
+        +'<span style=\"font-size:10px;font-weight:600;width:18px;color:'+(r.rank<=3?'#d97706':'#9ca3af')+'\">'+r.rank+'</span>'
+        +'<div style=\"width:24px;height:24px;border-radius:50%;background:'+r.tBg+';display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:'+r.tClr+';flex-shrink:0\">'+r.user[0]+'</div>'
+        +'<span style=\"flex:1;font-size:10px;font-weight:600;color:#111827\">'+r.user+'</span>'
+        +'<span style=\"font-size:10px;color:#6b7280\">'+r.pts+' pts</span></div>').join('')
+      +'</div>'
+      +'<div style="padding:12px 14px">'
+      +'<div style="font-size:10px;font-weight:700;color:#374151;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Community Stats</div>'
+      +[['Members online','2,847','#22c55e'],['Posts today','128',null],['Total members','14,203',null]].map(([l,v,c])=>'<div style=\"display:flex;justify-content:space-between;padding:5px 0;border-bottom:0.5px solid #f9fafb;font-size:11px\"><span style=\"color:#9ca3af\">'+l+'</span><span style=\"font-weight:600;'+(c?'color:'+c:'')+'\">'+(v)+'</span></div>').join('')
+      +'</div></div>';
+  }
 
-    <!-- CENTRE: Forum -->
-    <div style="display:flex;flex-direction:column;overflow:hidden">
-      <div style="background:#fff;border-bottom:0.5px solid #e5e7eb;padding:10px 14px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0">
-        <div>
-          <div style="font-size:14px;font-weight:600">Today's races</div>
-          <div style="font-size:11px;color:#9ca3af;margin-top:1px">Discuss today's races and share analysis</div>
-        </div>
-        <button onclick="showNewPost()" style="display:inline-flex;align-items:center;gap:5px;padding:7px 12px;border-radius:6px;background:#00471b;color:#fff;border:none;font-size:11px;font-weight:600;cursor:pointer;font-family:'Space Grotesk'">
-          <i class="ti ti-pencil" style="font-size:13px"></i> New post
-        </button>
-      </div>
-      <div style="background:#fff;border-bottom:0.5px solid #e5e7eb;display:flex;padding:0 14px;flex-shrink:0">
-        ${['Hot','Latest','Top this week','Unanswered'].map((t,i) =>
-          `<div style="padding:8px 12px;font-size:11px;font-weight:${i===0?'600':'500'};color:${i===0?'#00471b':'#9ca3af'};border-bottom:2px solid ${i===0?'#00471b':'transparent'};cursor:pointer;white-space:nowrap">${t}</div>`
-        ).join('')}
-      </div>
-      <div style="background:#fafafa;border-bottom:0.5px solid #e5e7eb;padding:8px 14px;display:flex;align-items:center;gap:8px;flex-shrink:0">
-        <i class="ti ti-pin" style="font-size:14px;color:#6b21a8;flex-shrink:0"></i>
-        <div style="font-size:11px;font-weight:500;color:#374151;flex:1">Welcome to Waging War Community — share your analysis and climb the tier ladder</div>
-        <span style="font-size:10px;color:#9ca3af">Pinned</span>
-      </div>
-      <div style="flex:1;overflow-y:auto">
-        ${[
-          {user:'JPunter88',tier:'Newcastle BM84',tierBg:'#dcfce7',tierColor:'#166534',cat:'Winning bet',catBg:'#fef9c3',catColor:'#854d0e',title:'Backed Rank 1 at Flemington this morning — $8.50 — bolted in by 3 lengths',votes:89,replies:31,views:687,time:'5h ago',hot:true},
-          {user:'TrackRat_WA',tier:'Ascot Open',tierBg:'#fef3c7',tierColor:'#92400e',cat:'Tips & analysis',catBg:'#dcfce7',catColor:'#166534',title:'Track bias at Doomben today — closers dominating after rail position change',votes:47,replies:23,views:412,time:'2h ago',hot:false},
-          {user:'MeggsK',tier:'Moonee Valley Open',tierBg:'#dbeafe',tierColor:'#1e40af',cat:"Today's races",catBg:'#dbeafe',catColor:'#1e40af',title:'Doomben R6 — system Rank 1 at $12, market has it at $4.50. Value% +166%. Thoughts?',votes:34,replies:19,views:298,time:'3h ago',hot:false},
-          {user:'NewMember247',tier:'Walgett Maiden',tierBg:'#f3f4f6',tierColor:'#374151',cat:'Winning bet',catBg:'#fef9c3',catColor:'#854d0e',title:'First win with the system! Rank 2 at $6.50 at Caulfield — absolutely stoked',votes:12,replies:8,views:143,time:'1h ago',hot:false},
-          {user:'SpringCarnival',tier:'Gosford BM78',tierBg:'#f3f4f6',tierColor:'#374151',cat:'System feedback',catBg:'#f3e8ff',catColor:'#6b21a8',title:'How does the system handle horses returning from a long spell?',votes:8,replies:6,views:97,time:'2 days ago',hot:false},
-        ].map(p => `
-          <div style="display:flex;align-items:flex-start;gap:0;padding:10px 14px;border-bottom:0.5px solid #f3f4f6;cursor:pointer" onmouseover="this.style.background='#fafafa'" onmouseout="this.style.background=''">
-            <div style="display:flex;flex-direction:column;align-items:center;width:36px;flex-shrink:0;gap:1px;padding-top:2px">
-              <button style="background:none;border:none;cursor:pointer;color:#9ca3af;font-size:16px;line-height:1;padding:0" onmouseover="this.style.color='#059669'" onmouseout="this.style.color='#9ca3af'">▲</button>
-              <span style="font-size:12px;font-weight:600;color:#111827">${p.votes}</span>
-            </div>
-            <div style="flex:1;min-width:0">
-              <div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap;margin-bottom:3px">
-                <span style="font-size:9px;font-weight:600;padding:1px 6px;border-radius:3px;background:${p.catBg};color:${p.catColor}">${p.cat}</span>
-                ${p.hot?'<span style="font-size:9px;font-weight:600;padding:1px 5px;border-radius:10px;background:#fef3c7;color:#92400e">🔥 Hot</span>':''}
-              </div>
-              <div style="font-size:12px;font-weight:500;color:#111827;line-height:1.4;margin-bottom:4px">${p.title}</div>
-              <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-                <div style="width:18px;height:18px;border-radius:50%;background:${p.tierBg};display:inline-flex;align-items:center;justify-content:center;font-size:8px;font-weight:600;color:${p.tierColor}">${p.user[0]}</div>
-                <span style="font-size:10px;font-weight:500">${p.user}</span>
-                <span style="font-size:9px;padding:1px 5px;border-radius:3px;background:${p.tierBg};color:${p.tierColor}">${p.tier}</span>
-                <span style="font-size:10px;color:#9ca3af"><i class="ti ti-message" style="font-size:10px"></i> ${p.replies}</span>
-                <span style="font-size:10px;color:#9ca3af"><i class="ti ti-eye" style="font-size:10px"></i> ${p.views}</span>
-                <span style="font-size:10px;color:#9ca3af">${p.time}</span>
-              </div>
-            </div>
-            <div style="background:#f1f5f9;border-radius:6px;padding:5px 8px;text-align:center;min-width:40px;flex-shrink:0;margin-left:8px">
-              <div style="font-size:13px;font-weight:600;line-height:1">${p.replies}</div>
-              <div style="font-size:8px;color:#9ca3af">replies</div>
-            </div>
-          </div>
-        `).join('')}
-      </div>
-    </div>
+  function profPanel(){
+    return '<div style="background:#fff;border-bottom:0.5px solid #e5e7eb;padding:10px 14px;flex-shrink:0"><div style="font-size:13px;font-weight:600">My Profile</div></div>'
+      +'<div style="flex:1;overflow-y:auto;padding:14px">'
+      +'<div style="background:#1a2634;border-radius:12px;padding:16px;margin-bottom:12px">'
+      +'<div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">'
+      +'<div style="width:48px;height:48px;border-radius:50%;background:#dbeafe;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700;color:#1e40af">'+initial+'</div>'
+      +'<div><div style="font-size:14px;font-weight:700;color:#fff">'+(u.name||'Member')+'</div>'
+      +'<div style="font-size:9px;padding:2px 8px;border-radius:4px;background:#fef3c7;color:#92400e;font-weight:700;display:inline-block;margin-top:3px">🐴 '+currentTier.name+'</div></div></div>'
+      +'<div style="height:5px;background:rgba(255,255,255,.1);border-radius:3px;overflow:hidden;margin-bottom:4px"><div style="width:'+pctToNext+'%;height:100%;background:#fbbf24;border-radius:3px"></div></div>'
+      +'<div style="font-size:9px;color:rgba(255,255,255,.4)">'+(nextTier.pts-userPts).toLocaleString()+' pts to '+nextTier.name+'</div></div>'
+      +'<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:12px">'
+      +[['0','Pts'],['0','Bets'],['0','Posts']].map(([v,l])=>'<div style=\"background:#fff;border:0.5px solid #e5e7eb;border-radius:8px;padding:10px;text-align:center\"><div style=\"font-size:16px;font-weight:700;color:#111827;font-family:JetBrains Mono,monospace\">'+v+'</div><div style=\"font-size:9px;color:#9ca3af;margin-top:2px\">'+l+'</div></div>').join('')
+      +'</div>'
+      +'<div style="background:#fff;border:0.5px solid #e5e7eb;border-radius:10px;overflow:hidden">'
+      +'<div style="padding:10px 12px;border-bottom:0.5px solid #f3f4f6;font-size:10px;font-weight:700;color:#374151;text-transform:uppercase;letter-spacing:.5px">My Badges</div>'
+      +'<div style="padding:12px;display:flex;flex-wrap:wrap;gap:8px">'
+      +badges.map(b=>'<div title=\"'+b.name+'\" style=\"width:34px;height:34px;border-radius:6px;background:#f1f5f9;border:0.5px solid #e5e7eb;display:flex;align-items:center;justify-content:center;font-size:17px;opacity:0.3;cursor:pointer\">'+b.icon+'</div>').join('')
+      +'</div><div style=\"padding:0 12px 12px;font-size:10px;color:#9ca3af;line-height:1.5\">Log bets, post in the community and hit milestones to unlock badges.</div>'
+      +'</div></div>';
+  }
 
-    <!-- RIGHT: Leaderboards -->
-    <div style="border-left:0.5px solid #e5e7eb;background:#fff;overflow-y:auto;display:flex;flex-direction:column;gap:0">
-      <div style="padding:12px 14px;border-bottom:0.5px solid #f3f4f6">
-        <div style="font-size:10px;font-weight:700;color:#374151;text-transform:uppercase;letter-spacing:.5px;margin-bottom:2px">Weekly ROI</div>
-        <div style="font-size:9px;color:#9ca3af;margin-bottom:8px">Min 5 bets · resets Monday</div>
-        ${[
-          {rank:1,user:'TrackRat_WA',tier:'Ascot Open',roi:'+184%',tierBg:'#fef3c7',tierColor:'#92400e'},
-          {rank:2,user:'JPunter88',tier:'Newcastle BM84',roi:'+147%',tierBg:'#dcfce7',tierColor:'#166534'},
-          {rank:3,user:'MeggsK',tier:'Moonee Valley',roi:'+122%',tierBg:'#dbeafe',tierColor:'#1e40af'},
-          {rank:4,user:'DoombenDaily',tier:'Gold Coast BM84',roi:'+71%',tierBg:'#f3f4f6',tierColor:'#374151'},
-          {rank:5,user:'SpringCarnival',tier:'Gosford BM78',roi:'+44%',tierBg:'#f3f4f6',tierColor:'#374151'},
-        ].map(r => `
-          <div style="display:flex;align-items:center;gap:6px;padding:5px 0;border-bottom:0.5px solid #f9fafb">
-            <span style="font-size:10px;font-weight:600;width:14px;text-align:center;color:${r.rank<=3?'#d97706':'#9ca3af'}">${r.rank}</span>
-            <div style="width:22px;height:22px;border-radius:50%;background:${r.tierBg};display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:600;color:${r.tierColor};flex-shrink:0">${r.user[0]}</div>
-            <div style="flex:1;min-width:0">
-              <div style="font-size:10px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${r.user}</div>
-              <div style="font-size:8px;padding:0 4px;border-radius:2px;background:${r.tierBg};color:${r.tierColor};display:inline-block;margin-top:1px">${r.tier}</div>
-            </div>
-            <span style="font-size:10px;font-weight:700;color:#059669;flex-shrink:0">${r.roi}</span>
-          </div>
-        `).join('')}
-      </div>
-      <div style="padding:12px 14px;border-bottom:0.5px solid #f3f4f6">
-        <div style="font-size:10px;font-weight:700;color:#374151;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Top contributors</div>
-        ${[
-          {rank:1,user:'TrackRat_WA',pts:'+2,840',tierBg:'#fef3c7',tierColor:'#92400e'},
-          {rank:2,user:'JPunter88',pts:'+1,920',tierBg:'#dcfce7',tierColor:'#166534'},
-          {rank:3,user:'MeggsK',pts:'+1,540',tierBg:'#dbeafe',tierColor:'#1e40af'},
-          {rank:4,user:'DoombenDaily',pts:'+890',tierBg:'#f3f4f6',tierColor:'#374151'},
-        ].map(r => `
-          <div style="display:flex;align-items:center;gap:6px;padding:5px 0;border-bottom:0.5px solid #f9fafb">
-            <span style="font-size:10px;font-weight:600;width:14px;text-align:center;color:${r.rank<=3?'#d97706':'#9ca3af'}">${r.rank}</span>
-            <div style="width:22px;height:22px;border-radius:50%;background:${r.tierBg};display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:600;color:${r.tierColor};flex-shrink:0">${r.user[0]}</div>
-            <span style="flex:1;font-size:10px;font-weight:600">${r.user}</span>
-            <span style="font-size:10px;color:#6b7280">${r.pts}</span>
-          </div>
-        `).join('')}
-      </div>
-      <div style="padding:12px 14px">
-        <div style="font-size:10px;font-weight:700;color:#374151;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Community stats</div>
-        ${[['Members online','2,847','#22c55e'],['Posts today','128',null],['Total members','14,203',null]].map(([l,v,c]) =>
-          `<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:0.5px solid #f9fafb;font-size:11px">
-            <span style="color:#9ca3af">${l}</span>
-            <span style="font-weight:600;${c?'color:'+c:''}">${v}</span>
-          </div>`
-        ).join('')}
-      </div>
-    </div>
-  </div>`;
+  const mobTabs=[['feed','ti-layout-list','Feed'],['leaderboard','ti-trophy','Leaderboard'],['profile','ti-user','Profile']];
+
+  if(isMob){
+    main.innerHTML='<div style=\"display:flex;flex-direction:column;height:100%;overflow:hidden\">'
+      +pCard(true)
+      +'<div style=\"background:#fff;border-bottom:0.5px solid #e5e7eb;display:flex;flex-shrink:0\">'
+      +mobTabs.map(([id,icon,label])=>'<div onclick=\"setCommunityTab(\\''+id+'\\')\" style=\"flex:1;display:flex;flex-direction:column;align-items:center;padding:8px 4px;cursor:pointer;border-bottom:2px solid '+(at===id?'#00471b':'transparent')+'\">'
+        +'<i class=\"ti '+icon+'\" style=\"font-size:16px;color:'+(at===id?'#00471b':'#9ca3af')+'\"></i>'
+        +'<span style=\"font-size:9px;font-weight:600;color:'+(at===id?'#00471b':'#9ca3af')+';margin-top:2px\">'+label+'</span></div>').join('')
+      +'</div>'
+      +'<div style=\"flex:1;overflow:hidden;display:flex;flex-direction:column\">'
+      +(at==='feed'?feedPanel():at==='leaderboard'?lbPanel():profPanel())
+      +'</div></div>';
+  } else {
+    main.innerHTML='<div style=\"display:grid;grid-template-columns:220px 1fr 240px;height:100%;overflow:hidden\">'
+      +'<div style=\"border-right:0.5px solid #e5e7eb;background:#fff;display:flex;flex-direction:column;overflow-y:auto\">'
+      +pCard(false)
+      +'<div style=\"padding:10px 14px;border-bottom:0.5px solid #f3f4f6\">'
+      +'<div style=\"font-size:9px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px\">Sections</div>'
+      +sections.map(s=>'<div onclick=\"communityFilter(\\''+s.id+'\\')\" style=\"display:flex;align-items:center;gap:7px;padding:6px 8px;border-radius:6px;cursor:pointer;font-size:12px;margin-bottom:1px;'+(af===s.id?'background:#f0fdf4;color:#00471b;font-weight:600':'color:#374151')+'\">'
+        +'<i class=\"ti '+s.icon+'\" style=\"font-size:14px;color:'+(af===s.id?'#00471b':'#9ca3af')+'\">&zwj;</i>'+s.label.replace(/'/g,"\'")+'</div>').join('')
+      +'</div>'
+      +'<div style=\"padding:10px 14px\">'
+      +'<div style=\"font-size:9px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px\">My Badges</div>'
+      +'<div style=\"display:flex;flex-wrap:wrap;gap:4px\">'
+      +badges.map(b=>'<div title=\"'+b.name+'\" style=\"width:28px;height:28px;border-radius:5px;background:#f1f5f9;border:0.5px solid #e5e7eb;display:flex;align-items:center;justify-content:center;font-size:14px;opacity:0.3;cursor:pointer\">'+b.icon+'</div>').join('')
+      +'</div></div></div>'
+      +'<div style=\"display:flex;flex-direction:column;overflow:hidden\">'+feedPanel()+'</div>'
+      +'<div style=\"border-left:0.5px solid #e5e7eb;background:#fff;display:flex;flex-direction:column;overflow:hidden\">'+lbPanel()+'</div>'
+      +'</div>';
+  }
 }
+function setCommunityTab(tab){window._communityMobTab=tab;showCommunity();}
+function communityFilter(s){window._communityFilter=s;window._communityMobTab='feed';showCommunity();}
+function showNewPost(){if(!currentUser){openLoginModal();return;}toast('Forum posting coming in the next update','success');}
 
-function showNewPost() { toast('Forum posting coming soon'); }
-function setCommunitySection(id) { showCommunity(); }
+// ── COMPETITIONS PAGE ──
+function showCompetitions(){
+  const main=document.getElementById('main');
+  const at=window._compTab||'this-week';
+  const races=[
+    {meeting:'Flemington',race:'R5',time:'2:30pm',dist:'1200m',cls:'BM84',rank1:'Sideshow Frankie'},
+    {meeting:'Randwick',race:'R7',time:'3:10pm',dist:'1600m',cls:'Open',rank1:'Ocean Chill'},
+    {meeting:'Doomben',race:'R4',time:'1:45pm',dist:'1050m',cls:'BM78',rank1:'Walsh Bay'},
+    {meeting:'Caulfield',race:'R6',time:'3:50pm',dist:'2000m',cls:'Listed',rank1:'Falcon Lair'},
+    {meeting:'Eagle Farm',race:'R3',time:'1:10pm',dist:'1400m',cls:'BM72',rank1:'The Exponent'},
+    {meeting:'Moonee Valley',race:'R8',time:'4:30pm',dist:'1600m',cls:'Group 3',rank1:'Viminele'},
+  ];
+  const lb=[
+    {rank:1,user:'TrackRat_WA',tier:'Ascot Open',tBg:'#fef3c7',tClr:'#92400e',pts:14,picks:['✓','✓','✗','✓','✓','✗']},
+    {rank:2,user:'MeggsK',tier:'Moonee Valley',tBg:'#dbeafe',tClr:'#1e40af',pts:11,picks:['✓','✗','✓','✓','✗','✓']},
+    {rank:3,user:'JPunter88',tier:'Newcastle BM84',tBg:'#dcfce7',tClr:'#166534',pts:9,picks:['✓','✓','✗','✗','✓','✗']},
+    {rank:4,user:'DoombenDaily',tier:'Gold Coast BM84',tBg:'#f3f4f6',tClr:'#374151',pts:6,picks:['✗','✓','✓','✗','✗','✗']},
+    {rank:5,user:'SpringCarnival',tier:'Gosford BM78',tBg:'#f3f4f6',tClr:'#374151',pts:4,picks:['✗','✗','✓','✗','✗','✓']},
+  ];
 
+  var picksHTML='<div style=\"flex:1;overflow-y:auto;padding:14px\">'
+    +'<div style=\"background:#fff;border:0.5px solid #e5e7eb;border-radius:10px;overflow:hidden;margin-bottom:12px\">'
+    +'<div style=\"background:#1a2634;padding:10px 14px;display:flex;align-items:center;justify-content:space-between\">'
+    +'<div><div style=\"font-size:13px;font-weight:600;color:#fff\">Saturday Comp</div>'
+    +'<div style=\"font-size:10px;color:rgba(255,255,255,.5);margin-top:1px\">Pick a horse in each race &amp;middot; 3pts 1st &amp;middot; 2pts 2nd &amp;middot; 1pt 3rd</div></div>'
+    +'<div style=\"text-align:right\"><div style=\"font-size:9px;color:rgba(255,255,255,.5)\">Entries close</div><div style=\"font-size:12px;font-weight:700;color:#fbbf24\">Sat 9:00am</div></div></div>'
+    +'<div style=\"padding:10px 14px;background:#fef9c3;border-bottom:0.5px solid #fde68a;display:flex;align-items:center;gap:6px\">'
+    +'<i class=\"ti ti-trophy\" style=\"font-size:13px;color:#d97706\"></i>'
+    +'<span style=\"font-size:10px;color:#92400e;font-weight:500\">Top 3 earn bonus community points: 500 &amp;middot; 300 &amp;middot; 200 pts</span></div>'
+    +'<div style=\"padding:8px 0\">'
+    +races.map((r,i)=>'<div style=\"padding:10px 14px;border-bottom:0.5px solid #f3f4f6;display:flex;align-items:center;gap:10px\">'
+      +'<div style=\"width:28px;height:28px;border-radius:50%;background:#f1f5f9;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#374151;flex-shrink:0\">'+(i+1)+'</div>'
+      +'<div style=\"flex:1;min-width:0\">'
+      +'<div style=\"font-size:12px;font-weight:600;color:#111827\">'+r.meeting+' '+r.race+'</div>'
+      +'<div style=\"font-size:10px;color:#9ca3af\">'+r.time+' &amp;middot; '+r.dist+' &amp;middot; '+r.cls+'</div>'
+      +'<div style=\"font-size:10px;color:#059669;margin-top:2px\">System R1: <span style=\"font-weight:600\">'+r.rank1+'</span></div></div>'
+      +'<select style=\"padding:5px 8px;border:0.5px solid #d1d5db;border-radius:6px;font-size:11px;color:#111827;background:#fff\">'
+      +'<option value=\"\">Pick horse...</option>'
+      +'<option value=\"r1\">'+r.rank1+' (R1)</option>'
+      +'<option value=\"other\">Other horse</option>'
+      +'</select></div>').join('')
+    +'</div>'
+    +'<div style=\"padding:12px 14px;border-top:0.5px solid #f3f4f6\">'
+    +'<button onclick=\"toast(\'Picks submitted! Good luck 🏇\',\'success\')\" style=\"width:100%;padding:11px;background:#00471b;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer\">Submit My Picks</button>'
+    +'</div></div></div>';
 
+  var lbHTML='<div style=\"flex:1;overflow-y:auto;padding:14px\">'
+    +'<div style=\"background:#fff;border:0.5px solid #e5e7eb;border-radius:10px;overflow:hidden\">'
+    +'<div style=\"padding:10px 14px;border-bottom:0.5px solid #f3f4f6;display:flex;align-items:center;justify-content:space-between\">'
+    +'<div style=\"font-size:12px;font-weight:600;color:#374151\">This Week</div>'
+    +'<div style=\"font-size:9px;color:#9ca3af\">Resets Monday</div></div>'
+    +lb.map(r=>'<div style=\"padding:10px 14px;border-bottom:0.5px solid #f3f4f6;display:flex;align-items:center;gap:10px\">'
+      +'<span style=\"font-size:15px;width:24px\">'+(r.rank===1?'🥇':r.rank===2?'🥈':r.rank===3?'🥉':r.rank)+'</span>'
+      +'<div style=\"width:30px;height:30px;border-radius:50%;background:'+r.tBg+';display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:'+r.tClr+';flex-shrink:0\">'+r.user[0]+'</div>'
+      +'<div style=\"flex:1;min-width:0\"><div style=\"font-size:12px;font-weight:600;color:#111827\">'+r.user+'</div>'
+      +'<div style=\"font-size:9px;padding:1px 5px;border-radius:3px;background:'+r.tBg+';color:'+r.tClr+';display:inline-block;margin-top:1px\">'+r.tier+'</div></div>'
+      +'<div style=\"display:flex;gap:3px;flex-wrap:wrap;justify-content:flex-end;max-width:90px\">'
+      +r.picks.map(p=>'<span style=\"font-size:9px;font-weight:700;color:'+(p==='✓'?'#059669':'#dc2626')+';width:14px;text-align:center\">'+p+'</span>').join('')
+      +'</div>'
+      +'<div style=\"text-align:right;flex-shrink:0;min-width:36px\">'
+      +'<div style=\"font-size:14px;font-weight:700;color:#111827;font-family:JetBrains Mono,monospace\">'+r.pts+'</div>'
+      +'<div style=\"font-size:9px;color:#9ca3af\">pts</div></div></div>').join('')
+    +'</div></div>';
+
+  var howHTML='<div style=\"flex:1;overflow-y:auto;padding:14px\">'
+    +[['🏇','Pick 6 races','Every Saturday we select 6 races from major metro meetings. Pick one horse per race — system Rank 1 or your own selection.'],
+      ['🏆','Score points','3 pts for 1st · 2 pts for 2nd · 1 pt for 3rd. Maximum 18 points per week.'],
+      ['📅','Entries close Saturday 9am','Submit your picks before 9am AEST Saturday. The leaderboard updates in real time as races run.'],
+      ['🎖️','Win community points','Top 3 earn bonus tier points: 500 for 1st · 300 for 2nd · 200 for 3rd.'],
+      ['🆓','Free to enter','The Saturday Comp is free for all registered users. Bragging rights and community points only.'],
+    ].map(([icon,title,desc])=>'<div style=\"background:#fff;border:0.5px solid #e5e7eb;border-radius:10px;padding:14px;margin-bottom:8px;display:flex;gap:12px\">'
+      +'<div style=\"font-size:24px;flex-shrink:0\">'+icon+'</div>'
+      +'<div><div style=\"font-size:13px;font-weight:600;color:#111827;margin-bottom:4px\">'+title+'</div>'
+      +'<div style=\"font-size:11px;color:#6b7280;line-height:1.6\">'+desc+'</div></div></div>').join('')
+    +'</div>';
+
+  const tabs=[['this-week','This Week'],['leaderboard','Leaderboard'],['how','How It Works']];
+  main.innerHTML='<div style=\"display:flex;flex-direction:column;height:100%;overflow:hidden\">'
+    +'<div style=\"background:#fff;border-bottom:0.5px solid #e5e7eb;padding:10px 14px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0\">'
+    +'<div><div style=\"font-size:15px;font-weight:700;color:#111827\">Saturday Comp</div>'
+    +'<div style=\"font-size:10px;color:#9ca3af;margin-top:1px\">Free weekly competition &amp;middot; pick your horses &amp;middot; climb the leaderboard</div></div>'
+    +'<div style=\"display:flex;align-items:center;padding:5px 10px;border-radius:8px;background:#f0fdf4;border:0.5px solid #86efac\">'
+    +'<span style=\"font-size:9px;font-weight:700;color:#166534\">FREE ENTRY</span></div></div>'
+    +'<div style=\"background:#fff;border-bottom:0.5px solid #e5e7eb;display:flex;padding:0 14px;flex-shrink:0\">'
+    +tabs.map(([id,label])=>'<div onclick=\"setCompTab(\\''+id+'\\')\" style=\"padding:9px 12px;font-size:11px;font-weight:'+(at===id?600:500)+';color:'+(at===id?'#00471b':'#9ca3af')+';border-bottom:2px solid '+(at===id?'#00471b':'transparent')+';cursor:pointer;white-space:nowrap\">'+label+'</div>').join('')
+    +'</div>'
+    +(at==='this-week'?picksHTML:at==='leaderboard'?lbHTML:howHTML)
+    +'</div>';
+}
+function setCompTab(tab){window._compTab=tab;showCompetitions();}
 
 // ── BLACKBOOK PAGE ──
 function showBlackbook() {
