@@ -1,4 +1,4 @@
-<!-- WAGING WAR-BUILD-1780132014 -->
+<!-- WAGING WAR-BUILD-1780132692 -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -945,6 +945,61 @@ function onCSVLoaded(fname) {
   mobBuildSelectors();
   navTo('races');
   initResultsFetch();
+  pushTodayMeetingsToSupabase();
+}
+
+function pushTodayMeetingsToSupabase() {
+  var venues = Object.keys(allVenues || {});
+  if (!venues.length) return;
+  var today = new Date().toISOString().slice(0, 10);
+  var nzVenues = ['ELLERSLIE','OTAKI','RICCARTON','TRENTHAM','MATAMATA','HASTINGS',
+    'ROTORUA','TE RAPA','RUAKAKA','WANGANUI','NEW PLYMOUTH','GORE','WINGATUI',
+    'ASHBURTON','INVERCARGILL','TIMARU','CAMBRIDGE','TE AROHA','AWAPUNI'];
+  var stateMap = {
+    'DOOMBEN':'QLD','EAGLE FARM':'QLD','GOLD COAST':'QLD','GOLD COAST POLY':'QLD',
+    'SUNSHINE COAST':'QLD','TOOWOOMBA':'QLD','IPSWICH':'QLD','ROCKHAMPTON':'QLD',
+    'TOWNSVILLE':'QLD','CAIRNS':'QLD','MACKAY':'QLD','EMERALD':'QLD','MOUNT ISA':'QLD',
+    'HOME HILL':'QLD','GRAFTON':'QLD','CHARTERS TOWERS':'QLD','LONGREACH':'QLD',
+    'RANDWICK':'NSW','ROSEHILL':'NSW','WARWICK FARM':'NSW','CANTERBURY':'NSW',
+    'KEMBLA GRANGE':'NSW','GOSFORD':'NSW','HAWKESBURY':'NSW','NEWCASTLE':'NSW',
+    'TAMWORTH':'NSW','WAGGA WAGGA':'NSW','DUBBO':'NSW','ORANGE':'NSW','SCONE':'NSW',
+    'ARMIDALE':'NSW','TAREE':'NSW','COFFS HARBOUR':'NSW','LISMORE':'NSW','ALBURY':'NSW',
+    'FLEMINGTON':'VIC','CAULFIELD':'VIC','MOONEE VALLEY':'VIC','SANDOWN':'VIC',
+    'PAKENHAM':'VIC','GEELONG':'VIC','BALLARAT':'VIC','BENDIGO':'VIC','ECHUCA':'VIC',
+    'WODONGA':'VIC','WANGARATTA':'VIC','MILDURA':'VIC','WARRNAMBOOL':'VIC','SALE':'VIC',
+    'MORPHETTVILLE':'SA','MORPHETTVILLE PARKS':'SA','GAWLER':'SA','MURRAY BRIDGE':'SA',
+    'MOUNT GAMBIER':'SA','BALAKLAVA':'SA',
+    'ASCOT':'WA','BELMONT':'WA','PINJARRA':'WA','BUNBURY':'WA','KALGOORLIE':'WA',
+    'GERALDTON':'WA','NORTHAM':'WA','ALBANY':'WA','BROOME':'WA',
+    'HOBART':'TAS','LAUNCESTON':'TAS','SPREYTON':'TAS','DEVONPORT':'TAS',
+    'DARWIN':'NT','ALICE SPRINGS':'NT','TENNANT CREEK':'NT',
+    'THOROUGHBRED PARK':'ACT',
+  };
+  var rows = [];
+  venues.forEach(function(venue) {
+    var v = venue.toUpperCase().trim();
+    if (nzVenues.indexOf(v) >= 0) return;
+    rows.push({ date: today, venue: v, state: stateMap[v] || 'QLD' });
+  });
+  if (!rows.length) return;
+  fetch(SUPABASE_URL + '/rest/v1/today_meetings', {
+    method: 'POST',
+    headers: {
+      'apikey': SUPABASE_ANON_KEY,
+      'Authorization': 'Bearer ' + SUPABASE_ANON_KEY,
+      'Content-Type': 'application/json',
+      'Prefer': 'resolution=merge-duplicates'
+    },
+    body: JSON.stringify(rows)
+  })
+  .then(function(r) {
+    if (r.ok) {
+      console.log('[Meetings] Pushed ' + rows.length + ' venues to Supabase: ' + venues.filter(function(v){return nzVenues.indexOf(v.toUpperCase())<0;}).join(', '));
+    } else {
+      r.text().then(function(t){ console.warn('[Meetings] Push failed:', t); });
+    }
+  })
+  .catch(function(e){ console.warn('[Meetings] Error:', e.message); });
 }
 
 // ── RACE RENDER (override to update sidebar) ──
