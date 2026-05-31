@@ -277,7 +277,7 @@ body{background:#f1f5f9;color:#111827;font-family:'Space Grotesk',sans-serif;fon
   /* Bottom tab bar */
   #mob-tab-bar{display:flex;position:fixed;bottom:0;left:0;right:0;background:#00471b;border-top:1px solid rgba(255,255,255,.1);z-index:1000;height:56px;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}
   #mob-tab-bar::-webkit-scrollbar{display:none}
-  .mob-tab{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:4px 2px;color:rgba(255,255,255,.45);font-size:9px;font-weight:600;white-space:nowrap;cursor:pointer;border-top:2px solid transparent;height:100%;font-family:'Space Grotesk';letter-spacing:.3px;transition:color .15s}
+  .mob-tab{flex:1;min-width:52px;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:4px 2px;color:rgba(255,255,255,.45);font-size:9px;font-weight:600;white-space:nowrap;cursor:pointer;border-top:2px solid transparent;height:100%;font-family:'Space Grotesk';letter-spacing:.3px;transition:color .15s}
   .mob-tab.active{color:#fbbf24;border-top-color:#fbbf24}
   #mob-csv-strip{display:flex;align-items:center;gap:8px;padding:4px 10px;background:#00471b;border-bottom:1px solid #003314;font-size:9px}
   .mob-csv-label{color:rgba(255,255,255,.7);cursor:pointer;display:flex;align-items:center;gap:4px}
@@ -1549,10 +1549,14 @@ function showLockedModal(feature) {
   toast(names[feature] + ' — coming soon. Requires PuntingForm integration.');
 }
 
+function normHorseName(name) {
+  return (name||'').toUpperCase().replace(/\s*\([A-Z]+\)\s*$/,'').trim();
+}
+
 function buildRaceResultsPanel(rc, res, scoredResults) {
   var sysRankMap = {};
   if (scoredResults && scoredResults.length) {
-    scoredResults.forEach(function(r, i) { sysRankMap[(r.name||'').toUpperCase()] = i + 1; });
+    scoredResults.forEach(function(r, i) { sysRankMap[normHorseName(r.name)] = i + 1; });
   } else {
     var csvKey = (rc.venue||'').toUpperCase().replace(/\s+/g,'_') + '_R' + rc.num;
     var csvRace = allRaces[csvKey];
@@ -1560,7 +1564,7 @@ function buildRaceResultsPanel(rc, res, scoredResults) {
       var sc2 = csvRace.horses.filter(function(h){ return !h.scratched; });
       var sc2s = sc2.map(function(h){ return {h:h, s:scoreHorse(h).total}; });
       sc2s.sort(function(a,b){ return b.s - a.s; });
-      sc2s.forEach(function(x,i){ sysRankMap[(x.h.name||'').toUpperCase()] = i+1; });
+      sc2s.forEach(function(x,i){ sysRankMap[normHorseName(x.h.name)] = i+1; });
     }
   }
   var hasSysRank = Object.keys(sysRankMap).length > 0;
@@ -1593,7 +1597,7 @@ function buildRaceResultsPanel(rc, res, scoredResults) {
     var isTop3 = p <= 3;
     var pbClass = p===1?'res-pb-1':p===2?'res-pb-2':p===3?'res-pb-3':'res-pb-n';
     var rowBg = p===1?'#fffbeb':p===2?'#f8fafc':p===3?'#fdf4ff':'#fff';
-    var sysRank = sysRankMap[(r.name||'').toUpperCase()] || null;
+    var sysRank = sysRankMap[normHorseName(r.name)] || null;
     var rkClass = sysRank===1?'rk1':sysRank===2?'rk2':sysRank===3?'rk3':'rkn';
     var rank1Won = hasSysRank && p===1 && sysRank===1;
     var rank1Lost = hasSysRank && p>3 && sysRank===1;
@@ -2009,7 +2013,7 @@ function buildResultsDetail(venue, raceData) {
     var sc3 = csvRace.horses.filter(function(h){ return !h.scratched; });
     var sc3s = sc3.map(function(h){ return {h:h, s:scoreHorse(h).total}; });
     sc3s.sort(function(a,b){ return b.s - a.s; });
-    sc3s.forEach(function(x,i){ sysRankMap[(x.h.name||'').toUpperCase()] = i+1; });
+    sc3s.forEach(function(x,i){ sysRankMap[normHorseName(x.h.name)] = i+1; });
   }
   var hasSysRank = Object.keys(sysRankMap).length > 0;
 
@@ -2036,7 +2040,7 @@ function buildResultsDetail(venue, raceData) {
     var isTop3 = p <= 3;
     var pbClass = p===1?'res-pb-1':p===2?'res-pb-2':p===3?'res-pb-3':'res-pb-n';
     var rowBg = p===1?'#fffbeb':p===2?'#f8fafc':p===3?'#fdf4ff':'#fff';
-    var sysRank = sysRankMap[(r.name||'').toUpperCase()] || null;
+    var sysRank = sysRankMap[normHorseName(r.name)] || null;
     var rkClass = sysRank===1?'rk1':sysRank===2?'rk2':sysRank===3?'rk3':'rkn';
     var rank1Won = hasSysRank && p===1 && sysRank===1;
     var rank1Lost = hasSysRank && p>3 && sysRank===1;
@@ -2069,15 +2073,6 @@ function buildResultsDetail(venue, raceData) {
   html += '</div>';
   return html;
 }
-
-  // Panel header
-  html += '<div style="background:#1e2936;padding:8px 12px;border-radius:8px 8px 0 0;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:4px;">';
-  html += '<span style="font-size:11px;font-weight:700;color:#fff;text-transform:uppercase;letter-spacing:.8px;">'+venue+' R'+raceData.raceNum+' — Results <span style="background:#22c55e;color:#fff;font-size:8px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px;">OFFICIAL</span></span>';
-  html += '<div style="font-size:10px;color:rgba(255,255,255,.5);display:flex;gap:10px;">';
-  if (res.raceTime) html += '<span>'+res.raceTime+'</span>';
-  if (res.trackCond) html += '<span>'+res.trackCond+'</span>';
-  if (res.dist) html += '<span>'+res.dist+'</span>';
-  html += '</div></div>';
 
 function showPaceMapPage() {
   const main = document.getElementById('main');
