@@ -525,8 +525,9 @@ document.addEventListener('DOMContentLoaded', function() {
             var cs = document.getElementById('mob-csv-strip');
             if (cs) cs.style.display = 'flex';
           }
-          // Navigate to pending page or races after sign in
-          var dest = window._pendingNav || 'races';
+          // Navigate to pending page or last visited page after sign in
+          var dest = window._pendingNav;
+          if (!dest) { try { dest = localStorage.getItem('ww_last_page') || 'races'; } catch(e){ dest = 'races'; } }
           window._pendingNav = null;
           navTo(dest);
         } else {
@@ -1584,12 +1585,12 @@ function buildRaceResultsPanel(rc, res, scoredResults) {
 
   // Table
   html += '<table style="width:100%;border-collapse:collapse;table-layout:auto;">';
-  html += '<thead><tr style="background:#f8fafc;border-bottom:1px solid #e5e7eb;">';
-  html += '<th style="padding:3px 6px;font-size:7px;font-weight:600;color:#9ca3af;text-align:center;width:28px;">POS</th>';
-  html += '<th style="padding:3px 6px;font-size:7px;font-weight:600;color:#9ca3af;text-align:left;">HORSE</th>';
-  if (hasSysRank) html += '<th style="padding:3px 6px;font-size:7px;font-weight:600;color:#9ca3af;text-align:center;width:36px;">RANK</th>';
-  html += '<th style="padding:3px 6px;font-size:7px;font-weight:600;color:#9ca3af;text-align:right;width:54px;">SP</th>';
-  html += '<th style="padding:3px 6px;font-size:7px;font-weight:600;color:#9ca3af;text-align:right;width:50px;">MARGIN</th>';
+  html += '<thead><tr style="background:#f1f5f9;border-bottom:1px solid #e5e7eb;">';
+  html += '<th style="padding:4px 6px;font-size:9px;font-weight:700;color:#374151;text-align:center;width:28px;">POS</th>';
+  html += '<th style="padding:4px 6px;font-size:9px;font-weight:700;color:#374151;text-align:left;">HORSE</th>';
+  if (hasSysRank) html += '<th style="padding:4px 6px;font-size:9px;font-weight:700;color:#374151;text-align:center;width:36px;">RANK</th>';
+  html += '<th style="padding:4px 6px;font-size:9px;font-weight:700;color:#374151;text-align:right;width:54px;">SP</th>';
+  html += '<th style="padding:4px 6px;font-size:9px;font-weight:700;color:#374151;text-align:right;width:54px;">MARGIN</th>';
   html += '</tr></thead><tbody>';
 
   res.runners.forEach(function(r) {
@@ -2027,12 +2028,12 @@ function buildResultsDetail(venue, raceData) {
   html += '</div></div>';
 
   html += '<table style="width:100%;border-collapse:collapse;table-layout:auto;border:0.5px solid #e5e7eb;border-top:none;border-radius:0 0 8px 8px;overflow:hidden;">';
-  html += '<thead><tr style="background:#f8fafc;border-bottom:1px solid #e5e7eb;">';
-  html += '<th style="padding:3px 8px;font-size:7px;font-weight:600;color:#9ca3af;text-align:center;width:28px;">POS</th>';
-  html += '<th style="padding:3px 8px;font-size:7px;font-weight:600;color:#9ca3af;text-align:left;">HORSE</th>';
-  if (hasSysRank) html += '<th style="padding:3px 8px;font-size:7px;font-weight:600;color:#9ca3af;text-align:center;width:38px;">RANK</th>';
-  html += '<th style="padding:3px 8px;font-size:7px;font-weight:600;color:#9ca3af;text-align:right;width:54px;">SP</th>';
-  html += '<th style="padding:3px 8px;font-size:7px;font-weight:600;color:#9ca3af;text-align:right;width:54px;">MARGIN</th>';
+  html += '<thead><tr style="background:#f1f5f9;border-bottom:1px solid #e5e7eb;">';
+  html += '<th style="padding:4px 8px;font-size:9px;font-weight:700;color:#374151;text-align:center;width:28px;">POS</th>';
+  html += '<th style="padding:4px 8px;font-size:9px;font-weight:700;color:#374151;text-align:left;">HORSE</th>';
+  if (hasSysRank) html += '<th style="padding:4px 8px;font-size:9px;font-weight:700;color:#374151;text-align:center;width:38px;">RANK</th>';
+  html += '<th style="padding:4px 8px;font-size:9px;font-weight:700;color:#374151;text-align:right;width:54px;">SP</th>';
+  html += '<th style="padding:4px 8px;font-size:9px;font-weight:700;color:#374151;text-align:right;width:54px;">MARGIN</th>';
   html += '</tr></thead><tbody>';
 
   res.runners.forEach(function(r) {
@@ -6870,7 +6871,13 @@ document.addEventListener('DOMContentLoaded',function(){
       if(!card.contains(e.target)) hideHorseForm();
     }
   });
-  // Restore last page when tab becomes visible again
+  // Restore last page when returning via browser navigation
+  window.addEventListener('pageshow', function(e){
+    try {
+      var lastPage = localStorage.getItem('ww_last_page');
+      if (lastPage && lastPage !== currentPage) navTo(lastPage);
+    } catch(e2){}
+  });
   document.addEventListener('visibilitychange', function(){
     if (document.visibilityState === 'visible') {
       try {
