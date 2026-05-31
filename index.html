@@ -514,13 +514,6 @@ document.addEventListener('DOMContentLoaded', function() {
             status: 'Active Subscriber'
           };
           updateAcctBtn();
-          // Show mobile tab bar on sign in
-          if (window.innerWidth <= 900) {
-            var tb = document.getElementById('mob-tab-bar');
-            if (tb) tb.style.display = 'flex';
-            var cs = document.getElementById('mob-csv-strip');
-            if (cs) cs.style.display = 'flex';
-          }
           // Navigate to pending page or last visited page after sign in
           var dest = window._pendingNav;
           if (!dest) { try { dest = localStorage.getItem('ww_last_page') || 'races'; } catch(e){ dest = 'races'; } }
@@ -529,13 +522,6 @@ document.addEventListener('DOMContentLoaded', function() {
         } else {
           currentUser = null;
           updateAcctBtn();
-          // Hide mobile tab bar on sign out
-          if (window.innerWidth <= 900) {
-            var tb = document.getElementById('mob-tab-bar');
-            if (tb) tb.style.display = 'none';
-            var cs = document.getElementById('mob-csv-strip');
-            if (cs) cs.style.display = 'none';
-          }
           navTo('home');
         }
       });
@@ -3042,12 +3028,6 @@ function toast(msg, dur=2200) {
 }
 
 // ── MOBILE NAV ──
-function mobTabNav(tab) {
-  document.querySelectorAll('.mob-tab').forEach(b=>b.classList.remove('active'));
-  const btn = document.getElementById('mobTab-'+tab);
-  if (btn) btn.classList.add('active');
-  navTo(tab==='races'?'races':tab);
-}
 
 // ── UP NEXT ──
 function buildUpNext() {
