@@ -1,4 +1,4 @@
-<!-- WAGING WAR-BUILD-1780133023 -->
+<!-- WAGING WAR-BUILD-1780136692 -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -778,6 +778,7 @@ var SUPABASE_URL = 'https://jqoqmwxrhfazxnzzynvn.supabase.co';
 var SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Impxb3Ftd3hyaGZhenhuenp5bnZuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk3NDk5NDIsImV4cCI6MjA5NTMyNTk0Mn0.wNJITvDSuLncd29vleL6oLEcs95zmgT_z684Ex1iquM';
 
 // In-memory results cache: key = "VENUE_R{num}", value = formatted result object
+var resultsCache = {};
 var resultsFetched = {};  // track which dates we have loaded
 
 // Fetch all results for today from Supabase
@@ -837,24 +838,35 @@ function fetchResultsForDate(dateStr) {
 
 // Auto-fetch results when CSV loads
 function initResultsFetch() {
-  var today = new Date().toISOString().slice(0,10);
-  fetchResultsForDate(today).then(function() {
-    // Re-render current race if one is selected
-    if (currentRace) render(currentRace);
-    // Re-render sidebar tabs
-    if (Object.keys(allRaces).length) {
-      var keys = Object.keys(allRaces);
-      buildRaceTabs(Object.keys(allVenues[Object.keys(allVenues)[0]] || {}));
+  // Get date from CSV data
+  var csvDate = null;
+  var venueKeys = Object.values(allVenues || {});
+  outer: for (var i = 0; i < venueKeys.length; i++) {
+    for (var j = 0; j < venueKeys[i].length; j++) {
+      var rc = allRaces[venueKeys[i][j]];
+      if (rc && rc.date) {
+        var formatted = formatDate(rc.date);
+        var d = new Date(formatted);
+        if (!isNaN(d.getTime())) { csvDate = formatted; break outer; }
+      }
     }
+  }
+  var dateStr = csvDate || new Date().toISOString().slice(0,10);
+  console.log('[Results] Fetching results for CSV date:', dateStr);
+
+  fetchResultsForDate(dateStr).then(function() {
+    if (currentRace) render(currentRace);
   });
-  // Poll every 10 minutes during race hours
+  // Poll every 5 minutes during race hours
   setInterval(function() {
     var h = new Date().getHours();
     if (h >= 10 && h < 19) {
-      resultsFetched[today] = false;  // force refresh
-      fetchResultsForDate(today);
+      resultsFetched[dateStr] = false;
+      fetchResultsForDate(dateStr).then(function() {
+        if (currentRace) render(currentRace);
+      });
     }
-  }, 10 * 60 * 1000);
+  }, 5 * 60 * 1000);
 }
 
 function getRaceResults(venue, raceNum) {
@@ -950,7 +962,30 @@ function onCSVLoaded(fname) {
 function pushTodayMeetingsToSupabase() {
   var venues = Object.keys(allVenues || {});
   if (!venues.length) return;
-  var today = new Date().toISOString().slice(0, 10);
+
+  // Get the actual race date FROM THE CSV (not today's date)
+  var csvDate = null;
+  var venueKeys = Object.values(allVenues);
+  outer: for (var i = 0; i < venueKeys.length; i++) {
+    var keys = venueKeys[i];
+    for (var j = 0; j < keys.length; j++) {
+      var rc = allRaces[keys[j]];
+      if (rc && rc.date) {
+        var formatted = formatDate(rc.date);
+        var d = new Date(formatted);
+        if (!isNaN(d.getTime())) {
+          csvDate = formatted;
+          break outer;
+        }
+      }
+    }
+  }
+  if (!csvDate) {
+    csvDate = new Date().toISOString().slice(0, 10);
+    console.warn('[Meetings] Could not read date from CSV, using today');
+  }
+  console.log('[Meetings] CSV race date:', csvDate);
+
   var nzVenues = ['ELLERSLIE','OTAKI','RICCARTON','TRENTHAM','MATAMATA','HASTINGS',
     'ROTORUA','TE RAPA','RUAKAKA','WANGANUI','NEW PLYMOUTH','GORE','WINGATUI',
     'ASHBURTON','INVERCARGILL','TIMARU','CAMBRIDGE','TE AROHA','AWAPUNI'];
@@ -978,7 +1013,7 @@ function pushTodayMeetingsToSupabase() {
   venues.forEach(function(venue) {
     var v = venue.toUpperCase().trim();
     if (nzVenues.indexOf(v) >= 0) return;
-    rows.push({ date: today, venue: v, state: stateMap[v] || 'QLD' });
+    rows.push({ date: csvDate, venue: v, state: stateMap[v] || 'QLD' });
   });
   if (!rows.length) return;
   fetch(SUPABASE_URL + '/rest/v1/today_meetings', {
@@ -993,7 +1028,7 @@ function pushTodayMeetingsToSupabase() {
   })
   .then(function(r) {
     if (r.ok) {
-      console.log('[Meetings] Pushed ' + rows.length + ' venues to Supabase: ' + venues.filter(function(v){return nzVenues.indexOf(v.toUpperCase())<0;}).join(', '));
+      console.log('[Meetings] Pushed ' + rows.length + ' venues for ' + csvDate);
     } else {
       r.text().then(function(t){ console.warn('[Meetings] Push failed:', t); });
     }
