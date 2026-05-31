@@ -180,7 +180,7 @@ body{background:#f1f5f9;color:#111827;font-family:'Space Grotesk',sans-serif;fon
 .page-sub{font-size:11px;color:#6b7280;margin-bottom:10px}
 
 /* Cards */
-.card{background:#fff;border:0.5px solid #e5e7eb;border-radius:10px;padding:14px}
+.card{background:#fff;border:0.5px solid #e5e7eb;border-radius:8px;padding:10px 12px}
 .card-title{font-size:12px;font-weight:600;color:#374151;margin-bottom:10px;display:flex;align-items:center;gap:6px}
 .card-grid{display:grid;gap:10px}
 
@@ -1556,7 +1556,11 @@ function buildRaceResultsPanel(rc, res, scoredResults) {
     var csvRace = allRaces[csvKey];
     if (csvRace && csvRace.horses) {
       var sc2 = csvRace.horses.filter(function(h){ return !h.scratched; });
-      sc2.sort(function(a,b){ return (b.total||0)-(a.total||0); });
+      sc2.sort(function(a,b){
+        var at = a.totalFromGroups || (typeof scoreHorse==='function' ? scoreHorse(a).total : 0);
+        var bt = b.totalFromGroups || (typeof scoreHorse==='function' ? scoreHorse(b).total : 0);
+        return bt - at;
+      });
       sc2.forEach(function(h,i){ sysRankMap[(h.name||'').toUpperCase()] = i+1; });
     }
   }
@@ -2004,7 +2008,11 @@ function buildResultsDetail(venue, raceData) {
   var csvRace = allRaces[csvKey];
   if (csvRace && csvRace.horses) {
     var sc3 = csvRace.horses.filter(function(h){ return !h.scratched; });
-    sc3.sort(function(a,b){ return (b.total||0)-(a.total||0); });
+    sc3.sort(function(a,b){
+      var at = a.totalFromGroups || (typeof scoreHorse==='function' ? scoreHorse(a).total : 0);
+      var bt = b.totalFromGroups || (typeof scoreHorse==='function' ? scoreHorse(b).total : 0);
+      return bt - at;
+    });
     sc3.forEach(function(h,i){ sysRankMap[(h.name||'').toUpperCase()] = i+1; });
   }
   var hasSysRank = Object.keys(sysRankMap).length > 0;
@@ -2345,19 +2353,19 @@ function showMyBets(filterView, filterTab) {
       +'<col style="width:50px"><col style="width:56px"><col style="width:36px"><col style="width:54px"><col style="width:54px">'
       +'</colgroup>'
       +'<thead><tr style="background:var(--color-background-secondary)">'
-      +'<th style="padding:8px 8px;text-align:left;font-size:10px;font-weight:500;color:var(--color-text-secondary);text-transform:uppercase;letter-spacing:0.4px;border-bottom:0.5px solid var(--color-border-tertiary)">Date</th>'
-      +'<th style="padding:8px 8px;text-align:left;font-size:10px;font-weight:500;color:var(--color-text-secondary);text-transform:uppercase;letter-spacing:0.4px;border-bottom:0.5px solid var(--color-border-tertiary)">Horse</th>'
-      +'<th style="padding:8px 8px;text-align:left;font-size:10px;font-weight:500;color:var(--color-text-secondary);text-transform:uppercase;letter-spacing:0.4px;border-bottom:0.5px solid var(--color-border-tertiary)">Track</th>'
-      +'<th style="padding:8px 8px;text-align:left;font-size:10px;font-weight:500;color:var(--color-text-secondary);text-transform:uppercase;letter-spacing:0.4px;border-bottom:0.5px solid var(--color-border-tertiary)">Rnk</th>'
-      +'<th style="padding:8px 8px;text-align:left;font-size:10px;font-weight:500;color:var(--color-text-secondary);text-transform:uppercase;letter-spacing:0.4px;border-bottom:0.5px solid var(--color-border-tertiary)">Type</th>'
-      +'<th style="padding:8px 8px;text-align:left;font-size:10px;font-weight:500;color:var(--color-text-secondary);text-transform:uppercase;letter-spacing:0.4px;border-bottom:0.5px solid var(--color-border-tertiary)">Cond</th>'
-      +'<th style="padding:8px 8px;text-align:right;font-size:10px;font-weight:500;color:var(--color-text-secondary);text-transform:uppercase;letter-spacing:0.4px;border-bottom:0.5px solid var(--color-border-tertiary)">Stake</th>'
-      +'<th style="padding:8px 8px;text-align:right;font-size:10px;font-weight:500;color:var(--color-text-secondary);text-transform:uppercase;letter-spacing:0.4px;border-bottom:0.5px solid var(--color-border-tertiary)">My \$</th>'
-      +'<th style="padding:8px 8px;text-align:right;font-size:10px;font-weight:500;color:var(--color-text-secondary);text-transform:uppercase;letter-spacing:0.4px;border-bottom:0.5px solid var(--color-border-tertiary)">SP</th>'
-      +'<th style="padding:8px 8px;text-align:center;font-size:10px;font-weight:500;color:var(--color-text-secondary);text-transform:uppercase;letter-spacing:0.4px;border-bottom:0.5px solid var(--color-border-tertiary)">Result</th>'
-      +'<th style="padding:8px 8px;text-align:right;font-size:10px;font-weight:500;color:var(--color-text-secondary);text-transform:uppercase;letter-spacing:0.4px;border-bottom:0.5px solid var(--color-border-tertiary)">Pos</th>'
-      +'<th style="padding:8px 8px;text-align:right;font-size:10px;font-weight:500;color:var(--color-text-secondary);text-transform:uppercase;letter-spacing:0.4px;border-bottom:0.5px solid var(--color-border-tertiary)">P&L</th>'
-      +'<th style="padding:8px 8px;text-align:right;font-size:10px;font-weight:500;color:var(--color-text-secondary);text-transform:uppercase;letter-spacing:0.4px;border-bottom:0.5px solid var(--color-border-tertiary)">ROI</th>'
+      +'<th style="padding:4px 6px;text-align:left;font-size:9px;font-weight:600;color:var(--color-text-secondary);text-transform:uppercase;letter-spacing:0.4px;border-bottom:0.5px solid var(--color-border-tertiary)">Date</th>'
+      +'<th style="padding:4px 6px;text-align:left;font-size:9px;font-weight:600;color:var(--color-text-secondary);text-transform:uppercase;letter-spacing:0.4px;border-bottom:0.5px solid var(--color-border-tertiary)">Horse</th>'
+      +'<th style="padding:4px 6px;text-align:left;font-size:9px;font-weight:600;color:var(--color-text-secondary);text-transform:uppercase;letter-spacing:0.4px;border-bottom:0.5px solid var(--color-border-tertiary)">Track</th>'
+      +'<th style="padding:4px 6px;text-align:left;font-size:9px;font-weight:600;color:var(--color-text-secondary);text-transform:uppercase;letter-spacing:0.4px;border-bottom:0.5px solid var(--color-border-tertiary)">Rnk</th>'
+      +'<th style="padding:4px 6px;text-align:left;font-size:9px;font-weight:600;color:var(--color-text-secondary);text-transform:uppercase;letter-spacing:0.4px;border-bottom:0.5px solid var(--color-border-tertiary)">Type</th>'
+      +'<th style="padding:4px 6px;text-align:left;font-size:9px;font-weight:600;color:var(--color-text-secondary);text-transform:uppercase;letter-spacing:0.4px;border-bottom:0.5px solid var(--color-border-tertiary)">Cond</th>'
+      +'<th style="padding:4px 6px;text-align:right;font-size:9px;font-weight:600;color:var(--color-text-secondary);text-transform:uppercase;letter-spacing:0.4px;border-bottom:0.5px solid var(--color-border-tertiary)">Stake</th>'
+      +'<th style="padding:4px 6px;text-align:right;font-size:9px;font-weight:600;color:var(--color-text-secondary);text-transform:uppercase;letter-spacing:0.4px;border-bottom:0.5px solid var(--color-border-tertiary)">My $</th>'
+      +'<th style="padding:4px 6px;text-align:right;font-size:9px;font-weight:600;color:var(--color-text-secondary);text-transform:uppercase;letter-spacing:0.4px;border-bottom:0.5px solid var(--color-border-tertiary)">SP</th>'
+      +'<th style="padding:4px 6px;text-align:center;font-size:9px;font-weight:600;color:var(--color-text-secondary);text-transform:uppercase;letter-spacing:0.4px;border-bottom:0.5px solid var(--color-border-tertiary)">Result</th>'
+      +'<th style="padding:4px 6px;text-align:right;font-size:9px;font-weight:600;color:var(--color-text-secondary);text-transform:uppercase;letter-spacing:0.4px;border-bottom:0.5px solid var(--color-border-tertiary)">Pos</th>'
+      +'<th style="padding:4px 6px;text-align:right;font-size:9px;font-weight:600;color:var(--color-text-secondary);text-transform:uppercase;letter-spacing:0.4px;border-bottom:0.5px solid var(--color-border-tertiary)">P&L</th>'
+      +'<th style="padding:4px 6px;text-align:right;font-size:9px;font-weight:600;color:var(--color-text-secondary);text-transform:uppercase;letter-spacing:0.4px;border-bottom:0.5px solid var(--color-border-tertiary)">ROI</th>'
       +'</tr></thead><tbody>'
       + bets.map(function(b, i) {
           var odds = parseFloat(b.odds||b.sp)||0;
@@ -2380,19 +2388,19 @@ function showMyBets(filterView, filterTab) {
             ? '<select onchange="updateBetResult('+i+',this.value)" style="font-size:9px;border:0.5px solid var(--color-border-secondary);border-radius:4px;padding:2px 4px;cursor:pointer;background:var(--color-background-primary);color:var(--color-text-primary)"><option value="pending">Pending</option><option value="Win">Win</option><option value="Place">Place</option><option value="Loss">Loss</option></select>'
             : '<span style="font-size:9px;font-weight:500;padding:2px 8px;border-radius:10px;'+(isWin?'background:#dcfce7;color:#166534':isLoss?'background:#fee2e2;color:#991b1b':'background:#dbeafe;color:#1e40af')+'">'+(isWin?'Win':isLoss?'Loss':'Place')+'</span>';
           return '<tr style="border-bottom:0.5px solid var(--color-border-tertiary)" onmouseover="this.style.background=\'var(--color-background-secondary)\'" onmouseout="this.style.background=\'\'">'
-            +'<td style="padding:7px 8px;color:var(--color-text-secondary)">'+(b.date||'—')+'</td>'
-            +'<td style="padding:7px 8px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+(b.horse||'—')+'</td>'
-            +'<td style="padding:7px 8px;color:var(--color-text-secondary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+(b.meeting||b.venue||'—')+'</td>'
-            +'<td style="padding:7px 8px">'+rnkBadge+'</td>'
-            +'<td style="padding:7px 8px;color:var(--color-text-secondary)">'+(b.betType||'Win')+'</td>'
-            +'<td style="padding:7px 8px;color:var(--color-text-secondary)">'+(b.condition||'—')+'</td>'
-            +'<td style="padding:7px 8px;text-align:right">'+(stake?'\$'+stake.toFixed(0):'—')+'</td>'
-            +'<td style="padding:7px 8px;text-align:right;color:#00471b">'+(myOdds?'\$'+myOdds.toFixed(2):'—')+'</td>'
-            +'<td style="padding:7px 8px;text-align:right">'+(odds?'\$'+odds.toFixed(2):'—')+'</td>'
-            +'<td style="padding:7px 8px;text-align:center">'+resultBadge+'</td>'
-            +'<td style="padding:7px 8px;text-align:right;color:var(--color-text-secondary)">'+(b.position||'—')+'</td>'
-            +'<td style="padding:7px 8px;text-align:right;font-weight:500;color:'+plCol+'">'+plDisp+'</td>'
-            +'<td style="padding:7px 8px;text-align:right;font-weight:500;color:'+plCol+'">'+roiDisp+'</td>'
+            +'<td style="padding:4px 6px;font-size:10px;color:var(--color-text-secondary)">'+(b.date||'—')+'</td>'
+            +'<td style="padding:4px 6px;font-size:11px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+(b.horse||'—')+'</td>'
+            +'<td style="padding:4px 6px;font-size:10px;color:var(--color-text-secondary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+(b.meeting||b.venue||'—')+'</td>'
+            +'<td style="padding:4px 6px">'+rnkBadge+'</td>'
+            +'<td style="padding:4px 6px;font-size:10px;color:var(--color-text-secondary)">'+(b.betType||'Win')+'</td>'
+            +'<td style="padding:4px 6px;font-size:10px;color:var(--color-text-secondary)">'+(b.condition||'—')+'</td>'
+            +'<td style="padding:4px 6px;font-size:10px;text-align:right">'+(stake?'$'+stake.toFixed(0):'—')+'</td>'
+            +'<td style="padding:4px 6px;font-size:10px;text-align:right;color:#00471b">'+(myOdds?'$'+myOdds.toFixed(2):'—')+'</td>'
+            +'<td style="padding:4px 6px;font-size:10px;text-align:right">'+(odds?'$'+odds.toFixed(2):'—')+'</td>'
+            +'<td style="padding:4px 6px;text-align:center">'+resultBadge+'</td>'
+            +'<td style="padding:4px 6px;font-size:10px;text-align:right;color:var(--color-text-secondary)">'+(b.position||'—')+'</td>'
+            +'<td style="padding:4px 6px;font-size:10px;text-align:right;font-weight:500;color:'+plCol+'">'+plDisp+'</td>'
+            +'<td style="padding:4px 6px;font-size:10px;text-align:right;font-weight:500;color:'+plCol+'">'+roiDisp+'</td>'
             +'</tr>';
         }).join('')
       +'</tbody></table></div>';
@@ -2461,8 +2469,8 @@ function showMyBets(filterView, filterTab) {
     +'.mb-tab:hover:not(.mb-tab-act){color:var(--color-text-primary)}'
     +'.mbs-row{display:grid;grid-template-columns:80px repeat(7,1fr);border-bottom:0.5px solid rgba(255,255,255,0.1)}'
     +'.mbs-row:last-child{border-bottom:none}'
-    +'.mbs-cell{font-size:11px;color:rgba(255,255,255,0.85);padding:5px 8px;text-align:right}'
-    +'.mbs-label{font-size:10px;color:rgba(255,255,255,0.55);padding:5px 8px;text-align:left;padding-top:7px}'
+    +'.mbs-cell{font-size:10px;color:rgba(255,255,255,0.85);padding:3px 6px;text-align:right}'
+    +'.mbs-label{font-size:9px;color:rgba(255,255,255,0.55);padding:3px 6px;text-align:left}'
     +'.mba-head{display:grid;font-size:10px;font-weight:500;color:var(--color-text-secondary);text-transform:uppercase;letter-spacing:0.4px;padding:7px 10px;background:var(--color-background-secondary);border-bottom:0.5px solid var(--color-border-tertiary)}'
     +'.mba-row{display:grid;padding:6px 10px;border-bottom:0.5px solid var(--color-border-tertiary);font-size:11px;align-items:center}'
     +'.mba-row:last-child{border-bottom:none}'
@@ -2859,13 +2867,13 @@ function showCompetitions(){
     html+='<span style="font-size:10px;color:#92400e;font-weight:500;">Top 3 earn bonus community points: 500 · 300 · 200 pts</span></div>';
     html+='<div style="padding:8px 0;">';
     races.forEach(function(r,i){
-      html+='<div style="padding:10px 14px;border-bottom:0.5px solid #f3f4f6;display:flex;align-items:center;gap:10px;">';
-      html+='<div style="width:28px;height:28px;border-radius:50%;background:#f1f5f9;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#374151;flex-shrink:0;">'+(i+1)+'</div>';
+      html+='<div style="padding:7px 12px;border-bottom:0.5px solid #f3f4f6;display:flex;align-items:center;gap:8px;">';
+      html+='<div style="width:22px;height:22px;border-radius:50%;background:#f1f5f9;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#374151;flex-shrink:0;">'+(i+1)+'</div>';
       html+='<div style="flex:1;min-width:0;">';
-      html+='<div style="font-size:12px;font-weight:600;color:#111827;">'+r.meeting+' '+r.race+'</div>';
-      html+='<div style="font-size:10px;color:#9ca3af;">'+r.time+' · '+r.dist+' · '+r.cls+'</div>';
-      html+='<div style="font-size:10px;color:#059669;margin-top:2px;">System R1: <span style="font-weight:600;">'+r.rank1+'</span></div></div>';
-      html+='<select style="padding:5px 8px;border:0.5px solid #d1d5db;border-radius:6px;font-size:11px;color:#111827;background:#fff;">';
+      html+='<div style="font-size:11px;font-weight:600;color:#111827;">'+r.meeting+' '+r.race+'</div>';
+      html+='<div style="font-size:9px;color:#9ca3af;">'+r.time+' · '+r.dist+' · '+r.cls+'</div>';
+      html+='<div style="font-size:9px;color:#059669;margin-top:1px;">System R1: <span style="font-weight:600;">'+r.rank1+'</span></div></div>';
+      html+='<select style="padding:3px 6px;border:0.5px solid #d1d5db;border-radius:5px;font-size:10px;color:#111827;background:#fff;">';
       html+='<option value="">Pick horse...</option>';
       html+='<option value="r1">'+r.rank1+' (R1)</option>';
       html+='<option value="other">Other horse</option>';
@@ -2906,10 +2914,10 @@ function showCompetitions(){
     ];
     html+='<div style="flex:1;overflow-y:auto;padding:14px;">';
     items.forEach(function(item){
-      html+='<div style="background:#fff;border:0.5px solid #e5e7eb;border-radius:10px;padding:14px;margin-bottom:8px;display:flex;gap:12px;">';
-      html+='<div style="font-size:24px;flex-shrink:0;">'+item[0]+'</div>';
-      html+='<div><div style="font-size:13px;font-weight:600;color:#111827;margin-bottom:4px;">'+item[1]+'</div>';
-      html+='<div style="font-size:11px;color:#6b7280;line-height:1.6;">'+item[2]+'</div></div></div>';
+      html+='<div style="background:#fff;border:0.5px solid #e5e7eb;border-radius:8px;padding:9px 12px;margin-bottom:6px;display:flex;gap:10px;align-items:flex-start;">';
+      html+='<div style="font-size:18px;flex-shrink:0;line-height:1.4">'+item[0]+'</div>';
+      html+='<div><div style="font-size:12px;font-weight:600;color:#111827;margin-bottom:2px;">'+item[1]+'</div>';
+      html+='<div style="font-size:10px;color:#6b7280;line-height:1.5;">'+item[2]+'</div></div></div>';
     });
     html+='</div>';
   }
@@ -2958,13 +2966,13 @@ function showLearn() {
       ?'<span style="font-size:9px;font-weight:600;padding:2px 7px;border-radius:8px;background:#dcfce7;color:#166534;margin-left:6px">Live</span>'
       :'<span style="font-size:9px;font-weight:600;padding:2px 7px;border-radius:8px;background:#f1f5f9;color:#6b7280;margin-left:6px">Coming soon</span>';
     return '<div class="card" style="border-left:3px solid '+(x.live?'#00471b':'#d1d5db')+'">'
-      +'<div class="card-title"><i class="ti '+x.icon+'" style="font-size:15px;color:'+(x.live?'#00471b':'#9ca3af')+'"></i> '+x.title+badge+'</div>'
-      +'<p style="font-size:12px;color:#374151;line-height:1.7">'+x.desc+'</p></div>';
+      +'<div class="card-title" style="margin-bottom:3px"><i class="ti '+x.icon+'" style="font-size:13px;color:'+(x.live?'#00471b':'#9ca3af')+'"></i> '+x.title+badge+'</div>'
+      +'<p style="font-size:11px;color:#374151;line-height:1.5;margin:0">'+x.desc+'</p></div>';
   }).join('');
   document.getElementById('main').innerHTML='<div class="page-wrap" style="max-width:780px;margin:0 auto;">'
     +'<div class="page-title">How Waging War works</div>'
     +'<div class="page-sub">Current features — no surprises</div>'
-    +'<div style="display:flex;flex-direction:column;gap:10px">'
+    +'<div style="display:flex;flex-direction:column;gap:6px">'
     +'<div class="card" style="border-left:3px solid #00471b;background:#f0fdf4">'
     +'<div class="card-title"><i class="ti ti-info-circle" style="font-size:15px;color:#00471b"></i> Early access</div>'
     +'<p style="font-size:12px;color:#374151;line-height:1.7">Waging War is in active development. Everything listed as Live is working now. Coming soon features are in the pipeline.</p>'
