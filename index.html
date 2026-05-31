@@ -1809,6 +1809,7 @@ function showToday() {
     + 'Please gamble responsibly. Gambling Help Online: <strong>1800 858 858</strong> or <strong>gamblinghelponline.org.au</strong>'
     + '</div></div>';
 
+  html += buildFooter();
   html += '</div></div>';
   document.getElementById('main').innerHTML = html;
 }
@@ -1968,9 +1969,9 @@ function showResultsPage() {
     }
   }
 
+  html += buildFooter();
   html += '</div>';
   main.innerHTML = html;
-  // Wire data-attribute click handlers
   document.querySelectorAll('[data-legal]').forEach(function(el){
     el.onclick = function(){ showLegalPage(this.getAttribute('data-legal')); };
   });
@@ -2575,7 +2576,8 @@ function showInsights() {
     <div class="card">
       <div class="card-title"><i class="ti ti-bulb" style="font-size:15px"></i> System insight</div>
       <div style="font-size:12px;color:#374151;line-height:1.7">Your most profitable zone: <strong>Rank 1 horses at $5.00–$10.00 on Good tracks</strong>. Avoid Soft/Heavy conditions based on current results.</div>
-    </div>`}
+    </div>
+    ${buildFooter()}
   </div>`;
 }
 
@@ -2905,6 +2907,7 @@ function showCompetitions(){
     html+='</div></div>';
   }
   html+='</div>';
+  html+=buildFooter();
   main.innerHTML=html;
 }
 function setCompTab(tab){window._compTab=tab;showCompetitions();}
@@ -2919,6 +2922,7 @@ function showBlackbook() {
       <div><div style="font-size:12px;font-weight:600">${h.name}</div><div style="font-size:10px;color:#9ca3af">Added ${h.date||'—'}</div></div>
       <button onclick="removeFromBlackbook(${i})" style="background:none;border:none;cursor:pointer;color:#9ca3af;font-size:12px"><i class="ti ti-trash"></i></button>
     </div>`).join('')}</div>`}
+    ${buildFooter()}
   </div>`;
 }
 
@@ -2959,7 +2963,7 @@ function showLearn() {
     +'<div class="card" style="border-left:3px solid #00471b;background:#f0fdf4">'
     +'<div class="card-title"><i class="ti ti-info-circle" style="font-size:15px;color:#00471b"></i> Early access</div>'
     +'<p style="font-size:12px;color:#374151;line-height:1.7">Waging War is in active development. Everything listed as Live is working now. Coming soon features are in the pipeline.</p>'
-    +'</div>'+learnHTML+'</div></div>';
+    +'</div>'+learnHTML+'</div>'+buildFooter()+'</div>';
 }
 
 
@@ -6541,6 +6545,21 @@ function updateAcctBtn(){
     btn.style.background = 'rgba(255,255,255,.1)';
     btn.style.color = '#fff';
   }
+}
+
+function buildFooter() {
+  var links = ['About Us','Contact Us','Disclaimer','Privacy Policy','Terms of Service','Responsible Gambling'];
+  var html = '<div style="margin-top:20px;padding:12px 16px;border-top:0.5px solid #e5e7eb;background:#fff;">';
+  html += '<div style="display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;margin-bottom:6px;">';
+  html += '<div style="font-family:Bebas Neue,sans-serif;font-size:14px;letter-spacing:2px;color:#00471b;">WAGING<span style="color:#fbbf24;">WAR</span></div>';
+  html += '<div style="display:flex;flex-wrap:wrap;gap:10px;">';
+  links.forEach(function(p){
+    html += '<span onclick="showLegalPage(\''+p+'\')" style="font-size:10px;color:#9ca3af;cursor:pointer;text-decoration:underline;text-underline-offset:2px;">'+p+'</span>';
+  });
+  html += '</div></div>';
+  html += '<div style="font-size:9px;color:#d1d5db;line-height:1.5;">Waging War is a data analytics and community platform. Content is for informational purposes only and does not constitute financial or betting advice. ';
+  html += 'Please gamble responsibly. Gambling Help Online: <strong>1800 858 858</strong> or <strong>gamblinghelponline.org.au</strong></div></div>';
+  return html;
 }
 
 function showLegalPage(page){
