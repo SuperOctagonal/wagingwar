@@ -215,7 +215,7 @@ body{background:#f1f5f9;color:#111827;font-family:'Space Grotesk',sans-serif;fon
 .pick-race{font-size:10px;color:#9ca3af}
 .pick-odds{text-align:right;flex-shrink:0}
 .pick-edge{font-size:11px;font-weight:600;color:#059669;font-family:'JetBrains Mono'}
-.pick-live{font-size:10px;color:#1d4ed8;font-family:'JetBrains Mono'}
+.pick-live{font-size:10px;color:#111827;font-family:'JetBrains Mono'}
 
 /* My Bets */
 .bet-row{display:grid;grid-template-columns:1fr 70px 70px 70px 80px 28px;gap:0;padding:6px 12px;border-bottom:0.5px solid #f3f4f6;align-items:center;font-size:11px}
@@ -455,7 +455,7 @@ body{background:#f1f5f9;color:#111827;font-family:'Space Grotesk',sans-serif;fon
 .res-horse-name{font-size:12px;font-weight:600;color:#111827;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .res-horse-detail{font-size:9px;color:#9ca3af;margin-top:1px}
 .res-sys-rank{width:48px;flex-shrink:0;text-align:center}
-.res-sp{width:64px;flex-shrink:0;text-align:right;font-family:'JetBrains Mono';font-size:11px;font-weight:600;color:#1d4ed8}
+.res-sp{width:64px;flex-shrink:0;text-align:right;font-family:'JetBrains Mono';font-size:11px;font-weight:600;color:#111827}
 .res-margin{width:64px;flex-shrink:0;text-align:right;font-size:10px;color:#6b7280}
 .res-outcome{width:52px;flex-shrink:0;text-align:center}
 .res-outcome-win{color:#059669;font-weight:700;font-size:10px}
@@ -1201,7 +1201,7 @@ function renderRaceTable(rc, results, scratched, hasLive, liveOddsData) {
         <div class="rc rc-form"><span style="font-family:'JetBrains Mono';font-size:10px;color:#6b7280">${fins||'FS'}</span></div>
         <div class="rc rc-score"><span class="score-val">${r.totalFromGroups.toFixed(1)}</span></div>
         <div class="rc rc-edge"><span class="odds-val" style="color:#059669">${myO?'$'+formatRacingOdds(myO):'—'}</span></div>
-        <div class="rc rc-live"><span class="odds-val" style="color:#1d4ed8">${dispOdds?'$'+dispOdds:'—'}</span></div>
+        <div class="rc rc-live"><span class="odds-val" style="color:#111827">${dispOdds?'$'+dispOdds:'—'}</span></div>
         <div class="rc rc-val"><span class="${valClass}">${valStr}</span></div>
         <div class="rc rc-pace">
           <span style="font-size:9px;font-weight:700;color:${pm?pm.color:'#9ca3af'};width:28px;flex-shrink:0;display:inline-block">${pm?pm.role.slice(0,3).toUpperCase():'—'}</span>
@@ -1312,7 +1312,7 @@ function renderRaceTable(rc, results, scratched, hasLive, liveOddsData) {
             <div style="background:#f8fafc;border-radius:6px;padding:5px 7px">
               <div style="font-size:8px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:.3px;margin-bottom:3px">Track conditions</div>
               <div style="font-size:9px"><span style="color:#059669">G:</span> ${gRec}</div>
-              <div style="font-size:9px;margin-top:1px"><span style="color:#1d4ed8">S:</span> ${sRec}</div>
+              <div style="font-size:9px;margin-top:1px"><span style="color:#111827">S:</span> ${sRec}</div>
               <div style="font-size:9px;margin-top:1px"><span style="color:#6b7280">H:</span> ${hvRec}</div>
             </div>
 
@@ -1598,8 +1598,8 @@ function buildRaceResultsPanel(rc, res, scoredResults) {
     html += '<tr style="background:'+rowBg+';border-bottom:0.5px solid #f3f4f6;">';
     html += '<td style="padding:'+(isTop3?'4':'2')+'px 6px;text-align:center;"><span class="res-place-badge '+pbClass+'">'+p+'</span></td>';
     html += '<td style="padding:'+(isTop3?'4':'2')+'px 6px;white-space:nowrap;">';
-    if (rank1Won) html += '<span style="font-size:8px;background:#d1fae5;color:#065f46;font-weight:700;padding:1px 3px;border-radius:3px;margin-right:3px;">✓R1</span>';
-    if (rank1Lost) html += '<span style="font-size:8px;background:#fee2e2;color:#991b1b;font-weight:700;padding:1px 3px;border-radius:3px;margin-right:3px;">R1</span>';
+
+
     html += '<span style="font-size:'+(isTop3?'11':'10')+'px;font-weight:'+(isTop3?'600':'500')+';color:#111827;">'+r.name+'</span>';
     html += '</td>';
     if (hasSysRank) {
@@ -2040,8 +2040,8 @@ function buildResultsDetail(venue, raceData) {
     html += '<tr style="background:'+rowBg+';border-bottom:0.5px solid #f3f4f6;">';
     html += '<td style="padding:'+(isTop3?'5':'3')+'px 8px;text-align:center;"><span class="res-place-badge '+pbClass+'">'+p+'</span></td>';
     html += '<td style="padding:'+(isTop3?'5':'3')+'px 8px;white-space:nowrap;">';
-    if (rank1Won) html += '<span style="font-size:8px;background:#d1fae5;color:#065f46;font-weight:700;padding:1px 3px;border-radius:3px;margin-right:3px;">✓R1</span>';
-    if (rank1Lost) html += '<span style="font-size:8px;background:#fee2e2;color:#991b1b;font-weight:700;padding:1px 3px;border-radius:3px;margin-right:3px;">R1</span>';
+
+
     html += '<span style="font-size:'+(isTop3?'12':'11')+'px;font-weight:'+(isTop3?'600':'400')+';color:#111827;">'+r.name+'</span>';
     html += '</td>';
     if (hasSysRank) {
@@ -2074,47 +2074,6 @@ function buildResultsDetail(venue, raceData) {
   if (res.trackCond) html += '<span>'+res.trackCond+'</span>';
   if (res.dist) html += '<span>'+res.dist+'</span>';
   html += '</div></div>';
-
-  // Column headers
-  html += '<div style="display:flex;align-items:center;padding:3px 10px;background:#f8fafc;border:0.5px solid #e5e7eb;border-top:none;">';
-  html += '<div style="width:26px;flex-shrink:0;font-size:7px;font-weight:600;color:#9ca3af;text-align:center;">POS</div>';
-  html += '<div style="flex:1;font-size:7px;font-weight:600;color:#9ca3af;padding-left:4px;">HORSE</div>';
-  if (hasSysRank) html += '<div style="width:34px;flex-shrink:0;font-size:7px;font-weight:600;color:#9ca3af;text-align:center;">RANK</div>';
-  html += '<div style="width:50px;flex-shrink:0;font-size:7px;font-weight:600;color:#9ca3af;text-align:right;">SP</div>';
-  html += '<div style="width:46px;flex-shrink:0;font-size:7px;font-weight:600;color:#9ca3af;text-align:right;padding-right:4px;">MARGIN</div>';
-  html += '</div>';
-
-  // Runner rows
-  var rowsHtml = '';
-  res.runners.forEach(function(r) {
-    var p = r.place;
-    var isTop3 = p <= 3;
-    var pbClass = p===1?'res-pb-1':p===2?'res-pb-2':p===3?'res-pb-3':'res-pb-n';
-    var rowBg = p===1?'#fffbeb':p===2?'#f0f9ff':p===3?'#fdf4ff':'#fff';
-    var sysRank = sysRankMap[(r.name||'').toUpperCase()] || null;
-    var rkBadgeClass = sysRank===1?'rk1':sysRank===2?'rk2':sysRank===3?'rk3':'rkn';
-    var rank1Won = hasSysRank && p===1 && sysRank===1;
-    var rank1Lost = hasSysRank && p>3 && sysRank===1;
-
-    rowsHtml += '<div style="display:flex;align-items:center;padding:'+(isTop3?'5':'3')+'px 10px;background:'+rowBg+';border-bottom:0.5px solid #f1f5f9;">';
-    rowsHtml += '<div style="width:28px;flex-shrink:0;display:flex;justify-content:center;">';
-    rowsHtml += '<span class="res-place-badge '+pbClass+'">'+p+'</span>';
-    rowsHtml += '</div>';
-    rowsHtml += '<div style="flex:1;min-width:0;padding:0 4px;">';
-    rowsHtml += '<div style="font-size:'+(isTop3?'11':'10')+'px;font-weight:'+(isTop3?'600':'500')+';color:#111827;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">';
-    if (rank1Won) rowsHtml += '<span style="font-size:8px;background:#d1fae5;color:#065f46;font-weight:700;padding:1px 3px;border-radius:3px;margin-right:3px;">✓R1</span>';
-    if (rank1Lost) rowsHtml += '<span style="font-size:8px;background:#fee2e2;color:#991b1b;font-weight:700;padding:1px 3px;border-radius:3px;margin-right:3px;">R1</span>';
-    rowsHtml += r.name+'</div>';
-    rowsHtml += '</div>';
-    if (hasSysRank) {
-      rowsHtml += '<div style="width:36px;flex-shrink:0;display:flex;justify-content:center;align-items:center;">';
-      rowsHtml += sysRank ? '<span class="rk '+rkBadgeClass+'">'+sysRank+'</span>' : '<span style="font-size:9px;color:#d1d5db;">—</span>';
-      rowsHtml += '</div>';
-    }
-    rowsHtml += '<div style="width:52px;flex-shrink:0;text-align:right;font-family:JetBrains Mono,monospace;font-size:11px;font-weight:600;color:#1d4ed8;">$'+Number(r.sp||0).toFixed(2)+'</div>';
-    rowsHtml += '<div style="width:52px;flex-shrink:0;text-align:right;font-size:10px;color:#6b7280;padding-right:4px;">'+(r.margin||'')+'</div>';
-    rowsHtml += '</div>';
-  });
 
 function showPaceMapPage() {
   const main = document.getElementById('main');
@@ -3042,6 +3001,21 @@ function saveApiKey() {
 
 // ── QUICK BET ──
 
+
+// ── QUICK BET ──
+function quickAddBet(event, idx) {
+  event.stopPropagation();
+  if (!currentRace) { toast('No race selected'); return; }
+  var horses = (currentRace.horses||[]).filter(function(h){ return !h.scratched; });
+  var horse = horses[idx];
+  if (!horse) return;
+  document.getElementById('qb-horse').textContent = horse.name;
+  document.getElementById('qb-odds').value = horse.rawOdds ? parseFloat(horse.rawOdds).toFixed(2) : '';
+  document.getElementById('qb-stake').value = '';
+  window._qbHorse = horse.name;
+  window._qbIdx = idx;
+  document.getElementById('quickBetPanel').classList.add('open');
+}
 
 function closeQuickBet() { document.getElementById('quickBetPanel').classList.remove('open'); }
 function setQBT(btn, type) {
@@ -4563,7 +4537,7 @@ function renderMobile(rc,results,scratched,hasLive,liveOddsData){
         </div>
         <div style="flex:1;text-align:center;border-right:0.5px solid #f3f4f6;padding:0">
           <div style="font-size:5px;color:#374151;text-transform:uppercase;line-height:1.2">Live $</div>
-          <div style="font-size:9px;font-weight:700;color:#1d4ed8;font-family:'JetBrains Mono',monospace;line-height:1">${dispOdds?'$'+dispOdds:'—'}</div>
+          <div style="font-size:9px;font-weight:700;color:#111827;font-family:'JetBrains Mono',monospace;line-height:1">${dispOdds?'$'+dispOdds:'—'}</div>
         </div>
         <div style="flex:1;text-align:center;border-right:0.5px solid #f3f4f6;padding:0">
           <div style="font-size:5px;color:#374151;text-transform:uppercase;line-height:1.2">Value</div>
@@ -6176,23 +6150,24 @@ function submitQB(horseName, idx){
   if(!oddsEl||!stakeEl) return;
   var odds = oddsEl.value;
   var stake = stakeEl.value;
-  if(!odds){ toast('Please enter odds','error'); return; }
+  if(!odds){ toast('Please enter odds'); return; }
+  var name = horseName || window._qbHorse || '';
+  var rank = (idx !== undefined ? idx : window._qbIdx || 0) + 1;
   var rc = currentRace;
   var today = new Date().toLocaleDateString('en-AU',{day:'2-digit',month:'2-digit',year:'numeric'});
   var bet = {
-    horse: horseName,
+    horse: name,
     meeting: rc ? rc.venue : '',
     race: rc ? 'R'+rc.num+' - '+(rc.name||'') : '',
     date: today, odds: odds, stake: stake,
     bettype: qbBetType, result: 'pending',
-    rank: idx+1, notes: '', id: Date.now()
+    rank: rank, notes: '', id: Date.now()
   };
   betLog.push(bet);
   saveBetLog();
   updateBetBadge();
-  var m2 = document.getElementById('qb-modal');
-  if(m2) m2.remove();
-  toast('Bet saved - '+horseName+' $'+odds, 'success');
+  closeQuickBet();
+  toast('Bet saved — '+name+' $'+odds);
 }
 
 // ── BET LOG ──────────────────────────────────────────────
