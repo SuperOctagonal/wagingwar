@@ -737,12 +737,12 @@ function navTo(page) {
   // Auth gate — non-home pages require sign in
   var publicPages = ['home','races'];
   if (!publicPages.includes(page) && !currentUser) {
-    // Not signed in — open Clerk sign in then redirect after
     window._pendingNav = page;
     openLoginModal();
     return;
   }
   currentPage = page;
+  try { localStorage.setItem('ww_last_page', page); } catch(e){}
   document.querySelectorAll('.navbtn').forEach(b => b.classList.remove('active'));
   const btn = document.getElementById('nav-' + page);
   if (btn) btn.classList.add('active');
@@ -974,7 +974,9 @@ function onCSVLoaded(fname) {
   document.getElementById('lr-meetings-sec').style.display = 'block';
   buildSidebarMeetings();
   mobBuildSelectors();
-  navTo('races');
+  var lastPage = 'races';
+  try { lastPage = localStorage.getItem('ww_last_page') || 'races'; } catch(e){}
+  navTo(lastPage);
   initResultsFetch();
   pushTodayMeetingsToSupabase();
 }
@@ -1554,14 +1556,11 @@ function buildRaceResultsPanel(rc, res, scoredResults) {
   } else {
     var csvKey = (rc.venue||'').toUpperCase().replace(/\s+/g,'_') + '_R' + rc.num;
     var csvRace = allRaces[csvKey];
-    if (csvRace && csvRace.horses) {
+    if (csvRace && csvRace.horses && typeof scoreHorse === 'function') {
       var sc2 = csvRace.horses.filter(function(h){ return !h.scratched; });
-      sc2.sort(function(a,b){
-        var at = a.totalFromGroups || (typeof scoreHorse==='function' ? scoreHorse(a).total : 0);
-        var bt = b.totalFromGroups || (typeof scoreHorse==='function' ? scoreHorse(b).total : 0);
-        return bt - at;
-      });
-      sc2.forEach(function(h,i){ sysRankMap[(h.name||'').toUpperCase()] = i+1; });
+      var sc2s = sc2.map(function(h){ return {h:h, s:scoreHorse(h).total}; });
+      sc2s.sort(function(a,b){ return b.s - a.s; });
+      sc2s.forEach(function(x,i){ sysRankMap[(x.h.name||'').toUpperCase()] = i+1; });
     }
   }
   var hasSysRank = Object.keys(sysRankMap).length > 0;
@@ -2006,14 +2005,11 @@ function buildResultsDetail(venue, raceData) {
   var sysRankMap = {};
   var csvKey = (venue||'').toUpperCase().replace(/\s+/g,'_') + '_R' + raceData.raceNum;
   var csvRace = allRaces[csvKey];
-  if (csvRace && csvRace.horses) {
+  if (csvRace && csvRace.horses && typeof scoreHorse === 'function') {
     var sc3 = csvRace.horses.filter(function(h){ return !h.scratched; });
-    sc3.sort(function(a,b){
-      var at = a.totalFromGroups || (typeof scoreHorse==='function' ? scoreHorse(a).total : 0);
-      var bt = b.totalFromGroups || (typeof scoreHorse==='function' ? scoreHorse(b).total : 0);
-      return bt - at;
-    });
-    sc3.forEach(function(h,i){ sysRankMap[(h.name||'').toUpperCase()] = i+1; });
+    var sc3s = sc3.map(function(h){ return {h:h, s:scoreHorse(h).total}; });
+    sc3s.sort(function(a,b){ return b.s - a.s; });
+    sc3s.forEach(function(x,i){ sysRankMap[(x.h.name||'').toUpperCase()] = i+1; });
   }
   var hasSysRank = Object.keys(sysRankMap).length > 0;
 
@@ -2366,6 +2362,7 @@ function showMyBets(filterView, filterTab) {
       +'<th style="padding:4px 6px;text-align:right;font-size:9px;font-weight:600;color:var(--color-text-secondary);text-transform:uppercase;letter-spacing:0.4px;border-bottom:0.5px solid var(--color-border-tertiary)">Pos</th>'
       +'<th style="padding:4px 6px;text-align:right;font-size:9px;font-weight:600;color:var(--color-text-secondary);text-transform:uppercase;letter-spacing:0.4px;border-bottom:0.5px solid var(--color-border-tertiary)">P&L</th>'
       +'<th style="padding:4px 6px;text-align:right;font-size:9px;font-weight:600;color:var(--color-text-secondary);text-transform:uppercase;letter-spacing:0.4px;border-bottom:0.5px solid var(--color-border-tertiary)">ROI</th>'
+      +'<th style="padding:4px 6px;text-align:center;font-size:9px;font-weight:600;color:var(--color-text-secondary);text-transform:uppercase;letter-spacing:0.4px;border-bottom:0.5px solid var(--color-border-tertiary);width:28px;"></th>'
       +'</tr></thead><tbody>'
       + bets.map(function(b, i) {
           var odds = parseFloat(b.odds||b.sp)||0;
@@ -2401,6 +2398,7 @@ function showMyBets(filterView, filterTab) {
             +'<td style="padding:4px 6px;font-size:10px;text-align:right;color:var(--color-text-secondary)">'+(b.position||'—')+'</td>'
             +'<td style="padding:4px 6px;font-size:10px;text-align:right;font-weight:500;color:'+plCol+'">'+plDisp+'</td>'
             +'<td style="padding:4px 6px;font-size:10px;text-align:right;font-weight:500;color:'+plCol+'">'+roiDisp+'</td>'
+            +'<td style="padding:4px 6px;text-align:center"><button onclick="deleteBet('+i+')" style="background:none;border:none;cursor:pointer;color:#dc2626;font-size:12px;padding:0" title="Delete bet"><i class="ti ti-trash"></i></button></td>'
             +'</tr>';
         }).join('')
       +'</tbody></table></div>';
@@ -2542,6 +2540,14 @@ function showMyBets(filterView, filterTab) {
   var mb = document.getElementById('meetingBar'); if(mb) mb.style.display='none';
   main.style.overflowY = 'hidden';
   main.innerHTML = html;
+}
+
+function deleteBet(i) {
+  if (!confirm('Delete this bet?')) return;
+  betLog.splice(i, 1);
+  saveBetLog();
+  updateBetBadge();
+  showMyBets();
 }
 
 function updateBetResult(i, val) {
@@ -2856,52 +2862,50 @@ function showCompetitions(){
   html+='</div>';
 
   if(at==='this-week'){
-    html+='<div style="flex:1;overflow-y:auto;padding:14px;">';
-    html+='<div style="background:#fff;border:0.5px solid #e5e7eb;border-radius:10px;overflow:hidden;margin-bottom:12px;">';
-    html+='<div style="background:#1a2634;padding:10px 14px;display:flex;align-items:center;justify-content:space-between;">';
-    html+='<div><div style="font-size:13px;font-weight:600;color:#fff;">Saturday Comp</div>';
-    html+='<div style="font-size:10px;color:rgba(255,255,255,.5);margin-top:1px;">Pick a horse in each race · 3pts 1st · 2pts 2nd · 1pt 3rd</div></div>';
-    html+='<div style="text-align:right;"><div style="font-size:9px;color:rgba(255,255,255,.5);">Entries close</div><div style="font-size:12px;font-weight:700;color:#fbbf24;">Sat 9:00am</div></div></div>';
-    html+='<div style="padding:10px 14px;background:#fef9c3;border-bottom:0.5px solid #fde68a;display:flex;align-items:center;gap:6px;">';
-    html+='<i class="ti ti-trophy" style="font-size:13px;color:#d97706;"></i>';
-    html+='<span style="font-size:10px;color:#92400e;font-weight:500;">Top 3 earn bonus community points: 500 · 300 · 200 pts</span></div>';
-    html+='<div style="padding:8px 0;">';
+    html+='<div style="flex:1;overflow-y:auto;padding:12px;">';
+    html+='<div style="max-width:640px;margin:0 auto;background:#fff;border:0.5px solid #e5e7eb;border-radius:10px;overflow:hidden;">';
+    html+='<div style="background:#1a2634;padding:8px 12px;display:flex;align-items:center;justify-content:space-between;">';
+    html+='<div><div style="font-size:12px;font-weight:600;color:#fff;">Saturday Comp</div>';
+    html+='<div style="font-size:9px;color:rgba(255,255,255,.5);margin-top:1px;">Pick a horse in each race · 3pts 1st · 2pts 2nd · 1pt 3rd</div></div>';
+    html+='<div style="text-align:right;"><div style="font-size:8px;color:rgba(255,255,255,.5);">Entries close</div><div style="font-size:11px;font-weight:700;color:#fbbf24;">Sat 9:00am</div></div></div>';
+    html+='<div style="padding:7px 12px;background:#fef9c3;border-bottom:0.5px solid #fde68a;display:flex;align-items:center;gap:5px;">';
+    html+='<i class="ti ti-trophy" style="font-size:11px;color:#d97706;"></i>';
+    html+='<span style="font-size:9px;color:#92400e;font-weight:500;">Top 3 earn bonus community points: 500 · 300 · 200 pts</span></div>';
     races.forEach(function(r,i){
-      html+='<div style="padding:7px 12px;border-bottom:0.5px solid #f3f4f6;display:flex;align-items:center;gap:8px;">';
-      html+='<div style="width:22px;height:22px;border-radius:50%;background:#f1f5f9;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#374151;flex-shrink:0;">'+(i+1)+'</div>';
+      html+='<div style="padding:6px 12px;border-bottom:0.5px solid #f3f4f6;display:flex;align-items:center;gap:8px;">';
+      html+='<div style="width:20px;height:20px;border-radius:50%;background:#f1f5f9;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:#374151;flex-shrink:0;">'+(i+1)+'</div>';
       html+='<div style="flex:1;min-width:0;">';
       html+='<div style="font-size:11px;font-weight:600;color:#111827;">'+r.meeting+' '+r.race+'</div>';
       html+='<div style="font-size:9px;color:#9ca3af;">'+r.time+' · '+r.dist+' · '+r.cls+'</div>';
-      html+='<div style="font-size:9px;color:#059669;margin-top:1px;">System R1: <span style="font-weight:600;">'+r.rank1+'</span></div></div>';
-      html+='<select style="padding:3px 6px;border:0.5px solid #d1d5db;border-radius:5px;font-size:10px;color:#111827;background:#fff;">';
+      html+='<div style="font-size:9px;color:#059669;">R1: <span style="font-weight:600;">'+r.rank1+'</span></div></div>';
+      html+='<select style="padding:3px 6px;border:0.5px solid #d1d5db;border-radius:5px;font-size:10px;color:#111827;background:#fff;max-width:130px;">';
       html+='<option value="">Pick horse...</option>';
-      html+='<option value="r1">'+r.rank1+' (R1)</option>';
+      html+='<option value="r1">'+r.rank1+'</option>';
       html+='<option value="other">Other horse</option>';
       html+='</select></div>';
     });
-    html+='</div>';
-    html+='<div style="padding:12px 14px;border-top:0.5px solid #f3f4f6;">';
-    html+='<button onclick="toast(\'Picks submitted! Good luck on Saturday\',\'success\')" style="width:100%;padding:11px;background:#00471b;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;">Submit My Picks</button>';
+    html+='<div style="padding:10px 12px;">';
+    html+='<button onclick="toast(\'Picks submitted! Good luck on Saturday\')" style="width:100%;padding:9px;background:#00471b;color:#fff;border:none;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer;">Submit My Picks</button>';
     html+='</div></div></div>';
   } else if(at==='leaderboard'){
-    html+='<div style="flex:1;overflow-y:auto;padding:14px;">';
-    html+='<div style="background:#fff;border:0.5px solid #e5e7eb;border-radius:10px;overflow:hidden;">';
-    html+='<div style="padding:10px 14px;border-bottom:0.5px solid #f3f4f6;display:flex;align-items:center;justify-content:space-between;">';
-    html+='<div style="font-size:12px;font-weight:600;color:#374151;">This Week\'s Leaderboard</div>';
+    html+='<div style="flex:1;overflow-y:auto;padding:12px;">';
+    html+='<div style="max-width:500px;margin:0 auto;background:#fff;border:0.5px solid #e5e7eb;border-radius:10px;overflow:hidden;">';
+    html+='<div style="padding:8px 12px;border-bottom:0.5px solid #f3f4f6;display:flex;align-items:center;justify-content:space-between;">';
+    html+='<div style="font-size:11px;font-weight:600;color:#374151;">This Week\'s Leaderboard</div>';
     html+='<div style="font-size:9px;color:#9ca3af;">Resets Monday</div></div>';
     lb.forEach(function(r){
       var medal=r.rank===1?'🥇':r.rank===2?'🥈':r.rank===3?'🥉':r.rank;
-      html+='<div style="padding:10px 14px;border-bottom:0.5px solid #f3f4f6;display:flex;align-items:center;gap:10px;">';
-      html+='<span style="font-size:15px;width:24px;">'+medal+'</span>';
-      html+='<div style="width:30px;height:30px;border-radius:50%;background:'+r.tBg+';display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:'+r.tClr+';flex-shrink:0;">'+r.user[0]+'</div>';
-      html+='<div style="flex:1;min-width:0;"><div style="font-size:12px;font-weight:600;color:#111827;">'+r.user+'</div>';
-      html+='<div style="font-size:9px;padding:1px 5px;border-radius:3px;background:'+r.tBg+';color:'+r.tClr+';display:inline-block;margin-top:1px;">'+r.tier+'</div></div>';
-      html+='<div style="display:flex;gap:3px;flex-wrap:wrap;justify-content:flex-end;max-width:90px;">';
+      html+='<div style="padding:8px 12px;border-bottom:0.5px solid #f3f4f6;display:flex;align-items:center;gap:8px;">';
+      html+='<span style="font-size:13px;width:20px;">'+medal+'</span>';
+      html+='<div style="width:26px;height:26px;border-radius:50%;background:'+r.tBg+';display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:'+r.tClr+';flex-shrink:0;">'+r.user[0]+'</div>';
+      html+='<div style="flex:1;min-width:0;"><div style="font-size:11px;font-weight:600;color:#111827;">'+r.user+'</div>';
+      html+='<div style="font-size:8px;padding:1px 4px;border-radius:3px;background:'+r.tBg+';color:'+r.tClr+';display:inline-block;margin-top:1px;">'+r.tier+'</div></div>';
+      html+='<div style="display:flex;gap:2px;">';
       r.picks.forEach(function(p){
-        html+='<span style="font-size:9px;font-weight:700;color:'+(p==='✓'?'#059669':'#dc2626')+';width:14px;text-align:center;">'+p+'</span>';
+        html+='<span style="font-size:9px;font-weight:700;color:'+(p==='✓'?'#059669':'#dc2626')+';width:12px;text-align:center;">'+p+'</span>';
       });
       html+='</div>';
-      html+='<div style="text-align:right;flex-shrink:0;min-width:36px;"><div style="font-size:14px;font-weight:700;color:#111827;font-family:JetBrains Mono,monospace;">'+r.pts+'</div><div style="font-size:9px;color:#9ca3af;">pts</div></div></div>';
+      html+='<div style="text-align:right;flex-shrink:0;min-width:32px;"><div style="font-size:13px;font-weight:700;color:#111827;font-family:JetBrains Mono,monospace;">'+r.pts+'</div><div style="font-size:8px;color:#9ca3af;">pts</div></div></div>';
     });
     html+='</div></div>';
   } else {
@@ -2912,14 +2916,15 @@ function showCompetitions(){
       ['🎖️','Win community points','Top 3 earn bonus tier points: 500 for 1st · 300 for 2nd · 200 for 3rd.'],
       ['🆓','Free to enter','Free for all registered users. Bragging rights and community points only.'],
     ];
-    html+='<div style="flex:1;overflow-y:auto;padding:14px;">';
+    html+='<div style="flex:1;overflow-y:auto;padding:12px;">';
+    html+='<div style="max-width:500px;margin:0 auto;">';
     items.forEach(function(item){
       html+='<div style="background:#fff;border:0.5px solid #e5e7eb;border-radius:8px;padding:9px 12px;margin-bottom:6px;display:flex;gap:10px;align-items:flex-start;">';
       html+='<div style="font-size:18px;flex-shrink:0;line-height:1.4">'+item[0]+'</div>';
       html+='<div><div style="font-size:12px;font-weight:600;color:#111827;margin-bottom:2px;">'+item[1]+'</div>';
       html+='<div style="font-size:10px;color:#6b7280;line-height:1.5;">'+item[2]+'</div></div></div>';
     });
-    html+='</div>';
+    html+='</div></div>';
   }
   html+='</div>';
   main.innerHTML=html;
@@ -6868,6 +6873,15 @@ document.addEventListener('DOMContentLoaded',function(){
     var card=document.getElementById('horseFormCard');
     if(card&&card.style.display!=='none'){
       if(!card.contains(e.target)) hideHorseForm();
+    }
+  });
+  // Restore last page when tab becomes visible again
+  document.addEventListener('visibilitychange', function(){
+    if (document.visibilityState === 'visible') {
+      try {
+        var lastPage = localStorage.getItem('ww_last_page');
+        if (lastPage && lastPage !== currentPage) navTo(lastPage);
+      } catch(e){}
     }
   });
 });
