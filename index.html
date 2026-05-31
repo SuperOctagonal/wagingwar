@@ -2560,25 +2560,22 @@ function showInsights() {
   const settled = log.filter(b=>b.result);
   const wins = settled.filter(b=>b.result==='W');
 
-  document.getElementById('main').innerHTML = `<div class="page-wrap">
-    <div class="page-title">Insights</div>
-    <div class="page-sub">Your performance analytics</div>
-    ${!settled.length ? '<div class="empty-state"><i class="ti ti-chart-bar"></i><p>Log and settle bets to see insights</p></div>' : `
-    <div class="card" style="margin-bottom:10px">
-      <div class="card-title"><i class="ti ti-chart-line" style="font-size:15px"></i> Performance overview</div>
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px">
-        <div class="stat-box"><div class="stat-lbl">Bets settled</div><div class="stat-val">${settled.length}</div></div>
-        <div class="stat-box"><div class="stat-lbl">Wins</div><div class="stat-val pos">${wins.length}</div></div>
-        <div class="stat-box"><div class="stat-lbl">Win rate</div><div class="stat-val">${(wins.length/settled.length*100).toFixed(0)}%</div></div>
-        <div class="stat-box"><div class="stat-lbl">Avg odds</div><div class="stat-val">$${(settled.reduce((s,b)=>s+b.odds,0)/settled.length).toFixed(2)}</div></div>
-      </div>
-    </div>
-    <div class="card">
-      <div class="card-title"><i class="ti ti-bulb" style="font-size:15px"></i> System insight</div>
-      <div style="font-size:12px;color:#374151;line-height:1.7">Your most profitable zone: <strong>Rank 1 horses at $5.00–$10.00 on Good tracks</strong>. Avoid Soft/Heavy conditions based on current results.</div>
-    </div>
-    ${buildFooter()}
-  </div>`;
+  var insightsHTML = '<div class="page-wrap"><div class="page-title">Insights</div><div class="page-sub">Your performance analytics</div>';
+  if (!settled.length) {
+    insightsHTML += '<div class="empty-state"><i class="ti ti-chart-bar"></i><p>Log and settle bets to see insights</p></div>';
+  } else {
+    insightsHTML += '<div class="card" style="margin-bottom:10px"><div class="card-title"><i class="ti ti-chart-line" style="font-size:15px"></i> Performance overview</div>'
+      + '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px">'
+      + '<div class="stat-box"><div class="stat-lbl">Bets settled</div><div class="stat-val">'+settled.length+'</div></div>'
+      + '<div class="stat-box"><div class="stat-lbl">Wins</div><div class="stat-val pos">'+wins.length+'</div></div>'
+      + '<div class="stat-box"><div class="stat-lbl">Win rate</div><div class="stat-val">'+(wins.length/settled.length*100).toFixed(0)+'%</div></div>'
+      + '<div class="stat-box"><div class="stat-lbl">Avg odds</div><div class="stat-val">$'+(settled.reduce(function(s,b){return s+b.odds;},0)/settled.length).toFixed(2)+'</div></div>'
+      + '</div></div>'
+      + '<div class="card"><div class="card-title"><i class="ti ti-bulb" style="font-size:15px"></i> System insight</div>'
+      + '<div style="font-size:12px;color:#374151;line-height:1.7">Your most profitable zone: <strong>Rank 1 horses at $5.00–$10.00 on Good tracks</strong>. Avoid Soft/Heavy conditions based on current results.</div></div>';
+  }
+  insightsHTML += buildFooter() + '</div>';
+  document.getElementById('main').innerHTML = insightsHTML;
 }
 
 // ── COMMUNITY PAGE ──
@@ -2914,16 +2911,10 @@ function setCompTab(tab){window._compTab=tab;showCompetitions();}
 // ── BLACKBOOK PAGE ──
 function showBlackbook() {
   const bb = JSON.parse(localStorage.getItem('re_blackbook')||'[]');
-  document.getElementById('main').innerHTML = `<div class="page-wrap">
-    <div class="page-title">Blackbook</div>
-    <div class="page-sub">Horses you're following</div>
-    ${!bb.length ? `<div class="empty-state"><i class="ti ti-horse-toy"></i><p>Click a horse name on the Races page to follow it</p></div>` :
-    `<div class="card">${bb.map((h,i)=>`<div style="padding:8px 0;border-bottom:0.5px solid #f3f4f6;display:flex;align-items:center;justify-content:space-between">
-      <div><div style="font-size:12px;font-weight:600">${h.name}</div><div style="font-size:10px;color:#9ca3af">Added ${h.date||'—'}</div></div>
-      <button onclick="removeFromBlackbook(${i})" style="background:none;border:none;cursor:pointer;color:#9ca3af;font-size:12px"><i class="ti ti-trash"></i></button>
-    </div>`).join('')}</div>`}
-    ${buildFooter()}
-  </div>`;
+  var bbHTML = !bb.length
+    ? '<div class="empty-state"><i class="ti ti-horse-toy"></i><p>Click a horse name on the Races page to follow it</p></div>'
+    : '<div class="card">'+bb.map(function(h,i){ return '<div style="padding:8px 0;border-bottom:0.5px solid #f3f4f6;display:flex;align-items:center;justify-content:space-between"><div><div style="font-size:12px;font-weight:600">'+h.name+'</div><div style="font-size:10px;color:#9ca3af">Added '+(h.date||'—')+'</div></div><button onclick="removeFromBlackbook('+i+')" style="background:none;border:none;cursor:pointer;color:#9ca3af;font-size:12px"><i class="ti ti-trash"></i></button></div>'; }).join('')+'</div>';
+  document.getElementById('main').innerHTML = '<div class="page-wrap"><div class="page-title">Blackbook</div><div class="page-sub">Horses you\'re following</div>'+bbHTML+buildFooter()+'</div>';
 }
 
 function removeFromBlackbook(i) {
