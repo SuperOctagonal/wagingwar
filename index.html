@@ -6748,17 +6748,14 @@ function mobNav(tab){ switchNav(tab); }
 function toggleMobSidebar(){}
 
 function mobTabNav(tab){
-  // Update bottom tab bar active state
   document.querySelectorAll('.mob-tab').forEach(function(b){b.classList.remove('active')});
   var btn=document.getElementById('mobTab-'+tab);
   if(btn) btn.classList.add('active');
-  // Show/hide CSV strip (only on racing tab)
   var strip=document.getElementById('mob-csv-strip');
   if(strip) strip.style.display=(tab==='races')?'flex':'none';
-  // Show/hide mobile selectors (only on racing tab, only when CSV loaded)
   var sels=document.getElementById('mob-selectors');
   if(sels) sels.style.display=(tab==='races'&&Object.keys(allVenues||{}).length)?'flex':'none';
-  switchNav(tab);
+  navTo(tab);
 }
 
 function mobBuildSelectors(){
