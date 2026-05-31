@@ -800,12 +800,15 @@ function fetchResultsForDate(dateStr) {
   })
   .then(function(rows) {
     resultsFetched[dateStr] = true;
-    // Group rows by venue+race_num
+    // Group rows by date+venue+race_num
     var grouped = {};
     rows.forEach(function(row) {
-      var key = row.venue.toUpperCase().replace(/\s+/g,'_') + '_R' + row.race_num;
+      var key = dateStr + '_' + row.venue.toUpperCase().replace(/\s+/g,'_') + '_R' + row.race_num;
       if (!grouped[key]) {
         grouped[key] = {
+          date: dateStr,
+          venue: row.venue.toUpperCase(),
+          raceNum: row.race_num,
           raceTime: row.race_time || '',
           trackCond: row.track_cond || '',
           dist: row.dist || '',
@@ -820,7 +823,7 @@ function fetchResultsForDate(dateStr) {
           name: row.horse_name,
           sp: row.sp || 0,
           margin: row.margin || '',
-          systemRank: null  // filled in by buildRaceResultsPanel from scored results
+          systemRank: null
         });
       }
     });
@@ -852,6 +855,8 @@ function initResultsFetch() {
     }
   }
   var dateStr = csvDate || new Date().toISOString().slice(0,10);
+  window._csvDate = dateStr;
+  window._resultsDate = dateStr; // default Results page to CSV date
   console.log('[Results] Fetching results for CSV date:', dateStr);
 
   fetchResultsForDate(dateStr).then(function() {
@@ -869,9 +874,24 @@ function initResultsFetch() {
   }, 5 * 60 * 1000);
 }
 
-function getRaceResults(venue, raceNum) {
-  var key = (venue||'').toUpperCase().replace(/\s+/g,'_') + '_R' + raceNum;
-  return resultsCache[key] || null;
+function getRaceResults(venue, raceNum, dateStr) {
+  var vkey = (venue||'').toUpperCase().replace(/\s+/g,'_') + '_R' + raceNum;
+  // Try with explicit date first
+  if (dateStr) {
+    var key = dateStr + '_' + vkey;
+    if (resultsCache[key]) return resultsCache[key];
+  }
+  // Try with current CSV date
+  if (window._csvDate) {
+    var key2 = window._csvDate + '_' + vkey;
+    if (resultsCache[key2]) return resultsCache[key2];
+  }
+  // Fallback: search any date in cache
+  var keys = Object.keys(resultsCache);
+  for (var i = 0; i < keys.length; i++) {
+    if (keys[i].endsWith('_' + vkey)) return resultsCache[keys[i]];
+  }
+  return null;
 }
 
 function isRaceResulted(venue, raceNum) {
@@ -1864,37 +1884,54 @@ function getTopPicks(n) {
 function showResultsPage() {
   var main = document.getElementById('main');
   var today = new Date();
-  var defaultDate = today.toISOString().slice(0,10);
+  var defaultDate = window._csvDate || today.toISOString().slice(0,10);
   var selectedDate = window._resultsDate || defaultDate;
   var selectedMeeting = window._resultsMeeting || null;
 
-  // Build results from allRaces (CSV loaded races) + mock results
+  // Build meetings list — from CSV if date matches, otherwise from resultsCache
   var meetings = {};
-  Object.keys(allVenues||{}).forEach(function(venue) {
-    var keys = allVenues[venue] || [];
-    if (!meetings[venue]) meetings[venue] = [];
-    keys.forEach(function(k) {
-      var rc = allRaces[k];
-      if (!rc) return;
-      var res = getRaceResults(venue, rc.num);
-      meetings[venue].push({raceNum: rc.num, time: rc.time, key: k, results: res});
-    });
-  });
+  var csvDate = window._csvDate || null;
 
-  // Add mock meetings if no CSV
+  if (csvDate && selectedDate === csvDate && Object.keys(allVenues||{}).length) {
+    // Use CSV venues
+    Object.keys(allVenues).forEach(function(venue) {
+      var keys = allVenues[venue] || [];
+      if (!meetings[venue]) meetings[venue] = [];
+      keys.forEach(function(k) {
+        var rc = allRaces[k];
+        if (!rc) return;
+        var res = getRaceResults(venue, rc.num, selectedDate);
+        meetings[venue].push({raceNum: rc.num, time: rc.time, key: k, results: res});
+      });
+    });
+  } else {
+    // Build from resultsCache for selected date
+    var prefix = selectedDate + '_';
+    Object.keys(resultsCache).forEach(function(k) {
+      if (!k.startsWith(prefix)) return;
+      var entry = resultsCache[k];
+      var venue = entry.venue;
+      if (!meetings[venue]) meetings[venue] = [];
+      // avoid duplicates
+      if (!meetings[venue].find(function(r){ return r.raceNum === entry.raceNum; })) {
+        meetings[venue].push({raceNum: entry.raceNum, time: entry.raceTime, key: k, results: entry});
+      }
+    });
+    // Sort races within each venue
+    Object.keys(meetings).forEach(function(v) {
+      meetings[v].sort(function(a,b){ return a.raceNum - b.raceNum; });
+    });
+  }
+
+  // Add mock meetings if no CSV and no cached results
   if (!Object.keys(meetings).length) {
-    meetings['DOOMBEN'] = [
-      {raceNum:1, time:'11:48am', key:'DOOMBEN_R1', results: getRaceResults('DOOMBEN',1)},
-      {raceNum:2, time:'12:23pm', key:'DOOMBEN_R2', results: getRaceResults('DOOMBEN',2)},
-      {raceNum:3, time:'12:58pm', key:'DOOMBEN_R3', results: null},
-      {raceNum:4, time:'1:33pm', key:'DOOMBEN_R4', results: null},
-    ];
+    meetings = {};
   }
 
   var html = '<div class="results-page-wrap">';
   html += '<div style="display:flex;align-items:baseline;gap:12px;margin-bottom:14px;">';
   html += '<div style="font-size:20px;font-weight:700;color:#111827;">Results</div>';
-  html += '<input type="date" value="'+selectedDate+'" onchange="window._resultsDate=this.value;window._resultsMeeting=null;showResultsPage()" ';
+  html += '<input type="date" value="'+selectedDate+'" onchange="window._resultsDate=this.value;window._resultsMeeting=null;resultsFetched={};fetchResultsForDate(this.value).then(function(){showResultsPage();});" ';
   html += 'style="border:0.5px solid #d1d5db;border-radius:6px;padding:4px 8px;font-size:11px;font-family:Space Grotesk,sans-serif;color:#374151;background:#fff;">';
   html += '</div>';
 
