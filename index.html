@@ -1486,10 +1486,10 @@ function renderRaceTable(rc, results, scratched, hasLive, liveOddsData) {
   // Assembly: if race has results, show a "Results" button in tab bar area
   // Results open in a compact modal overlay - don't push scoring view down
   if (resultsPanel) {
-    var resultsBtnBar = '<div style="background:#f0fdf4;border-bottom:1px solid #86efac;padding:6px 14px;display:flex;align-items:center;gap:8px;flex-shrink:0;">'
-      + '<i class="ti ti-flag-check" style="font-size:14px;color:#059669;"></i>'
+    var resultsBtnBar = '<div style="background:#f0fdf4;border-bottom:1px solid #86efac;padding:5px 12px;display:flex;align-items:center;gap:8px;flex-shrink:0;">'
+      + '<i class="ti ti-flag-check" style="font-size:13px;color:#059669;"></i>'
       + '<span style="font-size:11px;font-weight:600;color:#065f46;">Race resulted</span>'
-      + '<button onclick="showResultsModal()" style="margin-left:auto;padding:4px 12px;background:#059669;color:#fff;border:none;border-radius:5px;font-size:11px;font-weight:600;cursor:pointer;font-family:Space Grotesk,sans-serif;"><i class="ti ti-list-details" style="font-size:11px;"></i> View Results</button>'
+      + '<button onclick="showResultsModal()" style="margin-left:8px;padding:3px 10px;background:#059669;color:#fff;border:none;border-radius:5px;font-size:11px;font-weight:600;cursor:pointer;font-family:Space Grotesk,sans-serif;">View Results</button>'
       + '</div>';
     // Store results panel for modal
     window._currentResultsPanel = resultsPanel;
@@ -1948,14 +1948,13 @@ function showResultsPage() {
     html += '<div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:12px;">';
     races.forEach(function(r) {
       var resulted = !!r.results;
-      var rank1Won = resulted && r.results.runners[0] && r.results.runners[0].systemRank === 1;
-      var bg = resulted ? (rank1Won ? '#d1fae5' : '#fee2e2') : '#f1f5f9';
-      var color = resulted ? (rank1Won ? '#065f46' : '#991b1b') : '#9ca3af';
-      var border = resulted ? (rank1Won ? '#86efac' : '#fca5a5') : '#e5e7eb';
+      var bg = resulted ? '#d1fae5' : '#f1f5f9';
+      var color = resulted ? '#065f46' : '#9ca3af';
+      var border = resulted ? '#86efac' : '#e5e7eb';
       var active = window._resultsRace == r.raceNum;
       html += '<div data-rrace="'+r.raceNum+'" style="padding:4px 10px;border-radius:5px;font-size:10px;font-weight:700;cursor:pointer;';
       html += 'background:'+(active?'#1e2936':bg)+';color:'+(active?'#fff':color)+';border:0.5px solid '+(active?'#1e2936':border)+';">';
-      html += 'R'+r.raceNum+(resulted ? (rank1Won ? ' ✓' : ' ✗') : '')+'</div>';
+      html += 'R'+r.raceNum+(resulted ? ' ✓' : '')+'</div>';
     });
     html += '</div>';
 
@@ -1994,9 +1993,8 @@ function showResultsPage() {
         html += '<div class="rmc-races">';
         races.forEach(function(r) {
           var resulted = !!r.results;
-          var rank1Won = resulted && r.results.runners[0] && r.results.runners[0].systemRank === 1;
-          var cls = resulted ? (rank1Won ? 'won' : 'lost') : 'pending';
-          var icon = resulted ? (rank1Won ? '✓' : '✗') : '';
+          var cls = resulted ? 'won' : 'pending';
+          var icon = '';
           html += '<div class="rmc-race-pill '+cls+'">';
           html += 'R'+r.raceNum+(icon?' '+icon:'')+'</div>';
         });
@@ -2026,28 +2024,36 @@ function showResultsPage() {
 function buildResultsDetail(venue, raceData) {
   var res = raceData.results;
   if (!res) return '';
+
+  // Try to get sys ranks from loaded CSV for this venue/race
+  var sysRankMap = {};
+  var csvKey = (venue||'').toUpperCase().replace(/\s+/g,'_') + '_R' + raceData.raceNum;
+  var csvRace = allRaces[csvKey];
+  if (csvRace && csvRace.horses) {
+    var scored = csvRace.horses.filter(function(h){ return !h.scratched; });
+    scored.sort(function(a,b){ return (b.total||0)-(a.total||0); });
+    scored.forEach(function(h,i){ sysRankMap[(h.name||'').toUpperCase()] = i+1; });
+  }
+  var hasSysRank = Object.keys(sysRankMap).length > 0;
+
   var html = '';
 
   // Panel header
-  html += '<div style="background:#1e2936;padding:9px 14px;border-radius:8px 8px 0 0;display:flex;align-items:center;justify-content:space-between;">';
-  html += '<div style="display:flex;align-items:center;gap:8px;">';
-  html += '<span style="font-size:11px;font-weight:700;color:#fff;text-transform:uppercase;letter-spacing:.8px;">'+venue+' R'+raceData.raceNum+' — Results</span>';
-  html += '<span style="background:#22c55e;color:#fff;font-size:8px;font-weight:700;padding:2px 6px;border-radius:3px;">OFFICIAL</span>';
-  html += '</div>';
-  html += '<div style="font-size:10px;color:rgba(255,255,255,.5);display:flex;gap:12px;">';
-  if (res.raceTime) html += '<span><i class="ti ti-clock" style="font-size:10px;margin-right:2px;"></i>'+res.raceTime+'</span>';
-  if (res.trackCond) html += '<span><i class="ti ti-cloud" style="font-size:10px;margin-right:2px;"></i>'+res.trackCond+'</span>';
+  html += '<div style="background:#1e2936;padding:8px 12px;border-radius:8px 8px 0 0;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:4px;">';
+  html += '<span style="font-size:11px;font-weight:700;color:#fff;text-transform:uppercase;letter-spacing:.8px;">'+venue+' R'+raceData.raceNum+' — Results <span style="background:#22c55e;color:#fff;font-size:8px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px;">OFFICIAL</span></span>';
+  html += '<div style="font-size:10px;color:rgba(255,255,255,.5);display:flex;gap:10px;">';
+  if (res.raceTime) html += '<span>'+res.raceTime+'</span>';
+  if (res.trackCond) html += '<span>'+res.trackCond+'</span>';
   if (res.dist) html += '<span>'+res.dist+'</span>';
-  html += '</div>';
-  html += '</div>';
+  html += '</div></div>';
 
   // Column headers
-  html += '<div style="display:flex;align-items:center;padding:5px 14px;background:#f8fafc;border:0.5px solid #e5e7eb;border-top:none;">';
-  html += '<div style="width:36px;flex-shrink:0;font-size:8px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:.4px;text-align:center;">Pos</div>';
-  html += '<div style="flex:1;font-size:8px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:.4px;padding-left:6px;">Horse</div>';
-  html += '<div style="width:48px;flex-shrink:0;font-size:8px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:.4px;text-align:center;">Sys Rank</div>';
-  html += '<div style="width:64px;flex-shrink:0;font-size:8px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:.4px;text-align:right;">SP</div>';
-  html += '<div style="width:64px;flex-shrink:0;font-size:8px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:.4px;text-align:right;">Margin</div>';
+  html += '<div style="display:flex;align-items:center;padding:4px 10px;background:#f8fafc;border:0.5px solid #e5e7eb;border-top:none;gap:0;">';
+  html += '<div style="width:28px;flex-shrink:0;font-size:8px;font-weight:600;color:#9ca3af;text-align:center;">POS</div>';
+  html += '<div style="flex:1;font-size:8px;font-weight:600;color:#9ca3af;padding-left:4px;">HORSE</div>';
+  if (hasSysRank) html += '<div style="width:36px;flex-shrink:0;font-size:8px;font-weight:600;color:#9ca3af;text-align:center;">RANK</div>';
+  html += '<div style="width:52px;flex-shrink:0;font-size:8px;font-weight:600;color:#9ca3af;text-align:right;">SP</div>';
+  html += '<div style="width:52px;flex-shrink:0;font-size:8px;font-weight:600;color:#9ca3af;text-align:right;padding-right:4px;">MARGIN</div>';
   html += '</div>';
 
   // Runner rows
@@ -2056,48 +2062,39 @@ function buildResultsDetail(venue, raceData) {
     var p = r.place;
     var isTop3 = p <= 3;
     var pbClass = p===1?'res-pb-1':p===2?'res-pb-2':p===3?'res-pb-3':'res-pb-n';
-    var rowClass = p===1?'res-1':p===2?'res-2':p===3?'res-3':'res-n';
-    var rkBadgeClass = r.systemRank===1?'rk1':r.systemRank===2?'rk2':r.systemRank===3?'rk3':'rkn';
+    var rowBg = p===1?'#fffbeb':p===2?'#f0f9ff':p===3?'#fdf4ff':'#fff';
+    var sysRank = sysRankMap[(r.name||'').toUpperCase()] || null;
+    var rkBadgeClass = sysRank===1?'rk1':sysRank===2?'rk2':sysRank===3?'rk3':'rkn';
+    var rank1Won = hasSysRank && p===1 && sysRank===1;
+    var rank1Lost = hasSysRank && p>3 && sysRank===1;
 
-    // Outcome for logged bets (mock: check if user has a bet on this horse)
-    var outcome = '';
-    if (p === 1) outcome = '<span class="res-outcome-win">WIN</span>';
-    else if (p <= 3) outcome = '<span class="res-outcome-place">PLC</span>';
-    else outcome = '<span class="res-outcome-loss">—</span>';
-
-    rowsHtml += '<div class="res-row '+rowClass+'">';
-    rowsHtml += '<div style="width:36px;flex-shrink:0;display:flex;justify-content:center;">';
+    rowsHtml += '<div style="display:flex;align-items:center;padding:'+(isTop3?'5':'3')+'px 10px;background:'+rowBg+';border-bottom:0.5px solid #f1f5f9;">';
+    rowsHtml += '<div style="width:28px;flex-shrink:0;display:flex;justify-content:center;">';
     rowsHtml += '<span class="res-place-badge '+pbClass+'">'+p+'</span>';
     rowsHtml += '</div>';
-    rowsHtml += '<div style="flex:1;min-width:0;padding:0 6px;">';
-    rowsHtml += '<div style="font-size:12px;font-weight:600;color:#111827;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">';
-    rowsHtml += (r.tab ? '<span style="background:#1e40af;color:#fff;font-size:7px;font-weight:700;padding:1px 3px;border-radius:2px;margin-right:4px;">'+r.tab+'</span>' : '');
+    rowsHtml += '<div style="flex:1;min-width:0;padding:0 4px;">';
+    rowsHtml += '<div style="font-size:'+(isTop3?'11':'10')+'px;font-weight:'+(isTop3?'600':'500')+';color:#111827;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">';
+    if (rank1Won) rowsHtml += '<span style="font-size:8px;background:#d1fae5;color:#065f46;font-weight:700;padding:1px 3px;border-radius:3px;margin-right:3px;">✓R1</span>';
+    if (rank1Lost) rowsHtml += '<span style="font-size:8px;background:#fee2e2;color:#991b1b;font-weight:700;padding:1px 3px;border-radius:3px;margin-right:3px;">R1</span>';
     rowsHtml += r.name+'</div>';
-    if (r.jockey) rowsHtml += '<div style="font-size:9px;color:#9ca3af;margin-top:1px;">'+r.jockey+(r.barrier?' · Barrier '+r.barrier:'')+'</div>';
     rowsHtml += '</div>';
-    rowsHtml += '<div style="width:48px;flex-shrink:0;display:flex;justify-content:center;align-items:center;">';
-    rowsHtml += '<span class="rk '+rkBadgeClass+'">'+r.systemRank+'</span>';
-    rowsHtml += '</div>';
-    rowsHtml += '<div style="width:64px;flex-shrink:0;text-align:right;font-family:JetBrains Mono,monospace;font-size:11px;font-weight:600;color:#1d4ed8;padding-right:6px;">$'+r.sp.toFixed(2)+'</div>';
-    rowsHtml += '<div style="width:64px;flex-shrink:0;text-align:right;font-size:10px;color:#6b7280;padding-right:6px;">'+r.margin+'</div>';
+    if (hasSysRank) {
+      rowsHtml += '<div style="width:36px;flex-shrink:0;display:flex;justify-content:center;align-items:center;">';
+      rowsHtml += sysRank ? '<span class="rk '+rkBadgeClass+'">'+sysRank+'</span>' : '<span style="font-size:9px;color:#d1d5db;">—</span>';
+      rowsHtml += '</div>';
+    }
+    rowsHtml += '<div style="width:52px;flex-shrink:0;text-align:right;font-family:JetBrains Mono,monospace;font-size:11px;font-weight:600;color:#1d4ed8;">$'+Number(r.sp||0).toFixed(2)+'</div>';
+    rowsHtml += '<div style="width:52px;flex-shrink:0;text-align:right;font-size:10px;color:#6b7280;padding-right:4px;">'+(r.margin||'')+'</div>';
     rowsHtml += '</div>';
   });
 
   html += '<div style="border:0.5px solid #e5e7eb;border-top:none;border-radius:0 0 8px 8px;overflow:hidden;margin-bottom:10px;">';
   html += rowsHtml;
-
-  // Footer
-  if (res.l600 || res.scratched && res.scratched.length) {
-    html += '<div style="padding:7px 14px;background:#f8fafc;border-top:0.5px solid #e5e7eb;display:flex;align-items:center;gap:16px;flex-wrap:wrap;">';
-    if (res.l600) {
-      html += '<span style="font-size:10px;color:#6b7280;">L600m: <span style="font-weight:600;color:#111827;font-family:JetBrains Mono,monospace;">'+res.l600+'</span></span>';
-    }
-    if (res.trackCond) {
-      html += '<span style="font-size:10px;color:#6b7280;">Track: <span style="font-weight:600;color:#111827;">'+res.trackCond+'</span></span>';
-    }
-    if (res.scratched && res.scratched.length) {
-      html += '<span style="font-size:10px;color:#9ca3af;">Scratched: '+res.scratched.join(' · ')+'</span>';
-    }
+  if (res.l600 || res.trackCond) {
+    html += '<div style="padding:5px 10px;background:#f8fafc;border-top:0.5px solid #e5e7eb;display:flex;gap:14px;flex-wrap:wrap;">';
+    if (res.l600) html += '<span style="font-size:10px;color:#6b7280;">L600m: <b style="color:#111827;font-family:JetBrains Mono,monospace;">'+res.l600+'</b></span>';
+    if (res.trackCond) html += '<span style="font-size:10px;color:#6b7280;">Track: <b style="color:#111827;">'+res.trackCond+'</b></span>';
+    if (res.scratched && res.scratched.length) html += '<span style="font-size:10px;color:#9ca3af;">Scratched: '+res.scratched.join(' · ')+'</span>';
     html += '</div>';
   }
   html += '</div>';
