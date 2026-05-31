@@ -1520,10 +1520,8 @@ function showTodayResultPopup(venue, raceNum) {
   var panel = buildRaceResultsPanel({venue:venue, num:raceNum}, res, []);
   var modal = document.createElement('div');
   modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:8000;display:flex;align-items:center;justify-content:center;padding:16px;';
-  modal.innerHTML = '<div style="background:#fff;border-radius:10px;overflow:hidden;width:100%;max-width:500px;max-height:85vh;overflow-y:auto;">'
-    + '<div style="display:flex;align-items:center;justify-content:flex-end;padding:4px 8px;background:#1e2936;position:sticky;top:0;">'
-    + '<button onclick="this.closest(\'[style*=fixed]\').remove()" style="background:none;border:none;color:rgba(255,255,255,.6);font-size:20px;cursor:pointer;line-height:1;">×</button>'
-    + '</div>'
+  modal.innerHTML = '<div style="background:#fff;border-radius:10px;overflow:hidden;width:100%;max-width:420px;max-height:85vh;overflow-y:auto;position:relative;">'
+    + '<button onclick="this.closest(\'[style*=fixed]\').remove()" style="position:absolute;top:6px;right:8px;background:none;border:none;color:rgba(255,255,255,.7);font-size:18px;cursor:pointer;line-height:1;z-index:1;">×</button>'
     + panel
     + '</div>';
   modal.onclick = function(e){ if(e.target===modal) modal.remove(); };
@@ -1535,11 +1533,9 @@ function showResultsModal() {
   if (!panel) return;
   var modal = document.createElement('div');
   modal.id = 'results-modal-overlay';
-  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:8000;display:flex;align-items:flex-start;justify-content:center;padding:20px;overflow-y:auto;';
-  modal.innerHTML = '<div style="background:#fff;border-radius:10px;overflow:hidden;width:100%;max-width:500px;margin:auto;">'
-    + '<div style="display:flex;align-items:center;justify-content:flex-end;padding:4px 8px;background:#1e2936;">'
-    + '<button onclick="document.getElementById(\'results-modal-overlay\').remove()" style="background:none;border:none;color:rgba(255,255,255,.6);font-size:20px;cursor:pointer;line-height:1;">×</button>'
-    + '</div>'
+  modal.style.cssText = 'position:fixed;top:90px;right:16px;z-index:8000;width:380px;max-height:calc(100vh - 110px);overflow-y:auto;border-radius:10px;box-shadow:0 8px 32px rgba(0,0,0,.25);';
+  modal.innerHTML = '<div style="background:#fff;border-radius:10px;overflow:hidden;position:relative;">'
+    + '<button onclick="document.getElementById(\'results-modal-overlay\').remove()" style="position:absolute;top:6px;right:8px;background:none;border:none;color:rgba(255,255,255,.7);font-size:18px;cursor:pointer;line-height:1;z-index:1;">×</button>'
     + panel
     + '</div>';
   modal.onclick = function(e) { if (e.target === modal) modal.remove(); };
@@ -1552,7 +1548,6 @@ function showLockedModal(feature) {
 }
 
 function buildRaceResultsPanel(rc, res, scoredResults) {
-  // Build sys rank map — prefer passed scoredResults, fall back to allRaces CSV
   var sysRankMap = {};
   if (scoredResults && scoredResults.length) {
     scoredResults.forEach(function(r, i) { sysRankMap[(r.name||'').toUpperCase()] = i + 1; });
@@ -1560,70 +1555,64 @@ function buildRaceResultsPanel(rc, res, scoredResults) {
     var csvKey = (rc.venue||'').toUpperCase().replace(/\s+/g,'_') + '_R' + rc.num;
     var csvRace = allRaces[csvKey];
     if (csvRace && csvRace.horses) {
-      var scored = csvRace.horses.filter(function(h){ return !h.scratched; });
-      scored.sort(function(a,b){ return (b.total||0)-(a.total||0); });
-      scored.forEach(function(h,i){ sysRankMap[(h.name||'').toUpperCase()] = i+1; });
+      var sc2 = csvRace.horses.filter(function(h){ return !h.scratched; });
+      sc2.sort(function(a,b){ return (b.total||0)-(a.total||0); });
+      sc2.forEach(function(h,i){ sysRankMap[(h.name||'').toUpperCase()] = i+1; });
     }
   }
   var hasSysRank = Object.keys(sysRankMap).length > 0;
 
   var html = '<div style="background:#fff;overflow:hidden;">';
-
   // Header
   html += '<div style="background:#1e2936;padding:6px 12px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:4px;">';
-  html += '<div style="display:flex;align-items:center;gap:6px;">';
-  html += '<i class="ti ti-flag-check" style="font-size:11px;color:#4ade80;"></i>';
-  html += '<span style="font-size:10px;font-weight:700;color:#fff;text-transform:uppercase;letter-spacing:.8px;">'+rc.venue+' R'+rc.num+' — Result</span>';
-  html += '<span style="background:#22c55e;color:#fff;font-size:7px;font-weight:700;padding:1px 5px;border-radius:3px;">OFFICIAL</span>';
-  html += '</div>';
-  html += '<div style="font-size:9px;color:rgba(255,255,255,.5);display:flex;gap:8px;">';
+  html += '<div style="display:flex;align-items:center;gap:6px;"><i class="ti ti-flag-check" style="font-size:11px;color:#4ade80;"></i>';
+  html += '<span style="font-size:10px;font-weight:700;color:#fff;text-transform:uppercase;">'+rc.venue+' R'+rc.num+' — Result</span>';
+  html += '<span style="background:#22c55e;color:#fff;font-size:7px;font-weight:700;padding:1px 5px;border-radius:3px;">OFFICIAL</span></div>';
+  html += '<div style="font-size:9px;color:rgba(255,255,255,.55);display:flex;gap:8px;">';
   if (res.raceTime) html += '<span>'+res.raceTime+'</span>';
   if (res.trackCond) html += '<span>'+res.trackCond+'</span>';
   if (res.dist) html += '<span>'+res.dist+'</span>';
-  if (res.l600) html += '<span>L600: '+res.l600+'</span>';
+  if (res.l600) html += '<span>L600:'+res.l600+'</span>';
   html += '</div></div>';
 
-  // Column headers
-  html += '<div style="display:flex;align-items:center;padding:3px 10px;background:#f8fafc;border-bottom:0.5px solid #e5e7eb;">';
-  html += '<div style="width:26px;flex-shrink:0;font-size:7px;font-weight:600;color:#9ca3af;text-align:center;">POS</div>';
-  html += '<div style="flex:1;font-size:7px;font-weight:600;color:#9ca3af;padding-left:4px;">HORSE</div>';
-  if (hasSysRank) html += '<div style="width:34px;flex-shrink:0;font-size:7px;font-weight:600;color:#9ca3af;text-align:center;">RANK</div>';
-  html += '<div style="width:52px;flex-shrink:0;font-size:7px;font-weight:600;color:#9ca3af;text-align:right;">SP</div>';
-  html += '<div style="width:48px;flex-shrink:0;font-size:7px;font-weight:600;color:#9ca3af;text-align:right;padding-right:4px;">MARGIN</div>';
-  html += '</div>';
+  // Table
+  html += '<table style="width:100%;border-collapse:collapse;table-layout:auto;">';
+  html += '<thead><tr style="background:#f8fafc;border-bottom:1px solid #e5e7eb;">';
+  html += '<th style="padding:3px 6px;font-size:7px;font-weight:600;color:#9ca3af;text-align:center;width:28px;">POS</th>';
+  html += '<th style="padding:3px 6px;font-size:7px;font-weight:600;color:#9ca3af;text-align:left;">HORSE</th>';
+  if (hasSysRank) html += '<th style="padding:3px 6px;font-size:7px;font-weight:600;color:#9ca3af;text-align:center;width:36px;">RANK</th>';
+  html += '<th style="padding:3px 6px;font-size:7px;font-weight:600;color:#9ca3af;text-align:right;width:54px;">SP</th>';
+  html += '<th style="padding:3px 6px;font-size:7px;font-weight:600;color:#9ca3af;text-align:right;width:50px;">MARGIN</th>';
+  html += '</tr></thead><tbody>';
 
-  // Rows
   res.runners.forEach(function(r) {
     var p = r.place;
     var isTop3 = p <= 3;
     var pbClass = p===1?'res-pb-1':p===2?'res-pb-2':p===3?'res-pb-3':'res-pb-n';
     var rowBg = p===1?'#fffbeb':p===2?'#f8fafc':p===3?'#fdf4ff':'#fff';
-    var borderLeft = p===1?'3px solid #fbbf24':p===2?'3px solid #e5e7eb':p===3?'3px solid #fed7aa':'3px solid transparent';
     var sysRank = sysRankMap[(r.name||'').toUpperCase()] || null;
     var rkClass = sysRank===1?'rk1':sysRank===2?'rk2':sysRank===3?'rk3':'rkn';
     var rank1Won = hasSysRank && p===1 && sysRank===1;
     var rank1Lost = hasSysRank && p>3 && sysRank===1;
 
-    html += '<div style="display:flex;align-items:center;padding:'+(isTop3?'4':'2')+'px 10px;background:'+rowBg+';border-left:'+borderLeft+';border-bottom:0.5px solid #f3f4f6;">';
-    html += '<div style="width:26px;flex-shrink:0;display:flex;justify-content:center;">';
-    html += '<span class="res-place-badge '+pbClass+'">'+p+'</span>';
-    html += '</div>';
-    html += '<div style="flex:1;min-width:0;padding:0 4px;">';
-    html += '<div style="font-size:'+(isTop3?'11':'10')+'px;font-weight:'+(isTop3?'600':'500')+';color:#111827;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">';
+    html += '<tr style="background:'+rowBg+';border-bottom:0.5px solid #f3f4f6;">';
+    html += '<td style="padding:'+(isTop3?'4':'2')+'px 6px;text-align:center;"><span class="res-place-badge '+pbClass+'">'+p+'</span></td>';
+    html += '<td style="padding:'+(isTop3?'4':'2')+'px 6px;white-space:nowrap;">';
     if (rank1Won) html += '<span style="font-size:8px;background:#d1fae5;color:#065f46;font-weight:700;padding:1px 3px;border-radius:3px;margin-right:3px;">✓R1</span>';
     if (rank1Lost) html += '<span style="font-size:8px;background:#fee2e2;color:#991b1b;font-weight:700;padding:1px 3px;border-radius:3px;margin-right:3px;">R1</span>';
-    html += r.name+'</div>';
-    html += '</div>';
+    html += '<span style="font-size:'+(isTop3?'11':'10')+'px;font-weight:'+(isTop3?'600':'500')+';color:#111827;">'+r.name+'</span>';
+    html += '</td>';
     if (hasSysRank) {
-      html += '<div style="width:34px;flex-shrink:0;display:flex;justify-content:center;align-items:center;">';
+      html += '<td style="padding:'+(isTop3?'4':'2')+'px 6px;text-align:center;">';
       html += sysRank ? '<span class="rk '+rkClass+'">'+sysRank+'</span>' : '<span style="font-size:9px;color:#d1d5db;">—</span>';
-      html += '</div>';
+      html += '</td>';
     }
-    html += '<div style="width:52px;flex-shrink:0;text-align:right;font-family:JetBrains Mono,monospace;font-size:'+(isTop3?'11':'10')+'px;font-weight:600;color:#1d4ed8;">$'+(r.sp||0).toFixed(2)+'</div>';
-    html += '<div style="width:48px;flex-shrink:0;text-align:right;font-size:'+(isTop3?'10':'9')+'px;color:#6b7280;padding-right:4px;">'+(r.margin||'—')+'</div>';
-    html += '</div>';
+    html += '<td style="padding:'+(isTop3?'4':'2')+'px 6px;text-align:right;font-family:JetBrains Mono,monospace;font-size:'+(isTop3?'11':'10')+'px;font-weight:700;color:#111827;">$'+(r.sp||0).toFixed(2)+'</td>';
+    html += '<td style="padding:'+(isTop3?'4':'2')+'px 6px;text-align:right;font-size:'+(isTop3?'10':'9')+'px;color:#374151;">'+(r.margin||'—')+'</td>';
+    html += '</tr>';
   });
 
+  html += '</tbody></table>';
   if (res.scratched && res.scratched.length) {
     html += '<div style="padding:4px 10px;font-size:9px;color:#9ca3af;border-top:0.5px solid #f3f4f6;">Scratched: '+res.scratched.join(' · ')+'</div>';
   }
@@ -2010,18 +1999,72 @@ function buildResultsDetail(venue, raceData) {
   var res = raceData.results;
   if (!res) return '';
 
-  // Try to get sys ranks from loaded CSV for this venue/race
   var sysRankMap = {};
   var csvKey = (venue||'').toUpperCase().replace(/\s+/g,'_') + '_R' + raceData.raceNum;
   var csvRace = allRaces[csvKey];
   if (csvRace && csvRace.horses) {
-    var scored = csvRace.horses.filter(function(h){ return !h.scratched; });
-    scored.sort(function(a,b){ return (b.total||0)-(a.total||0); });
-    scored.forEach(function(h,i){ sysRankMap[(h.name||'').toUpperCase()] = i+1; });
+    var sc3 = csvRace.horses.filter(function(h){ return !h.scratched; });
+    sc3.sort(function(a,b){ return (b.total||0)-(a.total||0); });
+    sc3.forEach(function(h,i){ sysRankMap[(h.name||'').toUpperCase()] = i+1; });
   }
   var hasSysRank = Object.keys(sysRankMap).length > 0;
 
-  var html = '<div style="max-width:520px;">';
+  var html = '<div style="display:inline-block;min-width:320px;">';
+  html += '<div style="background:#1e2936;padding:7px 12px;border-radius:8px 8px 0 0;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:4px;">';
+  html += '<span style="font-size:11px;font-weight:700;color:#fff;text-transform:uppercase;">'+venue+' R'+raceData.raceNum+' — Results <span style="background:#22c55e;font-size:7px;padding:1px 5px;border-radius:3px;margin-left:4px;">OFFICIAL</span></span>';
+  html += '<div style="font-size:9px;color:rgba(255,255,255,.55);display:flex;gap:8px;">';
+  if (res.raceTime) html += '<span>'+res.raceTime+'</span>';
+  if (res.trackCond) html += '<span>'+res.trackCond+'</span>';
+  if (res.dist) html += '<span>'+res.dist+'</span>';
+  html += '</div></div>';
+
+  html += '<table style="width:100%;border-collapse:collapse;table-layout:auto;border:0.5px solid #e5e7eb;border-top:none;border-radius:0 0 8px 8px;overflow:hidden;">';
+  html += '<thead><tr style="background:#f8fafc;border-bottom:1px solid #e5e7eb;">';
+  html += '<th style="padding:3px 8px;font-size:7px;font-weight:600;color:#9ca3af;text-align:center;width:28px;">POS</th>';
+  html += '<th style="padding:3px 8px;font-size:7px;font-weight:600;color:#9ca3af;text-align:left;">HORSE</th>';
+  if (hasSysRank) html += '<th style="padding:3px 8px;font-size:7px;font-weight:600;color:#9ca3af;text-align:center;width:38px;">RANK</th>';
+  html += '<th style="padding:3px 8px;font-size:7px;font-weight:600;color:#9ca3af;text-align:right;width:54px;">SP</th>';
+  html += '<th style="padding:3px 8px;font-size:7px;font-weight:600;color:#9ca3af;text-align:right;width:54px;">MARGIN</th>';
+  html += '</tr></thead><tbody>';
+
+  res.runners.forEach(function(r) {
+    var p = r.place;
+    var isTop3 = p <= 3;
+    var pbClass = p===1?'res-pb-1':p===2?'res-pb-2':p===3?'res-pb-3':'res-pb-n';
+    var rowBg = p===1?'#fffbeb':p===2?'#f8fafc':p===3?'#fdf4ff':'#fff';
+    var sysRank = sysRankMap[(r.name||'').toUpperCase()] || null;
+    var rkClass = sysRank===1?'rk1':sysRank===2?'rk2':sysRank===3?'rk3':'rkn';
+    var rank1Won = hasSysRank && p===1 && sysRank===1;
+    var rank1Lost = hasSysRank && p>3 && sysRank===1;
+
+    html += '<tr style="background:'+rowBg+';border-bottom:0.5px solid #f3f4f6;">';
+    html += '<td style="padding:'+(isTop3?'5':'3')+'px 8px;text-align:center;"><span class="res-place-badge '+pbClass+'">'+p+'</span></td>';
+    html += '<td style="padding:'+(isTop3?'5':'3')+'px 8px;white-space:nowrap;">';
+    if (rank1Won) html += '<span style="font-size:8px;background:#d1fae5;color:#065f46;font-weight:700;padding:1px 3px;border-radius:3px;margin-right:3px;">✓R1</span>';
+    if (rank1Lost) html += '<span style="font-size:8px;background:#fee2e2;color:#991b1b;font-weight:700;padding:1px 3px;border-radius:3px;margin-right:3px;">R1</span>';
+    html += '<span style="font-size:'+(isTop3?'12':'11')+'px;font-weight:'+(isTop3?'600':'400')+';color:#111827;">'+r.name+'</span>';
+    html += '</td>';
+    if (hasSysRank) {
+      html += '<td style="padding:'+(isTop3?'5':'3')+'px 8px;text-align:center;">';
+      html += sysRank ? '<span class="rk '+rkClass+'">'+sysRank+'</span>' : '<span style="font-size:9px;color:#d1d5db;">—</span>';
+      html += '</td>';
+    }
+    html += '<td style="padding:'+(isTop3?'5':'3')+'px 8px;text-align:right;font-family:JetBrains Mono,monospace;font-size:11px;font-weight:700;color:#111827;">$'+Number(r.sp||0).toFixed(2)+'</td>';
+    html += '<td style="padding:'+(isTop3?'5':'3')+'px 8px;text-align:right;font-size:10px;color:#374151;">'+(r.margin||'—')+'</td>';
+    html += '</tr>';
+  });
+
+  html += '</tbody></table>';
+  if (res.l600 || res.trackCond || (res.scratched && res.scratched.length)) {
+    html += '<div style="padding:5px 8px;background:#f8fafc;border:0.5px solid #e5e7eb;border-top:none;border-radius:0 0 8px 8px;display:flex;gap:12px;flex-wrap:wrap;margin-top:-1px;">';
+    if (res.l600) html += '<span style="font-size:10px;color:#6b7280;">L600m: <b style="color:#111827;font-family:JetBrains Mono,monospace;">'+res.l600+'</b></span>';
+    if (res.trackCond) html += '<span style="font-size:10px;color:#6b7280;">Track: <b style="color:#111827;">'+res.trackCond+'</b></span>';
+    if (res.scratched && res.scratched.length) html += '<span style="font-size:10px;color:#9ca3af;">Scratched: '+res.scratched.join(' · ')+'</span>';
+    html += '</div>';
+  }
+  html += '</div>';
+  return html;
+}
 
   // Panel header
   html += '<div style="background:#1e2936;padding:8px 12px;border-radius:8px 8px 0 0;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:4px;">';
@@ -2073,19 +2116,6 @@ function buildResultsDetail(venue, raceData) {
     rowsHtml += '</div>';
   });
 
-  html += '<div style="border:0.5px solid #e5e7eb;border-top:none;border-radius:0 0 8px 8px;overflow:hidden;margin-bottom:10px;">';
-  html += rowsHtml;
-  if (res.l600 || res.trackCond) {
-    html += '<div style="padding:5px 10px;background:#f8fafc;border-top:0.5px solid #e5e7eb;display:flex;gap:14px;flex-wrap:wrap;">';
-    if (res.l600) html += '<span style="font-size:10px;color:#6b7280;">L600m: <b style="color:#111827;font-family:JetBrains Mono,monospace;">'+res.l600+'</b></span>';
-    if (res.trackCond) html += '<span style="font-size:10px;color:#6b7280;">Track: <b style="color:#111827;">'+res.trackCond+'</b></span>';
-    if (res.scratched && res.scratched.length) html += '<span style="font-size:10px;color:#9ca3af;">Scratched: '+res.scratched.join(' · ')+'</span>';
-    html += '</div>';
-  }
-  html += '</div>'; // close border wrapper
-  html += '</div>'; // close max-width wrapper
-  return html;
-}
 function showPaceMapPage() {
   const main = document.getElementById('main');
   if (!currentRace) {
