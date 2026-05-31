@@ -959,6 +959,8 @@ function onCSVLoaded(fname) {
   mobBuildSelectors();
   var lastPage = 'races';
   try { lastPage = localStorage.getItem('ww_last_page') || 'races'; } catch(e){}
+  var publicPages = ['home','races'];
+  if (!publicPages.includes(lastPage) && !currentUser) lastPage = 'races';
   navTo(lastPage);
   initResultsFetch();
   pushTodayMeetingsToSupabase();
@@ -6858,14 +6860,16 @@ document.addEventListener('DOMContentLoaded',function(){
   window.addEventListener('pageshow', function(e){
     try {
       var lastPage = localStorage.getItem('ww_last_page');
-      if (lastPage && lastPage !== currentPage) navTo(lastPage);
+      var pub = ['home','races'];
+      if (lastPage && lastPage !== currentPage && (pub.includes(lastPage) || currentUser)) navTo(lastPage);
     } catch(e2){}
   });
   document.addEventListener('visibilitychange', function(){
     if (document.visibilityState === 'visible') {
       try {
         var lastPage = localStorage.getItem('ww_last_page');
-        if (lastPage && lastPage !== currentPage) navTo(lastPage);
+        var pub = ['home','races'];
+        if (lastPage && lastPage !== currentPage && (pub.includes(lastPage) || currentUser)) navTo(lastPage);
       } catch(e){}
     }
   });
