@@ -716,6 +716,21 @@ const PG = {
 // ── PAGE NAVIGATION ──
 let currentPage = 'home';
 
+// Handle Stripe redirect back
+(function(){
+  try {
+    var params = new URLSearchParams(window.location.search);
+    if (params.get('subscribed') === '1') {
+      setTimeout(function(){ toast('Welcome! Your 7-day free trial has started.', 'success'); }, 800);
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+    if (params.get('cancelled') === '1') {
+      setTimeout(function(){ toast('No worries — you can subscribe any time.', 'success'); }, 800);
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+  } catch(e) {}
+})();
+
 function navTo(page) {
   // Auth gate — non-home pages require sign in
   var publicPages = ['home','races'];
@@ -759,6 +774,35 @@ function showEmptyRaces() {
 // ── SUPABASE RESULTS ──
 var SUPABASE_URL = 'https://jqoqmwxrhfazxnzzynvn.supabase.co';
 var SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Impxb3Ftd3hyaGZhenhuenp5bnZuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk3NDk5NDIsImV4cCI6MjA5NTMyNTk0Mn0.wNJITvDSuLncd29vleL6oLEcs95zmgT_z684Ex1iquM';
+
+// ── Stripe API ──────────────────────────────────────────────────────────────
+var WW_API_URL = 'https://wagingwar-api.onrender.com';
+
+function startCheckout(plan) {
+  var links = {
+    monthly: 'https://buy.stripe.com/aFa7sM7D493H8EB1yS1oI00',
+    annual:  'https://buy.stripe.com/eVqcN6g9A6Vz8EBelE1oI01'
+  };
+  window.location.href = links[plan] || links.monthly;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 // In-memory results cache: key = "VENUE_R{num}", value = formatted result object
 var resultsCache = {};
@@ -1696,10 +1740,43 @@ function showHome() {
     + '<div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:20px"><div style="font-size:28px;margin-bottom:8px">&#127783;</div><div style="font-size:16px;font-weight:600;color:#111827;margin-bottom:6px">Track Condition Scoring</div><div style="font-size:13px;color:#6b7280;line-height:1.6">Change Good to Heavy and the whole field re-ranks instantly. No other tool does this in real time.</div></div>'
     + '<div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:20px"><div style="font-size:28px;margin-bottom:8px">&#128200;</div><div style="font-size:16px;font-weight:600;color:#111827;margin-bottom:6px">Bet Tracking and ROI</div><div style="font-size:13px;color:#6b7280;line-height:1.6">Log every bet. Track your ROI by track, condition, rank and odds range. Know exactly where your edge is.</div></div>'
     + '</div>'
+    + '<div id="ww-pricing" style="margin-bottom:48px">'
+    + '<div style="text-align:center;margin-bottom:28px"><div style="font-size:11px;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:2px;margin-bottom:8px">Simple Pricing</div>'
+    + '<div style="font-size:28px;font-weight:800;color:#111827">Start your 7-day free trial</div>'
+    + '<div style="font-size:14px;color:#6b7280;margin-top:6px">No credit card charged until your trial ends. Cancel any time.</div></div>'
+    + '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:20px;max-width:600px;margin:0 auto">'
+    // Monthly plan
+    + '<div style="background:#fff;border:2px solid #e5e7eb;border-radius:16px;padding:28px;text-align:center">'
+    + '<div style="font-size:12px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:1px;margin-bottom:12px">Monthly</div>'
+    + '<div style="font-size:48px;font-weight:900;color:#111827;line-height:1">$29<span style="font-size:18px;font-weight:500;color:#6b7280">/mo</span></div>'
+    + '<div style="font-size:12px;color:#9ca3af;margin-top:4px;margin-bottom:20px">Billed monthly</div>'
+    + '<ul style="text-align:left;list-style:none;margin-bottom:24px;display:flex;flex-direction:column;gap:8px">'
+    + '<li style="font-size:13px;color:#374151;display:flex;gap:8px"><span style="color:#00471b;font-weight:700">✓</span>QLD + WA race scoring</li>'
+    + '<li style="font-size:13px;color:#374151;display:flex;gap:8px"><span style="color:#00471b;font-weight:700">✓</span>Fair value odds & rankings</li>'
+    + '<li style="font-size:13px;color:#374151;display:flex;gap:8px"><span style="color:#00471b;font-weight:700">✓</span>Live TAB odds feed</li>'
+    + '<li style="font-size:13px;color:#374151;display:flex;gap:8px"><span style="color:#00471b;font-weight:700">✓</span>Scratchings alerts</li>'
+    + '<li style="font-size:13px;color:#374151;display:flex;gap:8px"><span style="color:#00471b;font-weight:700">✓</span>Bet tracker & ROI analysis</li>'
+    + '</ul>'
+    + '<button onclick="startCheckout(\'monthly\')" style="width:100%;background:#00471b;color:#fff;border:none;padding:13px;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer">Start Free Trial</button>'
+    + '</div>'
+    // Annual plan
+    + '<div style="background:#00471b;border:2px solid #00471b;border-radius:16px;padding:28px;text-align:center;position:relative">'
+    + '<div style="position:absolute;top:-12px;left:50%;transform:translateX(-50%);background:#fbbf24;color:#111827;font-size:10px;font-weight:800;padding:3px 14px;border-radius:20px;white-space:nowrap">BEST VALUE — SAVE $99</div>'
+    + '<div style="font-size:12px;font-weight:700;color:rgba(255,255,255,.7);text-transform:uppercase;letter-spacing:1px;margin-bottom:12px">Annual</div>'
+    + '<div style="font-size:48px;font-weight:900;color:#fff;line-height:1">$249<span style="font-size:18px;font-weight:500;color:rgba(255,255,255,.7)">/yr</span></div>'
+    + '<div style="font-size:12px;color:rgba(255,255,255,.6);margin-top:4px;margin-bottom:20px">Just $20.75/month</div>'
+    + '<ul style="text-align:left;list-style:none;margin-bottom:24px;display:flex;flex-direction:column;gap:8px">'
+    + '<li style="font-size:13px;color:rgba(255,255,255,.9);display:flex;gap:8px"><span style="color:#fbbf24;font-weight:700">✓</span>Everything in Monthly</li>'
+    + '<li style="font-size:13px;color:rgba(255,255,255,.9);display:flex;gap:8px"><span style="color:#fbbf24;font-weight:700">✓</span>Priority support</li>'
+    + '<li style="font-size:13px;color:rgba(255,255,255,.9);display:flex;gap:8px"><span style="color:#fbbf24;font-weight:700">✓</span>2 months free</li>'
+    + '</ul>'
+    + '<button onclick="startCheckout(\'annual\')" style="width:100%;background:#fbbf24;color:#111827;border:none;padding:13px;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer">Start Free Trial</button>'
+    + '</div>'
+    + '</div></div>'
     + '<div class="ww-home-cta" style="background:#00471b;border-radius:16px;padding:32px;text-align:center;color:#fff">'
     + '<div style="font-size:22px;font-weight:700;margin-bottom:8px">Ready to wage war on the bookmakers?</div>'
-    + '<div style="font-size:14px;opacity:.8;margin-bottom:20px">Load a race and see the system in action. No credit card required to start.</div>'
-    + '<button onclick="navTo(\'races\')" style="background:#fbbf24;color:#00471b;border:none;padding:12px 32px;border-radius:8px;font-size:15px;font-weight:700;cursor:pointer">Get Started Free</button>'
+    + '<div style="font-size:14px;opacity:.8;margin-bottom:20px">Load a race and see the system in action.</div>'
+    + '<button onclick="navTo(\'races\')" style="background:#fbbf24;color:#00471b;border:none;padding:12px 32px;border-radius:8px;font-size:15px;font-weight:700;cursor:pointer">View Today\'s Races</button>'
     + '</div></div>';
 }
 
@@ -6735,7 +6812,19 @@ function showAccountPage(){
   document.getElementById('acct-pw-btn').onclick = function(){ toast('Password reset email sent to '+( currentUser?currentUser.email:'you'),'success'); };
   document.getElementById('acct-email-btn').onclick = function(){ toast('Email change coming with Clerk integration','success'); };
   document.getElementById('acct-notif-btn').onclick = function(){ switchNav('settings'); };
-  document.getElementById('acct-bill-btn').onclick = function(){ toast('Stripe billing portal coming at launch','success'); };
+  document.getElementById('acct-bill-btn').onclick = async function(){
+    try {
+      var email = currentUser ? currentUser.email : '';
+      var res = await fetch(WW_API_URL + '/create-portal-session', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({email: email})
+      });
+      var data = await res.json();
+      if (data.url) { window.location.href = data.url; }
+      else { toast('Billing portal coming soon','success'); }
+    } catch(e) { toast('Billing portal coming soon','success'); }
+  };
   document.getElementById('acct-cancel-btn').onclick = function(){
     if(confirm('Cancel your subscription? You will keep access until your next billing date.')){
       toast('Cancellation requested. You keep access until '+(currentUser?currentUser.renewDate:'renewal date')+'.','success');
