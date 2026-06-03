@@ -949,17 +949,17 @@ function buildSidebarMeetings() {
     const racesHTML = keys.map(k => {
       const rc = allRaces[k];
       if (!rc) return '';
-      return `<div class="lr-race" onclick="selectRace(allRaces['${k}'],'${k}')" id="lrr-${k}" style="padding:3px 6px 3px 14px;border-radius:3px;font-size:9px;color:rgba(255,255,255,.4);cursor:pointer;display:flex;align-items:center;justify-content:space-between;margin-bottom:1px">
-        <span>R${rc.num} <span style="opacity:.7">${rc.name?rc.name.substring(0,14):''}</span></span>
-        <span style="font-size:8px;color:rgba(255,255,255,.25)">${rc.time||''}</span>
+      return `<div class="lr-race" onclick="selectRace(allRaces['${k}'],'${k}')" id="lrr-${k}" style="padding:3px 6px 3px 14px;border-radius:3px;font-size:9px;color:rgba(255,255,255,.8);cursor:pointer;display:flex;align-items:center;justify-content:space-between;margin-bottom:1px">
+        <span>R${rc.num} <span style="opacity:.85">${rc.name?rc.name.substring(0,14):''}</span></span>
+        <span style="font-size:8px;color:rgba(255,255,255,.5)">${rc.time||''}</span>
       </div>`;
     }).join('');
     return `<div id="lrm-wrap-${safeId}">
-      <div class="lr-meeting" onclick="toggleMeeting('${safeId}')" id="lrm-${safeId}" style="display:flex;align-items:center;justify-content:space-between;padding:4px 6px;border-radius:4px;font-size:10px;color:rgba(255,255,255,.45);cursor:pointer;margin-bottom:1px">
+      <div class="lr-meeting" onclick="toggleMeeting('${safeId}')" id="lrm-${safeId}" style="display:flex;align-items:center;justify-content:space-between;padding:4px 6px;border-radius:4px;font-size:10px;color:rgba(255,255,255,.85);cursor:pointer;margin-bottom:1px">
         <span>${venue}</span>
         <div style="display:flex;align-items:center;gap:4px">
-          <span style="font-size:8px;color:rgba(255,255,255,.25)">${keys.length}R</span>
-          <span id="lrm-arrow-${safeId}" style="font-size:9px;color:rgba(255,255,255,.25)">▶</span>
+          <span style="font-size:8px;color:rgba(255,255,255,.55)">${keys.length}R</span>
+          <span id="lrm-arrow-${safeId}" style="font-size:9px;color:rgba(255,255,255,.5)">▶</span>
         </div>
       </div>
       <div id="lrm-races-${safeId}" style="display:none">${racesHTML}</div>
@@ -1303,7 +1303,7 @@ function renderRaceTable(rc, results, scratched, hasLive, liveOddsData) {
     }
     function pct(w,s){ return s>0?Math.round(w/s*100)+'%':'0%'; }
 
-    const horses = results.map((r, i) => {
+    const horses = [...results].sort((a,b)=>((+a.tab||+a['Tab']||99)-(+b.tab||+b['Tab']||99))).map((r, i) => {
       const rank = i + 1;
       const bp = r['BP'] || r.BP || '';
       const jFirst = (r.jname||'').split(' ');
@@ -4158,6 +4158,14 @@ function selectRace(rc,key){
   render(rc);
 
   if(typeof _afterSelectRace==='function')_afterSelectRace(rc,key);
+  // Highlight selected race in sidebar
+  document.querySelectorAll('.lr-race').forEach(el=>{
+    el.style.color='rgba(255,255,255,.8)';
+    el.style.background='';
+    el.style.fontWeight='';
+  });
+  var selected=document.getElementById('lrr-'+key);
+  if(selected){selected.style.color='#4ade80';selected.style.background='rgba(74,222,128,.08)';selected.style.fontWeight='600';}
 }
 
 function scoreGroup(h,grpKey){
@@ -4351,32 +4359,29 @@ function calcPaceMap(horse,raceVenue,raceDist,trackCond){
   else if(espdNum<=8){role='Closer';color='#ff8000';}
   else{role='Backmarker';color='#dc3545';}
 
-  var pct;
-  if(false) { // TPPC branch disabled
-    // Fallback to original calculation
-    function tp(v,d){
-      v=(v||'').toUpperCase();
-      if(v.indexOf('IPSWICH')>=0) return d<=1050?1.6:d<=1300?1.3:1.0;
-      if(v.indexOf('DOOMBEN')>=0) return d<=1050?1.8:d<=1300?1.45:d<=1420?1.0:d<=1650?1.5:1.0;
-      if(v.indexOf('EAGLE')>=0||v.indexOf('EAGLEFARM')>=0) return 0.8;
-      if(v.indexOf('SUNSHINE')>=0) return 0.8;
-      if(v.indexOf('GOLD')>=0) return d<=1200?1.2:1.0;
-      if(v.indexOf('TOOWOOMBA')>=0) return 1.3;
-      return 1.0;
-    }
-    var turnMult=tp(raceVenue,raceDist);
-    var espdScore=Math.max(0,(10-espdNum)/9)*50;
-    var earlyScore=Math.max(0,(10-espdNum)/9)*18;
-    var bp=+(horse['BP']||horse.BP||5);
-    var styleM=espdNum<=4?1.0:espdNum<=6?0.5:0.2;
-    var barrierScore=Math.max(0,(16-bp)/15)*14*styleM*turnMult;
-    var tc=(trackCond||'good').toLowerCase();
-    var condScore=10;
-    if(tc==='soft'||tc==='heavy'){condScore=espdNum<=4?12:espdNum>=8?7:10;}
-    var cs=horse.courseStarts||0;
-    var courseScore=cs===0?0:cs===1?1:cs<=4?2.5:4;
-    pct=Math.min(100,Math.max(2,espdScore+earlyScore+barrierScore+condScore+courseScore));
+  // ESPD-based pace calculation
+  function tp(v,d){
+    v=(v||'').toUpperCase();
+    if(v.indexOf('IPSWICH')>=0) return d<=1050?1.6:d<=1300?1.3:1.0;
+    if(v.indexOf('DOOMBEN')>=0) return d<=1050?1.8:d<=1300?1.45:d<=1420?1.0:d<=1650?1.5:1.0;
+    if(v.indexOf('EAGLE')>=0||v.indexOf('EAGLEFARM')>=0) return 0.8;
+    if(v.indexOf('SUNSHINE')>=0) return 0.8;
+    if(v.indexOf('GOLD')>=0) return d<=1200?1.2:1.0;
+    if(v.indexOf('TOOWOOMBA')>=0) return 1.3;
+    return 1.0;
   }
+  var turnMult=tp(raceVenue,raceDist);
+  var espdScore=Math.max(0,(10-espdNum)/9)*50;
+  var earlyScore=Math.max(0,(10-espdNum)/9)*18;
+  var bp=+(horse['BP']||horse.BP||5);
+  var styleM=espdNum<=4?1.0:espdNum<=6?0.5:0.2;
+  var barrierScore=Math.max(0,(16-bp)/15)*14*styleM*turnMult;
+  var tc=(trackCond||'good').toLowerCase();
+  var condScore=10;
+  if(tc==='soft'||tc==='heavy'){condScore=espdNum<=4?12:espdNum>=8?7:10;}
+  var cs=horse.courseStarts||0;
+  var courseScore=cs===0?0:cs===1?1:cs<=4?2.5:4;
+  var pct=Math.min(100,Math.max(2,espdScore+earlyScore+barrierScore+condScore+courseScore));
   return{pct:Math.round(pct),role,color,espdNum,espdStr,paceStr:horse.pace||'',hasTPPC,tppcFront,tppcOnpc,tppcMid,tppcBack};
 }
 
