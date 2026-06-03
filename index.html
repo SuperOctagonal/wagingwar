@@ -1356,8 +1356,8 @@ function renderRaceTable(rc, results, scratched, hasLive, liveOddsData) {
       const up1W=r.prepRuns1W||0,up1P=r.prepRuns1P||0,up1S=r.prepRuns1S||0;
       const up2W=r.prepRuns2W||0,up2P=r.prepRuns2P||0,up2S=r.prepRuns2S||0;
       const cdW=r.courseWins||0,cdP=r.coursePlaces||0,cdS=r.courseStarts||0;
-      const upLabel = rfs===0?'1st-up':rfs===1?'2nd-up':rfs===2?'3rd-up':`${rfs+1}th-up`;
-      const upNextLabel = rfs===0?'2nd-up':rfs===1?'3rd-up':'—';
+      const upLabel = '1st-up';
+      const upNextLabel = '2nd-up';
 
       const rankBg = '#1e40af';
       const rankColor = '#fff';
@@ -3460,6 +3460,7 @@ const HEADER_ALIASES = [
   ['Joc/Trn Wins',     ['joc/trn wins','jockey trainer wins']],
   ['Joc/Trn Places',   ['joc/trn places','jockey trainer places']],
   ['Joc/Trn Starts',   ['joc/trn starts','jockey trainer starts']],
+  ['RFS',              ['rfs','cur rfs','runs from spell']],
   ['1Up Wins',         ['1up wins']],
   ['1Up Places',       ['1up places']],
   ['1Up Starts',       ['1up starts']],
@@ -3905,7 +3906,7 @@ function buildRaces({hdrs,rows},fname){
       prepRuns3W:safeNum(col(r,'3Up Wins'))||0,
       prepRuns3P:safeNum(col(r,'3Up Places'))||0,
       prepRuns3S:safeNum(col(r,'3Up Starts'))||0,
-      curRFS:safeNum(col(r,'Cur RFS Wins'))||0,
+      curRFS:safeNum(col(r,'RFS'))||0,
       // Impact ratings
       impactForm:safeNum(col(r,'Impact Form'))||null,
       impactDist:safeNum(col(r,'Impact Dist'))||null,
@@ -6175,8 +6176,8 @@ function showHorseForm(e, idx){
   var up1W=h.prepRuns1W||0,up1P=h.prepRuns1P||0,up1S=h.prepRuns1S||0;
   var up2W=h.prepRuns2W||0,up2P=h.prepRuns2P||0,up2S=h.prepRuns2S||0;
   var cdW=h.courseWins||0,cdP=h.coursePlaces||0,cdS=h.courseStarts||0;
-  var upLabel=rfs===0?'1st-up':rfs===1?'2nd-up':rfs===2?'3rd-up':(rfs+1)+'th-up';
-  var upNextLabel=rfs===0?'2nd-up':rfs===1?'3rd-up':'—';
+  var upLabel='1st-up';
+  var upNextLabel='2nd-up';
 
   // Run rows
   var runRows='';
