@@ -2710,13 +2710,7 @@ function showCommunity(){
   var tier=typeof COMMUNITY!=='undefined'?COMMUNITY.getTier(profile.points||0):{name:'Maiden',emoji:'🐴',color:'#6b7280'};
   var next=typeof COMMUNITY!=='undefined'?COMMUNITY.getNextTier(profile.points||0):null;
   var u=currentUser||{};
-
-  function tierBadge(tierName){
-    var colors={Maiden:'#6b7280',Benchmark:'#2563eb',Listed:'#059669','Group 3':'#d97706','Group 2':'#dc2626','Group 1':'#7c3aed'};
-    var emojis={Maiden:'🐴',Benchmark:'🏇',Listed:'🏆','Group 3':'⭐','Group 2':'⭐⭐','Group 1':'👑'};
-    var c=colors[tierName]||'#6b7280';
-    return '<span style="font-size:9px;font-weight:700;padding:2px 7px;border-radius:4px;background:'+c+'22;color:'+c+';border:0.5px solid '+c+'44">'+(emojis[tierName]||'')+'&nbsp;'+tierName+'</span>';
-  }
+  var pts=profile.points||0;
 
   var sections=[
     {id:'all',label:'All Posts'},
@@ -2724,429 +2718,118 @@ function showCommunity(){
     {id:'tips_analysis',label:'Tips & Analysis'},
     {id:'winning_bets',label:'Winning Bets'},
     {id:'system_feedback',label:'System Feedback'},
-    {id:'general',label:'General Chat'},
+    {id:'general',label:'General Chat'}
   ];
 
-  var catColors={today_races:{bg:'#dbeafe',c:'#1e40af',label:"Today's Races"},tips_analysis:{bg:'#dcfce7',c:'#166534',label:'Tips & Analysis'},winning_bets:{bg:'#fef9c3',c:'#854d0e',label:'Winning Bet'},system_feedback:{bg:'#f3e8ff',c:'#6b21a8',label:'System Feedback'},general:{bg:'#f3f4f6',c:'#374151',label:'General Chat'}};
+  // Tier progress
+  var tierMins={Maiden:0,Benchmark:500,Listed:2000,'Group 3':5000,'Group 2':10000,'Group 1':25000};
+  var tierMaxs={Maiden:499,Benchmark:1999,Listed:4999,'Group 3':9999,'Group 2':24999,'Group 1':999999};
+  var tMin=tierMins[tier.name]||0;
+  var tMax=tierMaxs[tier.name]||499;
+  var tPct=tMax>tMin?Math.min(100,Math.round((pts-tMin)/(tMax-tMin)*100)):100;
 
-  // ── Profile panel ──
-  function profilePanel(){
-    var pts=profile.points||0;
-    var minPts={Maiden:0,Benchmark:500,Listed:2000,'Group 3':5000,'Group 2':10000,'Group 1':25000};
-    var maxPts={Maiden:499,Benchmark:1999,Listed:4999,'Group 3':9999,'Group 2':24999,'Group 1':999999};
-    var tierMin=minPts[tier.name]||0;
-    var tierMax=maxPts[tier.name]||499;
-    var pct=tierMax>tierMin?Math.min(100,Math.round((pts-tierMin)/(tierMax-tierMin)*100)):100;
+  // Profile panel HTML
+  var profileHTML='<div style="padding:16px;border-bottom:0.5px solid #e5e7eb">';
+  profileHTML+='<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">';
+  profileHTML+='<div style="width:44px;height:44px;border-radius:50%;background:#00471b;display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:700;color:#fff;flex-shrink:0">'+((u.name||'A').charAt(0).toUpperCase())+'</div>';
+  profileHTML+='<div style="flex:1"><div style="font-size:13px;font-weight:600;color:#111827">'+(u.name||'Punter')+'</div>';
+  profileHTML+='<span style="font-size:9px;font-weight:700;padding:2px 7px;border-radius:4px;background:'+tier.color+'22;color:'+tier.color+';border:0.5px solid '+tier.color+'44">'+tier.emoji+' '+tier.name+'</span>';
+  profileHTML+='</div></div>';
+  profileHTML+='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">';
+  profileHTML+='<span style="font-size:11px;font-weight:700;color:#111827">'+pts.toLocaleString()+' pts</span>';
+  profileHTML+=next?('<span style="font-size:10px;color:#6b7280">'+next.needed.toLocaleString()+' to '+next.name+'</span>'):'<span style="font-size:10px;color:#7c3aed">Max tier 👑</span>';
+  profileHTML+='</div>';
+  profileHTML+='<div style="height:6px;background:#f1f5f9;border-radius:3px;overflow:hidden;margin-bottom:10px">';
+  profileHTML+='<div style="width:'+tPct+'%;height:100%;background:'+tier.color+';border-radius:3px"></div></div>';
 
-    var h='<div style="padding:16px;border-bottom:0.5px solid #e5e7eb">';
-    h+='<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">';
-    h+='<div style="width:44px;height:44px;border-radius:50%;background:#00471b;display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:700;color:#fff;flex-shrink:0">'+(u.name||'A').charAt(0).toUpperCase()+'</div>';
-    h+='<div style="flex:1"><div style="font-size:13px;font-weight:600;color:#111827">'+(u.name||'Punter')+'</div>';
-    h+=tierBadge(tier.name)+'</div></div>';
-    h+='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">';
-    h+='<span style="font-size:11px;font-weight:700;color:#111827">'+pts.toLocaleString()+' pts</span>';
-    h+=next?'<span style="font-size:10px;color:#6b7280">'+next.needed.toLocaleString()+' to '+next.name+'</span>':'<span style="font-size:10px;color:#7c3aed">Max tier reached 👑</span>';
-    h+='</div>';
-    h+='<div style="height:6px;background:#f1f5f9;border-radius:3px;overflow:hidden;margin-bottom:10px">';
-    h+='<div style="width:'+pct+'%;height:100%;background:'+tier.color+';border-radius:3px;transition:width .4s"></div></div>';
+  var totalBets=profile.total_bets||0,totalWins=profile.total_wins||0,totalPosts=profile.total_posts||0;
+  var winPct2=totalBets>0?Math.round(totalWins/totalBets*100):0;
+  profileHTML+='<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:10px">';
+  profileHTML+='<div style="text-align:center;background:#f8fafc;border-radius:6px;padding:6px 4px"><div style="font-size:13px;font-weight:700;color:#111827">'+totalBets+'</div><div style="font-size:9px;color:#6b7280">Bets</div></div>';
+  profileHTML+='<div style="text-align:center;background:#f8fafc;border-radius:6px;padding:6px 4px"><div style="font-size:13px;font-weight:700;color:#059669">'+winPct2+'%</div><div style="font-size:9px;color:#6b7280">Win%</div></div>';
+  profileHTML+='<div style="text-align:center;background:#f8fafc;border-radius:6px;padding:6px 4px"><div style="font-size:13px;font-weight:700;color:#2563eb">'+totalPosts+'</div><div style="font-size:9px;color:#6b7280">Posts</div></div>';
+  profileHTML+='</div>';
 
-    // Stats row
-    var totalBets=profile.total_bets||0, totalWins=profile.total_wins||0, totalPosts=profile.total_posts||0;
-    var roi=totalBets>0?Math.round((totalWins/totalBets)*100):0;
-    h+='<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:10px">';
-    h+='<div style="text-align:center;background:#f8fafc;border-radius:6px;padding:6px 4px"><div style="font-size:13px;font-weight:700;color:#111827">'+totalBets+'</div><div style="font-size:9px;color:#6b7280">Bets</div></div>';
-    h+='<div style="text-align:center;background:#f8fafc;border-radius:6px;padding:6px 4px"><div style="font-size:13px;font-weight:700;color:#059669">'+roi+'%</div><div style="font-size:9px;color:#6b7280">Win%</div></div>';
-    h+='<div style="text-align:center;background:#f8fafc;border-radius:6px;padding:6px 4px"><div style="font-size:13px;font-weight:700;color:#2563eb">'+totalPosts+'</div><div style="font-size:9px;color:#6b7280">Posts</div></div>';
-    h+='</div>';
-
-    // Referral
-    if(profile.referral_code){
-      h+='<div style="background:#f0fdf4;border:0.5px solid #bbf7d0;border-radius:6px;padding:8px;margin-bottom:10px">';
-      h+='<div style="font-size:9px;font-weight:600;color:#166534;margin-bottom:3px">Your referral link — earn 200pts per signup</div>';
-      h+='<div style="display:flex;align-items:center;gap:6px">';
-      h+='<div style="font-size:10px;font-weight:600;color:#111827;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">wagingwar.com.au?ref='+profile.referral_code+'</div>';
-      h+='<button onclick="navigator.clipboard.writeText('https://wagingwar.com.au?ref='+profile.referral_code+'');toast('Referral link copied','success')" style="background:#00471b;color:#fff;border:none;padding:4px 8px;border-radius:4px;font-size:9px;font-weight:600;cursor:pointer">Copy</button>';
-      h+='</div></div>';
-    }
-
-    // Badges
-    h+='<div style="font-size:10px;font-weight:600;color:#374151;margin-bottom:6px">My Badges</div>';
-    h+='<div id="user-badges-row" style="display:flex;flex-wrap:wrap;gap:4px;min-height:24px">';
-    h+='<span style="font-size:10px;color:#9ca3af">Loading badges...</span>';
-    h+='</div></div>';
-
-    // Sections nav
-    h+='<div style="padding:8px 12px;border-bottom:0.5px solid #e5e7eb">';
-    h+='<div style="font-size:9px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Sections</div>';
-    sections.forEach(function(s){
-      var isActive=af===s.id;
-      h+='<div onclick="communityFilter(''+s.id+'')" style="display:flex;align-items:center;justify-content:space-between;padding:6px 8px;border-radius:6px;cursor:pointer;margin-bottom:2px;background:'+(isActive?'#f0fdf4':'')+';color:'+(isActive?'#00471b':'#374151')+';font-size:12px;font-weight:'+(isActive?'600':'400')+'">';
-      h+=s.label+'</div>';
-    });
-    h+='</div>';
-    return h;
+  if(profile.referral_code){
+    profileHTML+='<div style="background:#f0fdf4;border:0.5px solid #bbf7d0;border-radius:6px;padding:8px;margin-bottom:10px">';
+    profileHTML+='<div style="font-size:9px;font-weight:600;color:#166534;margin-bottom:3px">Referral link — earn 200pts per signup</div>';
+    profileHTML+='<div style="display:flex;align-items:center;gap:6px">';
+    profileHTML+='<div style="font-size:10px;font-weight:600;color:#111827;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">wagingwar.com.au?ref='+profile.referral_code+'</div>';
+    profileHTML+='<button id="ref-copy-btn" style="background:#00471b;color:#fff;border:none;padding:4px 8px;border-radius:4px;font-size:9px;font-weight:600;cursor:pointer">Copy</button>';
+    profileHTML+='</div></div>';
   }
 
-  // ── Feed panel ──
-  function feedPanel(){
-    var h='<div style="padding:0;flex:1;overflow-y:auto">';
-    // Header
-    h+='<div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:0.5px solid #e5e7eb;position:sticky;top:0;background:#fff;z-index:10">';
-    h+='<div style="font-size:18px;font-weight:700;color:#111827">Community</div>';
-    h+='<button onclick="showNewPostModal()" style="background:#00471b;color:#fff;border:none;padding:8px 16px;border-radius:7px;font-size:12px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px">✏️ New post</button>';
-    h+='</div>';
+  profileHTML+='<div style="font-size:10px;font-weight:600;color:#374151;margin-bottom:6px">My Badges</div>';
+  profileHTML+='<div id="user-badges-row" style="display:flex;flex-wrap:wrap;gap:4px;min-height:24px"><span style="font-size:10px;color:#9ca3af">Loading...</span></div>';
+  profileHTML+='</div>';
 
-    // Section tabs
-    h+='<div style="display:flex;gap:0;padding:0 16px;border-bottom:0.5px solid #e5e7eb;overflow-x:auto;scrollbar-width:none">';
-    sections.forEach(function(s){
-      var isActive=af===s.id;
-      h+='<div onclick="communityFilter(''+s.id+'')" style="padding:10px 14px;font-size:11px;font-weight:'+(isActive?'600':'400')+';color:'+(isActive?'#00471b':'#6b7280')+';cursor:pointer;border-bottom:2px solid '+(isActive?'#00471b':'transparent')+';white-space:nowrap;flex-shrink:0">';
-      h+=s.label+'</div>';
-    });
-    h+='</div>';
+  // Sections nav
+  var navHTML='<div style="padding:8px 12px;border-bottom:0.5px solid #e5e7eb">';
+  navHTML+='<div style="font-size:9px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Sections</div>';
+  sections.forEach(function(s){
+    var isActive=af===s.id;
+    navHTML+='<div data-section="'+s.id+'" class="comm-section-btn" style="display:flex;align-items:center;justify-content:space-between;padding:6px 8px;border-radius:6px;cursor:pointer;margin-bottom:2px;background:'+(isActive?'#f0fdf4':'')+';color:'+(isActive?'#00471b':'#374151')+';font-size:12px;font-weight:'+(isActive?'600':'400')+'">'+s.label+'</div>';
+  });
+  navHTML+='</div>';
 
-    // Disclaimer
-    h+='<div style="margin:12px 16px;padding:8px 12px;background:#fffbeb;border:0.5px solid #fef08a;border-radius:6px;font-size:11px;color:#854d0e">⚠️ Posts are member opinions only — not financial advice.</div>';
+  // Missions panel
+  var missionsHTML='<div style="padding:12px 16px;border-bottom:0.5px solid #e5e7eb">';
+  missionsHTML+='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">';
+  missionsHTML+='<div style="font-size:11px;font-weight:700;color:#374151">Daily Missions</div>';
+  missionsHTML+='<div style="font-size:9px;color:#9ca3af">Resets midnight</div></div>';
+  missionsHTML+='<div id="missions-wrap"><div style="font-size:10px;color:#9ca3af">Loading...</div></div>';
+  missionsHTML+='</div>';
 
-    // Posts placeholder - loaded async
-    h+='<div id="community-posts-wrap" style="padding:0 16px 16px">';
-    h+='<div style="padding:20px;text-align:center;color:#9ca3af;font-size:12px">Loading posts...</div>';
-    h+='</div>';
-    h+='</div>';
-    return h;
-  }
+  // Feed panel
+  var feedHTML='<div style="flex:1;overflow-y:auto">';
+  feedHTML+='<div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:0.5px solid #e5e7eb;position:sticky;top:0;background:#fff;z-index:10">';
+  feedHTML+='<div style="font-size:18px;font-weight:700;color:#111827">Community</div>';
+  feedHTML+='<button id="new-post-btn" style="background:#00471b;color:#fff;border:none;padding:8px 16px;border-radius:7px;font-size:12px;font-weight:600;cursor:pointer">✏️ New post</button>';
+  feedHTML+='</div>';
 
-  // ── Leaderboard panel ──
-  function lbPanel(){
-    var h='<div style="padding:16px;overflow-y:auto">';
-    h+='<div style="font-size:13px;font-weight:700;color:#111827;margin-bottom:2px">Leaderboards</div>';
-    h+='<div style="font-size:10px;color:#9ca3af;margin-bottom:12px">Resets every Monday</div>';
+  feedHTML+='<div style="display:flex;gap:0;padding:0 16px;border-bottom:0.5px solid #e5e7eb;overflow-x:auto;scrollbar-width:none">';
+  sections.forEach(function(s){
+    var isActive=af===s.id;
+    feedHTML+='<div data-section="'+s.id+'" class="comm-tab-btn" style="padding:10px 14px;font-size:11px;font-weight:'+(isActive?'600':'400')+';color:'+(isActive?'#00471b':'#6b7280')+';cursor:pointer;border-bottom:2px solid '+(isActive?'#00471b':'transparent')+';white-space:nowrap;flex-shrink:0">'+s.label+'</div>';
+  });
+  feedHTML+='</div>';
 
-    h+='<div style="font-size:10px;font-weight:700;color:#374151;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Weekly ROI</div>';
-    h+='<div id="lb-roi-wrap" style="margin-bottom:16px"><div style="font-size:11px;color:#9ca3af">Loading...</div></div>';
+  feedHTML+='<div style="margin:12px 16px;padding:8px 12px;background:#fffbeb;border:0.5px solid #fef08a;border-radius:6px;font-size:11px;color:#854d0e">⚠️ Posts are member opinions only — not financial advice.</div>';
+  feedHTML+='<div id="community-posts-wrap" style="padding:0 16px 16px"><div style="padding:20px;text-align:center;color:#9ca3af;font-size:12px">Loading posts...</div></div>';
+  feedHTML+='</div>';
 
-    h+='<div style="font-size:10px;font-weight:700;color:#374151;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Top Contributors</div>';
-    h+='<div id="lb-pts-wrap" style="margin-bottom:16px"><div style="font-size:11px;color:#9ca3af">Loading...</div></div>';
+  // Leaderboard panel
+  var lbHTML='<div style="padding:16px;overflow-y:auto">';
+  lbHTML+='<div style="font-size:13px;font-weight:700;color:#111827;margin-bottom:2px">Leaderboards</div>';
+  lbHTML+='<div style="font-size:10px;color:#9ca3af;margin-bottom:12px">Resets every Monday</div>';
+  lbHTML+='<div style="font-size:10px;font-weight:700;color:#374151;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Weekly ROI</div>';
+  lbHTML+='<div id="lb-roi-wrap"><div style="font-size:11px;color:#9ca3af">Loading...</div></div>';
+  lbHTML+='<div style="font-size:10px;font-weight:700;color:#374151;text-transform:uppercase;letter-spacing:.5px;margin:12px 0 8px">Top Contributors</div>';
+  lbHTML+='<div id="lb-pts-wrap"><div style="font-size:11px;color:#9ca3af">Loading...</div></div>';
+  lbHTML+='<div style="font-size:10px;font-weight:700;color:#374151;text-transform:uppercase;letter-spacing:.5px;margin:12px 0 8px">Community Stats</div>';
+  lbHTML+='<div id="lb-stats-wrap"><div style="font-size:11px;color:#9ca3af">Loading...</div></div>';
+  lbHTML+='</div>';
 
-    h+='<div style="font-size:10px;font-weight:700;color:#374151;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Community Stats</div>';
-    h+='<div id="lb-stats-wrap"><div style="font-size:11px;color:#9ca3af">Loading...</div></div>';
-    h+='</div>';
-    return h;
-  }
-
-  // ── Daily missions panel ──
-  function missionsPanel(){
-    var h='<div style="padding:12px 16px;border-bottom:0.5px solid #e5e7eb">';
-    h+='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">';
-    h+='<div style="font-size:11px;font-weight:700;color:#374151">Daily Missions</div>';
-    h+='<div style="font-size:9px;color:#9ca3af">Resets midnight</div></div>';
-    h+='<div id="missions-wrap"><div style="font-size:10px;color:#9ca3af">Loading missions...</div></div>';
-    h+='</div>';
-    return h;
-  }
-
-  // ── Render layout ──
   main.innerHTML='<div style="display:grid;grid-template-columns:220px 1fr 240px;height:calc(100vh - 56px);overflow:hidden;background:#f8fafc">'
-    +'<div style="border-right:0.5px solid #e5e7eb;background:#fff;overflow-y:auto">'+profilePanel()+missionsPanel()+'</div>'
-    +'<div style="display:flex;flex-direction:column;overflow:hidden">'+feedPanel()+'</div>'
-    +'<div style="border-left:0.5px solid #e5e7eb;background:#fff;overflow-y:auto">'+lbPanel()+'</div>'
+    +'<div style="border-right:0.5px solid #e5e7eb;background:#fff;overflow-y:auto">'+profileHTML+navHTML+missionsHTML+'</div>'
+    +'<div style="display:flex;flex-direction:column;overflow:hidden">'+feedHTML+'</div>'
+    +'<div style="border-left:0.5px solid #e5e7eb;background:#fff;overflow-y:auto">'+lbHTML+'</div>'
     +'</div>';
 
-  // Load data async
-  loadCommunityData(af);
-}
-
-async function loadCommunityData(section) {
-  const SB = window.SUPABASE_URL;
-  const KEY = window.SUPABASE_ANON_KEY;
-
-  function sbGet(path) {
-    return fetch(SB + '/rest/v1/' + path, {
-      headers: { 'apikey': KEY, 'Authorization': 'Bearer ' + KEY }
-    }).then(r => r.json()).catch(() => []);
-  }
-
-  // Load posts
-  const sectionFilter = section && section !== 'all' ? '&section=eq.' + section : '';
-  const posts = await sbGet('posts?order=created_at.desc&limit=20' + sectionFilter + '&select=*,user_profiles(display_name,tier,avatar_url)');
-  
-  const postsWrap = document.getElementById('community-posts-wrap');
-  if (postsWrap) {
-    if (!posts || !posts.length) {
-      postsWrap.innerHTML = '<div style="padding:40px;text-align:center"><div style="font-size:32px;margin-bottom:8px">💬</div><div style="font-size:14px;font-weight:600;color:#111827;margin-bottom:4px">No posts yet</div><div style="font-size:12px;color:#6b7280">Be the first to post in this section!</div></div>';
-    } else {
-      const catColors = {today_races:{bg:'#dbeafe',c:'#1e40af',label:"Today's Races"},tips_analysis:{bg:'#dcfce7',c:'#166534',label:'Tips & Analysis'},winning_bets:{bg:'#fef9c3',c:'#854d0e',label:'Winning Bet'},system_feedback:{bg:'#f3e8ff',c:'#6b21a8',label:'System Feedback'},general:{bg:'#f3f4f6',c:'#374151',label:'General Chat'}};
-      postsWrap.innerHTML = posts.map(p => {
-        const cat = catColors[p.section] || catColors.general;
-        const profile = p.user_profiles || {};
-        const tier = typeof COMMUNITY !== 'undefined' ? COMMUNITY.getTier(0) : {name:'Maiden',color:'#6b7280'};
-        const timeAgo = getTimeAgo(p.created_at);
-        const clerkId = window.currentUser ? window.currentUser.id : null;
-        return `<div style="border-bottom:0.5px solid #f3f4f6;padding:14px 0;cursor:pointer" onclick="openPostModal('${p.id}')">
-          <div style="display:flex;align-items:flex-start;gap:10px">
-            <div style="display:flex;flex-direction:column;align-items:center;gap:2px;flex-shrink:0;padding-top:2px">
-              <button onclick="event.stopPropagation();communityUpvote('${p.id}','post','${p.clerk_id}')" style="background:none;border:none;cursor:pointer;font-size:14px;color:#9ca3af;line-height:1">▲</button>
-              <span style="font-size:12px;font-weight:700;color:#374151">${p.upvotes||0}</span>
-            </div>
-            <div style="flex:1;min-width:0">
-              <div style="display:flex;align-items:center;gap:6px;margin-bottom:5px;flex-wrap:wrap">
-                <span style="font-size:9px;font-weight:700;padding:2px 6px;border-radius:3px;background:${cat.bg};color:${cat.c}">${cat.label}</span>
-                ${p.is_hot ? '<span style="font-size:9px;font-weight:700;padding:2px 6px;border-radius:3px;background:#fee2e2;color:#dc2626">🔥 Hot</span>' : ''}
-              </div>
-              <div style="font-size:13px;font-weight:600;color:#111827;margin-bottom:6px;line-height:1.4">${p.title}</div>
-              <div style="display:flex;align-items:center;gap:8px;font-size:10px;color:#6b7280">
-                <span style="width:18px;height:18px;border-radius:50%;background:#00471b;display:inline-flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:9px">${(profile.display_name||'U')[0]}</span>
-                <span style="font-weight:500;color:#374151">${profile.display_name||'Member'}</span>
-                <span style="font-size:9px;padding:1px 5px;border-radius:3px;background:#f3f4f6;color:#6b7280">${profile.tier||'Maiden'}</span>
-                <span>💬 ${p.reply_count||0}</span>
-                <span>${timeAgo}</span>
-              </div>
-            </div>
-          </div>
-        </div>`;
-      }).join('');
-    }
-  }
-
-  // Load leaderboard - ROI
-  const lbRoi = document.getElementById('lb-roi-wrap');
-  if (lbRoi) {
-    const entries = await sbGet('competition_entries?order=roi.desc&limit=5&select=clerk_id,roi,bets_count,user_profiles(display_name,tier)');
-    if (entries && entries.length) {
-      const rankIcons = ['🥇','🥈','🥉','4','5'];
-      lbRoi.innerHTML = entries.map((e, i) => {
-        const p = e.user_profiles || {};
-        return `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:0.5px solid #f3f4f6">
-          <span style="font-size:14px;flex-shrink:0">${rankIcons[i]||i+1}</span>
-          <div style="width:24px;height:24px;border-radius:50%;background:#00471b;display:flex;align-items:center;justify-content:center;color:#fff;font-size:10px;font-weight:700;flex-shrink:0">${(p.display_name||'U')[0]}</div>
-          <div style="flex:1;min-width:0">
-            <div style="font-size:11px;font-weight:600;color:#111827;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${p.display_name||'Member'}</div>
-            <div style="font-size:9px;color:#6b7280">${p.tier||'Maiden'} · ${e.bets_count} bets</div>
-          </div>
-          <span style="font-size:12px;font-weight:700;color:#059669">+${parseFloat(e.roi||0).toFixed(0)}%</span>
-        </div>`;
-      }).join('');
-    } else {
-      lbRoi.innerHTML = '<div style="font-size:11px;color:#9ca3af;padding:8px 0">No entries yet this week. Log 5+ bets to appear!</div>';
-    }
-  }
-
-  // Load top contributors
-  const lbPts = document.getElementById('lb-pts-wrap');
-  if (lbPts) {
-    const topUsers = await sbGet('user_profiles?leaderboard_opt_out=eq.false&order=points.desc&limit=5&select=display_name,points,tier');
-    if (topUsers && topUsers.length) {
-      lbPts.innerHTML = topUsers.map((u, i) => `
-        <div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:0.5px solid #f3f4f6">
-          <span style="font-size:11px;font-weight:700;color:#9ca3af;width:14px">${i+1}</span>
-          <div style="width:24px;height:24px;border-radius:50%;background:#1e40af;display:flex;align-items:center;justify-content:center;color:#fff;font-size:10px;font-weight:700;flex-shrink:0">${(u.display_name||'U')[0]}</div>
-          <div style="flex:1;min-width:0">
-            <div style="font-size:11px;font-weight:600;color:#111827">${u.display_name||'Member'}</div>
-            <div style="font-size:9px;color:#6b7280">${u.tier||'Maiden'}</div>
-          </div>
-          <span style="font-size:11px;font-weight:700;color:#374151">+${(u.points||0).toLocaleString()} pts</span>
-        </div>`).join('');
-    } else {
-      lbPts.innerHTML = '<div style="font-size:11px;color:#9ca3af">No members yet</div>';
-    }
-  }
-
-  // Community stats
-  const lbStats = document.getElementById('lb-stats-wrap');
-  if (lbStats) {
-    const userCount = await sbGet('user_profiles?select=count');
-    const postCount = await sbGet('posts?select=count');
-    lbStats.innerHTML = `
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-        <div style="background:#f8fafc;border-radius:6px;padding:10px;text-align:center">
-          <div style="font-size:18px;font-weight:800;color:#111827">${(userCount||[]).length||0}</div>
-          <div style="font-size:9px;color:#6b7280">Members</div>
-        </div>
-        <div style="background:#f8fafc;border-radius:6px;padding:10px;text-align:center">
-          <div style="font-size:18px;font-weight:800;color:#111827">${(postCount||[]).length||0}</div>
-          <div style="font-size:9px;color:#6b7280">Posts</div>
-        </div>
-      </div>`;
-  }
-
-  // Load badges for current user
-  const badgesRow = document.getElementById('user-badges-row');
-  if (badgesRow && window.currentUser) {
-    const userBadges = await sbGet('user_badges?clerk_id=eq.' + window.currentUser.id + '&select=badge_id,badges(name,emoji)&limit=12');
-    if (userBadges && userBadges.length) {
-      badgesRow.innerHTML = userBadges.map(ub => {
-        const b = ub.badges || {};
-        return `<span title="${b.name||''}" style="font-size:16px;cursor:default">${b.emoji||'🏅'}</span>`;
-      }).join('') + (userBadges.length >= 12 ? '<span style="font-size:10px;color:#9ca3af;align-self:center"> +more</span>' : '');
-    } else {
-      badgesRow.innerHTML = '<span style="font-size:10px;color:#9ca3af">No badges yet — start earning!</span>';
-    }
-  }
-
-  // Load missions
-  const missionsWrap = document.getElementById('missions-wrap');
-  if (missionsWrap && window.currentUser) {
-    const today = new Date().toISOString().slice(0,10);
-    const userMissions = await sbGet('user_missions?clerk_id=eq.' + window.currentUser.id + '&date=eq.' + today + '&select=mission_id,progress,completed,missions(title,points,target_count)');
-    const allMissions = await sbGet('missions?is_daily=eq.true&limit=3');
-    
-    if (allMissions && allMissions.length) {
-      missionsWrap.innerHTML = allMissions.map(m => {
-        const um = (userMissions||[]).find(x => x.mission_id === m.id);
-        const progress = um ? um.progress : 0;
-        const completed = um ? um.completed : false;
-        const pct = Math.min(100, Math.round(progress / m.target_count * 100));
-        return `<div style="margin-bottom:8px;padding:8px;border-radius:6px;background:${completed?'#f0fdf4':'#f8fafc'};border:0.5px solid ${completed?'#bbf7d0':'#e5e7eb'}">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
-            <div style="font-size:11px;font-weight:600;color:#111827">${m.title}</div>
-            <div style="font-size:10px;font-weight:700;color:#059669">+${m.points}pts</div>
-          </div>
-          <div style="height:4px;background:#e5e7eb;border-radius:2px;overflow:hidden">
-            <div style="width:${pct}%;height:100%;background:${completed?'#059669':'#00471b'};border-radius:2px"></div>
-          </div>
-          <div style="font-size:9px;color:#6b7280;margin-top:3px">${completed?'✅ Complete':progress+' / '+m.target_count}</div>
-        </div>`;
-      }).join('');
-    } else {
-      missionsWrap.innerHTML = '<div style="font-size:10px;color:#9ca3af">Missions loading...</div>';
-    }
-  }
-}
-
-function getTimeAgo(ts) {
-  if (!ts) return '';
-  const diff = Date.now() - new Date(ts).getTime();
-  const mins = Math.floor(diff/60000);
-  if (mins < 1) return 'just now';
-  if (mins < 60) return mins + 'm ago';
-  const hrs = Math.floor(mins/60);
-  if (hrs < 24) return hrs + 'h ago';
-  return Math.floor(hrs/24) + 'd ago';
-}
-
-async function communityUpvote(postId, type, authorId) {
-  if (!window.currentUser) { openLoginModal(); return; }
-  if (typeof COMMUNITY !== 'undefined') {
-    await COMMUNITY.upvote(window.currentUser.id, postId, type, authorId);
-    loadCommunityData(window._communityFilter || 'all');
-  }
-}
-
-function showNewPostModal() {
-  if (!window.currentUser) { openLoginModal(); return; }
-  var sections = [{id:'today_races',label:"Today's Races"},{id:'tips_analysis',label:'Tips & Analysis'},{id:'winning_bets',label:'Winning Bets'},{id:'system_feedback',label:'System Feedback'},{id:'general',label:'General Chat'}];
-  var modal = document.getElementById('wwModal');
-  if (!modal) return;
-  modal.innerHTML = `<div style="background:#fff;border-radius:12px;padding:24px;max-width:540px;width:100%;margin:auto">
-    <div style="font-size:16px;font-weight:700;color:#111827;margin-bottom:16px">New Post</div>
-    <select id="post-section" style="width:100%;padding:9px 12px;border:0.5px solid #e5e7eb;border-radius:7px;font-size:12px;margin-bottom:10px;font-family:'Space Grotesk'">
-      ${sections.map(s => `<option value="${s.id}">${s.label}</option>`).join('')}
-    </select>
-    <input id="post-title" placeholder="Post title..." style="width:100%;padding:9px 12px;border:0.5px solid #e5e7eb;border-radius:7px;font-size:13px;margin-bottom:10px;font-family:'Space Grotesk';box-sizing:border-box">
-    <textarea id="post-content" placeholder="Share your analysis, tip, or question..." style="width:100%;padding:9px 12px;border:0.5px solid #e5e7eb;border-radius:7px;font-size:12px;min-height:100px;resize:vertical;font-family:'Space Grotesk';box-sizing:border-box;margin-bottom:14px"></textarea>
-    <div style="display:flex;gap:10px">
-      <button onclick="closeModal()" style="flex:1;padding:10px;border:0.5px solid #e5e7eb;border-radius:7px;font-size:13px;font-weight:600;cursor:pointer;background:#fff">Cancel</button>
-      <button onclick="submitPost()" style="flex:2;padding:10px;background:#00471b;color:#fff;border:none;border-radius:7px;font-size:13px;font-weight:600;cursor:pointer">Post</button>
-    </div>
-  </div>`;
-  modal.style.display = 'flex';
-}
-
-async function submitPost() {
-  if (!window.currentUser) return;
-  const section = document.getElementById('post-section').value;
-  const title = document.getElementById('post-title').value.trim();
-  const content = document.getElementById('post-content').value.trim();
-  if (!title || !content) { toast('Please fill in all fields', 'error'); return; }
-
-  const SB = window.SUPABASE_URL;
-  const KEY = window.SUPABASE_ANON_KEY;
-
-  const result = await fetch(SB + '/rest/v1/posts', {
-    method: 'POST',
-    headers: { 'apikey': KEY, 'Authorization': 'Bearer ' + KEY, 'Content-Type': 'application/json', 'Prefer': 'return=representation' },
-    body: JSON.stringify({ clerk_id: window.currentUser.id, section, title, content })
-  }).then(r => r.json()).catch(() => null);
-
-  if (result && !result.error) {
-    if (typeof COMMUNITY !== 'undefined') await COMMUNITY.forumPost(window.currentUser.id, result[0].id, false);
-    toast('Post published!', 'success');
-    closeModal();
-    loadCommunityData(section);
-  } else {
-    toast('Error posting — please try again', 'error');
-  }
-}
-
-async function openPostModal(postId) {
-  // Opens a post detail view — simplified for now
-  const SB = window.SUPABASE_URL;
-  const KEY = window.SUPABASE_ANON_KEY;
-  const posts = await fetch(SB + '/rest/v1/posts?id=eq.' + postId + '&select=*,user_profiles(display_name,tier)', {
-    headers: { 'apikey': KEY, 'Authorization': 'Bearer ' + KEY }
-  }).then(r => r.json()).catch(() => []);
-
-  if (!posts || !posts.length) return;
-  const p = posts[0];
-  const profile = p.user_profiles || {};
-
-  const replies = await fetch(SB + '/rest/v1/replies?post_id=eq.' + postId + '&order=created_at.asc&select=*,user_profiles(display_name,tier)', {
-    headers: { 'apikey': KEY, 'Authorization': 'Bearer ' + KEY }
-  }).then(r => r.json()).catch(() => []);
-
-  var modal = document.getElementById('wwModal');
-  if (!modal) return;
-
-  modal.innerHTML = `<div style="background:#fff;border-radius:12px;padding:24px;max-width:600px;width:100%;margin:auto;max-height:80vh;overflow-y:auto">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
-      <div style="font-size:14px;font-weight:700;color:#111827">${p.title}</div>
-      <button onclick="closeModal()" style="background:none;border:none;font-size:18px;cursor:pointer;color:#9ca3af">✕</button>
-    </div>
-    <div style="font-size:11px;color:#6b7280;margin-bottom:12px">
-      <span style="font-weight:600;color:#374151">${profile.display_name||'Member'}</span> · ${profile.tier||'Maiden'} · ${getTimeAgo(p.created_at)}
-    </div>
-    <div style="font-size:13px;color:#374151;line-height:1.6;margin-bottom:16px;padding-bottom:16px;border-bottom:0.5px solid #e5e7eb">${p.content}</div>
-    <div style="font-size:11px;font-weight:700;color:#374151;margin-bottom:10px">💬 ${(replies||[]).length} Replies</div>
-    ${(replies||[]).map(r => {
-      const rp = r.user_profiles || {};
-      return `<div style="padding:10px;background:#f8fafc;border-radius:6px;margin-bottom:8px">
-        <div style="font-size:10px;font-weight:600;color:#374151;margin-bottom:4px">${rp.display_name||'Member'} · ${rp.tier||'Maiden'} · ${getTimeAgo(r.created_at)}</div>
-        <div style="font-size:12px;color:#374151">${r.content}</div>
-      </div>`;
-    }).join('')}
-    ${window.currentUser ? `<textarea id="reply-content" placeholder="Write a reply..." style="width:100%;padding:9px 12px;border:0.5px solid #e5e7eb;border-radius:7px;font-size:12px;min-height:70px;resize:none;font-family:'Space Grotesk';box-sizing:border-box;margin-top:10px"></textarea>
-    <button onclick="submitReply('${postId}')" style="width:100%;margin-top:8px;padding:10px;background:#00471b;color:#fff;border:none;border-radius:7px;font-size:13px;font-weight:600;cursor:pointer">Post Reply</button>` : '<div style="text-align:center;padding:12px;font-size:12px;color:#6b7280">Sign in to reply</div>'}
-  </div>`;
-  modal.style.display = 'flex';
-}
-
-async function submitReply(postId) {
-  if (!window.currentUser) return;
-  const content = document.getElementById('reply-content').value.trim();
-  if (!content) return;
-
-  const SB = window.SUPABASE_URL;
-  const KEY = window.SUPABASE_ANON_KEY;
-
-  await fetch(SB + '/rest/v1/replies', {
-    method: 'POST',
-    headers: { 'apikey': KEY, 'Authorization': 'Bearer ' + KEY, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ post_id: postId, clerk_id: window.currentUser.id, content })
+  // Wire up events after render
+  document.querySelectorAll('.comm-section-btn,.comm-tab-btn').forEach(function(el){
+    el.addEventListener('click',function(){communityFilter(el.getAttribute('data-section'));});
+  });
+  var npBtn=document.getElementById('new-post-btn');
+  if(npBtn) npBtn.addEventListener('click',showNewPostModal);
+  var refBtn=document.getElementById('ref-copy-btn');
+  if(refBtn) refBtn.addEventListener('click',function(){
+    navigator.clipboard.writeText('https://wagingwar.com.au?ref='+(profile.referral_code||''));
+    toast('Referral link copied','success');
   });
 
-  // Update reply count
-  const posts = await fetch(SB + '/rest/v1/posts?id=eq.' + postId + '&select=reply_count', { headers: { 'apikey': KEY, 'Authorization': 'Bearer ' + KEY } }).then(r => r.json());
-  if (posts && posts[0]) {
-    await fetch(SB + '/rest/v1/posts?id=eq.' + postId, {
-      method: 'PATCH',
-      headers: { 'apikey': KEY, 'Authorization': 'Bearer ' + KEY, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ reply_count: (posts[0].reply_count || 0) + 1 })
-    });
-  }
-
-  if (typeof COMMUNITY !== 'undefined') await COMMUNITY.forumPost(window.currentUser.id, postId, true);
-  toast('Reply posted!', 'success');
-  openPostModal(postId);
+  // Load async data
+  loadCommunityData(af);
 }
 
 function setCommunityTab(tab){window._communityMobTab=tab;showCommunity();}
