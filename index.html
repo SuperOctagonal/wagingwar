@@ -1314,8 +1314,8 @@ function renderRaceTable(rc, results, scratched, hasLive, liveOddsData) {
       const sex = r.sex||'';
       const allowance = r.allowance||'';
       const days = r['Days Since Last Start']||'';
-      const wjb = r.winJockBack||'';
-      const wjbBadge = wjb?` <span style="font-size:9px;background:#dcfce7;color:#166534;padding:1px 5px;border-radius:3px">WJ back</span>`:'';
+      const wjb = r.winJockBack;
+      const wjbBadge = (wjb==='1'||wjb===1||wjb===true)?` <span style="font-size:9px;background:#dcfce7;color:#166534;padding:1px 5px;border-radius:3px;margin-left:4px">WJ back</span>`:'';
 
       // Breeding
       const breedParts = [];
@@ -1338,13 +1338,13 @@ function renderRaceTable(rc, results, scratched, hasLive, liveOddsData) {
         const rowBg = ri%2===1 ? 'background:#f9fafb;' : '';
         return `<tr>
           <td style="${rowBg}padding:3px 8px;font-size:11px;color:#6b7280;white-space:nowrap">${fmtDate(run.date)}</td>
-          <td style="${rowBg}padding:4px 8px;text-align:center"><div style="width:20px;height:20px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:10px;font-weight:500;${posStyle(pos)}">${pos}</div></td>
-          <td style="${rowBg}padding:4px 8px;font-size:11px;color:#111827">${run.crse||'—'}</td>
+          <td style="${rowBg}padding:2px 8px;text-align:center"><div style="width:20px;height:20px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:10px;font-weight:500;${posStyle(pos)}">${pos}</div></td>
+          <td style="${rowBg}padding:2px 8px;font-size:11px;color:#111827">${run.crse||'—'}</td>
           <td style="${rowBg}padding:4px 8px"><span style="font-size:10px;padding:1px 5px;border-radius:3px;background:#eff6ff;color:#1d4ed8">${run.cls||'—'}</span></td>
-          <td style="${rowBg}padding:4px 8px;font-size:11px;color:#111827">${run.dist?run.dist+'m':'—'}</td>
-          <td style="${rowBg}padding:4px 8px;font-size:11px;color:#6b7280">${run.wt?run.wt+'kg':'—'}</td>
-          <td style="${rowBg}padding:4px 8px;font-size:11px;color:#6b7280">${fmtSP(sp)}</td>
-          <td style="${rowBg}padding:4px 8px;font-size:11px;${mgStyle(pos)}">${mgText(pos,run.margin)}</td>
+          <td style="${rowBg}padding:2px 8px;font-size:11px;color:#111827">${run.dist?run.dist+'m':'—'}</td>
+          <td style="${rowBg}padding:2px 8px;font-size:11px;color:#6b7280">${run.wt?run.wt+'kg':'—'}</td>
+          <td style="${rowBg}padding:2px 8px;font-size:11px;color:#6b7280">${fmtSP(sp)}</td>
+          <td style="${rowBg}padding:2px 8px;font-size:11px;${mgStyle(pos)}">${mgText(pos,run.margin)}</td>
         </tr>`;
       }).filter(Boolean).join('');
 
@@ -1366,31 +1366,31 @@ function renderRaceTable(rc, results, scratched, hasLive, liveOddsData) {
         <div style="padding:6px 10px;background:#00471b;border-radius:6px 6px 0 0">
           <div style="display:flex;align-items:center;gap:8px">
             <div style="width:20px;height:20px;border-radius:50%;background:${rankBg};color:${rankColor};font-size:10px;font-weight:600;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0">${rank}</div>
-            <span style="font-size:13px;font-weight:500;color:#fff">${r.name}${bp?` <span style="color:rgba(255,255,255,.5);font-size:11px;font-weight:400">(${bp})</span>`:''}${wjbBadge}</span>
-            <span style="font-size:11px;color:rgba(255,255,255,.75);margin-left:4px">${r['Weight']||''}kg${allowance?' ('+allowance+')':''} &nbsp;·&nbsp; ${jShort} &nbsp;·&nbsp; ${r.trainer||''}</span>
-            <span style="font-size:11px;color:rgba(255,255,255,.75);margin-left:auto;white-space:nowrap">${age?age+'yo ':''} ${sex} &nbsp;·&nbsp; ${starts}-${wins}-${seconds}-${thirds} &nbsp;·&nbsp; ${winPct}% win${days?' &nbsp;·&nbsp; '+days+'d':''}</span>
+            <span style="font-size:13px;font-weight:500;color:#fff">${r.name}${bp?` <span style="color:rgba(255,255,255,.8);font-size:11px;font-weight:400">(${bp})</span>`:''}${wjbBadge}</span>
+            <span style="font-size:11px;color:#fff;margin-left:4px">${r['Weight']||''}kg${allowance?' ('+allowance+')':''} &nbsp;·&nbsp; ${jShort} &nbsp;·&nbsp; ${r.trainer||''}</span>
+            <span style="font-size:11px;color:#fff;margin-left:auto;white-space:nowrap">${age?age+'yo ':''} ${sex} &nbsp;·&nbsp; ${starts}-${wins}-${seconds}-${thirds} &nbsp;·&nbsp; ${winPct}% win${days?' &nbsp;·&nbsp; '+days+'d':''}</span>
             <button class="log-btn" onclick="quickAddBet(event,${i})" style="margin-left:8px;flex-shrink:0">Log Bet</button>
           </div>
-          ${breedLine?`<div style="font-size:10px;color:rgba(255,255,255,.65);margin-top:3px;padding-left:28px">${breedLine}</div>`:''}
+          ${breedLine?`<div style="font-size:10px;color:rgba(255,255,255,.85);margin-top:3px;padding-left:28px">${breedLine}</div>`:''}
         </div>
         <table style="width:100%;border-collapse:collapse;border:0.5px solid #e5e7eb;border-top:none;background:#fff;table-layout:fixed">
           <thead>
             <tr style="background:#f1f5f9">
               <th style="padding:3px 8px;font-size:9px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:.4px;text-align:left;border-bottom:0.5px solid #e5e7eb;width:90px">Date</th>
-              <th style="padding:4px 8px;font-size:9px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:.4px;text-align:left;border-bottom:0.5px solid #e5e7eb;width:44px">Pos</th>
-              <th style="padding:4px 8px;font-size:9px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:.4px;text-align:left;border-bottom:0.5px solid #e5e7eb;width:70px">Track</th>
+              <th style="padding:2px 8px;font-size:9px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:.4px;text-align:left;border-bottom:0.5px solid #e5e7eb;width:44px">Pos</th>
+              <th style="padding:2px 8px;font-size:9px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:.4px;text-align:left;border-bottom:0.5px solid #e5e7eb;width:70px">Track</th>
               <th style="padding:3px 8px;font-size:9px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:.4px;text-align:left;border-bottom:0.5px solid #e5e7eb;width:90px">Class</th>
-              <th style="padding:4px 8px;font-size:9px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:.4px;text-align:left;border-bottom:0.5px solid #e5e7eb">Dist</th>
-              <th style="padding:4px 8px;font-size:9px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:.4px;text-align:left;border-bottom:0.5px solid #e5e7eb">Wgt</th>
-              <th style="padding:4px 8px;font-size:9px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:.4px;text-align:left;border-bottom:0.5px solid #e5e7eb">SP</th>
-              <th style="padding:4px 8px;font-size:9px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:.4px;text-align:left;border-bottom:0.5px solid #e5e7eb">Margin</th>
+              <th style="padding:2px 8px;font-size:9px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:.4px;text-align:left;border-bottom:0.5px solid #e5e7eb">Dist</th>
+              <th style="padding:2px 8px;font-size:9px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:.4px;text-align:left;border-bottom:0.5px solid #e5e7eb">Wgt</th>
+              <th style="padding:2px 8px;font-size:9px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:.4px;text-align:left;border-bottom:0.5px solid #e5e7eb">SP</th>
+              <th style="padding:2px 8px;font-size:9px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:.4px;text-align:left;border-bottom:0.5px solid #e5e7eb">Margin</th>
             </tr>
           </thead>
           <tbody>${runRows||'<tr><td colspan="8" style="padding:8px;font-size:11px;color:#9ca3af">No recent run data</td></tr>'}</tbody>
         </table>
         <div style="display:grid;grid-template-columns:repeat(6,1fr);border:0.5px solid #e5e7eb;border-top:none;border-radius:0 0 6px 6px;overflow:hidden;background:#fff">
           <div style="padding:4px 10px;border-right:0.5px solid #e5e7eb">
-            <div style="font-size:9px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:.4px;margin-bottom:2px">Jockey 12m</div>
+            <div style="font-size:9px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:.4px;margin-bottom:1px">Jockey 12m</div>
             <div style="font-size:11px;font-weight:500;${statColor(jW,jS)}">${jS?jS+'S '+jW+'W '+jP+'P':'—'}</div>
             <div style="font-size:10px;color:#6b7280;margin-top:1px">${pct(jW,jS)} win</div>
           </div>
@@ -1414,7 +1414,7 @@ function renderRaceTable(rc, results, scratched, hasLive, liveOddsData) {
             <div style="font-size:11px;font-weight:500;${statColor(up2W,up2S)}">${up2S?up2S+'S '+up2W+'W '+up2P+'P':'—'}</div>
             <div style="font-size:10px;color:#6b7280;margin-top:1px">${pct(up2W,up2S)} win</div>
           </div>
-          <div style="padding:6px 10px">
+          <div style="padding:3px 8px">
             <div style="font-size:9px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:.4px;margin-bottom:2px">Course / Dist</div>
             <div style="font-size:11px;font-weight:500;${statColor(cdW,cdS)}">${cdS?cdS+'S '+cdW+'W '+cdP+'P':'No starts'}</div>
             <div style="font-size:10px;color:#6b7280;margin-top:1px">${pct(cdW,cdS)} win</div>
@@ -1444,7 +1444,7 @@ function renderRaceTable(rc, results, scratched, hasLive, liveOddsData) {
     const tempoColor = leaderCount>=4?'#dc2626':leaderCount>=2?'#d97706':'#059669';
 
     const bars = scored.map((h,hi) => {
-      if (!h.pm) return '';
+      if (!h.pm||!h.pm.role) return '';
       const bp = h['BP']||h.BP||'';
       const barrierNum = bp || h.tab || '—';
       const rank = h.systemRank;
