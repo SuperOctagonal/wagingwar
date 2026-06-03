@@ -75,7 +75,7 @@ body{background:#f1f5f9;color:#111827;font-family:'Space Grotesk',sans-serif;fon
 .csv-zone{border:1px dashed rgba(255,255,255,.15);border-radius:6px;padding:8px;text-align:center;cursor:pointer;margin:8px 10px;transition:all .2s}
 .csv-zone:hover{border-color:rgba(255,255,255,.35);background:rgba(255,255,255,.04)}
 .csv-zone-text{font-size:9px;color:rgba(255,255,255,.4);line-height:1.5}
-.csv-loaded{font-size:9px;color:#4ade80;display:flex;align-items:center;gap:4px;padding:6px 10px}
+.csv-loaded{font-size:9px;color:#4ade80;display:flex;align-items:center;gap:4px;padding:4px 10px}
 
 /* ── MAIN CONTENT ── */
 .main{background:var(--main-bg,#f8fafc);display:flex;flex-direction:column;overflow:hidden}
@@ -1337,7 +1337,7 @@ function renderRaceTable(rc, results, scratched, hasLive, liveOddsData) {
         const sp = spArr[ri];
         const rowBg = ri%2===1 ? 'background:#f9fafb;' : '';
         return `<tr>
-          <td style="${rowBg}padding:4px 8px;font-size:11px;color:#6b7280;white-space:nowrap">${fmtDate(run.date)}</td>
+          <td style="${rowBg}padding:3px 8px;font-size:11px;color:#6b7280;white-space:nowrap">${fmtDate(run.date)}</td>
           <td style="${rowBg}padding:4px 8px;text-align:center"><div style="width:20px;height:20px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:10px;font-weight:500;${posStyle(pos)}">${pos}</div></td>
           <td style="${rowBg}padding:4px 8px;font-size:11px;color:#111827">${run.crse||'—'}</td>
           <td style="${rowBg}padding:4px 8px"><span style="font-size:10px;padding:1px 5px;border-radius:3px;background:#eff6ff;color:#1d4ed8">${run.cls||'—'}</span></td>
@@ -1367,19 +1367,19 @@ function renderRaceTable(rc, results, scratched, hasLive, liveOddsData) {
           <div style="display:flex;align-items:center;gap:8px">
             <div style="width:20px;height:20px;border-radius:50%;background:${rankBg};color:${rankColor};font-size:10px;font-weight:600;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0">${rank}</div>
             <span style="font-size:13px;font-weight:500;color:#fff">${r.name}${bp?` <span style="color:rgba(255,255,255,.5);font-size:11px;font-weight:400">(${bp})</span>`:''}${wjbBadge}</span>
-            <span style="font-size:11px;color:rgba(255,255,255,.6);margin-left:4px">${r['Weight']||''}kg${allowance?' ('+allowance+')':''} &nbsp;·&nbsp; ${jShort} &nbsp;·&nbsp; ${r.trainer||''}</span>
-            <span style="font-size:11px;color:rgba(255,255,255,.5);margin-left:auto;white-space:nowrap">${age?age+'yo ':''} ${sex} &nbsp;·&nbsp; ${starts}-${wins}-${seconds}-${thirds} &nbsp;·&nbsp; ${winPct}% win${days?' &nbsp;·&nbsp; '+days+'d':''}</span>
+            <span style="font-size:11px;color:rgba(255,255,255,.75);margin-left:4px">${r['Weight']||''}kg${allowance?' ('+allowance+')':''} &nbsp;·&nbsp; ${jShort} &nbsp;·&nbsp; ${r.trainer||''}</span>
+            <span style="font-size:11px;color:rgba(255,255,255,.75);margin-left:auto;white-space:nowrap">${age?age+'yo ':''} ${sex} &nbsp;·&nbsp; ${starts}-${wins}-${seconds}-${thirds} &nbsp;·&nbsp; ${winPct}% win${days?' &nbsp;·&nbsp; '+days+'d':''}</span>
             <button class="log-btn" onclick="quickAddBet(event,${i})" style="margin-left:8px;flex-shrink:0">Log Bet</button>
           </div>
-          ${breedLine?`<div style="font-size:10px;color:rgba(255,255,255,.45);margin-top:3px;padding-left:28px">${breedLine}</div>`:''}
+          ${breedLine?`<div style="font-size:10px;color:rgba(255,255,255,.65);margin-top:3px;padding-left:28px">${breedLine}</div>`:''}
         </div>
         <table style="width:100%;border-collapse:collapse;border:0.5px solid #e5e7eb;border-top:none;background:#fff;table-layout:fixed">
           <thead>
             <tr style="background:#f1f5f9">
-              <th style="padding:4px 8px;font-size:9px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:.4px;text-align:left;border-bottom:0.5px solid #e5e7eb;width:90px">Date</th>
+              <th style="padding:3px 8px;font-size:9px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:.4px;text-align:left;border-bottom:0.5px solid #e5e7eb;width:90px">Date</th>
               <th style="padding:4px 8px;font-size:9px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:.4px;text-align:left;border-bottom:0.5px solid #e5e7eb;width:44px">Pos</th>
               <th style="padding:4px 8px;font-size:9px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:.4px;text-align:left;border-bottom:0.5px solid #e5e7eb;width:70px">Track</th>
-              <th style="padding:4px 8px;font-size:9px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:.4px;text-align:left;border-bottom:0.5px solid #e5e7eb;width:90px">Class</th>
+              <th style="padding:3px 8px;font-size:9px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:.4px;text-align:left;border-bottom:0.5px solid #e5e7eb;width:90px">Class</th>
               <th style="padding:4px 8px;font-size:9px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:.4px;text-align:left;border-bottom:0.5px solid #e5e7eb">Dist</th>
               <th style="padding:4px 8px;font-size:9px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:.4px;text-align:left;border-bottom:0.5px solid #e5e7eb">Wgt</th>
               <th style="padding:4px 8px;font-size:9px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:.4px;text-align:left;border-bottom:0.5px solid #e5e7eb">SP</th>
@@ -1389,34 +1389,34 @@ function renderRaceTable(rc, results, scratched, hasLive, liveOddsData) {
           <tbody>${runRows||'<tr><td colspan="8" style="padding:8px;font-size:11px;color:#9ca3af">No recent run data</td></tr>'}</tbody>
         </table>
         <div style="display:grid;grid-template-columns:repeat(6,1fr);border:0.5px solid #e5e7eb;border-top:none;border-radius:0 0 6px 6px;overflow:hidden;background:#fff">
-          <div style="padding:6px 10px;border-right:0.5px solid #e5e7eb">
+          <div style="padding:4px 10px;border-right:0.5px solid #e5e7eb">
             <div style="font-size:9px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:.4px;margin-bottom:2px">Jockey 12m</div>
-            <div style="font-size:11px;font-weight:500;${statColor(jW,jS)}">${jS?jW+'W '+jP+'P / '+jS+'S':'—'}</div>
+            <div style="font-size:11px;font-weight:500;${statColor(jW,jS)}">${jS?jS+'S '+jW+'W '+jP+'P':'—'}</div>
             <div style="font-size:10px;color:#6b7280;margin-top:1px">${pct(jW,jS)} win</div>
           </div>
-          <div style="padding:6px 10px;border-right:0.5px solid #e5e7eb">
+          <div style="padding:4px 10px;border-right:0.5px solid #e5e7eb">
             <div style="font-size:9px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:.4px;margin-bottom:2px">Trainer 12m</div>
-            <div style="font-size:11px;font-weight:500;${statColor(tW,tS)}">${tS?tW+'W '+tP+'P / '+tS+'S':'—'}</div>
+            <div style="font-size:11px;font-weight:500;${statColor(tW,tS)}">${tS?tS+'S '+tW+'W '+tP+'P':'—'}</div>
             <div style="font-size:10px;color:#6b7280;margin-top:1px">${pct(tW,tS)} win</div>
           </div>
-          <div style="padding:6px 10px;border-right:0.5px solid #e5e7eb">
+          <div style="padding:4px 10px;border-right:0.5px solid #e5e7eb">
             <div style="font-size:9px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:.4px;margin-bottom:2px">Joc / Trn combo</div>
-            <div style="font-size:11px;font-weight:500;${statColor(jtW,jtS)}">${jtS?jtW+'W '+jtP+'P / '+jtS+'S':'—'}</div>
+            <div style="font-size:11px;font-weight:500;${statColor(jtW,jtS)}">${jtS?jtS+'S '+jtW+'W '+jtP+'P':'—'}</div>
             <div style="font-size:10px;color:#6b7280;margin-top:1px">${pct(jtW,jtS)} win</div>
           </div>
-          <div style="padding:6px 10px;border-right:0.5px solid #e5e7eb">
+          <div style="padding:4px 10px;border-right:0.5px solid #e5e7eb">
             <div style="font-size:9px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:.4px;margin-bottom:2px">${upLabel}</div>
-            <div style="font-size:11px;font-weight:500;${statColor(up1W,up1S)}">${up1S?up1W+'W '+up1P+'P / '+up1S+'S':'—'}</div>
+            <div style="font-size:11px;font-weight:500;${statColor(up1W,up1S)}">${up1S?up1S+'S '+up1W+'W '+up1P+'P':'—'}</div>
             <div style="font-size:10px;color:#6b7280;margin-top:1px">${pct(up1W,up1S)} win</div>
           </div>
-          <div style="padding:6px 10px;border-right:0.5px solid #e5e7eb">
+          <div style="padding:4px 10px;border-right:0.5px solid #e5e7eb">
             <div style="font-size:9px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:.4px;margin-bottom:2px">${upNextLabel}</div>
-            <div style="font-size:11px;font-weight:500;${statColor(up2W,up2S)}">${up2S?up2W+'W '+up2P+'P / '+up2S+'S':'—'}</div>
+            <div style="font-size:11px;font-weight:500;${statColor(up2W,up2S)}">${up2S?up2S+'S '+up2W+'W '+up2P+'P':'—'}</div>
             <div style="font-size:10px;color:#6b7280;margin-top:1px">${pct(up2W,up2S)} win</div>
           </div>
           <div style="padding:6px 10px">
             <div style="font-size:9px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:.4px;margin-bottom:2px">Course / Dist</div>
-            <div style="font-size:11px;font-weight:500;${statColor(cdW,cdS)}">${cdS?cdW+'W '+cdP+'P / '+cdS+'S':'No starts'}</div>
+            <div style="font-size:11px;font-weight:500;${statColor(cdW,cdS)}">${cdS?cdS+'S '+cdW+'W '+cdP+'P':'No starts'}</div>
             <div style="font-size:10px;color:#6b7280;margin-top:1px">${pct(cdW,cdS)} win</div>
           </div>
         </div>
@@ -1438,8 +1438,8 @@ function renderRaceTable(rc, results, scratched, hasLive, liveOddsData) {
       return {...r, pm};
     }).sort((a,b) => (+a['BP']||+a.tab||99) - (+b['BP']||+b.tab||99));
 
-    const leaderCount = scored.filter(h=>h.pm.role==='Leader').length;
-    const presserCount = scored.filter(h=>h.pm.role==='Presser').length;
+    const leaderCount = scored.filter(h=>h.pm&&h.pm.role==='Leader').length;
+    const presserCount = scored.filter(h=>h.pm&&h.pm.role==='Presser').length;
     const tempo = leaderCount>=4?'Hot pace — closers favoured':leaderCount>=2?'Strong tempo — balanced':leaderCount===1?'One leader — likely to hold on':'No leader — slow pace expected';
     const tempoColor = leaderCount>=4?'#dc2626':leaderCount>=2?'#d97706':'#059669';
 
@@ -2220,8 +2220,8 @@ function showPaceMapPage() {
     </div>`;
   }).join('');
 
-  const leaderCount = scored.filter(h=>h.pm.role==='Leader').length;
-  const presserCount = scored.filter(h=>h.pm.role==='Presser').length;
+  const leaderCount = scored.filter(h=>h.pm&&h.pm.role==='Leader').length;
+  const presserCount = scored.filter(h=>h.pm&&h.pm.role==='Presser').length;
 
   main.innerHTML = `<div style="display:grid;grid-template-columns:1fr 220px;gap:0;height:100%">
     <div class="page-wrap" style="border-right:0.5px solid #e5e7eb">
