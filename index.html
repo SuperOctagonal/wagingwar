@@ -1073,7 +1073,7 @@ function pushTodayMeetingsToSupabase() {
       'apikey': SUPABASE_ANON_KEY,
       'Authorization': 'Bearer ' + SUPABASE_ANON_KEY,
       'Content-Type': 'application/json',
-      'Prefer': 'resolution=merge-duplicates'
+      'Prefer': 'resolution=ignore-duplicates'
     },
     body: JSON.stringify(rows)
   })
@@ -1459,9 +1459,7 @@ function renderRaceTable(rc, results, scratched, hasLive, liveOddsData) {
         </div>
         <div style="width:140px;flex-shrink:0;overflow:hidden">
           <div style="font-size:11px;font-weight:600;color:#111827;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${h.name}</div>
-          ${h.pm.hasTPPC
-            ? '<div style=\"font-size:8px;color:#9ca3af;margin-top:1px\">F:'+Math.round(h.pm.tppcFront||0)+'% P:'+Math.round(h.pm.tppcOnpc||0)+'% M:'+Math.round(h.pm.tppcMid||0)+'% B:'+Math.round(h.pm.tppcBack||0)+'% <span style=\"color:#059669;font-weight:600\">CSV</span></div>'
-            : '<div style=\"font-size:8px;color:#d97706;margin-top:1px\">Estimated</div>'}
+          <div style="font-size:8px;color:#9ca3af;margin-top:1px">Espd: ${h.pm.espdStr||'—'}</div>
         </div>
         <div style="width:65px;flex-shrink:0">
           <span style="font-size:10px;font-weight:600;color:${h.pm.color};background:${h.pm.color}15;padding:2px 7px;border-radius:10px;white-space:nowrap">${h.pm.role}</span>
@@ -4345,7 +4343,7 @@ function calcPaceMap(horse,raceVenue,raceDist,trackCond){
   // ── Use TPPC data from CSV if available (more accurate than calculated) ──
   var tppcFront=horse.tppcFront, tppcOnpc=horse.tppcOnpc;
   var tppcMid=horse.tppcMid, tppcBack=horse.tppcBack;
-  var hasTPPC = tppcFront!==null && tppcFront!==undefined;
+  var hasTPPC = false; // TPPC from CSV is field-average not per-horse, use ESPD instead
 
   if(espdNum<=3){role='Leader';color='#00b050';}
   else if(espdNum<=5){role='Presser';color='#7ec820';}
@@ -4353,21 +4351,8 @@ function calcPaceMap(horse,raceVenue,raceDist,trackCond){
   else if(espdNum<=8){role='Closer';color='#ff8000';}
   else{role='Backmarker';color='#dc3545';}
 
-  // If TPPC available, use front+onpc as the primary pace % (actual data beats estimate)
   var pct;
-  if(hasTPPC) {
-    // TPPC-Front = probability horse leads, TPPC-Onpc = probability pressing
-    // Use the dominant position as role indicator
-    var front=tppcFront||0, onpc=tppcOnpc||0, mid=tppcMid||0, back=tppcBack||0;
-    var maxP=Math.max(front,onpc,mid,back);
-    if(maxP===front&&front>20){role='Leader';color='#00b050';}
-    else if(maxP===onpc||(front+onpc>50)){role='Presser';color='#7ec820';}
-    else if(maxP===mid){role='Midfield';color='#ffc000';}
-    else if(maxP===back&&back>onpc){role='Closer';color='#ff8000';}
-    else if(back>40){role='Backmarker';color='#dc3545';}
-    // Pace score = front% + onpc% combined (how "on-pace" this horse is)
-    pct=Math.min(98,Math.max(2,Math.round(front+onpc)));
-  } else {
+  if(false) { // TPPC branch disabled
     // Fallback to original calculation
     function tp(v,d){
       v=(v||'').toUpperCase();
