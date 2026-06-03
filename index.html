@@ -363,8 +363,8 @@ body{background:#f1f5f9;color:#111827;font-family:'Space Grotesk',sans-serif;fon
 /* ── RACE VIEW TABS ── */
 .race-view-tabs{display:flex;align-items:center;background:#fff;border-bottom:1px solid #e5e7eb;padding:0 14px;gap:0;flex-shrink:0;overflow-x:auto;scrollbar-width:none}.race-view-tabs::-webkit-scrollbar{display:none}
 .rvt{display:flex;align-items:center;gap:5px;padding:9px 12px;font-size:11px;font-weight:500;color:#6b7280;cursor:pointer;border-bottom:2.5px solid transparent;white-space:nowrap;transition:all .15s;user-select:none;margin-bottom:-1px;flex-shrink:0}
-.rvt:hover{color:#111827;background:#f9fafb}
-.rvt.active{color:#00471b;border-bottom-color:#00471b;font-weight:600}
+.rvt:hover{color:#00471b;background:#f0fdf4}
+.rvt.active{color:#fff;background:#00471b;border-bottom-color:#00471b;font-weight:600;border-radius:6px 6px 0 0}
 .rvt i{font-size:14px}
 .rvt-lock{font-size:11px;color:#d1d5db;margin-left:1px}
 .rvt-new{font-size:8px;font-weight:700;background:#fef3c7;color:#92400e;padding:1px 4px;border-radius:3px;margin-left:2px}
@@ -4408,6 +4408,10 @@ function render(rc){
     GRP_KEYS.forEach(gk=>{r.grpScores[gk]=scoreGroup(r,gk);});
     r.totalFromGroups=GRP_KEYS.reduce((a,gk)=>a+r.grpScores[gk].total,0);
   });
+
+  // Re-sort by totalFromGroups so display order matches displayed score
+  results.sort((a,b)=>b.totalFromGroups-a.totalFromGroups);
+  results.forEach((r,i)=>r.myOdds=calculateMatrixOdds(results)[i]);
 
   // Per-group best and worst for colouring
   const grpBest={},grpWorst={};
