@@ -3453,6 +3453,43 @@ const HEADER_ALIASES = [
   ['Last Peak',        ['last peak']],
   ['sex',              ['sex']],
   ['Form',             ['form']],
+  ['Sire',             ['sire']],
+  ['Dam',              ['dam']],
+  ['G Sire',           ['g sire','gsire','grand sire','grandsire']],
+  ['Win Distances',    ['win distances','win dist']],
+  ['Joc Loc12m Places',['joc loc12m places','joc local places','jockey local places']],
+  ['Trn Loc12m Places',['trn loc12m places','trn local places','trainer local places']],
+  ['Joc/Trn Wins',     ['joc/trn wins','jockey trainer wins']],
+  ['Joc/Trn Places',   ['joc/trn places','jockey trainer places']],
+  ['Joc/Trn Starts',   ['joc/trn starts','jockey trainer starts']],
+  ['1Up Wins',         ['1up wins']],
+  ['1Up Places',       ['1up places']],
+  ['1Up Starts',       ['1up starts']],
+  ['2Up Wins',         ['2up wins']],
+  ['2Up Places',       ['2up places']],
+  ['2Up Starts',       ['2up starts']],
+  ['Last Finish Position',['last finish position']],
+  ['Last-1 Finish Position',['last-1 finish position']],
+  ['Last-2 Finish Position',['last-2 finish position']],
+  ['Last-3 Finish Position',['last-3 finish position']],
+  ['Win Jock Back On', ['win jock back on','win jock back']],
+  ['Cur RFS Wins',     ['cur rfs wins']],
+  ['Good Places',      ['good places','gd places']],
+  ['Soft Places',      ['soft places']],
+  ['Heavy Places',     ['heavy places']],
+  ['Firm Wins',        ['firm wins']],
+  ['Firm Places',      ['firm places']],
+  ['Firm Starts',      ['firm starts']],
+  ['TPPC-Front',       ['tppc-front']],
+  ['TPPC-Onpc',        ['tppc-onpc']],
+  ['TPPC-Mid',         ['tppc-mid']],
+  ['TPPC-Back',        ['tppc-back']],
+  ['Field Strength',   ['field strength']],
+  ['Impact Form',      ['impact form']],
+  ['Impact Dist',      ['impact dist']],
+  ['Course/Dist Wins', ['course/dist wins']],
+  ['Course/Dist Places',['course/dist places']],
+  ['Course/Dist Starts',['course/dist starts']],
 ];
 
 function detectHeaders(hdrs){
@@ -3768,10 +3805,10 @@ function buildRaces({hdrs,rows},fname){
     const oddsVal=oddsNum&&oddsNum<=200?oddsNum:null;
 
     // Last 4 finish positions
-    const lastFin0=safeNum(col(r,'Last Finish pos'));
-    const lastFin1=safeNum(col(r,'Last-1 Finish pos'));
-    const lastFin2=safeNum(col(r,'Last-2 Finish pos'));
-    const lastFin3=safeNum(col(r,'Last-3 Finish pos'));
+    const lastFin0=safeNum(col(r,'Last Finish Position'))||safeNum(col(r,'Last Finish pos'));
+    const lastFin1=safeNum(col(r,'Last-1 Finish Position'))||safeNum(col(r,'Last-1 Finish pos'));
+    const lastFin2=safeNum(col(r,'Last-2 Finish Position'))||safeNum(col(r,'Last-2 Finish pos'));
+    const lastFin3=safeNum(col(r,'Last-3 Finish Position'))||safeNum(col(r,'Last-3 Finish pos'));
     // Last 4 WFA ratings
     const lastWFA0=safeNum(col(r,'Last WFA Rating'));
     const lastWFA1=safeNum(col(r,'Last-1 WFA Rating'));
