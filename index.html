@@ -363,8 +363,8 @@ body{background:#f1f5f9;color:#111827;font-family:'Space Grotesk',sans-serif;fon
 /* ── RACE VIEW TABS ── */
 .race-view-tabs{display:flex;align-items:center;background:#fff;border-bottom:1px solid #e5e7eb;padding:0 14px;gap:0;flex-shrink:0;overflow-x:auto;scrollbar-width:none}.race-view-tabs::-webkit-scrollbar{display:none}
 .rvt{display:flex;align-items:center;gap:5px;padding:9px 12px;font-size:11px;font-weight:500;color:#6b7280;cursor:pointer;border-bottom:2.5px solid transparent;white-space:nowrap;transition:all .15s;user-select:none;margin-bottom:-1px;flex-shrink:0}
-.rvt:hover{color:#00471b;background:#f0fdf4}
-.rvt.active{color:#fff;background:#00471b;border-bottom-color:#00471b;font-weight:600;border-radius:6px 6px 0 0}
+.rvt:hover{color:#111827;background:#f9fafb}
+.rvt.active{color:#00471b;border-bottom-color:#00471b;font-weight:600}
 .rvt i{font-size:14px}
 .rvt-lock{font-size:11px;color:#d1d5db;margin-left:1px}
 .rvt-new{font-size:8px;font-weight:700;background:#fef3c7;color:#92400e;padding:1px 4px;border-radius:3px;margin-left:2px}
@@ -397,7 +397,7 @@ body{background:#f1f5f9;color:#111827;font-family:'Space Grotesk',sans-serif;fon
 .unlock-btn{padding:8px 20px;background:#00471b;color:#fff;border:none;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;font-family:'Space Grotesk'}
 
 /* ── HORSE FORM CARD ── */
-.horse-form-card,#horseFormCard{display:none;position:fixed;z-index:99999;background:#fff;border:1.5px solid #00471b;border-radius:10px;box-shadow:0 8px 32px rgba(0,0,0,.2);width:520px;overflow:hidden;pointer-events:none;max-height:80vh;overflow-y:auto}
+.horse-form-card,#horseFormCard{display:none;position:fixed;z-index:99999;background:#fff;border:1.5px solid #00471b;border-radius:10px;box-shadow:0 8px 32px rgba(0,0,0,.2);width:440px;overflow:hidden;pointer-events:none;max-height:80vh;overflow-y:auto}
 .hfc-header{background:linear-gradient(135deg,#00471b 0%,#005c23 100%);padding:10px 14px;display:flex;align-items:flex-start;justify-content:space-between}
 .hfc-name{font-size:14px;font-weight:700;color:#fff;letter-spacing:.3px;line-height:1.2}
 .hfc-meta{font-size:10px;color:rgba(255,255,255,.7);margin-top:3px}
@@ -949,17 +949,17 @@ function buildSidebarMeetings() {
     const racesHTML = keys.map(k => {
       const rc = allRaces[k];
       if (!rc) return '';
-      return `<div class="lr-race" onclick="selectRace(allRaces['${k}'],'${k}')" id="lrr-${k}" style="padding:3px 6px 3px 14px;border-radius:3px;font-size:9px;color:rgba(255,255,255,.8);cursor:pointer;display:flex;align-items:center;justify-content:space-between;margin-bottom:1px">
-        <span>R${rc.num} <span style="opacity:.85">${rc.name?rc.name.substring(0,14):''}</span></span>
-        <span style="font-size:8px;color:rgba(255,255,255,.5)">${rc.time||''}</span>
+      return `<div class="lr-race" onclick="selectRace(allRaces['${k}'],'${k}')" id="lrr-${k}" style="padding:3px 6px 3px 14px;border-radius:3px;font-size:9px;color:rgba(255,255,255,.4);cursor:pointer;display:flex;align-items:center;justify-content:space-between;margin-bottom:1px">
+        <span>R${rc.num} <span style="opacity:.7">${rc.name?rc.name.substring(0,14):''}</span></span>
+        <span style="font-size:8px;color:rgba(255,255,255,.25)">${rc.time||''}</span>
       </div>`;
     }).join('');
     return `<div id="lrm-wrap-${safeId}">
-      <div class="lr-meeting" onclick="toggleMeeting('${safeId}')" id="lrm-${safeId}" style="display:flex;align-items:center;justify-content:space-between;padding:4px 6px;border-radius:4px;font-size:10px;color:rgba(255,255,255,.85);cursor:pointer;margin-bottom:1px">
+      <div class="lr-meeting" onclick="toggleMeeting('${safeId}')" id="lrm-${safeId}" style="display:flex;align-items:center;justify-content:space-between;padding:4px 6px;border-radius:4px;font-size:10px;color:rgba(255,255,255,.45);cursor:pointer;margin-bottom:1px">
         <span>${venue}</span>
         <div style="display:flex;align-items:center;gap:4px">
-          <span style="font-size:8px;color:rgba(255,255,255,.55)">${keys.length}R</span>
-          <span id="lrm-arrow-${safeId}" style="font-size:9px;color:rgba(255,255,255,.5)">▶</span>
+          <span style="font-size:8px;color:rgba(255,255,255,.25)">${keys.length}R</span>
+          <span id="lrm-arrow-${safeId}" style="font-size:9px;color:rgba(255,255,255,.25)">▶</span>
         </div>
       </div>
       <div id="lrm-races-${safeId}" style="display:none">${racesHTML}</div>
@@ -1073,7 +1073,7 @@ function pushTodayMeetingsToSupabase() {
       'apikey': SUPABASE_ANON_KEY,
       'Authorization': 'Bearer ' + SUPABASE_ANON_KEY,
       'Content-Type': 'application/json',
-      'Prefer': 'resolution=ignore-duplicates'
+      'Prefer': 'resolution=merge-duplicates'
     },
     body: JSON.stringify(rows)
   })
@@ -1303,7 +1303,7 @@ function renderRaceTable(rc, results, scratched, hasLive, liveOddsData) {
     }
     function pct(w,s){ return s>0?Math.round(w/s*100)+'%':'0%'; }
 
-    const horses = [...results].sort((a,b)=>((+a.tab||+a['Tab']||99)-(+b.tab||+b['Tab']||99))).map((r, i) => {
+    const horses = results.map((r, i) => {
       const rank = i + 1;
       const bp = r['BP'] || r.BP || '';
       const jFirst = (r.jname||'').split(' ');
@@ -1314,8 +1314,8 @@ function renderRaceTable(rc, results, scratched, hasLive, liveOddsData) {
       const sex = r.sex||'';
       const allowance = r.allowance||'';
       const days = r['Days Since Last Start']||'';
-      const wjb = r.winJockBack;
-      const wjbBadge = (wjb==='1'||wjb===1||wjb===true)?` <span style="font-size:9px;background:#dcfce7;color:#166534;padding:1px 5px;border-radius:3px;margin-left:4px">WJ back</span>`:'';
+      const wjb = r.winJockBack||'';
+      const wjbBadge = wjb?` <span style="font-size:9px;background:#dcfce7;color:#166534;padding:1px 5px;border-radius:3px">WJ back</span>`:'';
 
       // Breeding
       const breedParts = [];
@@ -1338,13 +1338,13 @@ function renderRaceTable(rc, results, scratched, hasLive, liveOddsData) {
         const rowBg = ri%2===1 ? 'background:#f9fafb;' : '';
         return `<tr>
           <td style="${rowBg}padding:3px 8px;font-size:11px;color:#6b7280;white-space:nowrap">${fmtDate(run.date)}</td>
-          <td style="${rowBg}padding:2px 8px;text-align:center"><div style="width:20px;height:20px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:10px;font-weight:500;${posStyle(pos)}">${pos}</div></td>
-          <td style="${rowBg}padding:2px 8px;font-size:11px;color:#111827">${run.crse||'—'}</td>
+          <td style="${rowBg}padding:4px 8px;text-align:center"><div style="width:20px;height:20px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:10px;font-weight:500;${posStyle(pos)}">${pos}</div></td>
+          <td style="${rowBg}padding:4px 8px;font-size:11px;color:#111827">${run.crse||'—'}</td>
           <td style="${rowBg}padding:4px 8px"><span style="font-size:10px;padding:1px 5px;border-radius:3px;background:#eff6ff;color:#1d4ed8">${run.cls||'—'}</span></td>
-          <td style="${rowBg}padding:2px 8px;font-size:11px;color:#111827">${run.dist?run.dist+'m':'—'}</td>
-          <td style="${rowBg}padding:2px 8px;font-size:11px;color:#6b7280">${run.wt?run.wt+'kg':'—'}</td>
-          <td style="${rowBg}padding:2px 8px;font-size:11px;color:#6b7280">${fmtSP(sp)}</td>
-          <td style="${rowBg}padding:2px 8px;font-size:11px;${mgStyle(pos)}">${mgText(pos,run.margin)}</td>
+          <td style="${rowBg}padding:4px 8px;font-size:11px;color:#111827">${run.dist?run.dist+'m':'—'}</td>
+          <td style="${rowBg}padding:4px 8px;font-size:11px;color:#6b7280">${run.wt?run.wt+'kg':'—'}</td>
+          <td style="${rowBg}padding:4px 8px;font-size:11px;color:#6b7280">${fmtSP(sp)}</td>
+          <td style="${rowBg}padding:4px 8px;font-size:11px;${mgStyle(pos)}">${mgText(pos,run.margin)}</td>
         </tr>`;
       }).filter(Boolean).join('');
 
@@ -1356,41 +1356,41 @@ function renderRaceTable(rc, results, scratched, hasLive, liveOddsData) {
       const up1W=r.prepRuns1W||0,up1P=r.prepRuns1P||0,up1S=r.prepRuns1S||0;
       const up2W=r.prepRuns2W||0,up2P=r.prepRuns2P||0,up2S=r.prepRuns2S||0;
       const cdW=r.courseWins||0,cdP=r.coursePlaces||0,cdS=r.courseStarts||0;
-      const upLabel = '1st-up';
-      const upNextLabel = '2nd-up';
+      const upLabel = rfs===0?'1st-up':rfs===1?'2nd-up':rfs===2?'3rd-up':`${rfs+1}th-up`;
+      const upNextLabel = rfs===0?'2nd-up':rfs===1?'3rd-up':'—';
 
-      const rankBg = '#1e40af';
-      const rankColor = '#fff';
+      const rankBg = rank===1?'#fbbf24':rank===2?'#d1d5db':rank===3?'#cd7f32':'#4b5563';
+      const rankColor = rank<=3?'#78350f':'#fff';
 
       return `<div style="margin-bottom:12px;width:100%">
         <div style="padding:6px 10px;background:#00471b;border-radius:6px 6px 0 0">
           <div style="display:flex;align-items:center;gap:8px">
-            <div style="min-width:20px;height:20px;border-radius:2px;background:${rankBg};color:${rankColor};font-size:9px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;padding:0 3px">${r.tab||rank}</div>
-            <span style="font-size:13px;font-weight:500;color:#fff">${r.name}${bp?` <span style="color:rgba(255,255,255,.8);font-size:11px;font-weight:400">(${bp})</span>`:''}${wjbBadge}</span>
-            <span style="font-size:11px;color:#fff;margin-left:4px">${r['Weight']||''}kg${allowance?' ('+allowance+')':''} &nbsp;·&nbsp; ${jShort} &nbsp;·&nbsp; ${r.trainer||''}</span>
-            <span style="font-size:11px;color:#fff;margin-left:auto;white-space:nowrap">${age?age+'yo ':''} ${sex} &nbsp;·&nbsp; ${starts}-${wins}-${seconds}-${thirds} &nbsp;·&nbsp; ${winPct}% win${days?' &nbsp;·&nbsp; '+days+'d':''}</span>
+            <div style="width:20px;height:20px;border-radius:50%;background:${rankBg};color:${rankColor};font-size:10px;font-weight:600;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0">${rank}</div>
+            <span style="font-size:13px;font-weight:500;color:#fff">${r.name}${bp?` <span style="color:rgba(255,255,255,.5);font-size:11px;font-weight:400">(${bp})</span>`:''}${wjbBadge}</span>
+            <span style="font-size:11px;color:rgba(255,255,255,.75);margin-left:4px">${r['Weight']||''}kg${allowance?' ('+allowance+')':''} &nbsp;·&nbsp; ${jShort} &nbsp;·&nbsp; ${r.trainer||''}</span>
+            <span style="font-size:11px;color:rgba(255,255,255,.75);margin-left:auto;white-space:nowrap">${age?age+'yo ':''} ${sex} &nbsp;·&nbsp; ${starts}-${wins}-${seconds}-${thirds} &nbsp;·&nbsp; ${winPct}% win${days?' &nbsp;·&nbsp; '+days+'d':''}</span>
             <button class="log-btn" onclick="quickAddBet(event,${i})" style="margin-left:8px;flex-shrink:0">Log Bet</button>
           </div>
-          ${breedLine?`<div style="font-size:10px;color:rgba(255,255,255,.85);margin-top:3px;padding-left:28px">${breedLine}</div>`:''}
+          ${breedLine?`<div style="font-size:10px;color:rgba(255,255,255,.65);margin-top:3px;padding-left:28px">${breedLine}</div>`:''}
         </div>
         <table style="width:100%;border-collapse:collapse;border:0.5px solid #e5e7eb;border-top:none;background:#fff;table-layout:fixed">
           <thead>
             <tr style="background:#f1f5f9">
               <th style="padding:3px 8px;font-size:9px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:.4px;text-align:left;border-bottom:0.5px solid #e5e7eb;width:90px">Date</th>
-              <th style="padding:2px 8px;font-size:9px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:.4px;text-align:left;border-bottom:0.5px solid #e5e7eb;width:44px">Pos</th>
-              <th style="padding:2px 8px;font-size:9px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:.4px;text-align:left;border-bottom:0.5px solid #e5e7eb;width:70px">Track</th>
+              <th style="padding:4px 8px;font-size:9px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:.4px;text-align:left;border-bottom:0.5px solid #e5e7eb;width:44px">Pos</th>
+              <th style="padding:4px 8px;font-size:9px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:.4px;text-align:left;border-bottom:0.5px solid #e5e7eb;width:70px">Track</th>
               <th style="padding:3px 8px;font-size:9px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:.4px;text-align:left;border-bottom:0.5px solid #e5e7eb;width:90px">Class</th>
-              <th style="padding:2px 8px;font-size:9px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:.4px;text-align:left;border-bottom:0.5px solid #e5e7eb">Dist</th>
-              <th style="padding:2px 8px;font-size:9px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:.4px;text-align:left;border-bottom:0.5px solid #e5e7eb">Wgt</th>
-              <th style="padding:2px 8px;font-size:9px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:.4px;text-align:left;border-bottom:0.5px solid #e5e7eb">SP</th>
-              <th style="padding:2px 8px;font-size:9px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:.4px;text-align:left;border-bottom:0.5px solid #e5e7eb">Margin</th>
+              <th style="padding:4px 8px;font-size:9px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:.4px;text-align:left;border-bottom:0.5px solid #e5e7eb">Dist</th>
+              <th style="padding:4px 8px;font-size:9px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:.4px;text-align:left;border-bottom:0.5px solid #e5e7eb">Wgt</th>
+              <th style="padding:4px 8px;font-size:9px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:.4px;text-align:left;border-bottom:0.5px solid #e5e7eb">SP</th>
+              <th style="padding:4px 8px;font-size:9px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:.4px;text-align:left;border-bottom:0.5px solid #e5e7eb">Margin</th>
             </tr>
           </thead>
           <tbody>${runRows||'<tr><td colspan="8" style="padding:8px;font-size:11px;color:#9ca3af">No recent run data</td></tr>'}</tbody>
         </table>
         <div style="display:grid;grid-template-columns:repeat(6,1fr);border:0.5px solid #e5e7eb;border-top:none;border-radius:0 0 6px 6px;overflow:hidden;background:#fff">
           <div style="padding:4px 10px;border-right:0.5px solid #e5e7eb">
-            <div style="font-size:9px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:.4px;margin-bottom:1px">Jockey 12m</div>
+            <div style="font-size:9px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:.4px;margin-bottom:2px">Jockey 12m</div>
             <div style="font-size:11px;font-weight:500;${statColor(jW,jS)}">${jS?jS+'S '+jW+'W '+jP+'P':'—'}</div>
             <div style="font-size:10px;color:#6b7280;margin-top:1px">${pct(jW,jS)} win</div>
           </div>
@@ -1414,7 +1414,7 @@ function renderRaceTable(rc, results, scratched, hasLive, liveOddsData) {
             <div style="font-size:11px;font-weight:500;${statColor(up2W,up2S)}">${up2S?up2S+'S '+up2W+'W '+up2P+'P':'—'}</div>
             <div style="font-size:10px;color:#6b7280;margin-top:1px">${pct(up2W,up2S)} win</div>
           </div>
-          <div style="padding:3px 8px">
+          <div style="padding:6px 10px">
             <div style="font-size:9px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:.4px;margin-bottom:2px">Course / Dist</div>
             <div style="font-size:11px;font-weight:500;${statColor(cdW,cdS)}">${cdS?cdS+'S '+cdW+'W '+cdP+'P':'No starts'}</div>
             <div style="font-size:10px;color:#6b7280;margin-top:1px">${pct(cdW,cdS)} win</div>
@@ -1444,7 +1444,7 @@ function renderRaceTable(rc, results, scratched, hasLive, liveOddsData) {
     const tempoColor = leaderCount>=4?'#dc2626':leaderCount>=2?'#d97706':'#059669';
 
     const bars = scored.map((h,hi) => {
-      if (!h.pm||!h.pm.role) return '';
+      if (!h.pm) return '';
       const bp = h['BP']||h.BP||'';
       const barrierNum = bp || h.tab || '—';
       const rank = h.systemRank;
@@ -1459,7 +1459,9 @@ function renderRaceTable(rc, results, scratched, hasLive, liveOddsData) {
         </div>
         <div style="width:140px;flex-shrink:0;overflow:hidden">
           <div style="font-size:11px;font-weight:600;color:#111827;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${h.name}</div>
-          <div style="font-size:8px;color:#9ca3af;margin-top:1px">Espd: ${h.pm.espdStr||'—'}</div>
+          ${h.pm.hasTPPC
+            ? '<div style=\"font-size:8px;color:#9ca3af;margin-top:1px\">F:'+Math.round(h.pm.tppcFront||0)+'% P:'+Math.round(h.pm.tppcOnpc||0)+'% M:'+Math.round(h.pm.tppcMid||0)+'% B:'+Math.round(h.pm.tppcBack||0)+'% <span style=\"color:#059669;font-weight:600\">CSV</span></div>'
+            : '<div style=\"font-size:8px;color:#d97706;margin-top:1px\">Estimated</div>'}
         </div>
         <div style="width:65px;flex-shrink:0">
           <span style="font-size:10px;font-weight:600;color:${h.pm.color};background:${h.pm.color}15;padding:2px 7px;border-radius:10px;white-space:nowrap">${h.pm.role}</span>
@@ -2702,227 +2704,454 @@ function showInsights() {
 // ── COMMUNITY PAGE ──
 function showCommunity(){
   var main=document.getElementById('main');
-  var isMob=window.innerWidth<=900;
-  var u=currentUser||{};
-  var initial=(u.name||'A').charAt(0).toUpperCase();
-  var tiers=[
-    {name:'Adaminaby Picnic Maiden',pts:0},{name:'Burrumbeet Maiden',pts:50},{name:'Tumut Maiden',pts:120},
-    {name:'Moruya Maiden',pts:1000},{name:'Mildura BM58',pts:2500},{name:'Grafton BM70',pts:15000},
-    {name:'Ipswich BM72',pts:25000},{name:'Newcastle BM84',pts:60000},{name:'Flemington Open',pts:85000},
-    {name:'Listed',pts:150000},{name:'Group 3',pts:185000},{name:'Group 2',pts:235000},
-    {name:'Cox Plate',pts:300000},{name:'Melbourne Cup',pts:5000000}
-  ];
-  var userPts=0;
-  var currentTier=tiers.filter(function(t){return t.pts<=userPts;}).pop()||tiers[0];
-  var nextTier=tiers.find(function(t){return t.pts>userPts;})||tiers[tiers.length-1];
-  var pctToNext=nextTier.pts>0?Math.min(100,Math.round((userPts/nextTier.pts)*100)):2;
-  var badges=['🏁','🎯','🔥','📈','💎','🌧️','🗣️','🤝','📚','👑'];
-  var badgeNames=['First Start','Sharp','On Fire','In The Black','Big Odds','Mudlark','First Words','Ambassador','Scholar','Group 1'];
-  var posts=[
-    {user:'JPunter88',tier:'Newcastle BM84',tBg:'#dcfce7',tClr:'#166534',cat:'Winning Bet',cBg:'#fef9c3',cClr:'#854d0e',title:'Backed Rank 1 at Flemington — $8.50 — bolted in by 3 lengths',votes:89,replies:31,time:'5h ago',hot:true,sec:'wins'},
-    {user:'TrackRat_WA',tier:'Ascot Open',tBg:'#fef3c7',tClr:'#92400e',cat:'Tips & Analysis',cBg:'#dcfce7',cClr:'#166534',title:'Track bias at Doomben today — closers dominating after rail position change',votes:47,replies:23,time:'2h ago',hot:false,sec:'tips'},
-    {user:'MeggsK',tier:'Moonee Valley Open',tBg:'#dbeafe',tClr:'#1e40af',cat:'Today\'s Races',cBg:'#dbeafe',cClr:'#1e40af',title:'Doomben R6 — Rank 1 at $12, market $4.50. Value% +166%. Thoughts?',votes:34,replies:19,time:'3h ago',hot:false,sec:'races'},
-    {user:'NewMember247',tier:'Walgett Maiden',tBg:'#f3f4f6',tClr:'#374151',cat:'Winning Bet',cBg:'#fef9c3',cClr:'#854d0e',title:'First win with the system! Rank 2 at $6.50 at Caulfield',votes:12,replies:8,time:'1h ago',hot:false,sec:'wins'},
-    {user:'DoombenDaily',tier:'Gold Coast BM84',tBg:'#f3f4f6',tClr:'#374151',cat:'Today\'s Races',cBg:'#dbeafe',cClr:'#1e40af',title:'Eagle Farm R4 — hot tempo on pace map, closers should dominate',votes:22,replies:14,time:'45m ago',hot:true,sec:'races'},
-    {user:'SpringCarnival',tier:'Gosford BM78',tBg:'#f3f4f6',tClr:'#374151',cat:'System Feedback',cBg:'#f3e8ff',cClr:'#6b21a8',title:'How does the system handle horses returning from a long spell?',votes:8,replies:6,time:'2d ago',hot:false,sec:'feedback'},
-  ];
-  var sections=[
-    {id:'all',icon:'ti-layout-list',label:'All Posts'},
-    {id:'races',icon:'ti-horse-toy',label:'Today\'s Races'},
-    {id:'tips',icon:'ti-bulb',label:'Tips & Analysis'},
-    {id:'wins',icon:'ti-trophy',label:'Winning Bets'},
-    {id:'feedback',icon:'ti-settings',label:'System Feedback'},
-    {id:'chat',icon:'ti-messages',label:'General Chat'},
-  ];
-  var lb=[
-    {rank:1,user:'TrackRat_WA',tier:'Ascot Open',roi:'+184%',pts:'+2,840',tBg:'#fef3c7',tClr:'#92400e'},
-    {rank:2,user:'JPunter88',tier:'Newcastle BM84',roi:'+147%',pts:'+1,920',tBg:'#dcfce7',tClr:'#166534'},
-    {rank:3,user:'MeggsK',tier:'Moonee Valley',roi:'+122%',pts:'+1,540',tBg:'#dbeafe',tClr:'#1e40af'},
-    {rank:4,user:'DoombenDaily',tier:'Gold Coast BM84',roi:'+71%',pts:'+890',tBg:'#f3f4f6',tClr:'#374151'},
-    {rank:5,user:'SpringCarnival',tier:'Gosford BM78',roi:'+44%',pts:'+640',tBg:'#f3f4f6',tClr:'#374151'},
-  ];
+  if(!main)return;
   var af=window._communityFilter||'all';
-  var at=window._communityMobTab||'feed';
+  var profile=window.wwUserProfile||{};
+  var tier=typeof COMMUNITY!=='undefined'?COMMUNITY.getTier(profile.points||0):{name:'Maiden',emoji:'🐴',color:'#6b7280'};
+  var next=typeof COMMUNITY!=='undefined'?COMMUNITY.getNextTier(profile.points||0):null;
+  var u=currentUser||{};
 
-  function profileCard(compact){
-    var html='<div style="padding:'+(compact?'10px 14px':'14px')+';">';
-    if(compact) html='<div style="padding:10px 14px;background:#1a2634;flex-shrink:0;">';
-    else html='<div style="padding:14px;border-bottom:0.5px solid #f3f4f6;">';
-    html+='<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">';
-    html+='<div style="width:'+(compact?34:42)+'px;height:'+(compact?34:42)+'px;border-radius:50%;background:#dbeafe;display:flex;align-items:center;justify-content:center;font-size:'+(compact?13:16)+'px;font-weight:700;color:#1e40af;flex-shrink:0;">'+initial+'</div>';
-    html+='<div style="flex:1;min-width:0;"><div style="font-size:12px;font-weight:600;color:'+(compact?'#fff':'#111827')+';">'+(u.name||'Your Profile')+'</div>';
-    html+='<div style="font-size:9px;font-weight:700;padding:2px 7px;border-radius:4px;background:#fef3c7;color:#92400e;display:inline-block;margin-top:2px;">🐴 '+currentTier.name+'</div></div>';
-    if(compact) html+='<div style="text-align:right;"><div style="font-size:11px;font-weight:700;color:#fbbf24;">'+userPts+' pts</div><div style="font-size:9px;color:rgba(255,255,255,.4);">→ '+nextTier.pts.toLocaleString()+'</div></div>';
-    html+='</div>';
-    html+='<div style="height:4px;background:'+(compact?'rgba(255,255,255,.12)':'#f1f5f9')+';border-radius:2px;overflow:hidden;margin-bottom:3px;">';
-    html+='<div style="width:'+pctToNext+'%;height:100%;background:#fbbf24;border-radius:2px;"></div></div>';
-    html+='<div style="font-size:9px;color:'+(compact?'rgba(255,255,255,.4)':'#9ca3af')+';">'+(nextTier.pts-userPts).toLocaleString()+' pts to '+nextTier.name+'</div>';
-    if(!compact) html+='<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:8px;"><span style="font-size:8px;background:#f1f5f9;color:#6b7280;padding:2px 6px;border-radius:3px;">0 pts</span><span style="font-size:8px;background:#f1f5f9;color:#6b7280;padding:2px 6px;border-radius:3px;">0 bets</span><span style="font-size:8px;background:#f1f5f9;color:#6b7280;padding:2px 6px;border-radius:3px;">0 posts</span></div>';
-    html+='</div>';
-    return html;
+  function tierBadge(tierName){
+    var colors={Maiden:'#6b7280',Benchmark:'#2563eb',Listed:'#059669','Group 3':'#d97706','Group 2':'#dc2626','Group 1':'#7c3aed'};
+    var emojis={Maiden:'🐴',Benchmark:'🏇',Listed:'🏆','Group 3':'⭐','Group 2':'⭐⭐','Group 1':'👑'};
+    var c=colors[tierName]||'#6b7280';
+    return '<span style="font-size:9px;font-weight:700;padding:2px 7px;border-radius:4px;background:'+c+'22;color:'+c+';border:0.5px solid '+c+'44">'+(emojis[tierName]||'')+'&nbsp;'+tierName+'</span>';
   }
 
-  function feedPanel(){
-    var filtered=af==='all'?posts:posts.filter(function(p){return p.sec===af;});
-    var html='';
-    html+='<div style="background:#fff;border-bottom:0.5px solid #e5e7eb;padding:10px 14px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;">';
-    html+='<div style="font-size:13px;font-weight:600;">Community</div>';
-    html+='<button onclick="showNewPost()" style="display:inline-flex;align-items:center;gap:4px;padding:6px 12px;border-radius:6px;background:#00471b;color:#fff;border:none;font-size:11px;font-weight:600;cursor:pointer;font-family:Space Grotesk,sans-serif;"><i class="ti ti-pencil" style="font-size:12px;"></i> New post</button>';
-    html+='</div>';
-    html+='<div style="background:#fff;border-bottom:0.5px solid #e5e7eb;display:flex;overflow-x:auto;scrollbar-width:none;flex-shrink:0;padding:0 8px;">';
-    sections.forEach(function(s){
-      var active=af===s.id;
-      html+='<div onclick="communityFilter(\''+s.id+'\')" style="padding:8px 8px;font-size:11px;font-weight:'+(active?600:500)+';color:'+(active?'#00471b':'#9ca3af')+';border-bottom:2px solid '+(active?'#00471b':'transparent')+';cursor:pointer;white-space:nowrap;">'+s.label+'</div>';
-    });
-    html+='</div>';
-    html+='<div style="background:#fef9c3;border-bottom:0.5px solid #fde68a;padding:6px 14px;display:flex;align-items:center;gap:6px;flex-shrink:0;">';
-    html+='<i class="ti ti-info-circle" style="font-size:12px;color:#d97706;flex-shrink:0;"></i>';
-    html+='<span style="font-size:10px;color:#92400e;">Posts are member opinions only — not financial advice.</span></div>';
-    html+='<div style="flex:1;overflow-y:auto;">';
-    if(filtered.length===0){
-      html+='<div style="padding:40px;text-align:center;color:#9ca3af;font-size:12px;">No posts in this section yet</div>';
-    } else {
-      filtered.forEach(function(p){
-        html+='<div style="padding:10px 14px;border-bottom:0.5px solid #f3f4f6;background:#fff;cursor:pointer;" onmouseover="this.style.background=\'#fafafa\'" onmouseout="this.style.background=\'#fff\'">';
-        html+='<div style="display:flex;gap:10px;">';
-        html+='<div style="display:flex;flex-direction:column;align-items:center;gap:2px;flex-shrink:0;padding-top:2px;">';
-        html+='<span style="font-size:13px;color:#d1d5db;cursor:pointer;line-height:1;" onmouseover="this.style.color=\'#059669\'" onmouseout="this.style.color=\'#d1d5db\'">▲</span>';
-        html+='<span style="font-size:11px;font-weight:700;color:#111827;">'+p.votes+'</span></div>';
-        html+='<div style="flex:1;min-width:0;">';
-        html+='<div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap;margin-bottom:4px;">';
-        html+='<span style="font-size:9px;font-weight:600;padding:1px 6px;border-radius:3px;background:'+p.cBg+';color:'+p.cClr+';">'+p.cat+'</span>';
-        if(p.hot) html+='<span style="font-size:9px;font-weight:700;padding:1px 6px;border-radius:8px;background:#fef3c7;color:#92400e;">🔥 Hot</span>';
-        html+='</div>';
-        html+='<div style="font-size:12px;font-weight:500;color:#111827;line-height:1.45;margin-bottom:5px;">'+p.title+'</div>';
-        html+='<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">';
-        html+='<div style="width:17px;height:17px;border-radius:50%;background:'+p.tBg+';display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:700;color:'+p.tClr+';">'+p.user[0]+'</div>';
-        html+='<span style="font-size:10px;font-weight:600;color:#374151;">'+p.user+'</span>';
-        html+='<span style="font-size:9px;padding:1px 5px;border-radius:3px;background:'+p.tBg+';color:'+p.tClr+';">'+p.tier+'</span>';
-        html+='<span style="font-size:10px;color:#9ca3af;margin-left:auto;"><i class="ti ti-message" style="font-size:10px;"></i> '+p.replies+'</span>';
-        html+='<span style="font-size:10px;color:#9ca3af;">'+p.time+'</span>';
-        html+='<span style="font-size:10px;color:#d1d5db;cursor:pointer;" title="Report" onmouseover="this.style.color=\'#dc2626\'" onmouseout="this.style.color=\'#d1d5db\'"><i class="ti ti-flag" style="font-size:11px;"></i></span>';
-        html+='</div></div></div></div>';
-      });
+  var sections=[
+    {id:'all',label:'All Posts'},
+    {id:'today_races',label:"Today's Races"},
+    {id:'tips_analysis',label:'Tips & Analysis'},
+    {id:'winning_bets',label:'Winning Bets'},
+    {id:'system_feedback',label:'System Feedback'},
+    {id:'general',label:'General Chat'},
+  ];
+
+  var catColors={today_races:{bg:'#dbeafe',c:'#1e40af',label:"Today's Races"},tips_analysis:{bg:'#dcfce7',c:'#166534',label:'Tips & Analysis'},winning_bets:{bg:'#fef9c3',c:'#854d0e',label:'Winning Bet'},system_feedback:{bg:'#f3e8ff',c:'#6b21a8',label:'System Feedback'},general:{bg:'#f3f4f6',c:'#374151',label:'General Chat'}};
+
+  // ── Profile panel ──
+  function profilePanel(){
+    var pts=profile.points||0;
+    var minPts={Maiden:0,Benchmark:500,Listed:2000,'Group 3':5000,'Group 2':10000,'Group 1':25000};
+    var maxPts={Maiden:499,Benchmark:1999,Listed:4999,'Group 3':9999,'Group 2':24999,'Group 1':999999};
+    var tierMin=minPts[tier.name]||0;
+    var tierMax=maxPts[tier.name]||499;
+    var pct=tierMax>tierMin?Math.min(100,Math.round((pts-tierMin)/(tierMax-tierMin)*100)):100;
+
+    var h='<div style="padding:16px;border-bottom:0.5px solid #e5e7eb">';
+    h+='<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">';
+    h+='<div style="width:44px;height:44px;border-radius:50%;background:#00471b;display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:700;color:#fff;flex-shrink:0">'+(u.name||'A').charAt(0).toUpperCase()+'</div>';
+    h+='<div style="flex:1"><div style="font-size:13px;font-weight:600;color:#111827">'+(u.name||'Punter')+'</div>';
+    h+=tierBadge(tier.name)+'</div></div>';
+    h+='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">';
+    h+='<span style="font-size:11px;font-weight:700;color:#111827">'+pts.toLocaleString()+' pts</span>';
+    h+=next?'<span style="font-size:10px;color:#6b7280">'+next.needed.toLocaleString()+' to '+next.name+'</span>':'<span style="font-size:10px;color:#7c3aed">Max tier reached 👑</span>';
+    h+='</div>';
+    h+='<div style="height:6px;background:#f1f5f9;border-radius:3px;overflow:hidden;margin-bottom:10px">';
+    h+='<div style="width:'+pct+'%;height:100%;background:'+tier.color+';border-radius:3px;transition:width .4s"></div></div>';
+
+    // Stats row
+    var totalBets=profile.total_bets||0, totalWins=profile.total_wins||0, totalPosts=profile.total_posts||0;
+    var roi=totalBets>0?Math.round((totalWins/totalBets)*100):0;
+    h+='<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:10px">';
+    h+='<div style="text-align:center;background:#f8fafc;border-radius:6px;padding:6px 4px"><div style="font-size:13px;font-weight:700;color:#111827">'+totalBets+'</div><div style="font-size:9px;color:#6b7280">Bets</div></div>';
+    h+='<div style="text-align:center;background:#f8fafc;border-radius:6px;padding:6px 4px"><div style="font-size:13px;font-weight:700;color:#059669">'+roi+'%</div><div style="font-size:9px;color:#6b7280">Win%</div></div>';
+    h+='<div style="text-align:center;background:#f8fafc;border-radius:6px;padding:6px 4px"><div style="font-size:13px;font-weight:700;color:#2563eb">'+totalPosts+'</div><div style="font-size:9px;color:#6b7280">Posts</div></div>';
+    h+='</div>';
+
+    // Referral
+    if(profile.referral_code){
+      h+='<div style="background:#f0fdf4;border:0.5px solid #bbf7d0;border-radius:6px;padding:8px;margin-bottom:10px">';
+      h+='<div style="font-size:9px;font-weight:600;color:#166534;margin-bottom:3px">Your referral link — earn 200pts per signup</div>';
+      h+='<div style="display:flex;align-items:center;gap:6px">';
+      h+='<div style="font-size:10px;font-weight:600;color:#111827;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">wagingwar.com.au?ref='+profile.referral_code+'</div>';
+      h+='<button onclick="navigator.clipboard.writeText('https://wagingwar.com.au?ref='+profile.referral_code+'');toast('Referral link copied','success')" style="background:#00471b;color:#fff;border:none;padding:4px 8px;border-radius:4px;font-size:9px;font-weight:600;cursor:pointer">Copy</button>';
+      h+='</div></div>';
     }
-    html+='</div>';
-    return html;
-  }
 
-  function lbPanel(){
-    var html='';
-    html+='<div style="background:#fff;border-bottom:0.5px solid #e5e7eb;padding:10px 14px;flex-shrink:0;">';
-    html+='<div style="font-size:13px;font-weight:600;">Leaderboards</div>';
-    html+='<div style="font-size:10px;color:#9ca3af;">Resets every Monday</div></div>';
-    html+='<div style="flex:1;overflow-y:auto;">';
-    html+='<div style="padding:12px 14px;border-bottom:0.5px solid #f3f4f6;">';
-    html+='<div style="font-size:10px;font-weight:700;color:#374151;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">Weekly ROI</div>';
-    lb.forEach(function(r){
-      var medal=r.rank===1?'🥇':r.rank===2?'🥈':r.rank===3?'🥉':r.rank;
-      html+='<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:0.5px solid #f9fafb;">';
-      html+='<span style="font-size:13px;width:20px;">'+medal+'</span>';
-      html+='<div style="width:26px;height:26px;border-radius:50%;background:'+r.tBg+';display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:'+r.tClr+';flex-shrink:0;">'+r.user[0]+'</div>';
-      html+='<div style="flex:1;min-width:0;"><div style="font-size:11px;font-weight:600;color:#111827;">'+r.user+'</div>';
-      html+='<div style="font-size:8px;padding:1px 4px;border-radius:2px;background:'+r.tBg+';color:'+r.tClr+';display:inline-block;margin-top:1px;">'+r.tier+'</div></div>';
-      html+='<span style="font-size:12px;font-weight:700;color:#059669;">'+r.roi+'</span></div>';
-    });
-    html+='</div>';
-    html+='<div style="padding:12px 14px;border-bottom:0.5px solid #f3f4f6;">';
-    html+='<div style="font-size:10px;font-weight:700;color:#374151;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">Top Contributors</div>';
-    lb.forEach(function(r){
-      html+='<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:0.5px solid #f9fafb;">';
-      html+='<span style="font-size:10px;font-weight:600;width:18px;color:'+(r.rank<=3?'#d97706':'#9ca3af')+';">'+r.rank+'</span>';
-      html+='<div style="width:24px;height:24px;border-radius:50%;background:'+r.tBg+';display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:'+r.tClr+';flex-shrink:0;">'+r.user[0]+'</div>';
-      html+='<span style="flex:1;font-size:10px;font-weight:600;color:#111827;">'+r.user+'</span>';
-      html+='<span style="font-size:10px;color:#6b7280;">'+r.pts+' pts</span></div>';
-    });
-    html+='</div>';
-    html+='<div style="padding:12px 14px;">';
-    html+='<div style="font-size:10px;font-weight:700;color:#374151;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">Community Stats</div>';
-    [['Members online','2,847','#22c55e'],['Posts today','128',null],['Total members','14,203',null]].forEach(function(item){
-      html+='<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:0.5px solid #f9fafb;font-size:11px;">';
-      html+='<span style="color:#9ca3af;">'+item[0]+'</span>';
-      html+='<span style="font-weight:600;'+(item[2]?'color:'+item[2]:'')+' ">'+item[1]+'</span></div>';
-    });
-    html+='</div></div>';
-    return html;
-  }
+    // Badges
+    h+='<div style="font-size:10px;font-weight:600;color:#374151;margin-bottom:6px">My Badges</div>';
+    h+='<div id="user-badges-row" style="display:flex;flex-wrap:wrap;gap:4px;min-height:24px">';
+    h+='<span style="font-size:10px;color:#9ca3af">Loading badges...</span>';
+    h+='</div></div>';
 
-  function profPanel(){
-    var html='';
-    html+='<div style="background:#fff;border-bottom:0.5px solid #e5e7eb;padding:10px 14px;flex-shrink:0;"><div style="font-size:13px;font-weight:600;">My Profile</div></div>';
-    html+='<div style="flex:1;overflow-y:auto;padding:14px;">';
-    html+='<div style="background:#1a2634;border-radius:12px;padding:16px;margin-bottom:12px;">';
-    html+='<div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;">';
-    html+='<div style="width:48px;height:48px;border-radius:50%;background:#dbeafe;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700;color:#1e40af;">'+initial+'</div>';
-    html+='<div><div style="font-size:14px;font-weight:700;color:#fff;">'+(u.name||'Member')+'</div>';
-    html+='<div style="font-size:9px;padding:2px 8px;border-radius:4px;background:#fef3c7;color:#92400e;font-weight:700;display:inline-block;margin-top:3px;">🐴 '+currentTier.name+'</div></div></div>';
-    html+='<div style="height:5px;background:rgba(255,255,255,.1);border-radius:3px;overflow:hidden;margin-bottom:4px;"><div style="width:'+pctToNext+'%;height:100%;background:#fbbf24;border-radius:3px;"></div></div>';
-    html+='<div style="font-size:9px;color:rgba(255,255,255,.4);">'+(nextTier.pts-userPts).toLocaleString()+' pts to '+nextTier.name+'</div></div>';
-    html+='<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:12px;">';
-    [['0','Pts'],['0','Bets'],['0','Posts']].forEach(function(item){
-      html+='<div style="background:#fff;border:0.5px solid #e5e7eb;border-radius:8px;padding:10px;text-align:center;">';
-      html+='<div style="font-size:16px;font-weight:700;color:#111827;font-family:JetBrains Mono,monospace;">'+item[0]+'</div>';
-      html+='<div style="font-size:9px;color:#9ca3af;margin-top:2px;">'+item[1]+'</div></div>';
-    });
-    html+='</div>';
-    html+='<div style="background:#fff;border:0.5px solid #e5e7eb;border-radius:10px;overflow:hidden;">';
-    html+='<div style="padding:10px 12px;border-bottom:0.5px solid #f3f4f6;font-size:10px;font-weight:700;color:#374151;text-transform:uppercase;letter-spacing:.5px;">My Badges</div>';
-    html+='<div style="padding:12px;display:flex;flex-wrap:wrap;gap:8px;">';
-    badges.forEach(function(b,i){
-      html+='<div title="'+badgeNames[i]+'" style="width:34px;height:34px;border-radius:6px;background:#f1f5f9;border:0.5px solid #e5e7eb;display:flex;align-items:center;justify-content:center;font-size:17px;opacity:0.3;cursor:pointer;">'+b+'</div>';
-    });
-    html+='</div>';
-    html+='<div style="padding:0 12px 12px;font-size:10px;color:#9ca3af;line-height:1.5;">Log bets, post in the community and hit milestones to unlock badges.</div>';
-    html+='</div></div>';
-    return html;
-  }
-
-  var mobTabItems=[['feed','ti-layout-list','Feed'],['leaderboard','ti-trophy','Leaderboard'],['profile','ti-user','Profile']];
-
-  if(isMob){
-    var html='<div style="display:flex;flex-direction:column;height:100%;overflow:hidden;">';
-    html+=profileCard(true);
-    html+='<div style="background:#fff;border-bottom:0.5px solid #e5e7eb;display:flex;flex-shrink:0;">';
-    mobTabItems.forEach(function(tab){
-      var active=at===tab[0];
-      html+='<div onclick="setCommunityTab(\''+tab[0]+'\')" style="flex:1;display:flex;flex-direction:column;align-items:center;padding:8px 4px;cursor:pointer;border-bottom:2px solid '+(active?'#00471b':'transparent')+';">';
-      html+='<i class="ti '+tab[1]+'" style="font-size:16px;color:'+(active?'#00471b':'#9ca3af')+';"></i>';
-      html+='<span style="font-size:9px;font-weight:600;color:'+(active?'#00471b':'#9ca3af')+';margin-top:2px;">'+tab[2]+'</span></div>';
-    });
-    html+='</div>';
-    html+='<div style="flex:1;overflow:hidden;display:flex;flex-direction:column;">';
-    if(at==='feed') html+=feedPanel();
-    else if(at==='leaderboard') html+=lbPanel();
-    else html+=profPanel();
-    html+='</div></div>';
-    main.innerHTML=html;
-  } else {
-    var html='<div style="display:grid;grid-template-columns:220px 1fr 240px;height:100%;overflow:hidden;">';
-    html+='<div style="border-right:0.5px solid #e5e7eb;background:#fff;display:flex;flex-direction:column;overflow-y:auto;">';
-    html+=profileCard(false);
-    html+='<div style="padding:10px 14px;border-bottom:0.5px solid #f3f4f6;">';
-    html+='<div style="font-size:9px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;">Sections</div>';
+    // Sections nav
+    h+='<div style="padding:8px 12px;border-bottom:0.5px solid #e5e7eb">';
+    h+='<div style="font-size:9px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Sections</div>';
     sections.forEach(function(s){
-      var active=af===s.id;
-      html+='<div onclick="communityFilter(\''+s.id+'\')" style="display:flex;align-items:center;gap:7px;padding:6px 8px;border-radius:6px;cursor:pointer;font-size:12px;margin-bottom:1px;'+(active?'background:#f0fdf4;color:#00471b;font-weight:600;':'color:#374151;')+'">';
-      html+='<i class="ti '+s.icon+'" style="font-size:14px;color:'+(active?'#00471b':'#9ca3af')+';"></i>'+s.label+'</div>';
+      var isActive=af===s.id;
+      h+='<div onclick="communityFilter(''+s.id+'')" style="display:flex;align-items:center;justify-content:space-between;padding:6px 8px;border-radius:6px;cursor:pointer;margin-bottom:2px;background:'+(isActive?'#f0fdf4':'')+';color:'+(isActive?'#00471b':'#374151')+';font-size:12px;font-weight:'+(isActive?'600':'400')+'">';
+      h+=s.label+'</div>';
     });
-    html+='</div>';
-    html+='<div style="padding:10px 14px;">';
-    html+='<div style="font-size:9px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">My Badges</div>';
-    html+='<div style="display:flex;flex-wrap:wrap;gap:4px;">';
-    badges.forEach(function(b,i){
-      html+='<div title="'+badgeNames[i]+'" style="width:28px;height:28px;border-radius:5px;background:#f1f5f9;border:0.5px solid #e5e7eb;display:flex;align-items:center;justify-content:center;font-size:14px;opacity:0.3;cursor:pointer;">'+b+'</div>';
+    h+='</div>';
+    return h;
+  }
+
+  // ── Feed panel ──
+  function feedPanel(){
+    var h='<div style="padding:0;flex:1;overflow-y:auto">';
+    // Header
+    h+='<div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:0.5px solid #e5e7eb;position:sticky;top:0;background:#fff;z-index:10">';
+    h+='<div style="font-size:18px;font-weight:700;color:#111827">Community</div>';
+    h+='<button onclick="showNewPostModal()" style="background:#00471b;color:#fff;border:none;padding:8px 16px;border-radius:7px;font-size:12px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px">✏️ New post</button>';
+    h+='</div>';
+
+    // Section tabs
+    h+='<div style="display:flex;gap:0;padding:0 16px;border-bottom:0.5px solid #e5e7eb;overflow-x:auto;scrollbar-width:none">';
+    sections.forEach(function(s){
+      var isActive=af===s.id;
+      h+='<div onclick="communityFilter(''+s.id+'')" style="padding:10px 14px;font-size:11px;font-weight:'+(isActive?'600':'400')+';color:'+(isActive?'#00471b':'#6b7280')+';cursor:pointer;border-bottom:2px solid '+(isActive?'#00471b':'transparent')+';white-space:nowrap;flex-shrink:0">';
+      h+=s.label+'</div>';
     });
-    html+='</div></div></div>';
-    html+='<div style="display:flex;flex-direction:column;overflow:hidden;">'+feedPanel()+'</div>';
-    html+='<div style="border-left:0.5px solid #e5e7eb;background:#fff;display:flex;flex-direction:column;overflow:hidden;">'+lbPanel()+'</div>';
-    html+='</div>';
-    main.innerHTML=html;
+    h+='</div>';
+
+    // Disclaimer
+    h+='<div style="margin:12px 16px;padding:8px 12px;background:#fffbeb;border:0.5px solid #fef08a;border-radius:6px;font-size:11px;color:#854d0e">⚠️ Posts are member opinions only — not financial advice.</div>';
+
+    // Posts placeholder - loaded async
+    h+='<div id="community-posts-wrap" style="padding:0 16px 16px">';
+    h+='<div style="padding:20px;text-align:center;color:#9ca3af;font-size:12px">Loading posts...</div>';
+    h+='</div>';
+    h+='</div>';
+    return h;
+  }
+
+  // ── Leaderboard panel ──
+  function lbPanel(){
+    var h='<div style="padding:16px;overflow-y:auto">';
+    h+='<div style="font-size:13px;font-weight:700;color:#111827;margin-bottom:2px">Leaderboards</div>';
+    h+='<div style="font-size:10px;color:#9ca3af;margin-bottom:12px">Resets every Monday</div>';
+
+    h+='<div style="font-size:10px;font-weight:700;color:#374151;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Weekly ROI</div>';
+    h+='<div id="lb-roi-wrap" style="margin-bottom:16px"><div style="font-size:11px;color:#9ca3af">Loading...</div></div>';
+
+    h+='<div style="font-size:10px;font-weight:700;color:#374151;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Top Contributors</div>';
+    h+='<div id="lb-pts-wrap" style="margin-bottom:16px"><div style="font-size:11px;color:#9ca3af">Loading...</div></div>';
+
+    h+='<div style="font-size:10px;font-weight:700;color:#374151;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Community Stats</div>';
+    h+='<div id="lb-stats-wrap"><div style="font-size:11px;color:#9ca3af">Loading...</div></div>';
+    h+='</div>';
+    return h;
+  }
+
+  // ── Daily missions panel ──
+  function missionsPanel(){
+    var h='<div style="padding:12px 16px;border-bottom:0.5px solid #e5e7eb">';
+    h+='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">';
+    h+='<div style="font-size:11px;font-weight:700;color:#374151">Daily Missions</div>';
+    h+='<div style="font-size:9px;color:#9ca3af">Resets midnight</div></div>';
+    h+='<div id="missions-wrap"><div style="font-size:10px;color:#9ca3af">Loading missions...</div></div>';
+    h+='</div>';
+    return h;
+  }
+
+  // ── Render layout ──
+  main.innerHTML='<div style="display:grid;grid-template-columns:220px 1fr 240px;height:calc(100vh - 56px);overflow:hidden;background:#f8fafc">'
+    +'<div style="border-right:0.5px solid #e5e7eb;background:#fff;overflow-y:auto">'+profilePanel()+missionsPanel()+'</div>'
+    +'<div style="display:flex;flex-direction:column;overflow:hidden">'+feedPanel()+'</div>'
+    +'<div style="border-left:0.5px solid #e5e7eb;background:#fff;overflow-y:auto">'+lbPanel()+'</div>'
+    +'</div>';
+
+  // Load data async
+  loadCommunityData(af);
+}
+
+async function loadCommunityData(section) {
+  const SB = window.SUPABASE_URL;
+  const KEY = window.SUPABASE_ANON_KEY;
+
+  function sbGet(path) {
+    return fetch(SB + '/rest/v1/' + path, {
+      headers: { 'apikey': KEY, 'Authorization': 'Bearer ' + KEY }
+    }).then(r => r.json()).catch(() => []);
+  }
+
+  // Load posts
+  const sectionFilter = section && section !== 'all' ? '&section=eq.' + section : '';
+  const posts = await sbGet('posts?order=created_at.desc&limit=20' + sectionFilter + '&select=*,user_profiles(display_name,tier,avatar_url)');
+  
+  const postsWrap = document.getElementById('community-posts-wrap');
+  if (postsWrap) {
+    if (!posts || !posts.length) {
+      postsWrap.innerHTML = '<div style="padding:40px;text-align:center"><div style="font-size:32px;margin-bottom:8px">💬</div><div style="font-size:14px;font-weight:600;color:#111827;margin-bottom:4px">No posts yet</div><div style="font-size:12px;color:#6b7280">Be the first to post in this section!</div></div>';
+    } else {
+      const catColors = {today_races:{bg:'#dbeafe',c:'#1e40af',label:"Today's Races"},tips_analysis:{bg:'#dcfce7',c:'#166534',label:'Tips & Analysis'},winning_bets:{bg:'#fef9c3',c:'#854d0e',label:'Winning Bet'},system_feedback:{bg:'#f3e8ff',c:'#6b21a8',label:'System Feedback'},general:{bg:'#f3f4f6',c:'#374151',label:'General Chat'}};
+      postsWrap.innerHTML = posts.map(p => {
+        const cat = catColors[p.section] || catColors.general;
+        const profile = p.user_profiles || {};
+        const tier = typeof COMMUNITY !== 'undefined' ? COMMUNITY.getTier(0) : {name:'Maiden',color:'#6b7280'};
+        const timeAgo = getTimeAgo(p.created_at);
+        const clerkId = window.currentUser ? window.currentUser.id : null;
+        return `<div style="border-bottom:0.5px solid #f3f4f6;padding:14px 0;cursor:pointer" onclick="openPostModal('${p.id}')">
+          <div style="display:flex;align-items:flex-start;gap:10px">
+            <div style="display:flex;flex-direction:column;align-items:center;gap:2px;flex-shrink:0;padding-top:2px">
+              <button onclick="event.stopPropagation();communityUpvote('${p.id}','post','${p.clerk_id}')" style="background:none;border:none;cursor:pointer;font-size:14px;color:#9ca3af;line-height:1">▲</button>
+              <span style="font-size:12px;font-weight:700;color:#374151">${p.upvotes||0}</span>
+            </div>
+            <div style="flex:1;min-width:0">
+              <div style="display:flex;align-items:center;gap:6px;margin-bottom:5px;flex-wrap:wrap">
+                <span style="font-size:9px;font-weight:700;padding:2px 6px;border-radius:3px;background:${cat.bg};color:${cat.c}">${cat.label}</span>
+                ${p.is_hot ? '<span style="font-size:9px;font-weight:700;padding:2px 6px;border-radius:3px;background:#fee2e2;color:#dc2626">🔥 Hot</span>' : ''}
+              </div>
+              <div style="font-size:13px;font-weight:600;color:#111827;margin-bottom:6px;line-height:1.4">${p.title}</div>
+              <div style="display:flex;align-items:center;gap:8px;font-size:10px;color:#6b7280">
+                <span style="width:18px;height:18px;border-radius:50%;background:#00471b;display:inline-flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:9px">${(profile.display_name||'U')[0]}</span>
+                <span style="font-weight:500;color:#374151">${profile.display_name||'Member'}</span>
+                <span style="font-size:9px;padding:1px 5px;border-radius:3px;background:#f3f4f6;color:#6b7280">${profile.tier||'Maiden'}</span>
+                <span>💬 ${p.reply_count||0}</span>
+                <span>${timeAgo}</span>
+              </div>
+            </div>
+          </div>
+        </div>`;
+      }).join('');
+    }
+  }
+
+  // Load leaderboard - ROI
+  const lbRoi = document.getElementById('lb-roi-wrap');
+  if (lbRoi) {
+    const entries = await sbGet('competition_entries?order=roi.desc&limit=5&select=clerk_id,roi,bets_count,user_profiles(display_name,tier)');
+    if (entries && entries.length) {
+      const rankIcons = ['🥇','🥈','🥉','4','5'];
+      lbRoi.innerHTML = entries.map((e, i) => {
+        const p = e.user_profiles || {};
+        return `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:0.5px solid #f3f4f6">
+          <span style="font-size:14px;flex-shrink:0">${rankIcons[i]||i+1}</span>
+          <div style="width:24px;height:24px;border-radius:50%;background:#00471b;display:flex;align-items:center;justify-content:center;color:#fff;font-size:10px;font-weight:700;flex-shrink:0">${(p.display_name||'U')[0]}</div>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:11px;font-weight:600;color:#111827;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${p.display_name||'Member'}</div>
+            <div style="font-size:9px;color:#6b7280">${p.tier||'Maiden'} · ${e.bets_count} bets</div>
+          </div>
+          <span style="font-size:12px;font-weight:700;color:#059669">+${parseFloat(e.roi||0).toFixed(0)}%</span>
+        </div>`;
+      }).join('');
+    } else {
+      lbRoi.innerHTML = '<div style="font-size:11px;color:#9ca3af;padding:8px 0">No entries yet this week. Log 5+ bets to appear!</div>';
+    }
+  }
+
+  // Load top contributors
+  const lbPts = document.getElementById('lb-pts-wrap');
+  if (lbPts) {
+    const topUsers = await sbGet('user_profiles?leaderboard_opt_out=eq.false&order=points.desc&limit=5&select=display_name,points,tier');
+    if (topUsers && topUsers.length) {
+      lbPts.innerHTML = topUsers.map((u, i) => `
+        <div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:0.5px solid #f3f4f6">
+          <span style="font-size:11px;font-weight:700;color:#9ca3af;width:14px">${i+1}</span>
+          <div style="width:24px;height:24px;border-radius:50%;background:#1e40af;display:flex;align-items:center;justify-content:center;color:#fff;font-size:10px;font-weight:700;flex-shrink:0">${(u.display_name||'U')[0]}</div>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:11px;font-weight:600;color:#111827">${u.display_name||'Member'}</div>
+            <div style="font-size:9px;color:#6b7280">${u.tier||'Maiden'}</div>
+          </div>
+          <span style="font-size:11px;font-weight:700;color:#374151">+${(u.points||0).toLocaleString()} pts</span>
+        </div>`).join('');
+    } else {
+      lbPts.innerHTML = '<div style="font-size:11px;color:#9ca3af">No members yet</div>';
+    }
+  }
+
+  // Community stats
+  const lbStats = document.getElementById('lb-stats-wrap');
+  if (lbStats) {
+    const userCount = await sbGet('user_profiles?select=count');
+    const postCount = await sbGet('posts?select=count');
+    lbStats.innerHTML = `
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <div style="background:#f8fafc;border-radius:6px;padding:10px;text-align:center">
+          <div style="font-size:18px;font-weight:800;color:#111827">${(userCount||[]).length||0}</div>
+          <div style="font-size:9px;color:#6b7280">Members</div>
+        </div>
+        <div style="background:#f8fafc;border-radius:6px;padding:10px;text-align:center">
+          <div style="font-size:18px;font-weight:800;color:#111827">${(postCount||[]).length||0}</div>
+          <div style="font-size:9px;color:#6b7280">Posts</div>
+        </div>
+      </div>`;
+  }
+
+  // Load badges for current user
+  const badgesRow = document.getElementById('user-badges-row');
+  if (badgesRow && window.currentUser) {
+    const userBadges = await sbGet('user_badges?clerk_id=eq.' + window.currentUser.id + '&select=badge_id,badges(name,emoji)&limit=12');
+    if (userBadges && userBadges.length) {
+      badgesRow.innerHTML = userBadges.map(ub => {
+        const b = ub.badges || {};
+        return `<span title="${b.name||''}" style="font-size:16px;cursor:default">${b.emoji||'🏅'}</span>`;
+      }).join('') + (userBadges.length >= 12 ? '<span style="font-size:10px;color:#9ca3af;align-self:center"> +more</span>' : '');
+    } else {
+      badgesRow.innerHTML = '<span style="font-size:10px;color:#9ca3af">No badges yet — start earning!</span>';
+    }
+  }
+
+  // Load missions
+  const missionsWrap = document.getElementById('missions-wrap');
+  if (missionsWrap && window.currentUser) {
+    const today = new Date().toISOString().slice(0,10);
+    const userMissions = await sbGet('user_missions?clerk_id=eq.' + window.currentUser.id + '&date=eq.' + today + '&select=mission_id,progress,completed,missions(title,points,target_count)');
+    const allMissions = await sbGet('missions?is_daily=eq.true&limit=3');
+    
+    if (allMissions && allMissions.length) {
+      missionsWrap.innerHTML = allMissions.map(m => {
+        const um = (userMissions||[]).find(x => x.mission_id === m.id);
+        const progress = um ? um.progress : 0;
+        const completed = um ? um.completed : false;
+        const pct = Math.min(100, Math.round(progress / m.target_count * 100));
+        return `<div style="margin-bottom:8px;padding:8px;border-radius:6px;background:${completed?'#f0fdf4':'#f8fafc'};border:0.5px solid ${completed?'#bbf7d0':'#e5e7eb'}">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+            <div style="font-size:11px;font-weight:600;color:#111827">${m.title}</div>
+            <div style="font-size:10px;font-weight:700;color:#059669">+${m.points}pts</div>
+          </div>
+          <div style="height:4px;background:#e5e7eb;border-radius:2px;overflow:hidden">
+            <div style="width:${pct}%;height:100%;background:${completed?'#059669':'#00471b'};border-radius:2px"></div>
+          </div>
+          <div style="font-size:9px;color:#6b7280;margin-top:3px">${completed?'✅ Complete':progress+' / '+m.target_count}</div>
+        </div>`;
+      }).join('');
+    } else {
+      missionsWrap.innerHTML = '<div style="font-size:10px;color:#9ca3af">Missions loading...</div>';
+    }
   }
 }
+
+function getTimeAgo(ts) {
+  if (!ts) return '';
+  const diff = Date.now() - new Date(ts).getTime();
+  const mins = Math.floor(diff/60000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return mins + 'm ago';
+  const hrs = Math.floor(mins/60);
+  if (hrs < 24) return hrs + 'h ago';
+  return Math.floor(hrs/24) + 'd ago';
+}
+
+async function communityUpvote(postId, type, authorId) {
+  if (!window.currentUser) { openLoginModal(); return; }
+  if (typeof COMMUNITY !== 'undefined') {
+    await COMMUNITY.upvote(window.currentUser.id, postId, type, authorId);
+    loadCommunityData(window._communityFilter || 'all');
+  }
+}
+
+function showNewPostModal() {
+  if (!window.currentUser) { openLoginModal(); return; }
+  var sections = [{id:'today_races',label:"Today's Races"},{id:'tips_analysis',label:'Tips & Analysis'},{id:'winning_bets',label:'Winning Bets'},{id:'system_feedback',label:'System Feedback'},{id:'general',label:'General Chat'}];
+  var modal = document.getElementById('wwModal');
+  if (!modal) return;
+  modal.innerHTML = `<div style="background:#fff;border-radius:12px;padding:24px;max-width:540px;width:100%;margin:auto">
+    <div style="font-size:16px;font-weight:700;color:#111827;margin-bottom:16px">New Post</div>
+    <select id="post-section" style="width:100%;padding:9px 12px;border:0.5px solid #e5e7eb;border-radius:7px;font-size:12px;margin-bottom:10px;font-family:'Space Grotesk'">
+      ${sections.map(s => `<option value="${s.id}">${s.label}</option>`).join('')}
+    </select>
+    <input id="post-title" placeholder="Post title..." style="width:100%;padding:9px 12px;border:0.5px solid #e5e7eb;border-radius:7px;font-size:13px;margin-bottom:10px;font-family:'Space Grotesk';box-sizing:border-box">
+    <textarea id="post-content" placeholder="Share your analysis, tip, or question..." style="width:100%;padding:9px 12px;border:0.5px solid #e5e7eb;border-radius:7px;font-size:12px;min-height:100px;resize:vertical;font-family:'Space Grotesk';box-sizing:border-box;margin-bottom:14px"></textarea>
+    <div style="display:flex;gap:10px">
+      <button onclick="closeModal()" style="flex:1;padding:10px;border:0.5px solid #e5e7eb;border-radius:7px;font-size:13px;font-weight:600;cursor:pointer;background:#fff">Cancel</button>
+      <button onclick="submitPost()" style="flex:2;padding:10px;background:#00471b;color:#fff;border:none;border-radius:7px;font-size:13px;font-weight:600;cursor:pointer">Post</button>
+    </div>
+  </div>`;
+  modal.style.display = 'flex';
+}
+
+async function submitPost() {
+  if (!window.currentUser) return;
+  const section = document.getElementById('post-section').value;
+  const title = document.getElementById('post-title').value.trim();
+  const content = document.getElementById('post-content').value.trim();
+  if (!title || !content) { toast('Please fill in all fields', 'error'); return; }
+
+  const SB = window.SUPABASE_URL;
+  const KEY = window.SUPABASE_ANON_KEY;
+
+  const result = await fetch(SB + '/rest/v1/posts', {
+    method: 'POST',
+    headers: { 'apikey': KEY, 'Authorization': 'Bearer ' + KEY, 'Content-Type': 'application/json', 'Prefer': 'return=representation' },
+    body: JSON.stringify({ clerk_id: window.currentUser.id, section, title, content })
+  }).then(r => r.json()).catch(() => null);
+
+  if (result && !result.error) {
+    if (typeof COMMUNITY !== 'undefined') await COMMUNITY.forumPost(window.currentUser.id, result[0].id, false);
+    toast('Post published!', 'success');
+    closeModal();
+    loadCommunityData(section);
+  } else {
+    toast('Error posting — please try again', 'error');
+  }
+}
+
+async function openPostModal(postId) {
+  // Opens a post detail view — simplified for now
+  const SB = window.SUPABASE_URL;
+  const KEY = window.SUPABASE_ANON_KEY;
+  const posts = await fetch(SB + '/rest/v1/posts?id=eq.' + postId + '&select=*,user_profiles(display_name,tier)', {
+    headers: { 'apikey': KEY, 'Authorization': 'Bearer ' + KEY }
+  }).then(r => r.json()).catch(() => []);
+
+  if (!posts || !posts.length) return;
+  const p = posts[0];
+  const profile = p.user_profiles || {};
+
+  const replies = await fetch(SB + '/rest/v1/replies?post_id=eq.' + postId + '&order=created_at.asc&select=*,user_profiles(display_name,tier)', {
+    headers: { 'apikey': KEY, 'Authorization': 'Bearer ' + KEY }
+  }).then(r => r.json()).catch(() => []);
+
+  var modal = document.getElementById('wwModal');
+  if (!modal) return;
+
+  modal.innerHTML = `<div style="background:#fff;border-radius:12px;padding:24px;max-width:600px;width:100%;margin:auto;max-height:80vh;overflow-y:auto">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+      <div style="font-size:14px;font-weight:700;color:#111827">${p.title}</div>
+      <button onclick="closeModal()" style="background:none;border:none;font-size:18px;cursor:pointer;color:#9ca3af">✕</button>
+    </div>
+    <div style="font-size:11px;color:#6b7280;margin-bottom:12px">
+      <span style="font-weight:600;color:#374151">${profile.display_name||'Member'}</span> · ${profile.tier||'Maiden'} · ${getTimeAgo(p.created_at)}
+    </div>
+    <div style="font-size:13px;color:#374151;line-height:1.6;margin-bottom:16px;padding-bottom:16px;border-bottom:0.5px solid #e5e7eb">${p.content}</div>
+    <div style="font-size:11px;font-weight:700;color:#374151;margin-bottom:10px">💬 ${(replies||[]).length} Replies</div>
+    ${(replies||[]).map(r => {
+      const rp = r.user_profiles || {};
+      return `<div style="padding:10px;background:#f8fafc;border-radius:6px;margin-bottom:8px">
+        <div style="font-size:10px;font-weight:600;color:#374151;margin-bottom:4px">${rp.display_name||'Member'} · ${rp.tier||'Maiden'} · ${getTimeAgo(r.created_at)}</div>
+        <div style="font-size:12px;color:#374151">${r.content}</div>
+      </div>`;
+    }).join('')}
+    ${window.currentUser ? `<textarea id="reply-content" placeholder="Write a reply..." style="width:100%;padding:9px 12px;border:0.5px solid #e5e7eb;border-radius:7px;font-size:12px;min-height:70px;resize:none;font-family:'Space Grotesk';box-sizing:border-box;margin-top:10px"></textarea>
+    <button onclick="submitReply('${postId}')" style="width:100%;margin-top:8px;padding:10px;background:#00471b;color:#fff;border:none;border-radius:7px;font-size:13px;font-weight:600;cursor:pointer">Post Reply</button>` : '<div style="text-align:center;padding:12px;font-size:12px;color:#6b7280">Sign in to reply</div>'}
+  </div>`;
+  modal.style.display = 'flex';
+}
+
+async function submitReply(postId) {
+  if (!window.currentUser) return;
+  const content = document.getElementById('reply-content').value.trim();
+  if (!content) return;
+
+  const SB = window.SUPABASE_URL;
+  const KEY = window.SUPABASE_ANON_KEY;
+
+  await fetch(SB + '/rest/v1/replies', {
+    method: 'POST',
+    headers: { 'apikey': KEY, 'Authorization': 'Bearer ' + KEY, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ post_id: postId, clerk_id: window.currentUser.id, content })
+  });
+
+  // Update reply count
+  const posts = await fetch(SB + '/rest/v1/posts?id=eq.' + postId + '&select=reply_count', { headers: { 'apikey': KEY, 'Authorization': 'Bearer ' + KEY } }).then(r => r.json());
+  if (posts && posts[0]) {
+    await fetch(SB + '/rest/v1/posts?id=eq.' + postId, {
+      method: 'PATCH',
+      headers: { 'apikey': KEY, 'Authorization': 'Bearer ' + KEY, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ reply_count: (posts[0].reply_count || 0) + 1 })
+    });
+  }
+
+  if (typeof COMMUNITY !== 'undefined') await COMMUNITY.forumPost(window.currentUser.id, postId, true);
+  toast('Reply posted!', 'success');
+  openPostModal(postId);
+}
+
 function setCommunityTab(tab){window._communityMobTab=tab;showCommunity();}
 function communityFilter(s){window._communityFilter=s;window._communityMobTab='feed';showCommunity();}
+function closeModal(){var m=document.getElementById('wwModal');if(m)m.style.display='none';}
 function showNewPost(){if(!currentUser){openLoginModal();return;}toast('Forum posting coming in the next update','success');}
 
 // ── COMPETITIONS PAGE ──
@@ -3460,7 +3689,6 @@ const HEADER_ALIASES = [
   ['Joc/Trn Wins',     ['joc/trn wins','jockey trainer wins']],
   ['Joc/Trn Places',   ['joc/trn places','jockey trainer places']],
   ['Joc/Trn Starts',   ['joc/trn starts','jockey trainer starts']],
-  ['RFS',              ['rfs','cur rfs','runs from spell']],
   ['1Up Wins',         ['1up wins']],
   ['1Up Places',       ['1up places']],
   ['1Up Starts',       ['1up starts']],
@@ -3906,7 +4134,7 @@ function buildRaces({hdrs,rows},fname){
       prepRuns3W:safeNum(col(r,'3Up Wins'))||0,
       prepRuns3P:safeNum(col(r,'3Up Places'))||0,
       prepRuns3S:safeNum(col(r,'3Up Starts'))||0,
-      curRFS:safeNum(col(r,'RFS'))||0,
+      curRFS:safeNum(col(r,'Cur RFS Wins'))||0,
       // Impact ratings
       impactForm:safeNum(col(r,'Impact Form'))||null,
       impactDist:safeNum(col(r,'Impact Dist'))||null,
@@ -4159,14 +4387,6 @@ function selectRace(rc,key){
   render(rc);
 
   if(typeof _afterSelectRace==='function')_afterSelectRace(rc,key);
-  // Highlight selected race in sidebar
-  document.querySelectorAll('.lr-race').forEach(el=>{
-    el.style.color='rgba(255,255,255,.8)';
-    el.style.background='';
-    el.style.fontWeight='';
-  });
-  var selected=document.getElementById('lrr-'+key);
-  if(selected){selected.style.color='#4ade80';selected.style.background='rgba(74,222,128,.08)';selected.style.fontWeight='600';}
 }
 
 function scoreGroup(h,grpKey){
@@ -4352,7 +4572,7 @@ function calcPaceMap(horse,raceVenue,raceDist,trackCond){
   // ── Use TPPC data from CSV if available (more accurate than calculated) ──
   var tppcFront=horse.tppcFront, tppcOnpc=horse.tppcOnpc;
   var tppcMid=horse.tppcMid, tppcBack=horse.tppcBack;
-  var hasTPPC = false; // TPPC from CSV is field-average not per-horse, use ESPD instead
+  var hasTPPC = tppcFront!==null && tppcFront!==undefined;
 
   if(espdNum<=3){role='Leader';color='#00b050';}
   else if(espdNum<=5){role='Presser';color='#7ec820';}
@@ -4360,29 +4580,45 @@ function calcPaceMap(horse,raceVenue,raceDist,trackCond){
   else if(espdNum<=8){role='Closer';color='#ff8000';}
   else{role='Backmarker';color='#dc3545';}
 
-  // ESPD-based pace calculation
-  function tp(v,d){
-    v=(v||'').toUpperCase();
-    if(v.indexOf('IPSWICH')>=0) return d<=1050?1.6:d<=1300?1.3:1.0;
-    if(v.indexOf('DOOMBEN')>=0) return d<=1050?1.8:d<=1300?1.45:d<=1420?1.0:d<=1650?1.5:1.0;
-    if(v.indexOf('EAGLE')>=0||v.indexOf('EAGLEFARM')>=0) return 0.8;
-    if(v.indexOf('SUNSHINE')>=0) return 0.8;
-    if(v.indexOf('GOLD')>=0) return d<=1200?1.2:1.0;
-    if(v.indexOf('TOOWOOMBA')>=0) return 1.3;
-    return 1.0;
+  // If TPPC available, use front+onpc as the primary pace % (actual data beats estimate)
+  var pct;
+  if(hasTPPC) {
+    // TPPC-Front = probability horse leads, TPPC-Onpc = probability pressing
+    // Use the dominant position as role indicator
+    var front=tppcFront||0, onpc=tppcOnpc||0, mid=tppcMid||0, back=tppcBack||0;
+    var maxP=Math.max(front,onpc,mid,back);
+    if(maxP===front&&front>20){role='Leader';color='#00b050';}
+    else if(maxP===onpc||(front+onpc>50)){role='Presser';color='#7ec820';}
+    else if(maxP===mid){role='Midfield';color='#ffc000';}
+    else if(maxP===back&&back>onpc){role='Closer';color='#ff8000';}
+    else if(back>40){role='Backmarker';color='#dc3545';}
+    // Pace score = front% + onpc% combined (how "on-pace" this horse is)
+    pct=Math.min(98,Math.max(2,Math.round(front+onpc)));
+  } else {
+    // Fallback to original calculation
+    function tp(v,d){
+      v=(v||'').toUpperCase();
+      if(v.indexOf('IPSWICH')>=0) return d<=1050?1.6:d<=1300?1.3:1.0;
+      if(v.indexOf('DOOMBEN')>=0) return d<=1050?1.8:d<=1300?1.45:d<=1420?1.0:d<=1650?1.5:1.0;
+      if(v.indexOf('EAGLE')>=0||v.indexOf('EAGLEFARM')>=0) return 0.8;
+      if(v.indexOf('SUNSHINE')>=0) return 0.8;
+      if(v.indexOf('GOLD')>=0) return d<=1200?1.2:1.0;
+      if(v.indexOf('TOOWOOMBA')>=0) return 1.3;
+      return 1.0;
+    }
+    var turnMult=tp(raceVenue,raceDist);
+    var espdScore=Math.max(0,(10-espdNum)/9)*50;
+    var earlyScore=Math.max(0,(10-espdNum)/9)*18;
+    var bp=+(horse['BP']||horse.BP||5);
+    var styleM=espdNum<=4?1.0:espdNum<=6?0.5:0.2;
+    var barrierScore=Math.max(0,(16-bp)/15)*14*styleM*turnMult;
+    var tc=(trackCond||'good').toLowerCase();
+    var condScore=10;
+    if(tc==='soft'||tc==='heavy'){condScore=espdNum<=4?12:espdNum>=8?7:10;}
+    var cs=horse.courseStarts||0;
+    var courseScore=cs===0?0:cs===1?1:cs<=4?2.5:4;
+    pct=Math.min(100,Math.max(2,espdScore+earlyScore+barrierScore+condScore+courseScore));
   }
-  var turnMult=tp(raceVenue,raceDist);
-  var espdScore=Math.max(0,(10-espdNum)/9)*50;
-  var earlyScore=Math.max(0,(10-espdNum)/9)*18;
-  var bp=+(horse['BP']||horse.BP||5);
-  var styleM=espdNum<=4?1.0:espdNum<=6?0.5:0.2;
-  var barrierScore=Math.max(0,(16-bp)/15)*14*styleM*turnMult;
-  var tc=(trackCond||'good').toLowerCase();
-  var condScore=10;
-  if(tc==='soft'||tc==='heavy'){condScore=espdNum<=4?12:espdNum>=8?7:10;}
-  var cs=horse.courseStarts||0;
-  var courseScore=cs===0?0:cs===1?1:cs<=4?2.5:4;
-  var pct=Math.min(100,Math.max(2,espdScore+earlyScore+barrierScore+condScore+courseScore));
   return{pct:Math.round(pct),role,color,espdNum,espdStr,paceStr:horse.pace||'',hasTPPC,tppcFront,tppcOnpc,tppcMid,tppcBack};
 }
 
@@ -4408,10 +4644,6 @@ function render(rc){
     GRP_KEYS.forEach(gk=>{r.grpScores[gk]=scoreGroup(r,gk);});
     r.totalFromGroups=GRP_KEYS.reduce((a,gk)=>a+r.grpScores[gk].total,0);
   });
-
-  // Re-sort by totalFromGroups so display order matches displayed score
-  results.sort((a,b)=>b.totalFromGroups-a.totalFromGroups);
-  results.forEach((r,i)=>r.myOdds=calculateMatrixOdds(results)[i]);
 
   // Per-group best and worst for colouring
   const grpBest={},grpWorst={};
@@ -6144,120 +6376,128 @@ function showHorseForm(e, idx){
   var card = document.getElementById('horseFormCard');
   if(!card || !h) return;
 
-  function p(a,b){ return b>0?Math.round(a/b*100)+'%':'0%'; }
-  function statColor(w,s){ if(!s)return''; var r=w/s; return r>=0.25?'color:#059669;font-weight:600':r>=0.12?'color:#d97706;font-weight:600':''; }
-  function fmtDate(d){
-    if(!d)return'';
-    var parts=d.split('/');
-    if(parts.length===3){var months=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];return parts[0]+' '+(months[parseInt(parts[1],10)-1]||parts[1]);}
-    return d;
-  }
-  function fmtSP(v){ return (v&&!isNaN(+v)&&+v>0)?'$'+(+v):'—'; }
-  function posStyle(n){ n=+n; if(n===1)return'background:#fbbf24;color:#78350f;'; if(n===2)return'background:#d1d5db;color:#374151;'; if(n===3)return'background:#b45309;color:#fff;'; return'background:#f3f4f6;color:#6b7280;'; }
+  var pct = function(a,b){ return b>0 ? Math.round(a/b*100)+'%' : '0%'; };
 
-  // Horse details
-  var bp=h['BP']||'', wt=h['Weight']?h['Weight']+'kg':'';
-  var allow=h.allowance?'('+h.allowance+')':'';
-  var age=h[' age']||h.age||'', sex=h.sex||'';
-  var days=h['Days Since Last Start']||'';
-  var starts=h.starts||0, wins=h.wins||0, secs=h.seconds||0, thirds=h.thirds||0;
-  var winPct=starts>0?Math.round(wins/starts*100):0;
+  // Career
+  var careerRec = h.starts+'-'+h.wins+'-'+(h.seconds||0)+'-'+(h.thirds||0);
+  var winSR = pct(h.wins, h.starts);
+  var placeSR = pct((h.wins||0)+(h.places||0), h.starts);
 
-  // Breeding
-  var sire=h.sire||'', dam=h.dam||'', gsire=h.gsire||'', winDists=h.winDists||'';
-  var breedParts=[];
-  if(sire)breedParts.push('By '+sire);
-  if(dam)breedParts.push('Dam: '+dam);
-  if(gsire)breedParts.push('GSire: '+gsire);
-  if(winDists)breedParts.push('Win dists: '+winDists);
-  var breedLine=breedParts.join(' · ');
+  // Course / Distance
+  var cS=h.courseStarts||0, cW=h.courseWins||0;
+  var dS=h.distStarts||0, dW=h.distWins||0;
+  var courseRec = cS+'-'+cW;
+  var distRec = dS+'-'+dW;
 
-  // Jockey/trainer stats
-  var jS=h.jocLoc12mS||0,jW=h.jocLoc12mW||0,jP=h.jocLoc12mP||0;
-  var tS=h.trnLoc12mS||0,tW=h.trnLoc12mW||0,tP=h.trnLoc12mP||0;
-  var jtS=h.jocTrnStarts||0,jtW=h.jocTrnWins||0,jtP=h.jocTrnPlaces||0;
-  var rfs=h.curRFS||0;
-  var up1W=h.prepRuns1W||0,up1P=h.prepRuns1P||0,up1S=h.prepRuns1S||0;
-  var up2W=h.prepRuns2W||0,up2P=h.prepRuns2P||0,up2S=h.prepRuns2S||0;
-  var cdW=h.courseWins||0,cdP=h.coursePlaces||0,cdS=h.courseStarts||0;
-  var upLabel='1st-up';
-  var upNextLabel='2nd-up';
+  // Track conditions — S-W-P
+  var gS=h.goodStarts||0, gW=h.goodWins||0, gP=h.goodPlaces||0;
+  var sS=h.softStarts||0, sW=h.softWins||0, sP=h.softPlaces||0;
+  var hvS=h.heavyStarts||0, hvW=h.heavyWins||0, hvP=h.heavyPlaces||0;
+  var fmS=h.firmStarts||0, fmW=h.firmWins||0, fmP=h.firmPlaces||0;
+  var gRec=gS+'-'+gW+'-'+gP, sRec=sS+'-'+sW+'-'+sP;
+  var hvRec=hvS+'-'+hvW+'-'+hvP, fmRec=fmS+'-'+fmW+'-'+fmP;
 
-  // Run rows
-  var runRows='';
-  var finArr=Array.isArray(h.lastFin)?h.lastFin:[h.lastFin,null,null,null];
-  var spArr2=Array.isArray(h.lastSP)?h.lastSP:[h.lastSP,null,null,null];
-  for(var ri=0;ri<4;ri++){
-    var pos=finArr[ri];
-    if(pos===null||pos===undefined||pos==='')continue;
+  // Best condition highlight
+  var bestCond='', bestPct=0;
+  if(gS>0&&gW/gS>bestPct){bestPct=gW/gS;bestCond='good';}
+  if(sS>0&&sW/sS>bestPct){bestPct=sW/sS;bestCond='soft';}
+  if(hvS>0&&hvW/hvS>bestPct){bestPct=hvW/hvS;bestCond='heavy';}
+  if(fmS>0&&fmW/fmS>bestPct){bestPct=fmW/fmS;bestCond='firm';}
+  var condBg={good:'#f0fdf4',soft:'#fffbeb',heavy:'#f3f4f6',firm:'#fff7ed'};
+  var mkCond=function(rec,cond,label,color){
+    var bg=bestCond===cond?'background:'+condBg[cond]+';':'';
+    return '<div class="hfc-stat" style="'+bg+'"><div class="hfc-sv">'+rec+'</div><div class="hfc-sl" style="color:'+color+'">'+label+'</div></div>';
+  };
+
+  // Prize
+  var totalPrize=h['Total Prizemoney'], avgPrize=h['Average Prizemoney'];
+  var fmtP=function(v){if(!v&&v!==0)return'--';return'$'+(v>=1000?(v/1000).toFixed(0)+'k':v);};
+  var totStr=fmtP(totalPrize), avgStr=fmtP(avgPrize);
+
+  // Meta
+  var days=h['Days Since Last Start'], daysStr=days?days+'d ago':'--';
+  var bp=h['BP']||'?', wt=h['Weight']?h['Weight']+'kg':'--';
+  var spArr=(Array.isArray(h.lastSP)?h.lastSP:[h.lastSP]).filter(function(v){return v!=null&&v>0;});
+  var avgSP=spArr.length>0?'$'+(spArr.reduce(function(a,b){return a+b;},0)/spArr.length).toFixed(2):'--';
+
+  // Recent runs
+  var runsHTML='<table class="hfc-runs-tbl"><tr class="hfc-run-hdr"><td style="width:22px"></td><td>DATE · TRACK · DIST · CLASS</td><td style="width:52px;text-align:right;color:#111827">SP</td><td style="width:44px;text-align:right;color:#111827">MARGIN</td><td style="width:34px;text-align:right;color:#111827">RTG</td></tr>';
+  var anyRun=false;
+  for(var ri=0;ri<3;ri++){
+    var pos=h.lastFin?h.lastFin[ri]:null;
+    var sp=Array.isArray(h.lastSP)?h.lastSP[ri]:(ri===0?h.lastSP:null);
     var dtl=h.lastRunDetails?h.lastRunDetails[ri]:null;
-    if(!dtl||!dtl.date)continue;
-    var sp2=spArr2[ri];
-    var rowBg=ri%2===1?'background:#f9fafb;':'';
-    var mgTxt=+pos===1?('Won '+(dtl.margin||0)+'L'):(dtl.margin!=null?dtl.margin+'L':'—');
-    var mgColor=+pos===1?'color:#059669;font-weight:500':+pos<=3?'color:#d97706':'color:#6b7280';
-    runRows+='<tr>';
-    runRows+='<td style="'+rowBg+'padding:3px 6px;font-size:10px;color:#6b7280;white-space:nowrap">'+fmtDate(dtl.date)+'</td>';
-    runRows+='<td style="'+rowBg+'padding:3px 4px;text-align:center"><div style="width:18px;height:18px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:9px;font-weight:600;'+posStyle(pos)+'">'+pos+'</div></td>';
-    runRows+='<td style="'+rowBg+'padding:3px 6px;font-size:10px;color:#111827;white-space:nowrap">'+(dtl.crse||'—')+'</td>';
-    runRows+='<td style="'+rowBg+'padding:3px 4px"><span style="font-size:9px;padding:1px 4px;border-radius:3px;background:#eff6ff;color:#1d4ed8;white-space:nowrap">'+(dtl.cls||'—')+'</span></td>';
-    runRows+='<td style="'+rowBg+'padding:3px 6px;font-size:10px;color:#111827;white-space:nowrap">'+(dtl.dist?dtl.dist+'m':'—')+'</td>';
-    runRows+='<td style="'+rowBg+'padding:3px 6px;font-size:10px;color:#6b7280;white-space:nowrap">'+(dtl.wt?dtl.wt+'kg':'—')+'</td>';
-    runRows+='<td style="'+rowBg+'padding:3px 6px;font-size:10px;color:#6b7280;white-space:nowrap">'+fmtSP(sp2)+'</td>';
-    runRows+='<td style="'+rowBg+'padding:3px 6px;font-size:10px;'+mgColor+';white-space:nowrap">'+mgTxt+'</td>';
-    runRows+='</tr>';
+    var date=dtl&&dtl.date?dtl.date:'';
+    var dist2=dtl&&dtl.dist?dtl.dist+'m':'';
+    var crse=dtl&&dtl.crse?dtl.crse:'';
+    var cls=dtl&&dtl.cls?dtl.cls:'';
+    var margin=dtl&&dtl.margin!=null?dtl.margin:(ri===0?h.lastMargin:null);
+    var rating=dtl&&dtl.rating?dtl.rating:null;
+    var wtVal=dtl&&dtl.wt&&dtl.wt>40&&dtl.wt<75?dtl.wt:null;
+    if(!pos&&!sp&&!date&&!dist2) continue;
+    anyRun=true;
+    var pc=pos===1?'p1':(pos&&pos<=3)?'p23':'px';
+    var rowBg=pos===1?'background:#fffbeb':'background:#fafafa';
+    var posStr=pos?pos:'—';
+    var spStr=sp&&!isNaN(+sp)?'$'+(+sp).toFixed(2):'—';
+    var mgStr=margin!=null?margin+'L':'—';
+    var rtgStr=rating?rating.toFixed(1):'—';
+    var dateShort=date?date.replace(/(\d+)\/(\d+)\/(\d+)/,'$1/$2'):'';
+    var detail=[dateShort,crse,dist2,cls].filter(Boolean).join(' · ');
+    if(wtVal) detail+=' <span style="color:#374151">'+wtVal+'kg</span>';
+    runsHTML+='<tr style="'+rowBg+'">';
+    runsHTML+='<td style="padding:3px 2px;width:22px;vertical-align:middle"><div class="hfc-rpos-inner '+pc+'">'+posStr+'</div></td>';
+    runsHTML+='<td style="padding:3px 4px;font-size:8px;font-weight:600;color:#374151;max-width:155px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">'+detail+'</td>';
+    runsHTML+='<td style="padding:3px 4px;font-size:9px;font-weight:700;color:#92400e;text-align:right;white-space:nowrap">'+spStr+'</td>';
+    runsHTML+='<td style="padding:3px 4px;font-size:8px;color:#374151;text-align:right;white-space:nowrap">'+mgStr+'</td>';
+    runsHTML+='<td style="padding:3px 2px;font-size:7px;color:#374151;text-align:right;white-space:nowrap">'+rtgStr+'</td>';
+    runsHTML+='</tr>';
   }
-  if(!runRows) runRows='<tr><td colspan="8" style="padding:6px;font-size:10px;color:#9ca3af">No run data</td></tr>';
-
-  function statCell(label,w,p2,s,borderRight){
-    var br=borderRight!==false?'border-right:0.5px solid #e5e7eb;':'';
-    return '<div style="padding:4px 8px;'+br+'flex:1">'
-      +'<div style="font-size:8px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:.4px;margin-bottom:2px">'+label+'</div>'
-      +'<div style="font-size:10px;font-weight:500;'+statColor(w,s)+'">'+( s?s+'S '+w+'W '+p2+'P':'—')+'</div>'
-      +'<div style="font-size:9px;color:#6b7280;margin-top:1px">'+p(w,s)+' win</div>'
-      +'</div>';
-  }
+  runsHTML+='</table>'
+  if(!anyRun) runsHTML='<table class="hfc-runs-tbl"><tr><td colspan="5" style="font-size:9px;color:#9ca3af;padding:4px 5px">No run history in CSV</td></tr></table>';
 
   var html='';
-  // Header
-  html+='<div style="padding:7px 10px;background:#00471b;border-radius:6px 6px 0 0">';
-  html+='<div style="display:flex;align-items:center;gap:8px">';
-  html+='<span style="font-size:13px;font-weight:600;color:#fff">'+h.name+(bp?' <span style="color:rgba(255,255,255,.7);font-size:11px;font-weight:400">('+bp+')</span>':'')+'</span>';
-  html+='<span style="font-size:11px;color:#fff;margin-left:4px">'+wt+(allow?' '+allow:'')+'</span>';
-  html+='<span style="font-size:11px;color:#fff;margin-left:auto">'+starts+'-'+wins+'-'+secs+'-'+thirds+' · '+winPct+'% win'+(days?' · '+days+'d':'')+'</span>';
-  html+='</div>';
-  if(breedLine) html+='<div style="font-size:9px;color:rgba(255,255,255,.75);margin-top:2px">'+breedLine+'</div>';
-  html+='<div style="font-size:10px;color:rgba(255,255,255,.85);margin-top:2px">'+(h.jname||'')+(allow?' '+allow:'')+' &nbsp;·&nbsp; '+(h.trainer||'')+'</div>';
+  html+='<div class="hfc-hdr"><div class="hfc-name">'+h.name+' <span style="font-size:10px;font-weight:500;opacity:.75">('+bp+') · '+wt+'</span></div><div style="font-size:9px;color:rgba(255,255,255,.6)">'+daysStr+'</div></div>';
+  html+='<div class="hfc-prize-row"><span>Total Prize: <b>'+totStr+'</b></span><span>Avg Prize: <b>'+avgStr+'</b></span><span>Avg SP: <b>'+avgSP+'</b></span></div>';
+  html+='<div class="hfc-meta"><span>J: <b>'+(h.jname||'--')+'</b></span><span>T: <b>'+(h.trainer||'--')+'</b></span></div>';
+
+  // Career
+  html+='<div class="hfc-stats">';
+  html+='<div class="hfc-stat"><div class="hfc-sv">'+careerRec+'</div><div class="hfc-sl">Career S-W-2-3</div></div>';
+  html+='<div class="hfc-stat"><div class="hfc-sv '+(parseInt(winSR)>=20?'g':'')+'">'+winSR+'</div><div class="hfc-sl">Win SR</div></div>';
+  html+='<div class="hfc-stat"><div class="hfc-sv '+(parseInt(placeSR)>=40?'g':'')+'">'+placeSR+'</div><div class="hfc-sl">Place SR</div></div>';
+  html+='<div class="hfc-stat"><div class="hfc-sv">'+avgSP+'</div><div class="hfc-sl">Avg SP</div></div>';
   html+='</div>';
 
-  // Runs table
-  html+='<div style="overflow-x:auto;border:0.5px solid #e5e7eb;border-top:none">';
-  html+='<table style="width:100%;border-collapse:collapse;background:#fff;font-size:10px">';
-  html+='<thead><tr style="background:#f1f5f9">';
-  ['Date','Pos','Track','Class','Dist','Wgt','SP','Margin'].forEach(function(lbl){
-    html+='<th style="padding:3px 6px;font-size:8px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:.4px;text-align:left;border-bottom:0.5px solid #e5e7eb;white-space:nowrap">'+lbl+'</th>';
-  });
-  html+='</tr></thead><tbody>'+runRows+'</tbody></table></div>';
-
-  // Stats strip
-  html+='<div style="display:flex;border:0.5px solid #e5e7eb;border-top:none;border-radius:0 0 6px 6px;overflow:hidden;background:#fff">';
-  html+=statCell('Joc 12m',jW,jP,jS);
-  html+=statCell('Trn 12m',tW,tP,tS);
-  html+=statCell('J/T Combo',jtW,jtP,jtS);
-  html+=statCell(upLabel,up1W,up1P,up1S);
-  html+=statCell(upNextLabel,up2W,up2P,up2S);
-  html+=statCell('Crse/Dist',cdW,cdP,cdS,false);
+  // Course + Distance
+  html+='<div class="hfc-stats" style="border-top:1px solid #e5e7eb">';
+  html+='<div class="hfc-stat"><div class="hfc-sv">'+courseRec+'</div><div class="hfc-sl">Course S-W</div></div>';
+  html+='<div class="hfc-stat"><div class="hfc-sv">'+pct(cW,cS)+'</div><div class="hfc-sl">Course SR</div></div>';
+  html+='<div class="hfc-stat"><div class="hfc-sv">'+distRec+'</div><div class="hfc-sv"></div><div class="hfc-sl">Dist S-W</div></div>';
+  html+='<div class="hfc-stat"><div class="hfc-sv">'+pct(dW,dS)+'</div><div class="hfc-sl">Dist SR</div></div>';
   html+='</div>';
+
+  // Track conditions — Firm · Good · Soft · Heavy
+  html+='<div class="hfc-stats" style="border-top:1px solid #e5e7eb">';
+  html+=mkCond(fmRec,'firm','Firm S-W-P','#b45309');
+  html+=mkCond(gRec,'good','Good S-W-P','#059669');
+  html+=mkCond(sRec,'soft','Soft S-W-P','#d97706');
+  html+=mkCond(hvRec,'heavy','Heavy S-W-P','#6b7280');
+  html+='</div>';
+
+  // Recent runs
+  html+='<div class="hfc-runs"><div class="hfc-rt">Recent Runs</div>'+runsHTML+'</div>';
+  html+='<div class="hfc-foot"><span style="font-size:9px;color:#9ca3af">EveryRace data · PuntingForm coming soon</span></div>';
 
   card.innerHTML=html;
   card.style.display='block';
 
-  var cardW=520;
+  var cardW=440;
   var left=e.clientX+14;
-  var top2=e.clientY-80;
+  var top2=e.clientY-100;
   if(left+cardW>window.innerWidth-8) left=e.clientX-cardW-14;
   if(top2<8) top2=8;
-  if(top2+400>window.innerHeight) top2=window.innerHeight-405;
+  if(top2+560>window.innerHeight) top2=window.innerHeight-565;
   card.style.left=left+'px';
   card.style.top=top2+'px';
 }
@@ -6305,6 +6545,10 @@ function submitQB(horseName, idx){
   updateBetBadge();
   closeQuickBet();
   toast('Bet saved — '+name+' $'+odds);
+  // Community engine
+  if(window.currentUser && typeof COMMUNITY !== 'undefined') {
+    COMMUNITY.betLogged(window.currentUser.id, bet);
+  }
 }
 
 // ── BET LOG ──────────────────────────────────────────────
@@ -7094,10 +7338,856 @@ document.addEventListener('DOMContentLoaded',function(){
 <div id="resultsModal" style="display:none"><div id="modalBody"></div><div id="modalTitle"></div><div id="modalSub"></div></div>
 <div id="formModal" style="display:none"></div>
 <div id="login-screen" style="display:none"></div>
+<div id="wwModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:99999;align-items:center;justify-content:center;padding:20px" onclick="if(event.target===this)closeModal()"></div>
 <div id="mob-sidebar-btn" style="display:none"></div>
 <div id="mobSheetOverlay" style="display:none"></div>
 <div id="mobSheet" style="display:none"><div id="mobSheetTitle"></div><div id="mobSheetContent"></div></div>
 <div id="horseFormCard" style="display:none;position:fixed;z-index:99999;background:#fff;border:1.5px solid #00471b;border-radius:10px;box-shadow:0 8px 32px rgba(0,0,0,.2);width:440px;overflow:hidden;pointer-events:none;max-height:80vh;overflow-y:auto"></div>
 <div id="mob-nav-drawer" style="display:none"></div>
+<script>
+// ============================================================
+// WAGING WAR — COMMUNITY ENGINE
+// Handles: points, badges, missions, forum, leaderboard
+// ============================================================
+
+const COMMUNITY = (function() {
+
+  const SB = window.SUPABASE_URL;
+  const KEY = window.SUPABASE_ANON_KEY;
+
+  function sbFetch(path, opts = {}) {
+    return fetch(SB + '/rest/v1/' + path, {
+      headers: {
+        'apikey': KEY,
+        'Authorization': 'Bearer ' + KEY,
+        'Content-Type': 'application/json',
+        'Prefer': opts.prefer || 'return=representation',
+        ...opts.headers
+      },
+      method: opts.method || 'GET',
+      body: opts.body ? JSON.stringify(opts.body) : undefined
+    }).then(r => r.json()).catch(() => null);
+  }
+
+  // ── TIER CALCULATION ────────────────────────────────────────
+  function getTier(points) {
+    if (points >= 25000) return { name: 'Group 1', emoji: '👑', color: '#7c3aed' };
+    if (points >= 10000) return { name: 'Group 2', emoji: '⭐⭐', color: '#dc2626' };
+    if (points >= 5000)  return { name: 'Group 3', emoji: '⭐', color: '#d97706' };
+    if (points >= 2000)  return { name: 'Listed', emoji: '🏆', color: '#059669' };
+    if (points >= 500)   return { name: 'Benchmark', emoji: '🏇', color: '#2563eb' };
+    return { name: 'Maiden', emoji: '🐴', color: '#6b7280' };
+  }
+
+  function getNextTier(points) {
+    if (points < 500)   return { name: 'Benchmark', needed: 500 - points };
+    if (points < 2000)  return { name: 'Listed', needed: 2000 - points };
+    if (points < 5000)  return { name: 'Group 3', needed: 5000 - points };
+    if (points < 10000) return { name: 'Group 2', needed: 10000 - points };
+    if (points < 25000) return { name: 'Group 1', needed: 25000 - points };
+    return null;
+  }
+
+  // ── AWARD POINTS ────────────────────────────────────────────
+  async function awardPoints(clerkId, points, reason, category, referenceId = null) {
+    if (!clerkId || !points) return;
+
+    // Log the points event
+    await sbFetch('points_log', {
+      method: 'POST',
+      body: { clerk_id: clerkId, points, reason, category, reference_id: referenceId }
+    });
+
+    // Get current profile
+    const profiles = await sbFetch('user_profiles?clerk_id=eq.' + clerkId + '&select=points,tier');
+    if (!profiles || !profiles[0]) return;
+
+    const current = profiles[0];
+    const newPoints = (current.points || 0) + points;
+    const oldTier = current.tier;
+    const newTier = getTier(newPoints).name;
+
+    // Update points and tier
+    await sbFetch('user_profiles?clerk_id=eq.' + clerkId, {
+      method: 'PATCH',
+      body: { points: newPoints, tier: newTier, updated_at: new Date().toISOString() }
+    });
+
+    // Tier up notification + badge
+    if (newTier !== oldTier) {
+      await createNotification(clerkId, 'tier_up', '🎉 Tier Up!', 
+        'You\'ve reached ' + newTier + ' tier! Keep going!');
+      const tierBadgeMap = {
+        'Benchmark': 'tier_benchmark',
+        'Listed': 'tier_listed',
+        'Group 3': 'tier_group3',
+        'Group 2': 'tier_group2',
+        'Group 1': 'tier_group1'
+      };
+      if (tierBadgeMap[newTier]) await awardBadge(clerkId, tierBadgeMap[newTier]);
+    }
+
+    // Update local state
+    if (window.currentUser && window.currentUser.id === clerkId) {
+      window.wwUserProfile = window.wwUserProfile || {};
+      window.wwUserProfile.points = newPoints;
+      window.wwUserProfile.tier = newTier;
+      updateProfileUI();
+    }
+
+    return newPoints;
+  }
+
+  // ── AWARD BADGE ─────────────────────────────────────────────
+  async function awardBadge(clerkId, badgeId) {
+    if (!clerkId || !badgeId) return;
+
+    // Check not already earned
+    const existing = await sbFetch('user_badges?clerk_id=eq.' + clerkId + '&badge_id=eq.' + badgeId);
+    if (existing && existing.length > 0) return false;
+
+    // Award it
+    const result = await sbFetch('user_badges', {
+      method: 'POST',
+      body: { clerk_id: clerkId, badge_id: badgeId }
+    });
+
+    if (result && !result.error) {
+      // Get badge info for notification
+      const badges = await sbFetch('badges?id=eq.' + badgeId + '&select=name,emoji,description');
+      if (badges && badges[0]) {
+        const b = badges[0];
+        await createNotification(clerkId, 'badge', b.emoji + ' Badge Earned: ' + b.name, b.description);
+        toast('Badge unlocked: ' + b.emoji + ' ' + b.name, 'success');
+      }
+      return true;
+    }
+    return false;
+  }
+
+  // ── CREATE NOTIFICATION ──────────────────────────────────────
+  async function createNotification(clerkId, type, title, message, refId = null) {
+    return sbFetch('notifications', {
+      method: 'POST',
+      body: { clerk_id: clerkId, type, title, message, reference_id: refId }
+    });
+  }
+
+  // ── DAILY LOGIN ──────────────────────────────────────────────
+  async function handleLogin(clerkId) {
+    if (!clerkId) return;
+    const today = new Date().toISOString().slice(0, 10);
+
+    // Try to insert today's login (unique constraint prevents duplicates)
+    const result = await sbFetch('login_log', {
+      method: 'POST',
+      prefer: 'resolution=ignore-duplicates',
+      body: { clerk_id: clerkId, login_date: today }
+    });
+
+    // Check if it's a new login today (no error = first login today)
+    if (!result || result.error) return; // Already logged in today
+
+    // Award login points
+    await awardPoints(clerkId, 5, 'Daily login', 'login');
+
+    // Update streak
+    const profile = await sbFetch('user_profiles?clerk_id=eq.' + clerkId + '&select=login_streak,last_login_date,longest_login_streak');
+    if (!profile || !profile[0]) return;
+
+    const p = profile[0];
+    const lastLogin = p.last_login_date ? new Date(p.last_login_date) : null;
+    const yesterday = new Date(); yesterday.setDate(yesterday.getDate() - 1);
+
+    let newStreak = 1;
+    if (lastLogin && lastLogin.toDateString() === yesterday.toDateString()) {
+      newStreak = (p.login_streak || 0) + 1;
+    }
+
+    const longestStreak = Math.max(newStreak, p.longest_login_streak || 0);
+
+    await sbFetch('user_profiles?clerk_id=eq.' + clerkId, {
+      method: 'PATCH',
+      body: { login_streak: newStreak, last_login_date: today, longest_login_streak: longestStreak }
+    });
+
+    // Streak milestones
+    if (newStreak === 7) {
+      await awardPoints(clerkId, 50, '7-day login streak bonus', 'streak');
+      await awardBadge(clerkId, 'on_fire');
+    }
+    if (newStreak === 14) {
+      await awardPoints(clerkId, 75, '14-day login streak bonus', 'streak');
+      await awardBadge(clerkId, 'lightning');
+    }
+    if (newStreak === 30) {
+      await awardPoints(clerkId, 200, '30-day login streak bonus', 'streak');
+      await awardBadge(clerkId, 'dedicated');
+    }
+    if (newStreak === 90) {
+      await awardPoints(clerkId, 500, '90-day login streak bonus', 'streak');
+      await awardBadge(clerkId, 'iron_will');
+    }
+    if (newStreak === 180) {
+      await awardPoints(clerkId, 1000, '180-day login streak bonus', 'streak');
+      await awardBadge(clerkId, 'unbreakable');
+    }
+
+    // Special time badges
+    const hour = new Date().getHours();
+    if (hour === 0) checkAndAwardTimeBadge(clerkId, 'night_owl', 'login_log', 5);
+    if (hour < 7) checkAndAwardTimeBadge(clerkId, 'early_bird', 'login_log', 10);
+
+    // First login = Seedling badge
+    const loginCount = await sbFetch('login_log?clerk_id=eq.' + clerkId + '&select=count', { headers: { 'Prefer': 'count=exact' } });
+    if (loginCount && loginCount.length === 1) await awardBadge(clerkId, 'seedling');
+
+    // Milestone member badges
+    await checkMembershipMilestones(clerkId);
+
+    // Update mission progress
+    await trackMission(clerkId, 'daily_login');
+  }
+
+  async function checkAndAwardTimeBadge(clerkId, badgeId, table, target) {
+    const count = await sbFetch(table + '?clerk_id=eq.' + clerkId + '&select=count');
+    if (count && count.length >= target) await awardBadge(clerkId, badgeId);
+  }
+
+  async function checkMembershipMilestones(clerkId) {
+    const profile = await sbFetch('user_profiles?clerk_id=eq.' + clerkId + '&select=joined_at');
+    if (!profile || !profile[0]) return;
+    const joined = new Date(profile[0].joined_at);
+    const days = Math.floor((new Date() - joined) / 86400000);
+    if (days >= 30)  await awardBadge(clerkId, 'growing');
+    if (days >= 90)  await awardBadge(clerkId, 'established');
+    if (days >= 365) await awardBadge(clerkId, 'veteran');
+    if (days >= 730) await awardBadge(clerkId, 'legend_member');
+  }
+
+  // ── BET LOGGED ───────────────────────────────────────────────
+  async function handleBetLogged(clerkId, bet) {
+    if (!clerkId) return;
+
+    // Small points for logging (anti-spam: only 2 pts)
+    await awardPoints(clerkId, 2, 'Bet logged', 'betting', bet.id);
+
+    // Update bet count
+    const profile = await sbFetch('user_profiles?clerk_id=eq.' + clerkId + '&select=total_bets');
+    const totalBets = ((profile && profile[0] ? profile[0].total_bets : 0) || 0) + 1;
+    await sbFetch('user_profiles?clerk_id=eq.' + clerkId, {
+      method: 'PATCH',
+      body: { total_bets: totalBets }
+    });
+
+    // Milestone badges
+    if (totalBets === 1) await awardBadge(clerkId, 'first_start');
+    if (totalBets === 100) await awardBadge(clerkId, 'century');
+    if (totalBets === 1000) await awardBadge(clerkId, 'pro');
+
+    // Seasonal badges
+    checkSeasonalBadge(clerkId, bet);
+
+    // Venue badges
+    checkVenueBadges(clerkId);
+
+    // Mission progress
+    await trackMission(clerkId, 'daily_bet');
+    await trackMission(clerkId, 'weekly_bets');
+
+    // Consistent better streak
+    await updateBetStreak(clerkId);
+
+    // Each-way badge
+    if (bet.bettype === 'Each Way') {
+      const ewBets = await sbFetch('bets?clerk_id=eq.' + clerkId + '&bet_type=eq.Each Way&select=count');
+      if (ewBets && ewBets.length >= 10) await awardBadge(clerkId, 'each_way_eddie');
+    }
+
+    // High roller
+    if (bet.stake >= 500) await awardBadge(clerkId, 'high_roller');
+
+    // Midnight rider
+    if (new Date().getHours() === 0) {
+      const midnightBets = await sbFetch('bets?clerk_id=eq.' + clerkId + '&select=created_at');
+      const midnightCount = (midnightBets || []).filter(b => new Date(b.created_at).getHours() === 0).length;
+      if (midnightCount >= 1) await awardBadge(clerkId, 'midnight_rider');
+    }
+
+    // Value bet tracking
+    if (bet.edge_pct > 0) {
+      const valueBets = await sbFetch('bets?clerk_id=eq.' + clerkId + '&is_value=eq.true&select=count');
+      if (valueBets && valueBets.length >= 50) await awardBadge(clerkId, 'value_master');
+    }
+  }
+
+  // ── BET RESULT AUTO-SETTLED ──────────────────────────────────
+  async function handleBetSettled(clerkId, bet) {
+    if (!clerkId || !bet) return;
+
+    const isWin = bet.result === 'win';
+    const isValue = (bet.edge_pct || 0) > 0;
+
+    // Auto points for result
+    await awardPoints(clerkId, 3, 'Bet result recorded', 'betting', bet.id);
+
+    if (isWin) {
+      await awardPoints(clerkId, 15, 'Winning bet', 'betting', bet.id);
+      if (bet.odds >= 20) {
+        await awardPoints(clerkId, 10, 'Big odds winner bonus', 'betting', bet.id);
+        await awardBadge(clerkId, 'diamond_hands');
+      }
+      if (bet.odds >= 100) await awardBadge(clerkId, 'unicorn');
+      if (bet.odds >= 15) await awardBadge(clerkId, 'lucky_break');
+      if (isValue) await awardPoints(clerkId, 5, 'Value bet winner bonus', 'betting', bet.id);
+
+      // First winner badge
+      await awardBadge(clerkId, 'first_winner');
+
+      // Update win streak
+      await updateWinStreak(clerkId, true);
+
+      // Check win streaks
+      await checkWinStreakBadges(clerkId);
+
+      // Track conditions
+      await checkConditionBadges(clerkId, bet);
+
+      // Value hunter
+      if (isValue && (bet.edge_pct || 0) >= 50) await awardBadge(clerkId, 'value_hunter');
+
+      // Pirate - beat market by 200%
+      if ((bet.edge_pct || 0) >= 200) await awardBadge(clerkId, 'pirate');
+
+      // Gut feel - negative value but won
+      if ((bet.edge_pct || 0) < 0) await awardBadge(clerkId, 'gut_feel');
+
+      // Check long shot larry
+      const bigWins = await sbFetch('bets?clerk_id=eq.' + clerkId + '&result=eq.win&odds=gte.10&select=count');
+      if (bigWins && bigWins.length >= 5) await awardBadge(clerkId, 'long_shot_larry');
+
+      // Check triple crown (3 wins today)
+      const today = new Date().toISOString().slice(0, 10);
+      const todayWins = await sbFetch('bets?clerk_id=eq.' + clerkId + '&result=eq.win&race_date=eq.' + today + '&select=count');
+      if (todayWins && todayWins.length >= 3) await awardBadge(clerkId, 'triple_crown');
+
+      // Check big day (3 winners on one race day)
+      if (todayWins && todayWins.length >= 3) await awardBadge(clerkId, 'big_day');
+
+    } else {
+      await updateWinStreak(clerkId, false);
+      // Ice cold - 10 consecutive losses
+      const profile = await sbFetch('user_profiles?clerk_id=eq.' + clerkId + '&select=win_streak');
+      if (profile && profile[0] && (profile[0].win_streak || 0) <= -10) {
+        await awardBadge(clerkId, 'ice_cold');
+      }
+    }
+
+    // ROI checks
+    await checkROIBadges(clerkId);
+
+    // Competition entry update
+    await updateCompetitionEntry(clerkId);
+
+    // Weekly mission
+    await checkWeeklyROIMission(clerkId);
+  }
+
+  async function updateWinStreak(clerkId, isWin) {
+    const p = await sbFetch('user_profiles?clerk_id=eq.' + clerkId + '&select=win_streak,longest_win_streak');
+    if (!p || !p[0]) return;
+    let streak = p[0].win_streak || 0;
+    streak = isWin ? streak + 1 : (streak > 0 ? -1 : streak - 1);
+    const longest = Math.max(streak, p[0].longest_win_streak || 0);
+    await sbFetch('user_profiles?clerk_id=eq.' + clerkId, {
+      method: 'PATCH', body: { win_streak: streak, longest_win_streak: longest }
+    });
+    return streak;
+  }
+
+  async function checkWinStreakBadges(clerkId) {
+    const p = await sbFetch('user_profiles?clerk_id=eq.' + clerkId + '&select=win_streak');
+    if (!p || !p[0]) return;
+    const s = p[0].win_streak || 0;
+    if (s >= 3) await awardBadge(clerkId, 'sharp');
+    if (s >= 5) await awardBadge(clerkId, 'hot_streak');
+    if (s >= 7) await awardBadge(clerkId, 'lucky_7');
+  }
+
+  async function checkROIBadges(clerkId) {
+    const bets = await sbFetch('bets?clerk_id=eq.' + clerkId + '&result=neq.pending&select=stake,profit_loss');
+    if (!bets || bets.length < 50) return;
+    const totalStake = bets.reduce((a, b) => a + (+b.stake || 0), 0);
+    const totalPL = bets.reduce((a, b) => a + (+b.profit_loss || 0), 0);
+    const roi = totalStake > 0 ? totalPL / totalStake : 0;
+    if (roi > 0 && bets.length >= 50)  await awardBadge(clerkId, 'in_the_black');
+    if (roi > 0 && bets.length >= 200) await awardBadge(clerkId, 'the_analyst');
+    if (roi > 0 && bets.length >= 500) await awardBadge(clerkId, 'statistician');
+    if (roi > 0 && bets.length >= 1000) await awardBadge(clerkId, 'elite');
+  }
+
+  async function checkConditionBadges(clerkId, bet) {
+    if (!bet.track_condition) return;
+    const tc = bet.track_condition.toLowerCase();
+    const isHeavySoft = tc.includes('heavy') || tc.includes('soft');
+    const isGoodFirm = tc.includes('good') || tc.includes('firm');
+
+    if (isHeavySoft) {
+      const wetWins = await sbFetch('bets?clerk_id=eq.' + clerkId + '&result=eq.win&select=track_condition');
+      const wetCount = (wetWins || []).filter(b => {
+        const c = (b.track_condition || '').toLowerCase();
+        return c.includes('heavy') || c.includes('soft');
+      }).length;
+      if (wetCount >= 10) await awardBadge(clerkId, 'mudlark');
+      if (wetCount >= 1) await awardBadge(clerkId, 'heavy_hitter');
+
+      // Storm chaser - 5 Heavy 10 wins
+      const heavy10 = (wetWins || []).filter(b => (b.track_condition || '').toLowerCase().includes('heavy 10')).length;
+      if (heavy10 >= 5) await awardBadge(clerkId, 'storm_chaser');
+    }
+
+    if (isGoodFirm) {
+      const dryWins = await sbFetch('bets?clerk_id=eq.' + clerkId + '&result=eq.win&select=track_condition');
+      const dryCount = (dryWins || []).filter(b => {
+        const c = (b.track_condition || '').toLowerCase();
+        return c.includes('good') || c.includes('firm');
+      }).length;
+      if (dryCount >= 10) await awardBadge(clerkId, 'sunshine_punter');
+      if (dryCount >= 5) await awardBadge(clerkId, 'dust_bowl');
+    }
+
+    // All weather
+    const allWins = await sbFetch('bets?clerk_id=eq.' + clerkId + '&result=eq.win&select=track_condition');
+    const conditions = new Set((allWins || []).map(b => {
+      const c = (b.track_condition || '').toLowerCase();
+      if (c.includes('heavy')) return 'heavy';
+      if (c.includes('soft')) return 'soft';
+      if (c.includes('firm')) return 'firm';
+      return 'good';
+    }));
+    if (conditions.size >= 4) await awardBadge(clerkId, 'all_weather');
+  }
+
+  async function checkVenueBadges(clerkId) {
+    const bets = await sbFetch('bets?clerk_id=eq.' + clerkId + '&select=venue');
+    if (!bets) return;
+    const venueCounts = {};
+    bets.forEach(b => { if (b.venue) venueCounts[b.venue] = (venueCounts[b.venue] || 0) + 1; });
+    const venueMap = {
+      'DOOMBEN': 'doomben_regular',
+      'EAGLE FARM': 'eagle_farm_faithful',
+      'FLEMINGTON': 'flemington_faithful',
+      'RANDWICK': 'randwick_regular',
+      'MOONEE VALLEY': 'moonee_valley',
+      'GOLD COAST': 'gold_coast'
+    };
+    for (const [venue, badgeId] of Object.entries(venueMap)) {
+      if ((venueCounts[venue] || 0) >= 20) await awardBadge(clerkId, badgeId);
+    }
+
+    // Country punter
+    const countryVenues = Object.entries(venueCounts).filter(([v]) => !Object.keys(venueMap).includes(v));
+    const countryTotal = countryVenues.reduce((a, [,c]) => a + c, 0);
+    if (countryTotal >= 20) await awardBadge(clerkId, 'country_punter');
+
+    // Interstate
+    const states = new Set();
+    bets.forEach(b => {
+      const v = (b.venue || '').toUpperCase();
+      if (['DOOMBEN','EAGLE FARM','GOLD COAST','SUNSHINE COAST','IPSWICH'].some(x => v.includes(x))) states.add('QLD');
+      if (['FLEMINGTON','MOONEE VALLEY','CAULFIELD','SANDOWN'].some(x => v.includes(x))) states.add('VIC');
+      if (['RANDWICK','ROSEHILL','WARWICK FARM','HAWKESBURY'].some(x => v.includes(x))) states.add('NSW');
+      if (['ASCOT','BELMONT'].some(x => v.includes(x))) states.add('WA');
+      if (['MORPHETTVILLE'].some(x => v.includes(x))) states.add('SA');
+    });
+    if (states.size >= 5) await awardBadge(clerkId, 'interstate');
+  }
+
+  function checkSeasonalBadge(clerkId, bet) {
+    const month = new Date().getMonth() + 1;
+    const day = new Date().getDate();
+    // Melbourne Cup - first Tuesday November
+    if (month === 11 && day <= 7) awardBadge(clerkId, 'melbourne_cup');
+    // Cox Plate - late October
+    if (month === 10 && day >= 21 && day <= 28) awardBadge(clerkId, 'cox_plate');
+    // Magic Millions - January
+    if (month === 1 && day <= 15) awardBadge(clerkId, 'magic_millions');
+    // Golden Eagle - November
+    if (month === 11 && day >= 1 && day <= 7) awardBadge(clerkId, 'golden_eagle');
+    // Christmas
+    if (month === 12 && day === 25) awardBadge(clerkId, 'christmas_punter');
+    // New Year
+    if (month === 1 && day === 1) awardBadge(clerkId, 'new_year');
+    // Easter (approximate - check for April weekends)
+    if (month === 4 && day >= 14 && day <= 22) awardBadge(clerkId, 'easter_punter');
+    // April Fools
+    if (month === 4 && day === 1) awardBadge(clerkId, 'joker');
+    // Spring carnival - Sept/Oct/Nov
+    if (month >= 9 && month <= 11) {
+      sbFetch('bets?clerk_id=eq.' + clerkId + '&select=race_date').then(bets => {
+        const carnivalBets = (bets || []).filter(b => {
+          const m = new Date(b.race_date).getMonth() + 1;
+          return m >= 9 && m <= 11;
+        }).length;
+        if (carnivalBets >= 20) awardBadge(clerkId, 'spring_carnival');
+      });
+    }
+  }
+
+  async function updateBetStreak(clerkId) {
+    const today = new Date().toISOString().slice(0, 10);
+    const yesterday = new Date(); yesterday.setDate(yesterday.getDate() - 1);
+    const yStr = yesterday.toISOString().slice(0, 10);
+
+    const recentBets = await sbFetch('bets?clerk_id=eq.' + clerkId + '&race_date=gte.' + yStr + '&select=race_date');
+    const betDates = new Set((recentBets || []).map(b => b.race_date));
+
+    const p = await sbFetch('user_profiles?clerk_id=eq.' + clerkId + '&select=bet_streak');
+    if (!p || !p[0]) return;
+
+    let streak = p[0].bet_streak || 0;
+    if (betDates.has(today) && betDates.has(yStr)) {
+      streak++;
+    } else if (!betDates.has(today)) {
+      streak = 1;
+    }
+
+    await sbFetch('user_profiles?clerk_id=eq.' + clerkId, {
+      method: 'PATCH', body: { bet_streak: streak }
+    });
+
+    if (streak >= 7) await awardBadge(clerkId, 'consistent');
+    if (streak >= 30) await awardBadge(clerkId, 'disciplined');
+  }
+
+  // ── FORUM POST ───────────────────────────────────────────────
+  async function handleForumPost(clerkId, postId, isReply = false) {
+    if (!clerkId) return;
+    await awardPoints(clerkId, 5, isReply ? 'Forum reply' : 'Forum post', 'community', postId);
+
+    // Update post count
+    const field = isReply ? 'total_replies' : 'total_posts';
+    const p = await sbFetch('user_profiles?clerk_id=eq.' + clerkId + '&select=' + field);
+    if (!p || !p[0]) return;
+    const count = ((p[0][field] || 0)) + 1;
+    const update = { updated_at: new Date().toISOString() };
+    update[field] = count;
+    await sbFetch('user_profiles?clerk_id=eq.' + clerkId, { method: 'PATCH', body: update });
+
+    // Post badges
+    const totalPosts = isReply ? (p[0].total_posts || 0) : count;
+    if (count === 1 && !isReply) await awardBadge(clerkId, 'first_post');
+    if (totalPosts >= 100) await awardBadge(clerkId, 'voice');
+    if (totalPosts >= 500) await awardBadge(clerkId, 'loud');
+    if (totalPosts >= 1000) await awardBadge(clerkId, 'broadcaster');
+
+    // Mission progress
+    await trackMission(clerkId, 'daily_post');
+    await trackMission(clerkId, 'weekly_posts');
+  }
+
+  // ── UPVOTE ───────────────────────────────────────────────────
+  async function handleUpvote(voterClerkId, targetId, targetType, authorClerkId) {
+    if (!voterClerkId || voterClerkId === authorClerkId) return;
+
+    // Check not already voted
+    const existing = await sbFetch('post_votes?clerk_id=eq.' + voterClerkId + '&target_id=eq.' + targetId);
+    if (existing && existing.length > 0) return;
+
+    // Record vote
+    await sbFetch('post_votes', {
+      method: 'POST',
+      body: { clerk_id: voterClerkId, target_id: targetId, target_type: targetType }
+    });
+
+    // Update upvote count on post/reply
+    const table = targetType === 'post' ? 'posts' : 'replies';
+    const item = await sbFetch(table + '?id=eq.' + targetId + '&select=upvotes');
+    if (item && item[0]) {
+      await sbFetch(table + '?id=eq.' + targetId, {
+        method: 'PATCH',
+        body: { upvotes: (item[0].upvotes || 0) + 1 }
+      });
+    }
+
+    // Award points to author
+    await awardPoints(authorClerkId, 10, 'Post upvoted', 'community', targetId);
+
+    // Update total upvotes on author profile
+    const authorP = await sbFetch('user_profiles?clerk_id=eq.' + authorClerkId + '&select=total_upvotes_received');
+    if (authorP && authorP[0]) {
+      const total = (authorP[0].total_upvotes_received || 0) + 1;
+      await sbFetch('user_profiles?clerk_id=eq.' + authorClerkId, {
+        method: 'PATCH', body: { total_upvotes_received: total }
+      });
+      if (total >= 50) await awardBadge(authorClerkId, 'crowd_pleaser');
+      if (total >= 500) await awardBadge(authorClerkId, 'star_poster');
+      if (total >= 2000) await awardBadge(authorClerkId, 'legend_poster');
+      if (total >= 1) await awardBadge(authorClerkId, 'helpful');
+    }
+
+    // Voter mission
+    await trackMission(voterClerkId, 'daily_upvote');
+  }
+
+  // ── FOLLOW ───────────────────────────────────────────────────
+  async function handleFollow(followerId, followingId) {
+    if (!followerId || followerId === followingId) return;
+
+    const existing = await sbFetch('user_follows?follower_id=eq.' + followerId + '&following_id=eq.' + followingId);
+    if (existing && existing.length > 0) return;
+
+    await sbFetch('user_follows', {
+      method: 'POST',
+      body: { follower_id: followerId, following_id: followingId }
+    });
+
+    // Update counts
+    const fwing = await sbFetch('user_profiles?clerk_id=eq.' + followerId + '&select=following_count');
+    if (fwing && fwing[0]) {
+      const fc = (fwing[0].following_count || 0) + 1;
+      await sbFetch('user_profiles?clerk_id=eq.' + followerId, { method: 'PATCH', body: { following_count: fc } });
+      if (fc >= 10) await awardBadge(followerId, 'follower_badge');
+    }
+
+    const fwed = await sbFetch('user_profiles?clerk_id=eq.' + followingId + '&select=follower_count');
+    if (fwed && fwed[0]) {
+      const fc = (fwed[0].follower_count || 0) + 1;
+      await sbFetch('user_profiles?clerk_id=eq.' + followingId, { method: 'PATCH', body: { follower_count: fc } });
+      if (fc >= 10)  await awardBadge(followingId, 'popular');
+      if (fc >= 50)  await awardBadge(followingId, 'star_social');
+      if (fc >= 100) await awardBadge(followingId, 'celebrity');
+    }
+  }
+
+  // ── BLACKBOOK ────────────────────────────────────────────────
+  async function handleBlackbookAdd(clerkId, horseName) {
+    if (!clerkId) return;
+    await trackMission(clerkId, 'daily_blackbook');
+
+    // Check blackbook count for badge
+    const blackbook = await sbFetch('blackbook?clerk_id=eq.' + clerkId + '&select=count');
+    const count = blackbook ? blackbook.length : 0;
+    if (count === 1) await awardBadge(clerkId, 'blackbook_starter');
+    if (count >= 20) await awardBadge(clerkId, 'talent_spotter');
+    if (count >= 50) await awardBadge(clerkId, 'the_eye');
+  }
+
+  async function handleBlackbookWin(clerkId, horseName, odds) {
+    if (!clerkId) return;
+    await awardPoints(clerkId, 20, 'Blackbook horse won', 'blackbook');
+    if (odds >= 10) await awardBadge(clerkId, 'nose');
+
+    // Check oracle - 3 blackbook wins
+    await awardBadge(clerkId, 'oracle'); // simplified - track separately in production
+  }
+
+  // ── COMPETITION ──────────────────────────────────────────────
+  async function updateCompetitionEntry(clerkId) {
+    // Get active weekly competition
+    const today = new Date().toISOString().slice(0, 10);
+    const comps = await sbFetch('competitions?type=eq.weekly_roi&status=eq.active&start_date=lte.' + today + '&end_date=gte.' + today);
+    if (!comps || !comps.length) return;
+    const comp = comps[0];
+
+    // Calculate ROI for this week
+    const weekBets = await sbFetch('bets?clerk_id=eq.' + clerkId + '&race_date=gte.' + comp.start_date + '&race_date=lte.' + comp.end_date + '&result=neq.pending&select=stake,profit_loss');
+    if (!weekBets || weekBets.length < comp.min_bets) return;
+
+    const totalStake = weekBets.reduce((a, b) => a + (+b.stake || 0), 0);
+    const totalPL = weekBets.reduce((a, b) => a + (+b.profit_loss || 0), 0);
+    const roi = totalStake > 0 ? (totalPL / totalStake * 100) : 0;
+
+    // Upsert entry
+    await sbFetch('competition_entries', {
+      method: 'POST',
+      prefer: 'resolution=merge-duplicates',
+      body: {
+        competition_id: comp.id,
+        clerk_id: clerkId,
+        roi: roi.toFixed(2),
+        bets_count: weekBets.length,
+        wins_count: weekBets.filter(b => b.profit_loss > 0).length,
+        updated_at: new Date().toISOString()
+      }
+    });
+  }
+
+  async function checkWeeklyROIMission(clerkId) {
+    const today = new Date().toISOString().slice(0, 10);
+    const weekStart = new Date(); weekStart.setDate(weekStart.getDate() - weekStart.getDay() + 1);
+    const weekStr = weekStart.toISOString().slice(0, 10);
+
+    const weekBets = await sbFetch('bets?clerk_id=eq.' + clerkId + '&race_date=gte.' + weekStr + '&result=neq.pending&select=stake,profit_loss');
+    if (!weekBets || weekBets.length < 5) return;
+
+    const totalStake = weekBets.reduce((a, b) => a + (+b.stake || 0), 0);
+    const totalPL = weekBets.reduce((a, b) => a + (+b.profit_loss || 0), 0);
+    if (totalPL > 0) await trackMission(clerkId, 'weekly_roi');
+  }
+
+  // ── MISSIONS ─────────────────────────────────────────────────
+  async function trackMission(clerkId, missionId) {
+    if (!clerkId || !missionId) return;
+    const today = new Date().toISOString().slice(0, 10);
+
+    // Get mission definition
+    const mission = await sbFetch('missions?id=eq.' + missionId);
+    if (!mission || !mission[0]) return;
+    const m = mission[0];
+
+    // Get or create progress
+    const existing = await sbFetch('user_missions?clerk_id=eq.' + clerkId + '&mission_id=eq.' + missionId + '&date=eq.' + (m.is_daily ? today : 'current_week'));
+    
+    if (existing && existing[0] && existing[0].completed) return; // Already done
+
+    const currentProgress = existing && existing[0] ? existing[0].progress : 0;
+    const newProgress = currentProgress + 1;
+    const completed = newProgress >= m.target_count;
+
+    if (existing && existing[0]) {
+      await sbFetch('user_missions?id=eq.' + existing[0].id, {
+        method: 'PATCH',
+        body: { progress: newProgress, completed, completed_at: completed ? new Date().toISOString() : null }
+      });
+    } else {
+      await sbFetch('user_missions', {
+        method: 'POST',
+        body: { clerk_id: clerkId, mission_id: missionId, progress: newProgress, completed, date: today, completed_at: completed ? new Date().toISOString() : null }
+      });
+    }
+
+    if (completed) {
+      await awardPoints(clerkId, m.points, 'Mission: ' + m.title, 'mission', missionId);
+      toast('Mission complete: ' + m.title + ' +' + m.points + 'pts', 'success');
+    }
+  }
+
+  // ── PROFILE INIT ─────────────────────────────────────────────
+  async function initUserProfile(clerkUser) {
+    if (!clerkUser) return null;
+
+    // Check if profile exists
+    const existing = await sbFetch('user_profiles?clerk_id=eq.' + clerkUser.id);
+    
+    if (existing && existing.length > 0) {
+      window.wwUserProfile = existing[0];
+      await handleLogin(clerkUser.id);
+      return existing[0];
+    }
+
+    // Create new profile
+    const referralCode = 'WW' + Math.random().toString(36).substr(2, 8).toUpperCase();
+    const newProfile = {
+      clerk_id: clerkUser.id,
+      username: clerkUser.username || clerkUser.firstName || 'Punter' + Math.floor(Math.random() * 9999),
+      display_name: clerkUser.fullName || clerkUser.firstName || 'Punter',
+      email: clerkUser.primaryEmailAddress?.emailAddress || '',
+      avatar_url: clerkUser.imageUrl || '',
+      referral_code: referralCode,
+      points: 0,
+      tier: 'Maiden'
+    };
+
+    await sbFetch('user_profiles', { method: 'POST', body: newProfile });
+
+    // Award founding/early adopter badges
+    const totalUsers = await sbFetch('user_profiles?select=count');
+    const count = totalUsers ? totalUsers.length : 999;
+    if (count <= 100) await awardBadge(clerkUser.id, 'early_adopter');
+    else if (count <= 500) await awardBadge(clerkUser.id, 'founding_member');
+
+    await awardBadge(clerkUser.id, 'seedling');
+    await awardPoints(clerkUser.id, 5, 'Welcome bonus', 'login');
+
+    window.wwUserProfile = newProfile;
+    await handleLogin(clerkUser.id);
+    return newProfile;
+  }
+
+  // ── LEADERBOARD ──────────────────────────────────────────────
+  async function getLeaderboard(type = 'points', limit = 10) {
+    if (type === 'points') {
+      return sbFetch('user_profiles?leaderboard_opt_out=eq.false&order=points.desc&limit=' + limit + '&select=clerk_id,display_name,username,points,tier,avatar_url,total_bets,total_wins');
+    }
+    if (type === 'roi_week') {
+      const weekStart = new Date(); weekStart.setDate(weekStart.getDate() - weekStart.getDay() + 1);
+      const weekStr = weekStart.toISOString().slice(0, 10);
+      return sbFetch('competition_entries?select=clerk_id,roi,bets_count,wins_count,user_profiles(display_name,tier,avatar_url)&order=roi.desc&limit=' + limit);
+    }
+    return [];
+  }
+
+  // ── UI HELPERS ───────────────────────────────────────────────
+  function updateProfileUI() {
+    const profile = window.wwUserProfile;
+    if (!profile) return;
+    const tier = getTier(profile.points || 0);
+    const next = getNextTier(profile.points || 0);
+
+    // Update sidebar profile if exists
+    const profileEl = document.getElementById('sidebar-profile');
+    if (profileEl) {
+      const pct = next ? Math.min(100, Math.round(((profile.points || 0) - getMinForTier(tier.name)) / (next.needed + ((profile.points || 0) - getMinForTier(tier.name))) * 100)) : 100;
+      profileEl.innerHTML = `
+        <div style="display:flex;align-items:center;gap:8px;padding:8px 12px;border-top:0.5px solid rgba(255,255,255,.1)">
+          <div style="width:28px;height:28px;border-radius:50%;background:#00471b;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#fff;flex-shrink:0">
+            ${(profile.display_name || 'U')[0].toUpperCase()}
+          </div>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:10px;font-weight:600;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${profile.display_name || 'Punter'}</div>
+            <div style="font-size:9px;color:rgba(255,255,255,.6)">${tier.emoji} ${tier.name} · ${(profile.points || 0).toLocaleString()} pts</div>
+            <div style="height:3px;background:rgba(255,255,255,.15);border-radius:2px;margin-top:3px">
+              <div style="width:${pct}%;height:100%;background:${tier.color};border-radius:2px;transition:width .3s"></div>
+            </div>
+          </div>
+        </div>`;
+    }
+  }
+
+  function getMinForTier(tierName) {
+    const mins = { 'Maiden': 0, 'Benchmark': 500, 'Listed': 2000, 'Group 3': 5000, 'Group 2': 10000, 'Group 1': 25000 };
+    return mins[tierName] || 0;
+  }
+
+  // ── PUBLIC API ────────────────────────────────────────────────
+  return {
+    init: initUserProfile,
+    login: handleLogin,
+    betLogged: handleBetLogged,
+    betSettled: handleBetSettled,
+    forumPost: handleForumPost,
+    upvote: handleUpvote,
+    follow: handleFollow,
+    blackbookAdd: handleBlackbookAdd,
+    blackbookWin: handleBlackbookWin,
+    awardPoints,
+    awardBadge,
+    getLeaderboard,
+    getTier,
+    getNextTier,
+    trackMission,
+    updateUI: updateProfileUI
+  };
+
+})();
+
+// ── AUTO INIT ON CLERK LOAD ──────────────────────────────────
+document.addEventListener('DOMContentLoaded', function() {
+  if (typeof Clerk !== 'undefined') {
+    Clerk.load().then(function() {
+      if (Clerk.user) {
+        COMMUNITY.init(Clerk.user);
+      }
+      Clerk.addListener(function(resources) {
+        if (resources.user) {
+          COMMUNITY.init(resources.user);
+        }
+      });
+    });
+  }
+});
+
+</script>
 </body>
 </html>
