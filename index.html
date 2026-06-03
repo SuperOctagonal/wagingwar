@@ -397,7 +397,7 @@ body{background:#f1f5f9;color:#111827;font-family:'Space Grotesk',sans-serif;fon
 .unlock-btn{padding:8px 20px;background:#00471b;color:#fff;border:none;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;font-family:'Space Grotesk'}
 
 /* ── HORSE FORM CARD ── */
-.horse-form-card,#horseFormCard{display:none;position:fixed;z-index:99999;background:#fff;border:1.5px solid #00471b;border-radius:10px;box-shadow:0 8px 32px rgba(0,0,0,.2);width:440px;overflow:hidden;pointer-events:none;max-height:80vh;overflow-y:auto}
+.horse-form-card,#horseFormCard{display:none;position:fixed;z-index:99999;background:#fff;border:1.5px solid #00471b;border-radius:10px;box-shadow:0 8px 32px rgba(0,0,0,.2);width:520px;overflow:hidden;pointer-events:none;max-height:80vh;overflow-y:auto}
 .hfc-header{background:linear-gradient(135deg,#00471b 0%,#005c23 100%);padding:10px 14px;display:flex;align-items:flex-start;justify-content:space-between}
 .hfc-name{font-size:14px;font-weight:700;color:#fff;letter-spacing:.3px;line-height:1.2}
 .hfc-meta{font-size:10px;color:rgba(255,255,255,.7);margin-top:3px}
@@ -2711,7 +2711,6 @@ function showCommunity(){
   var next=typeof COMMUNITY!=='undefined'?COMMUNITY.getNextTier(profile.points||0):null;
   var u=currentUser||{};
   var pts=profile.points||0;
-
   var sections=[
     {id:'all',label:'All Posts'},
     {id:'today_races',label:"Today's Races"},
@@ -2720,85 +2719,55 @@ function showCommunity(){
     {id:'system_feedback',label:'System Feedback'},
     {id:'general',label:'General Chat'}
   ];
-
-  // Tier progress
   var tierMins={Maiden:0,Benchmark:500,Listed:2000,'Group 3':5000,'Group 2':10000,'Group 1':25000};
   var tierMaxs={Maiden:499,Benchmark:1999,Listed:4999,'Group 3':9999,'Group 2':24999,'Group 1':999999};
-  var tMin=tierMins[tier.name]||0;
-  var tMax=tierMaxs[tier.name]||499;
+  var tMin=tierMins[tier.name]||0,tMax=tierMaxs[tier.name]||499;
   var tPct=tMax>tMin?Math.min(100,Math.round((pts-tMin)/(tMax-tMin)*100)):100;
-
-  // Profile panel HTML
   var profileHTML='<div style="padding:16px;border-bottom:0.5px solid #e5e7eb">';
   profileHTML+='<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">';
   profileHTML+='<div style="width:44px;height:44px;border-radius:50%;background:#00471b;display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:700;color:#fff;flex-shrink:0">'+((u.name||'A').charAt(0).toUpperCase())+'</div>';
   profileHTML+='<div style="flex:1"><div style="font-size:13px;font-weight:600;color:#111827">'+(u.name||'Punter')+'</div>';
-  profileHTML+='<span style="font-size:9px;font-weight:700;padding:2px 7px;border-radius:4px;background:'+tier.color+'22;color:'+tier.color+';border:0.5px solid '+tier.color+'44">'+tier.emoji+' '+tier.name+'</span>';
-  profileHTML+='</div></div>';
+  profileHTML+='<span style="font-size:9px;font-weight:700;padding:2px 7px;border-radius:4px;background:'+tier.color+'22;color:'+tier.color+'">'+tier.emoji+' '+tier.name+'</span></div></div>';
   profileHTML+='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">';
   profileHTML+='<span style="font-size:11px;font-weight:700;color:#111827">'+pts.toLocaleString()+' pts</span>';
   profileHTML+=next?('<span style="font-size:10px;color:#6b7280">'+next.needed.toLocaleString()+' to '+next.name+'</span>'):'<span style="font-size:10px;color:#7c3aed">Max tier 👑</span>';
   profileHTML+='</div>';
-  profileHTML+='<div style="height:6px;background:#f1f5f9;border-radius:3px;overflow:hidden;margin-bottom:10px">';
-  profileHTML+='<div style="width:'+tPct+'%;height:100%;background:'+tier.color+';border-radius:3px"></div></div>';
-
-  var totalBets=profile.total_bets||0,totalWins=profile.total_wins||0,totalPosts=profile.total_posts||0;
-  var winPct2=totalBets>0?Math.round(totalWins/totalBets*100):0;
+  profileHTML+='<div style="height:6px;background:#f1f5f9;border-radius:3px;overflow:hidden;margin-bottom:10px"><div style="width:'+tPct+'%;height:100%;background:'+tier.color+';border-radius:3px"></div></div>';
+  var tb=profile.total_bets||0,tw=profile.total_wins||0,tp2=profile.total_posts||0;
+  var wp2=tb>0?Math.round(tw/tb*100):0;
   profileHTML+='<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:10px">';
-  profileHTML+='<div style="text-align:center;background:#f8fafc;border-radius:6px;padding:6px 4px"><div style="font-size:13px;font-weight:700;color:#111827">'+totalBets+'</div><div style="font-size:9px;color:#6b7280">Bets</div></div>';
-  profileHTML+='<div style="text-align:center;background:#f8fafc;border-radius:6px;padding:6px 4px"><div style="font-size:13px;font-weight:700;color:#059669">'+winPct2+'%</div><div style="font-size:9px;color:#6b7280">Win%</div></div>';
-  profileHTML+='<div style="text-align:center;background:#f8fafc;border-radius:6px;padding:6px 4px"><div style="font-size:13px;font-weight:700;color:#2563eb">'+totalPosts+'</div><div style="font-size:9px;color:#6b7280">Posts</div></div>';
+  profileHTML+='<div style="text-align:center;background:#f8fafc;border-radius:6px;padding:6px 4px"><div style="font-size:13px;font-weight:700;color:#111827">'+tb+'</div><div style="font-size:9px;color:#6b7280">Bets</div></div>';
+  profileHTML+='<div style="text-align:center;background:#f8fafc;border-radius:6px;padding:6px 4px"><div style="font-size:13px;font-weight:700;color:#059669">'+wp2+'%</div><div style="font-size:9px;color:#6b7280">Win%</div></div>';
+  profileHTML+='<div style="text-align:center;background:#f8fafc;border-radius:6px;padding:6px 4px"><div style="font-size:13px;font-weight:700;color:#2563eb">'+tp2+'</div><div style="font-size:9px;color:#6b7280">Posts</div></div>';
   profileHTML+='</div>';
-
   if(profile.referral_code){
     profileHTML+='<div style="background:#f0fdf4;border:0.5px solid #bbf7d0;border-radius:6px;padding:8px;margin-bottom:10px">';
     profileHTML+='<div style="font-size:9px;font-weight:600;color:#166534;margin-bottom:3px">Referral link — earn 200pts per signup</div>';
-    profileHTML+='<div style="display:flex;align-items:center;gap:6px">';
-    profileHTML+='<div style="font-size:10px;font-weight:600;color:#111827;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">wagingwar.com.au?ref='+profile.referral_code+'</div>';
-    profileHTML+='<button id="ref-copy-btn" style="background:#00471b;color:#fff;border:none;padding:4px 8px;border-radius:4px;font-size:9px;font-weight:600;cursor:pointer">Copy</button>';
-    profileHTML+='</div></div>';
+    profileHTML+='<div style="display:flex;align-items:center;gap:6px"><div style="font-size:10px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">wagingwar.com.au?ref='+profile.referral_code+'</div>';
+    profileHTML+='<button id="ref-copy-btn" style="background:#00471b;color:#fff;border:none;padding:4px 8px;border-radius:4px;font-size:9px;font-weight:600;cursor:pointer">Copy</button></div></div>';
   }
-
   profileHTML+='<div style="font-size:10px;font-weight:600;color:#374151;margin-bottom:6px">My Badges</div>';
-  profileHTML+='<div id="user-badges-row" style="display:flex;flex-wrap:wrap;gap:4px;min-height:24px"><span style="font-size:10px;color:#9ca3af">Loading...</span></div>';
-  profileHTML+='</div>';
-
-  // Sections nav
+  profileHTML+='<div id="user-badges-row" style="display:flex;flex-wrap:wrap;gap:4px;min-height:24px"><span style="font-size:10px;color:#9ca3af">Loading...</span></div></div>';
   var navHTML='<div style="padding:8px 12px;border-bottom:0.5px solid #e5e7eb">';
   navHTML+='<div style="font-size:9px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Sections</div>';
   sections.forEach(function(s){
     var isActive=af===s.id;
-    navHTML+='<div data-section="'+s.id+'" class="comm-section-btn" style="display:flex;align-items:center;justify-content:space-between;padding:6px 8px;border-radius:6px;cursor:pointer;margin-bottom:2px;background:'+(isActive?'#f0fdf4':'')+';color:'+(isActive?'#00471b':'#374151')+';font-size:12px;font-weight:'+(isActive?'600':'400')+'">'+s.label+'</div>';
+    navHTML+='<div data-section="'+s.id+'" class="comm-section-btn" style="padding:6px 8px;border-radius:6px;cursor:pointer;margin-bottom:2px;background:'+(isActive?'#f0fdf4':'')+';color:'+(isActive?'#00471b':'#374151')+';font-size:12px;font-weight:'+(isActive?'600':'400')+'">'+s.label+'</div>';
   });
   navHTML+='</div>';
-
-  // Missions panel
-  var missionsHTML='<div style="padding:12px 16px;border-bottom:0.5px solid #e5e7eb">';
-  missionsHTML+='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">';
-  missionsHTML+='<div style="font-size:11px;font-weight:700;color:#374151">Daily Missions</div>';
-  missionsHTML+='<div style="font-size:9px;color:#9ca3af">Resets midnight</div></div>';
-  missionsHTML+='<div id="missions-wrap"><div style="font-size:10px;color:#9ca3af">Loading...</div></div>';
-  missionsHTML+='</div>';
-
-  // Feed panel
+  var missionsHTML='<div style="padding:12px 16px"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px"><div style="font-size:11px;font-weight:700;color:#374151">Daily Missions</div><div style="font-size:9px;color:#9ca3af">Resets midnight</div></div><div id="missions-wrap"><div style="font-size:10px;color:#9ca3af">Loading...</div></div></div>';
   var feedHTML='<div style="flex:1;overflow-y:auto">';
   feedHTML+='<div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:0.5px solid #e5e7eb;position:sticky;top:0;background:#fff;z-index:10">';
   feedHTML+='<div style="font-size:18px;font-weight:700;color:#111827">Community</div>';
-  feedHTML+='<button id="new-post-btn" style="background:#00471b;color:#fff;border:none;padding:8px 16px;border-radius:7px;font-size:12px;font-weight:600;cursor:pointer">✏️ New post</button>';
-  feedHTML+='</div>';
-
+  feedHTML+='<button id="new-post-btn" style="background:#00471b;color:#fff;border:none;padding:8px 16px;border-radius:7px;font-size:12px;font-weight:600;cursor:pointer">✏️ New post</button></div>';
   feedHTML+='<div style="display:flex;gap:0;padding:0 16px;border-bottom:0.5px solid #e5e7eb;overflow-x:auto;scrollbar-width:none">';
   sections.forEach(function(s){
     var isActive=af===s.id;
     feedHTML+='<div data-section="'+s.id+'" class="comm-tab-btn" style="padding:10px 14px;font-size:11px;font-weight:'+(isActive?'600':'400')+';color:'+(isActive?'#00471b':'#6b7280')+';cursor:pointer;border-bottom:2px solid '+(isActive?'#00471b':'transparent')+';white-space:nowrap;flex-shrink:0">'+s.label+'</div>';
   });
   feedHTML+='</div>';
-
   feedHTML+='<div style="margin:12px 16px;padding:8px 12px;background:#fffbeb;border:0.5px solid #fef08a;border-radius:6px;font-size:11px;color:#854d0e">⚠️ Posts are member opinions only — not financial advice.</div>';
-  feedHTML+='<div id="community-posts-wrap" style="padding:0 16px 16px"><div style="padding:20px;text-align:center;color:#9ca3af;font-size:12px">Loading posts...</div></div>';
-  feedHTML+='</div>';
-
-  // Leaderboard panel
+  feedHTML+='<div id="community-posts-wrap" style="padding:0 16px 16px"><div style="padding:20px;text-align:center;color:#9ca3af;font-size:12px">Loading posts...</div></div></div>';
   var lbHTML='<div style="padding:16px;overflow-y:auto">';
   lbHTML+='<div style="font-size:13px;font-weight:700;color:#111827;margin-bottom:2px">Leaderboards</div>';
   lbHTML+='<div style="font-size:10px;color:#9ca3af;margin-bottom:12px">Resets every Monday</div>';
@@ -2807,16 +2776,12 @@ function showCommunity(){
   lbHTML+='<div style="font-size:10px;font-weight:700;color:#374151;text-transform:uppercase;letter-spacing:.5px;margin:12px 0 8px">Top Contributors</div>';
   lbHTML+='<div id="lb-pts-wrap"><div style="font-size:11px;color:#9ca3af">Loading...</div></div>';
   lbHTML+='<div style="font-size:10px;font-weight:700;color:#374151;text-transform:uppercase;letter-spacing:.5px;margin:12px 0 8px">Community Stats</div>';
-  lbHTML+='<div id="lb-stats-wrap"><div style="font-size:11px;color:#9ca3af">Loading...</div></div>';
-  lbHTML+='</div>';
-
+  lbHTML+='<div id="lb-stats-wrap"><div style="font-size:11px;color:#9ca3af">Loading...</div></div></div>';
   main.innerHTML='<div style="display:grid;grid-template-columns:220px 1fr 240px;height:calc(100vh - 56px);overflow:hidden;background:#f8fafc">'
     +'<div style="border-right:0.5px solid #e5e7eb;background:#fff;overflow-y:auto">'+profileHTML+navHTML+missionsHTML+'</div>'
     +'<div style="display:flex;flex-direction:column;overflow:hidden">'+feedHTML+'</div>'
     +'<div style="border-left:0.5px solid #e5e7eb;background:#fff;overflow-y:auto">'+lbHTML+'</div>'
     +'</div>';
-
-  // Wire up events after render
   document.querySelectorAll('.comm-section-btn,.comm-tab-btn').forEach(function(el){
     el.addEventListener('click',function(){communityFilter(el.getAttribute('data-section'));});
   });
@@ -2827,8 +2792,6 @@ function showCommunity(){
     navigator.clipboard.writeText('https://wagingwar.com.au?ref='+(profile.referral_code||''));
     toast('Referral link copied','success');
   });
-
-  // Load async data
   loadCommunityData(af);
 }
 
@@ -6043,131 +6006,114 @@ function showHorseForm(e, idx){
   var card = document.getElementById('horseFormCard');
   if(!card || !h) return;
 
-  var pct = function(a,b){ return b>0 ? Math.round(a/b*100)+'%' : '0%'; };
-
-  // Career
-  var careerRec = h.starts+'-'+h.wins+'-'+(h.seconds||0)+'-'+(h.thirds||0);
-  var winSR = pct(h.wins, h.starts);
-  var placeSR = pct((h.wins||0)+(h.places||0), h.starts);
-
-  // Course / Distance
-  var cS=h.courseStarts||0, cW=h.courseWins||0;
-  var dS=h.distStarts||0, dW=h.distWins||0;
-  var courseRec = cS+'-'+cW;
-  var distRec = dS+'-'+dW;
-
-  // Track conditions — S-W-P
-  var gS=h.goodStarts||0, gW=h.goodWins||0, gP=h.goodPlaces||0;
-  var sS=h.softStarts||0, sW=h.softWins||0, sP=h.softPlaces||0;
-  var hvS=h.heavyStarts||0, hvW=h.heavyWins||0, hvP=h.heavyPlaces||0;
-  var fmS=h.firmStarts||0, fmW=h.firmWins||0, fmP=h.firmPlaces||0;
-  var gRec=gS+'-'+gW+'-'+gP, sRec=sS+'-'+sW+'-'+sP;
-  var hvRec=hvS+'-'+hvW+'-'+hvP, fmRec=fmS+'-'+fmW+'-'+fmP;
-
-  // Best condition highlight
-  var bestCond='', bestPct=0;
-  if(gS>0&&gW/gS>bestPct){bestPct=gW/gS;bestCond='good';}
-  if(sS>0&&sW/sS>bestPct){bestPct=sW/sS;bestCond='soft';}
-  if(hvS>0&&hvW/hvS>bestPct){bestPct=hvW/hvS;bestCond='heavy';}
-  if(fmS>0&&fmW/fmS>bestPct){bestPct=fmW/fmS;bestCond='firm';}
-  var condBg={good:'#f0fdf4',soft:'#fffbeb',heavy:'#f3f4f6',firm:'#fff7ed'};
-  var mkCond=function(rec,cond,label,color){
-    var bg=bestCond===cond?'background:'+condBg[cond]+';':'';
-    return '<div class="hfc-stat" style="'+bg+'"><div class="hfc-sv">'+rec+'</div><div class="hfc-sl" style="color:'+color+'">'+label+'</div></div>';
-  };
-
-  // Prize
-  var totalPrize=h['Total Prizemoney'], avgPrize=h['Average Prizemoney'];
-  var fmtP=function(v){if(!v&&v!==0)return'--';return'$'+(v>=1000?(v/1000).toFixed(0)+'k':v);};
-  var totStr=fmtP(totalPrize), avgStr=fmtP(avgPrize);
-
-  // Meta
-  var days=h['Days Since Last Start'], daysStr=days?days+'d ago':'--';
-  var bp=h['BP']||'?', wt=h['Weight']?h['Weight']+'kg':'--';
-  var spArr=(Array.isArray(h.lastSP)?h.lastSP:[h.lastSP]).filter(function(v){return v!=null&&v>0;});
-  var avgSP=spArr.length>0?'$'+(spArr.reduce(function(a,b){return a+b;},0)/spArr.length).toFixed(2):'--';
-
-  // Recent runs
-  var runsHTML='<table class="hfc-runs-tbl"><tr class="hfc-run-hdr"><td style="width:22px"></td><td>DATE · TRACK · DIST · CLASS</td><td style="width:52px;text-align:right;color:#111827">SP</td><td style="width:44px;text-align:right;color:#111827">MARGIN</td><td style="width:34px;text-align:right;color:#111827">RTG</td></tr>';
-  var anyRun=false;
-  for(var ri=0;ri<3;ri++){
-    var pos=h.lastFin?h.lastFin[ri]:null;
-    var sp=Array.isArray(h.lastSP)?h.lastSP[ri]:(ri===0?h.lastSP:null);
-    var dtl=h.lastRunDetails?h.lastRunDetails[ri]:null;
-    var date=dtl&&dtl.date?dtl.date:'';
-    var dist2=dtl&&dtl.dist?dtl.dist+'m':'';
-    var crse=dtl&&dtl.crse?dtl.crse:'';
-    var cls=dtl&&dtl.cls?dtl.cls:'';
-    var margin=dtl&&dtl.margin!=null?dtl.margin:(ri===0?h.lastMargin:null);
-    var rating=dtl&&dtl.rating?dtl.rating:null;
-    var wtVal=dtl&&dtl.wt&&dtl.wt>40&&dtl.wt<75?dtl.wt:null;
-    if(!pos&&!sp&&!date&&!dist2) continue;
-    anyRun=true;
-    var pc=pos===1?'p1':(pos&&pos<=3)?'p23':'px';
-    var rowBg=pos===1?'background:#fffbeb':'background:#fafafa';
-    var posStr=pos?pos:'—';
-    var spStr=sp&&!isNaN(+sp)?'$'+(+sp).toFixed(2):'—';
-    var mgStr=margin!=null?margin+'L':'—';
-    var rtgStr=rating?rating.toFixed(1):'—';
-    var dateShort=date?date.replace(/(\d+)\/(\d+)\/(\d+)/,'$1/$2'):'';
-    var detail=[dateShort,crse,dist2,cls].filter(Boolean).join(' · ');
-    if(wtVal) detail+=' <span style="color:#374151">'+wtVal+'kg</span>';
-    runsHTML+='<tr style="'+rowBg+'">';
-    runsHTML+='<td style="padding:3px 2px;width:22px;vertical-align:middle"><div class="hfc-rpos-inner '+pc+'">'+posStr+'</div></td>';
-    runsHTML+='<td style="padding:3px 4px;font-size:8px;font-weight:600;color:#374151;max-width:155px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">'+detail+'</td>';
-    runsHTML+='<td style="padding:3px 4px;font-size:9px;font-weight:700;color:#92400e;text-align:right;white-space:nowrap">'+spStr+'</td>';
-    runsHTML+='<td style="padding:3px 4px;font-size:8px;color:#374151;text-align:right;white-space:nowrap">'+mgStr+'</td>';
-    runsHTML+='<td style="padding:3px 2px;font-size:7px;color:#374151;text-align:right;white-space:nowrap">'+rtgStr+'</td>';
-    runsHTML+='</tr>';
+  function p(a,b){ return b>0?Math.round(a/b*100)+'%':'0%'; }
+  function statColor(w,s){ if(!s)return''; var r=w/s; return r>=0.25?'color:#059669;font-weight:600':r>=0.12?'color:#d97706;font-weight:600':''; }
+  function fmtDate(d){
+    if(!d)return'';
+    var parts=d.split('/');
+    if(parts.length===3){var months=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];return parts[0]+' '+(months[parseInt(parts[1],10)-1]||parts[1]);}
+    return d;
   }
-  runsHTML+='</table>'
-  if(!anyRun) runsHTML='<table class="hfc-runs-tbl"><tr><td colspan="5" style="font-size:9px;color:#9ca3af;padding:4px 5px">No run history in CSV</td></tr></table>';
+  function fmtSP(v){ return (v&&!isNaN(+v)&&+v>0)?'$'+(+v):'—'; }
+  function posStyle(n){ n=+n; if(n===1)return'background:#fbbf24;color:#78350f;'; if(n===2)return'background:#d1d5db;color:#374151;'; if(n===3)return'background:#b45309;color:#fff;'; return'background:#f3f4f6;color:#6b7280;'; }
+
+  var bp=h['BP']||'', wt=h['Weight']?h['Weight']+'kg':'';
+  var allow=h.allowance?'('+h.allowance+')':'';
+  var age=h[' age']||h.age||'', sex=h.sex||'';
+  var days=h['Days Since Last Start']||'';
+  var starts=h.starts||0, wins=h.wins||0, secs=h.seconds||0, thirds=h.thirds||0;
+  var winPct=starts>0?Math.round(wins/starts*100):0;
+
+  var sire=h.sire||'', dam=h.dam||'', gsire=h.gsire||'', winDists=h.winDists||'';
+  var breedParts=[];
+  if(sire)breedParts.push('By '+sire);
+  if(dam)breedParts.push('Dam: '+dam);
+  if(gsire)breedParts.push('GSire: '+gsire);
+  if(winDists)breedParts.push('Win dists: '+winDists);
+  var breedLine=breedParts.join(' · ');
+
+  var jS=h.jocLoc12mS||0,jW=h.jocLoc12mW||0,jP=h.jocLoc12mP||0;
+  var tS=h.trnLoc12mS||0,tW=h.trnLoc12mW||0,tP=h.trnLoc12mP||0;
+  var jtS=h.jocTrnStarts||0,jtW=h.jocTrnWins||0,jtP=h.jocTrnPlaces||0;
+  var up1W=h.prepRuns1W||0,up1P=h.prepRuns1P||0,up1S=h.prepRuns1S||0;
+  var up2W=h.prepRuns2W||0,up2P=h.prepRuns2P||0,up2S=h.prepRuns2S||0;
+  var cdW=h.courseWins||0,cdP=h.coursePlaces||0,cdS=h.courseStarts||0;
+
+  var finArr=Array.isArray(h.lastFin)?h.lastFin:[h.lastFin,null,null,null];
+  var spArr2=Array.isArray(h.lastSP)?h.lastSP:[h.lastSP,null,null,null];
+  var runRows='';
+  for(var ri=0;ri<4;ri++){
+    var pos=finArr[ri];
+    if(pos===null||pos===undefined||pos==='')continue;
+    var dtl=h.lastRunDetails?h.lastRunDetails[ri]:null;
+    if(!dtl||!dtl.date)continue;
+    var sp2=spArr2[ri];
+    var rowBg=ri%2===1?'background:#f9fafb;':'';
+    var mgTxt=+pos===1?('Won '+(dtl.margin||0)+'L'):(dtl.margin!=null?dtl.margin+'L':'—');
+    var mgColor=+pos===1?'color:#059669;font-weight:500':+pos<=3?'color:#d97706':'color:#6b7280';
+    runRows+='<tr>';
+    runRows+='<td style="'+rowBg+'padding:2px 6px;font-size:10px;color:#6b7280;white-space:nowrap">'+fmtDate(dtl.date)+'</td>';
+    runRows+='<td style="'+rowBg+'padding:2px 4px;text-align:center"><div style="width:18px;height:18px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:9px;font-weight:600;'+posStyle(pos)+'">'+pos+'</div></td>';
+    runRows+='<td style="'+rowBg+'padding:2px 6px;font-size:10px;color:#111827;white-space:nowrap">'+(dtl.crse||'—')+'</td>';
+    runRows+='<td style="'+rowBg+'padding:2px 4px"><span style="font-size:9px;padding:1px 4px;border-radius:3px;background:#eff6ff;color:#1d4ed8;white-space:nowrap">'+(dtl.cls||'—')+'</span></td>';
+    runRows+='<td style="'+rowBg+'padding:2px 6px;font-size:10px;color:#111827;white-space:nowrap">'+(dtl.dist?dtl.dist+'m':'—')+'</td>';
+    runRows+='<td style="'+rowBg+'padding:2px 6px;font-size:10px;color:#6b7280;white-space:nowrap">'+(dtl.wt?dtl.wt+'kg':'—')+'</td>';
+    runRows+='<td style="'+rowBg+'padding:2px 6px;font-size:10px;color:#6b7280;white-space:nowrap">'+fmtSP(sp2)+'</td>';
+    runRows+='<td style="'+rowBg+'padding:2px 6px;font-size:10px;'+mgColor+';white-space:nowrap">'+mgTxt+'</td>';
+    runRows+='</tr>';
+  }
+  if(!runRows) runRows='<tr><td colspan="8" style="padding:6px;font-size:10px;color:#9ca3af">No run data</td></tr>';
+
+  function statCell(label,w,p2,s,last){
+    var br=last?'':'border-right:0.5px solid #e5e7eb;';
+    return '<div style="padding:4px 8px;'+br+'flex:1">'
+      +'<div style="font-size:8px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:.4px;margin-bottom:2px">'+label+'</div>'
+      +'<div style="font-size:10px;font-weight:500;'+statColor(w,s)+'">'+( s?s+'S '+w+'W '+p2+'P':'—')+'</div>'
+      +'<div style="font-size:9px;color:#6b7280;margin-top:1px">'+p(w,s)+' win</div>'
+      +'</div>';
+  }
 
   var html='';
-  html+='<div class="hfc-hdr"><div class="hfc-name">'+h.name+' <span style="font-size:10px;font-weight:500;opacity:.75">('+bp+') · '+wt+'</span></div><div style="font-size:9px;color:rgba(255,255,255,.6)">'+daysStr+'</div></div>';
-  html+='<div class="hfc-prize-row"><span>Total Prize: <b>'+totStr+'</b></span><span>Avg Prize: <b>'+avgStr+'</b></span><span>Avg SP: <b>'+avgSP+'</b></span></div>';
-  html+='<div class="hfc-meta"><span>J: <b>'+(h.jname||'--')+'</b></span><span>T: <b>'+(h.trainer||'--')+'</b></span></div>';
-
-  // Career
-  html+='<div class="hfc-stats">';
-  html+='<div class="hfc-stat"><div class="hfc-sv">'+careerRec+'</div><div class="hfc-sl">Career S-W-2-3</div></div>';
-  html+='<div class="hfc-stat"><div class="hfc-sv '+(parseInt(winSR)>=20?'g':'')+'">'+winSR+'</div><div class="hfc-sl">Win SR</div></div>';
-  html+='<div class="hfc-stat"><div class="hfc-sv '+(parseInt(placeSR)>=40?'g':'')+'">'+placeSR+'</div><div class="hfc-sl">Place SR</div></div>';
-  html+='<div class="hfc-stat"><div class="hfc-sv">'+avgSP+'</div><div class="hfc-sl">Avg SP</div></div>';
+  html+='<div style="padding:7px 10px;background:#00471b;border-radius:6px 6px 0 0">';
+  html+='<div style="display:flex;align-items:center;gap:8px">';
+  html+='<span style="font-size:13px;font-weight:600;color:#fff">'+h.name+(bp?' <span style="color:rgba(255,255,255,.7);font-size:11px;font-weight:400">('+bp+')</span>':'')+'</span>';
+  html+='<span style="font-size:11px;color:#fff;margin-left:4px">'+wt+(allow?' '+allow:'')+'</span>';
+  html+='<span style="font-size:11px;color:#fff;margin-left:auto;white-space:nowrap">'+starts+'-'+wins+'-'+secs+'-'+thirds+' · '+winPct+'% win'+(days?' · '+days+'d':'')+'</span>';
+  html+='</div>';
+  if(breedLine) html+='<div style="font-size:9px;color:rgba(255,255,255,.75);margin-top:2px">'+breedLine+'</div>';
+  html+='<div style="font-size:10px;color:rgba(255,255,255,.85);margin-top:2px">'+(h.jname||'')+(allow?' '+allow:'')+' · '+(h.trainer||'')+'</div>';
   html+='</div>';
 
-  // Course + Distance
-  html+='<div class="hfc-stats" style="border-top:1px solid #e5e7eb">';
-  html+='<div class="hfc-stat"><div class="hfc-sv">'+courseRec+'</div><div class="hfc-sl">Course S-W</div></div>';
-  html+='<div class="hfc-stat"><div class="hfc-sv">'+pct(cW,cS)+'</div><div class="hfc-sl">Course SR</div></div>';
-  html+='<div class="hfc-stat"><div class="hfc-sv">'+distRec+'</div><div class="hfc-sv"></div><div class="hfc-sl">Dist S-W</div></div>';
-  html+='<div class="hfc-stat"><div class="hfc-sv">'+pct(dW,dS)+'</div><div class="hfc-sl">Dist SR</div></div>';
-  html+='</div>';
+  html+='<div style="overflow-x:auto;border:0.5px solid #e5e7eb;border-top:none">';
+  html+='<table style="width:100%;border-collapse:collapse;background:#fff;font-size:10px">';
+  html+='<thead><tr style="background:#f1f5f9">';
+  ['Date','Pos','Track','Class','Dist','Wgt','SP','Margin'].forEach(function(lbl){
+    html+='<th style="padding:2px 6px;font-size:8px;font-weight:600;color:#9ca3af;text-transform:uppercase;text-align:left;border-bottom:0.5px solid #e5e7eb;white-space:nowrap">'+lbl+'</th>';
+  });
+  html+='</tr></thead><tbody>'+runRows+'</tbody></table></div>';
 
-  // Track conditions — Firm · Good · Soft · Heavy
-  html+='<div class="hfc-stats" style="border-top:1px solid #e5e7eb">';
-  html+=mkCond(fmRec,'firm','Firm S-W-P','#b45309');
-  html+=mkCond(gRec,'good','Good S-W-P','#059669');
-  html+=mkCond(sRec,'soft','Soft S-W-P','#d97706');
-  html+=mkCond(hvRec,'heavy','Heavy S-W-P','#6b7280');
+  html+='<div style="display:flex;border:0.5px solid #e5e7eb;border-top:none;border-radius:0 0 6px 6px;overflow:hidden;background:#fff">';
+  html+=statCell('Joc 12m',jW,jP,jS,false);
+  html+=statCell('Trn 12m',tW,tP,tS,false);
+  html+=statCell('J/T Combo',jtW,jtP,jtS,false);
+  html+=statCell('1st-up',up1W,up1P,up1S,false);
+  html+=statCell('2nd-up',up2W,up2P,up2S,false);
+  html+=statCell('Crse/Dist',cdW,cdP,cdS,true);
   html+='</div>';
-
-  // Recent runs
-  html+='<div class="hfc-runs"><div class="hfc-rt">Recent Runs</div>'+runsHTML+'</div>';
-  html+='<div class="hfc-foot"><span style="font-size:9px;color:#9ca3af">EveryRace data · PuntingForm coming soon</span></div>';
 
   card.innerHTML=html;
   card.style.display='block';
 
-  var cardW=440;
+  var cardW=520;
   var left=e.clientX+14;
-  var top2=e.clientY-100;
+  var top2=e.clientY-80;
   if(left+cardW>window.innerWidth-8) left=e.clientX-cardW-14;
   if(top2<8) top2=8;
-  if(top2+560>window.innerHeight) top2=window.innerHeight-565;
+  if(top2+380>window.innerHeight) top2=window.innerHeight-385;
   card.style.left=left+'px';
   card.style.top=top2+'px';
 }
+
 function hideHorseForm(){
   formCardTimer = setTimeout(function(){
     var card = document.getElementById('horseFormCard');
