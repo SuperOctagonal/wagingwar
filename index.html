@@ -1266,122 +1266,166 @@ function renderRaceTable(rc, results, scratched, hasLive, liveOddsData) {
 
   // ── Form view ──
   function buildFormView() {
-    const rows = results.map((r, i) => {
+    function fmtDate(d) {
+      if (!d) return '';
+      const p = d.split('/');
+      if (p.length === 3) {
+        const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+        const m = parseInt(p[1],10);
+        return p[0]+' '+(months[m-1]||p[1])+' '+p[2];
+      }
+      return d;
+    }
+    function fmtSP(v) { if (!v||v<=0) return '—'; return '$'+v; }
+    function posStyle(n) {
+      const num = +n;
+      if (num===1) return 'background:#fbbf24;color:#78350f;';
+      if (num===2) return 'background:#d1d5db;color:#374151;';
+      if (num===3) return 'background:#b45309;color:#fff;';
+      return 'background:#f3f4f6;color:#6b7280;';
+    }
+    function mgStyle(pos) {
+      if (+pos===1) return 'color:#059669;font-weight:500';
+      if (+pos<=3) return 'color:#d97706';
+      return 'color:#6b7280';
+    }
+    function mgText(pos, margin) {
+      if (margin===null||margin===undefined||margin==='') return '—';
+      if (+pos===1) return 'Won '+margin+'L';
+      return margin+'L';
+    }
+    function statColor(w, s) {
+      if (!s) return '';
+      const pct = w/s;
+      if (pct >= 0.25) return 'color:#059669;';
+      if (pct >= 0.12) return 'color:#d97706;';
+      return '';
+    }
+    function pct(w,s){ return s>0?Math.round(w/s*100)+'%':'0%'; }
+
+    const horses = results.map((r, i) => {
       const rank = i + 1;
-      const rkClass = rank===1?'rk1':rank===2?'rk2':rank===3?'rk3':'rkn';
       const bp = r['BP'] || r.BP || '';
-      const jFirst = (r.jname||'-').split(' ');
-      const jShort = jFirst.length > 1 ? jFirst[0][0] + '. ' + jFirst.slice(1).join(' ') : (r.jname||'-');
+      const jFirst = (r.jname||'').split(' ');
+      const jShort = jFirst.length>1 ? jFirst[0][0]+'. '+jFirst.slice(1).join(' ') : (r.jname||'—');
       const starts = r.starts||0, wins = r.wins||0, seconds = r.seconds||0, thirds = r.thirds||0;
       const winPct = starts>0?Math.round(wins/starts*100):0;
-      const placePct = starts>0?Math.round((wins+seconds+thirds)/starts*100):0;
-      const fins = (r.lastFin||[]).slice(0,8);
-
-      // Run boxes (last 8)
-      const runsHTML = fins.map(v => {
-        if(v===null||v===undefined||v==='') return '';
-        const n = +v; const cls = n===1?'fv-r1':n<=3?'fv-r23':'fv-rx';
-        return '<div class="fv-run '+cls+'">'+(n>9?'0':n)+'</div>';
-      }).join('');
-
-      // Track records
-      const gRec = (r.goodStarts||0)>0?`${r.goodWins||0}W ${r.goodPlaces||0}P / ${r.goodStarts}S`:'—';
-      const sRec = (r.softStarts||0)>0?`${r.softWins||0}W ${r.softPlaces||0}P / ${r.softStarts}S`:'—';
-      const hvRec = (r.heavyStarts||0)>0?`${r.heavyWins||0}W ${r.heavyPlaces||0}P / ${r.heavyStarts}S`:'—';
-      const cRec = (r.courseStarts||0)>0?`${r.courseWins||0}W / ${r.courseStarts}S`:'—';
-      const dRec = (r.distStarts||0)>0?`${r.distWins||0}W / ${r.distStarts}S`:'—';
-
-      // Joc/Trn combo
-      const jtS = r.jocTrnStarts||0;
-      const jtW = r.jocTrnWins||0;
-      const jtP = r.jocTrnPlaces||0;
-      const jtRec = jtS>0 ? `${jtW}W ${jtP}P / ${jtS}S (${Math.round(jtW/jtS*100)}%)` : '—';
-      const jtColor = jtS>0&&jtW/jtS>=0.3?'#059669':jtS>0&&jtW/jtS>=0.15?'#d97706':'#374151';
-
-      // Prep run (1Up = first-up)
-      const rfs = r.curRFS||0;
-      const upLabel = rfs===0?'1st-up':rfs===1?'2nd-up':rfs===2?'3rd-up':`${rfs+1}th-up`;
-      const upKey = rfs===0?'prepRuns1':rfs===1?'prepRuns2':'prepRuns3';
-      const upW = r[upKey+'W']||0, upP = r[upKey+'P']||0, upS = r[upKey+'S']||0;
-      const upRec = upS>0?`${upW}W ${upP}P / ${upS}S`:'No data';
-      const upColor = upS>0&&upW/upS>=0.25?'#059669':upS>0&&upW/upS>=0.1?'#d97706':'#374151';
-
-      // Win jockey back?
+      const age = r['age']||'';
+      const sex = r.sex||'';
+      const allowance = r.allowance||'';
+      const days = r['Days Since Last Start']||'';
       const wjb = r.winJockBack||'';
-      const wjbBadge = wjb?`<span style="font-size:9px;background:#dcfce7;color:#166534;padding:1px 5px;border-radius:3px;margin-left:4px">WJ back</span>`:'';
+      const wjbBadge = wjb?` <span style="font-size:9px;background:#dcfce7;color:#166534;padding:1px 5px;border-radius:3px">WJ back</span>`:'';
 
-      // Impact ratings
-      const impForm = r.impactForm ? parseFloat(r.impactForm).toFixed(2) : null;
-      const impDist = r.impactDist ? parseFloat(r.impactDist).toFixed(2) : null;
+      // Breeding
+      const breedParts = [];
+      if (r.sire) breedParts.push('By '+r.sire);
+      if (r.dam) breedParts.push('Dam: '+r.dam);
+      if (r.gsire) breedParts.push('GSire: '+r.gsire);
+      if (r.winDists) breedParts.push('Win dists: '+r.winDists);
+      const breedLine = breedParts.join(' &nbsp;·&nbsp; ');
 
-      const rowBg = rank===1?'background:#fffbeb':'';
-      const rowBorderL = rank===1?'border-left:3px solid #fbbf24':'border-left:3px solid transparent';
+      // Run rows
+      const runData = r.lastRunDetails || [];
+      const spArr = Array.isArray(r.lastSP) ? r.lastSP : [r.lastSP,null,null,null];
+      const finArr = Array.isArray(r.lastFin) ? r.lastFin : [r.lastFin,null,null,null];
 
-      return `<div class="fv-row" style="${rowBg};${rowBorderL}">
-        <div style="display:flex;align-items:flex-start;gap:10px;flex:1;min-width:0">
-          <span class="fv-rank ${rkClass}">${rank}</span>
-          <div style="flex:0 0 155px;min-width:0">
-            <div class="fv-hname" onmouseenter="showHorseForm(event,${i})" onmouseleave="hideHorseForm()" style="cursor:pointer">${r.name}${bp?` <span style="color:#9ca3af;font-weight:400;font-size:10px">(${bp})</span>`:''}${wjbBadge}</div>
-            <div class="fv-hjt">${r['Weight']||''}kg · ${jShort}</div>
-            <div class="fv-hjt" style="color:#6b7280">${r.trainer||''}</div>
-            ${r.sire?`<div style="font-size:9px;color:#9ca3af;margin-top:1px">By ${r.sire}</div>`:''}
+      const runRows = runData.map((run, ri) => {
+        if (!run || !run.date) return '';
+        const pos = finArr[ri];
+        if (pos===null||pos===undefined||pos==='') return '';
+        const sp = spArr[ri];
+        const rowBg = ri%2===1 ? 'background:#f9fafb;' : '';
+        return `<tr>
+          <td style="${rowBg}padding:4px 8px;font-size:11px;color:#6b7280;white-space:nowrap">${fmtDate(run.date)}</td>
+          <td style="${rowBg}padding:4px 8px;text-align:center"><div style="width:20px;height:20px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:10px;font-weight:500;${posStyle(pos)}">${pos}</div></td>
+          <td style="${rowBg}padding:4px 8px;font-size:11px;color:#111827">${run.crse||'—'}</td>
+          <td style="${rowBg}padding:4px 8px"><span style="font-size:10px;padding:1px 5px;border-radius:3px;background:#eff6ff;color:#1d4ed8">${run.cls||'—'}</span></td>
+          <td style="${rowBg}padding:4px 8px;font-size:11px;color:#111827">${run.dist?run.dist+'m':'—'}</td>
+          <td style="${rowBg}padding:4px 8px;font-size:11px;color:#6b7280">${run.wt?run.wt+'kg':'—'}</td>
+          <td style="${rowBg}padding:4px 8px;font-size:11px;color:#6b7280">${fmtSP(sp)}</td>
+          <td style="${rowBg}padding:4px 8px;font-size:11px;${mgStyle(pos)}">${mgText(pos,run.margin)}</td>
+        </tr>`;
+      }).filter(Boolean).join('');
+
+      // Stats
+      const jS=r.jocLoc12mS||0, jW=r.jocLoc12mW||0, jP=r.jocLoc12mP||0;
+      const tS=r.trnLoc12mS||0, tW=r.trnLoc12mW||0, tP=r.trnLoc12mP||0;
+      const jtS=r.jocTrnStarts||0, jtW=r.jocTrnWins||0, jtP=r.jocTrnPlaces||0;
+      const rfs=r.curRFS||0;
+      const up1W=r.prepRuns1W||0,up1P=r.prepRuns1P||0,up1S=r.prepRuns1S||0;
+      const up2W=r.prepRuns2W||0,up2P=r.prepRuns2P||0,up2S=r.prepRuns2S||0;
+      const cdW=r.courseWins||0,cdP=r.coursePlaces||0,cdS=r.courseStarts||0;
+      const upLabel = rfs===0?'1st-up':rfs===1?'2nd-up':rfs===2?'3rd-up':`${rfs+1}th-up`;
+      const upNextLabel = rfs===0?'2nd-up':rfs===1?'3rd-up':'—';
+
+      const rankBg = rank===1?'#fbbf24':rank===2?'#d1d5db':rank===3?'#cd7f32':'#4b5563';
+      const rankColor = rank<=3?'#78350f':'#fff';
+
+      return `<div style="margin-bottom:12px;width:100%">
+        <div style="padding:6px 10px;background:#00471b;border-radius:6px 6px 0 0">
+          <div style="display:flex;align-items:center;gap:8px">
+            <div style="width:20px;height:20px;border-radius:50%;background:${rankBg};color:${rankColor};font-size:10px;font-weight:600;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0">${rank}</div>
+            <span style="font-size:13px;font-weight:500;color:#fff">${r.name}${bp?` <span style="color:rgba(255,255,255,.5);font-size:11px;font-weight:400">(${bp})</span>`:''}${wjbBadge}</span>
+            <span style="font-size:11px;color:rgba(255,255,255,.6);margin-left:4px">${r['Weight']||''}kg${allowance?' ('+allowance+')':''} &nbsp;·&nbsp; ${jShort} &nbsp;·&nbsp; ${r.trainer||''}</span>
+            <span style="font-size:11px;color:rgba(255,255,255,.5);margin-left:auto;white-space:nowrap">${age?age+'yo ':''} ${sex} &nbsp;·&nbsp; ${starts}-${wins}-${seconds}-${thirds} &nbsp;·&nbsp; ${winPct}% win${days?' &nbsp;·&nbsp; '+days+'d':''}</span>
+            <button class="log-btn" onclick="quickAddBet(event,${i})" style="margin-left:8px;flex-shrink:0">Log Bet</button>
           </div>
-          <div style="flex:1;display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:6px">
-
-            <div style="background:#f8fafc;border-radius:6px;padding:5px 7px">
-              <div style="font-size:8px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:.3px;margin-bottom:3px">Career</div>
-              <div style="font-size:11px;font-weight:600;font-family:'JetBrains Mono'">${starts}-${wins}-${seconds}-${thirds}</div>
-              <div style="font-size:9px;color:#6b7280;margin-top:1px">${winPct}% win · ${placePct}% place</div>
-            </div>
-
-            <div style="background:#f8fafc;border-radius:6px;padding:5px 7px">
-              <div style="font-size:8px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:.3px;margin-bottom:3px">Course / Dist</div>
-              <div style="font-size:10px;font-weight:500">${cRec}</div>
-              <div style="font-size:9px;color:#6b7280;margin-top:1px">${dRec}</div>
-            </div>
-
-            <div style="background:#f8fafc;border-radius:6px;padding:5px 7px">
-              <div style="font-size:8px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:.3px;margin-bottom:3px">Track conditions</div>
-              <div style="font-size:9px"><span style="color:#059669">G:</span> ${gRec}</div>
-              <div style="font-size:9px;margin-top:1px"><span style="color:#111827">S:</span> ${sRec}</div>
-              <div style="font-size:9px;margin-top:1px"><span style="color:#6b7280">H:</span> ${hvRec}</div>
-            </div>
-
-            <div style="background:#f8fafc;border-radius:6px;padding:5px 7px">
-              <div style="font-size:8px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:.3px;margin-bottom:3px">Joc / Trn combo</div>
-              <div style="font-size:10px;font-weight:600;color:${jtColor}">${jtRec}</div>
-              <div style="font-size:8px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:.3px;margin-top:5px;margin-bottom:2px">${upLabel} record</div>
-              <div style="font-size:10px;font-weight:600;color:${upColor}">${upRec}</div>
-            </div>
-
+          ${breedLine?`<div style="font-size:10px;color:rgba(255,255,255,.45);margin-top:3px;padding-left:28px">${breedLine}</div>`:''}
+        </div>
+        <table style="width:100%;border-collapse:collapse;border:0.5px solid #e5e7eb;border-top:none;background:#fff;table-layout:fixed">
+          <thead>
+            <tr style="background:#f1f5f9">
+              <th style="padding:4px 8px;font-size:9px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:.4px;text-align:left;border-bottom:0.5px solid #e5e7eb;width:90px">Date</th>
+              <th style="padding:4px 8px;font-size:9px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:.4px;text-align:left;border-bottom:0.5px solid #e5e7eb;width:44px">Pos</th>
+              <th style="padding:4px 8px;font-size:9px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:.4px;text-align:left;border-bottom:0.5px solid #e5e7eb;width:70px">Track</th>
+              <th style="padding:4px 8px;font-size:9px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:.4px;text-align:left;border-bottom:0.5px solid #e5e7eb;width:90px">Class</th>
+              <th style="padding:4px 8px;font-size:9px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:.4px;text-align:left;border-bottom:0.5px solid #e5e7eb">Dist</th>
+              <th style="padding:4px 8px;font-size:9px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:.4px;text-align:left;border-bottom:0.5px solid #e5e7eb">Wgt</th>
+              <th style="padding:4px 8px;font-size:9px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:.4px;text-align:left;border-bottom:0.5px solid #e5e7eb">SP</th>
+              <th style="padding:4px 8px;font-size:9px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:.4px;text-align:left;border-bottom:0.5px solid #e5e7eb">Margin</th>
+            </tr>
+          </thead>
+          <tbody>${runRows||'<tr><td colspan="8" style="padding:8px;font-size:11px;color:#9ca3af">No recent run data</td></tr>'}</tbody>
+        </table>
+        <div style="display:grid;grid-template-columns:repeat(6,1fr);border:0.5px solid #e5e7eb;border-top:none;border-radius:0 0 6px 6px;overflow:hidden;background:#fff">
+          <div style="padding:6px 10px;border-right:0.5px solid #e5e7eb">
+            <div style="font-size:9px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:.4px;margin-bottom:2px">Jockey 12m</div>
+            <div style="font-size:11px;font-weight:500;${statColor(jW,jS)}">${jS?jW+'W '+jP+'P / '+jS+'S':'—'}</div>
+            <div style="font-size:10px;color:#6b7280;margin-top:1px">${pct(jW,jS)} win</div>
           </div>
-          <div style="display:flex;align-items:center;gap:3px;flex-shrink:0;padding-top:4px">
-            ${runsHTML}
+          <div style="padding:6px 10px;border-right:0.5px solid #e5e7eb">
+            <div style="font-size:9px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:.4px;margin-bottom:2px">Trainer 12m</div>
+            <div style="font-size:11px;font-weight:500;${statColor(tW,tS)}">${tS?tW+'W '+tP+'P / '+tS+'S':'—'}</div>
+            <div style="font-size:10px;color:#6b7280;margin-top:1px">${pct(tW,tS)} win</div>
           </div>
-          <div style="padding-top:2px;flex-shrink:0">
-            <button class="log-btn" onclick="quickAddBet(event,${i})">Log Bet</button>
+          <div style="padding:6px 10px;border-right:0.5px solid #e5e7eb">
+            <div style="font-size:9px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:.4px;margin-bottom:2px">Joc / Trn combo</div>
+            <div style="font-size:11px;font-weight:500;${statColor(jtW,jtS)}">${jtS?jtW+'W '+jtP+'P / '+jtS+'S':'—'}</div>
+            <div style="font-size:10px;color:#6b7280;margin-top:1px">${pct(jtW,jtS)} win</div>
+          </div>
+          <div style="padding:6px 10px;border-right:0.5px solid #e5e7eb">
+            <div style="font-size:9px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:.4px;margin-bottom:2px">${upLabel}</div>
+            <div style="font-size:11px;font-weight:500;${statColor(up1W,up1S)}">${up1S?up1W+'W '+up1P+'P / '+up1S+'S':'—'}</div>
+            <div style="font-size:10px;color:#6b7280;margin-top:1px">${pct(up1W,up1S)} win</div>
+          </div>
+          <div style="padding:6px 10px;border-right:0.5px solid #e5e7eb">
+            <div style="font-size:9px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:.4px;margin-bottom:2px">${upNextLabel}</div>
+            <div style="font-size:11px;font-weight:500;${statColor(up2W,up2S)}">${up2S?up2W+'W '+up2P+'P / '+up2S+'S':'—'}</div>
+            <div style="font-size:10px;color:#6b7280;margin-top:1px">${pct(up2W,up2S)} win</div>
+          </div>
+          <div style="padding:6px 10px">
+            <div style="font-size:9px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:.4px;margin-bottom:2px">Course / Dist</div>
+            <div style="font-size:11px;font-weight:500;${statColor(cdW,cdS)}">${cdS?cdW+'W '+cdP+'P / '+cdS+'S':'No starts'}</div>
+            <div style="font-size:10px;color:#6b7280;margin-top:1px">${pct(cdW,cdS)} win</div>
           </div>
         </div>
       </div>`;
     }).join('');
 
-    const scrHTML = scratched.length ? `<div style="padding:8px 14px;font-size:10px;color:#9ca3af;text-align:center;border-top:0.5px solid #f3f4f6">
-      Scratched: ${scratched.map(h=>h.name).join(' · ')}</div>` : '';
-
-    return `<div class="form-view-wrap">
-      <div style="display:flex;align-items:center;padding:5px 14px;background:#f8fafc;border-bottom:0.5px solid #e5e7eb;gap:8px;font-size:8px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:.3px">
-        <div style="width:22px">#</div>
-        <div style="width:155px;padding-left:0">Horse</div>
-        <div style="flex:1;display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:6px">
-          <div>Career</div><div>Course / Dist</div><div>Conditions</div><div>Combos & Prep</div>
-        </div>
-        <div style="width:140px;text-align:center">Last 8</div>
-        <div style="width:60px"></div>
-      </div>
-      ${rows}${scrHTML}
-    </div>`;
+    const scrHTML = scratched.length ? `<div style="padding:8px 14px;font-size:10px;color:#9ca3af;border-top:0.5px solid #f3f4f6">Scratched: ${scratched.map(h=>h.name).join(' · ')}</div>` : '';
+    return `<div class="form-view-wrap" style="padding:10px 14px">${horses}${scrHTML}</div>`;
   }
-
 
   // ── Pace Map view ──
   function buildPaceView() {
@@ -3830,9 +3874,19 @@ function buildRaces({hdrs,rows},fname){
       // Impact ratings
       impactForm:safeNum(col(r,'Impact Form'))||null,
       impactDist:safeNum(col(r,'Impact Dist'))||null,
-      // Sire/Dam for Form tab
-      sire:(col(r,'Sire')||'').trim(),
-      dam:(col(r,'Dam')||'').trim(),
+      // Sire/Dam/GSire/Win Distances for Form tab
+      sire:(col(r,"Sire")||"").trim(),
+      dam:(col(r,"Dam")||"").trim(),
+      gsire:(col(r,"G Sire")||"").trim(),
+      winDists:(col(r,"Win Distances")||"").trim(),
+      jocLoc12mW:safeNum(col(r,"Joc Loc12m Wins"))||0,
+      jocLoc12mP:safeNum(col(r,"Joc Loc12m Places"))||0,
+      jocLoc12mS:safeNum(col(r,"Joc Loc12m Starts"))||0,
+      trnLoc12mW:safeNum(col(r,"Trn Loc12m Wins"))||0,
+      trnLoc12mP:safeNum(col(r,"Trn Loc12m Places"))||0,
+      trnLoc12mS:safeNum(col(r,"Trn Loc12m Starts"))||0,
+      coursePlaces:safeNum(col(r,"Course Places"))||0,
+      distPlaces:safeNum(col(r,"Distance Places"))||safeNum(col(r,"Dist Places"))||0,
       // Last 4-7 SP for avg calculation
       lastSP4:safeNum(col(r,'Last-3 SP'))||null,
       lastSP5:safeNum(col(r,'Last-4 Weight'))||null,
