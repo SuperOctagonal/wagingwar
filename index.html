@@ -1359,13 +1359,13 @@ function renderRaceTable(rc, results, scratched, hasLive, liveOddsData) {
       const upLabel = rfs===0?'1st-up':rfs===1?'2nd-up':rfs===2?'3rd-up':`${rfs+1}th-up`;
       const upNextLabel = rfs===0?'2nd-up':rfs===1?'3rd-up':'—';
 
-      const rankBg = rank===1?'#fbbf24':rank===2?'#d1d5db':rank===3?'#cd7f32':'#4b5563';
-      const rankColor = rank<=3?'#78350f':'#fff';
+      const rankBg = '#1e40af';
+      const rankColor = '#fff';
 
       return `<div style="margin-bottom:12px;width:100%">
         <div style="padding:6px 10px;background:#00471b;border-radius:6px 6px 0 0">
           <div style="display:flex;align-items:center;gap:8px">
-            <div style="width:20px;height:20px;border-radius:50%;background:${rankBg};color:${rankColor};font-size:10px;font-weight:600;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0">${rank}</div>
+            <div style="min-width:20px;height:20px;border-radius:2px;background:${rankBg};color:${rankColor};font-size:9px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;padding:0 3px">${r.tab||rank}</div>
             <span style="font-size:13px;font-weight:500;color:#fff">${r.name}${bp?` <span style="color:rgba(255,255,255,.8);font-size:11px;font-weight:400">(${bp})</span>`:''}${wjbBadge}</span>
             <span style="font-size:11px;color:#fff;margin-left:4px">${r['Weight']||''}kg${allowance?' ('+allowance+')':''} &nbsp;·&nbsp; ${jShort} &nbsp;·&nbsp; ${r.trainer||''}</span>
             <span style="font-size:11px;color:#fff;margin-left:auto;white-space:nowrap">${age?age+'yo ':''} ${sex} &nbsp;·&nbsp; ${starts}-${wins}-${seconds}-${thirds} &nbsp;·&nbsp; ${winPct}% win${days?' &nbsp;·&nbsp; '+days+'d':''}</span>
