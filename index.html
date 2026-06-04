@@ -2798,7 +2798,99 @@ function showCommunity(){
 function setCommunityTab(tab){window._communityMobTab=tab;showCommunity();}
 function communityFilter(s){window._communityFilter=s;window._communityMobTab='feed';showCommunity();}
 function closeModal(){var m=document.getElementById('wwModal');if(m)m.style.display='none';}
-function showNewPost(){if(!currentUser){openLoginModal();return;}toast('Forum posting coming in the next update','success');}
+function showNewPost(){if(!currentUser){openLoginModal();return;}showNewPostModal();}
+function getTimeAgo(ts){if(!ts)return'';var d=Date.now()-new Date(ts).getTime(),m=Math.floor(d/60000);if(m<1)return'just now';if(m<60)return m+'m ago';var h=Math.floor(m/60);if(h<24)return h+'h ago';return Math.floor(h/24)+'d ago';}
+
+async function loadCommunityData(section){
+  var SB=window.SUPABASE_URL,KEY=window.SUPABASE_ANON_KEY;
+  function sg(p){return fetch(SB+'/rest/v1/'+p,{headers:{'apikey':KEY,'Authorization':'Bearer '+KEY}}).then(function(r){return r.json();}).catch(function(){return[];});}
+  var cc={today_races:{bg:'#dbeafe',c:'#1e40af',label:"Today's Races"},tips_analysis:{bg:'#dcfce7',c:'#166534',label:'Tips & Analysis'},winning_bets:{bg:'#fef9c3',c:'#854d0e',label:'Winning Bet'},system_feedback:{bg:'#f3e8ff',c:'#6b21a8',label:'System Feedback'},general:{bg:'#f3f4f6',c:'#374151',label:'General Chat'}};
+  var sf=section&&section!=='all'?'&section=eq.'+section:'';
+  var posts=await sg('posts?order=created_at.desc&limit=20'+sf+'&select=id,clerk_id,section,title,upvotes,reply_count,is_hot,created_at,user_profiles(display_name,tier)');
+  var pw=document.getElementById('community-posts-wrap');
+  if(pw){
+    if(!posts||!posts.length){
+      pw.innerHTML='<div style="padding:40px;text-align:center"><div style="font-size:32px;margin-bottom:8px">💬</div><div style="font-size:14px;font-weight:600;color:#111827;margin-bottom:4px">No posts yet</div><div style="font-size:12px;color:#6b7280">Be the first to post!</div></div>';
+    } else {
+      pw.innerHTML='';
+      posts.forEach(function(p){
+        var cat=cc[p.section]||cc.general,prof=p.user_profiles||{};
+        var el=document.createElement('div');
+        el.setAttribute('data-pid',p.id);
+        el.style.cssText='border-bottom:0.5px solid #f3f4f6;padding:14px 0;cursor:pointer';
+        el.innerHTML='<div style="display:flex;align-items:flex-start;gap:10px"><div style="display:flex;flex-direction:column;align-items:center;gap:2px;flex-shrink:0;padding-top:2px"><button class="upvote-btn" data-pid="'+p.id+'" data-aid="'+p.clerk_id+'" style="background:none;border:none;cursor:pointer;font-size:14px;color:#9ca3af;line-height:1">▲</button><span style="font-size:12px;font-weight:700;color:#374151">'+(p.upvotes||0)+'</span></div><div style="flex:1;min-width:0"><div style="display:flex;align-items:center;gap:6px;margin-bottom:5px;flex-wrap:wrap"><span style="font-size:9px;font-weight:700;padding:2px 6px;border-radius:3px;background:'+cat.bg+';color:'+cat.c+'">'+cat.label+'</span>'+(p.is_hot?'<span style="font-size:9px;font-weight:700;padding:2px 6px;border-radius:3px;background:#fee2e2;color:#dc2626">🔥 Hot</span>':'')+'</div><div style="font-size:13px;font-weight:600;color:#111827;margin-bottom:6px;line-height:1.4">'+((p.title||'').replace(/</g,'&lt;'))+'</div><div style="display:flex;align-items:center;gap:8px;font-size:10px;color:#6b7280"><span style="width:18px;height:18px;border-radius:50%;background:#00471b;display:inline-flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:9px">'+((prof.display_name||'U')[0])+'</span><span style="font-weight:500;color:#374151">'+(prof.display_name||'Member')+'</span><span style="font-size:9px;padding:1px 5px;border-radius:3px;background:#f3f4f6;color:#6b7280">'+(prof.tier||'Maiden')+'</span><span>💬 '+(p.reply_count||0)+'</span><span>'+getTimeAgo(p.created_at)+'</span></div></div></div>';
+        el.querySelector('.upvote-btn').addEventListener('click',function(ev){ev.stopPropagation();communityUpvote(this.getAttribute('data-pid'),'post',this.getAttribute('data-aid'));});
+        el.addEventListener('click',function(){openPostModal(this.getAttribute('data-pid'));});
+        pw.appendChild(el);
+      });
+    }
+  }
+  var lr=document.getElementById('lb-roi-wrap');
+  if(lr){var en=await sg('competition_entries?order=roi.desc&limit=5&select=clerk_id,roi,bets_count,user_profiles(display_name,tier)');var ic=['🥇','🥈','🥉','4','5'];lr.innerHTML=(en&&en.length)?en.map(function(e,i){var pr=e.user_profiles||{};return '<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:0.5px solid #f3f4f6"><span style="font-size:14px">'+ic[i]+'</span><div style="width:24px;height:24px;border-radius:50%;background:#00471b;display:flex;align-items:center;justify-content:center;color:#fff;font-size:10px;font-weight:700">'+((pr.display_name||'U')[0])+'</div><div style="flex:1;min-width:0"><div style="font-size:11px;font-weight:600;color:#111827">'+(pr.display_name||'Member')+'</div><div style="font-size:9px;color:#6b7280">'+(pr.tier||'Maiden')+' · '+e.bets_count+' bets</div></div><span style="font-size:12px;font-weight:700;color:#059669">+'+parseFloat(e.roi||0).toFixed(0)+'%</span></div>';}).join(''):'<div style="font-size:11px;color:#9ca3af;padding:8px 0">Log 5+ bets to appear!</div>';}
+  var lp=document.getElementById('lb-pts-wrap');
+  if(lp){var tu=await sg('user_profiles?leaderboard_opt_out=eq.false&order=points.desc&limit=5&select=display_name,points,tier');lp.innerHTML=(tu&&tu.length)?tu.map(function(u,i){return '<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:0.5px solid #f3f4f6"><span style="font-size:11px;font-weight:700;color:#9ca3af;width:14px">'+(i+1)+'</span><div style="width:24px;height:24px;border-radius:50%;background:#1e40af;display:flex;align-items:center;justify-content:center;color:#fff;font-size:10px;font-weight:700">'+((u.display_name||'U')[0])+'</div><div style="flex:1;min-width:0"><div style="font-size:11px;font-weight:600;color:#111827">'+(u.display_name||'Member')+'</div><div style="font-size:9px;color:#6b7280">'+(u.tier||'Maiden')+'</div></div><span style="font-size:11px;font-weight:700;color:#374151">+'+(u.points||0).toLocaleString()+' pts</span></div>';}).join(''):'<div style="font-size:11px;color:#9ca3af">No members yet</div>';}
+  var ls=document.getElementById('lb-stats-wrap');
+  if(ls){var uc=await sg('user_profiles?select=clerk_id'),pc2=await sg('posts?select=id');ls.innerHTML='<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><div style="background:#f8fafc;border-radius:6px;padding:10px;text-align:center"><div style="font-size:18px;font-weight:800;color:#111827">'+((uc||[]).length||0)+'</div><div style="font-size:9px;color:#6b7280">Members</div></div><div style="background:#f8fafc;border-radius:6px;padding:10px;text-align:center"><div style="font-size:18px;font-weight:800;color:#111827">'+((pc2||[]).length||0)+'</div><div style="font-size:9px;color:#6b7280">Posts</div></div></div>';}
+  var br=document.getElementById('user-badges-row');
+  if(br&&window.currentUser){var ub=await sg('user_badges?clerk_id=eq.'+window.currentUser.id+'&select=badge_id,badges(name,emoji)&limit=12');br.innerHTML=(ub&&ub.length)?ub.map(function(b){var bd=b.badges||{};return '<span title="'+(bd.name||'')+'" style="font-size:16px;cursor:default">'+(bd.emoji||'🏅')+'</span>';}).join(''):'<span style="font-size:10px;color:#9ca3af">No badges yet!</span>';}
+  var mw=document.getElementById('missions-wrap');
+  if(mw&&window.currentUser){
+    var tod=new Date().toISOString().slice(0,10);
+    var ms=await sg('missions?is_daily=eq.true&limit=3');
+    var um=await sg('user_missions?clerk_id=eq.'+window.currentUser.id+'&date=eq.'+tod+'&select=mission_id,progress,completed');
+    mw.innerHTML=(ms&&ms.length)?ms.map(function(m){var u2=(um||[]).find(function(x){return x.mission_id===m.id;})||{};var pg=u2.progress||0,dn=u2.completed||false,pct=Math.min(100,Math.round(pg/m.target_count*100));return '<div style="margin-bottom:8px;padding:8px;border-radius:6px;background:'+(dn?'#f0fdf4':'#f8fafc')+';border:0.5px solid '+(dn?'#bbf7d0':'#e5e7eb')+'"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px"><div style="font-size:11px;font-weight:600;color:#111827">'+m.title+'</div><div style="font-size:10px;font-weight:700;color:#059669">+'+m.points+'pts</div></div><div style="height:4px;background:#e5e7eb;border-radius:2px;overflow:hidden"><div style="width:'+pct+'%;height:100%;background:'+(dn?'#059669':'#00471b')+';border-radius:2px"></div></div><div style="font-size:9px;color:#6b7280;margin-top:3px">'+(dn?'✅ Complete':pg+' / '+m.target_count)+'</div></div>';}).join(''):'<div style="font-size:10px;color:#9ca3af">No missions today</div>';
+  }
+}
+
+function showNewPostModal(){
+  if(!window.currentUser){openLoginModal();return;}
+  var modal=document.getElementById('wwModal');if(!modal)return;
+  var secs=[{id:'today_races',label:"Today's Races"},{id:'tips_analysis',label:'Tips & Analysis'},{id:'winning_bets',label:'Winning Bets'},{id:'system_feedback',label:'System Feedback'},{id:'general',label:'General Chat'}];
+  modal.innerHTML='<div style="background:#fff;border-radius:12px;padding:24px;max-width:540px;width:100%;margin:auto"><div style="font-size:16px;font-weight:700;color:#111827;margin-bottom:16px">New Post</div><select id="post-section" style="width:100%;padding:9px 12px;border:0.5px solid #e5e7eb;border-radius:7px;font-size:12px;margin-bottom:10px;font-family:inherit;box-sizing:border-box">'+secs.map(function(s){return '<option value="'+s.id+'">'+s.label+'</option>';}).join('')+'</select><input id="post-title" placeholder="Post title..." style="width:100%;padding:9px 12px;border:0.5px solid #e5e7eb;border-radius:7px;font-size:13px;margin-bottom:10px;font-family:inherit;box-sizing:border-box"><textarea id="post-content" placeholder="Share your analysis, tip, or question..." style="width:100%;padding:9px 12px;border:0.5px solid #e5e7eb;border-radius:7px;font-size:12px;min-height:100px;resize:vertical;font-family:inherit;box-sizing:border-box;margin-bottom:14px"></textarea><div style="display:flex;gap:10px"><button onclick="closeModal()" style="flex:1;padding:10px;border:0.5px solid #e5e7eb;border-radius:7px;font-size:13px;font-weight:600;cursor:pointer;background:#fff">Cancel</button><button id="submit-post-btn" style="flex:2;padding:10px;background:#00471b;color:#fff;border:none;border-radius:7px;font-size:13px;font-weight:600;cursor:pointer">Post</button></div></div>';
+  modal.style.display='flex';
+  document.getElementById('submit-post-btn').addEventListener('click',submitPost);
+}
+
+async function submitPost(){
+  if(!window.currentUser)return;
+  var sec=document.getElementById('post-section').value;
+  var ttl=(document.getElementById('post-title').value||'').trim();
+  var bdy=(document.getElementById('post-content').value||'').trim();
+  if(!ttl||!bdy){toast('Please fill in all fields','error');return;}
+  var SB=window.SUPABASE_URL,KEY=window.SUPABASE_ANON_KEY;
+  var res=await fetch(SB+'/rest/v1/posts',{method:'POST',headers:{'apikey':KEY,'Authorization':'Bearer '+KEY,'Content-Type':'application/json','Prefer':'return=representation'},body:JSON.stringify({clerk_id:window.currentUser.id,section:sec,title:ttl,content:bdy})}).then(function(r){return r.json();}).catch(function(){return null;});
+  if(res&&!res.error){if(typeof COMMUNITY!=='undefined')COMMUNITY.forumPost(window.currentUser.id,(res[0]||{}).id||'',false);toast('Post published!','success');closeModal();loadCommunityData(sec);}
+  else{toast('Error posting — please try again','error');}
+}
+
+async function openPostModal(postId){
+  var SB=window.SUPABASE_URL,KEY=window.SUPABASE_ANON_KEY,hd={'apikey':KEY,'Authorization':'Bearer '+KEY};
+  var posts=await fetch(SB+'/rest/v1/posts?id=eq.'+postId+'&select=*,user_profiles(display_name,tier)',{headers:hd}).then(function(r){return r.json();}).catch(function(){return[];});
+  if(!posts||!posts.length)return;
+  var p=posts[0],prof=p.user_profiles||{};
+  var reps=await fetch(SB+'/rest/v1/replies?post_id=eq.'+postId+'&order=created_at.asc&select=*,user_profiles(display_name,tier)',{headers:hd}).then(function(r){return r.json();}).catch(function(){return[];});
+  var modal=document.getElementById('wwModal');if(!modal)return;
+  var rH=(reps||[]).map(function(r){var rp=r.user_profiles||{};return '<div style="padding:10px;background:#f8fafc;border-radius:6px;margin-bottom:8px"><div style="font-size:10px;font-weight:600;color:#374151;margin-bottom:4px">'+(rp.display_name||'Member')+' · '+(rp.tier||'Maiden')+' · '+getTimeAgo(r.created_at)+'</div><div style="font-size:12px;color:#374151">'+(r.content||'')+'</div></div>';}).join('');
+  modal.innerHTML='<div style="background:#fff;border-radius:12px;padding:24px;max-width:600px;width:100%;margin:auto;max-height:80vh;overflow-y:auto"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px"><div style="font-size:14px;font-weight:700;color:#111827">'+(p.title||'')+'</div><button onclick="closeModal()" style="background:none;border:none;font-size:18px;cursor:pointer;color:#9ca3af">✕</button></div><div style="font-size:11px;color:#6b7280;margin-bottom:12px"><span style="font-weight:600;color:#374151">'+(prof.display_name||'Member')+'</span> · '+(prof.tier||'Maiden')+' · '+getTimeAgo(p.created_at)+'</div><div style="font-size:13px;color:#374151;line-height:1.6;margin-bottom:16px;padding-bottom:16px;border-bottom:0.5px solid #e5e7eb">'+(p.content||'')+'</div><div style="font-size:11px;font-weight:700;color:#374151;margin-bottom:10px">💬 '+((reps||[]).length)+' Replies</div>'+rH+(window.currentUser?'<textarea id="reply-content" placeholder="Write a reply..." style="width:100%;padding:9px 12px;border:0.5px solid #e5e7eb;border-radius:7px;font-size:12px;min-height:70px;resize:none;font-family:inherit;box-sizing:border-box;margin-top:10px"></textarea><button id="submit-reply-btn" style="width:100%;margin-top:8px;padding:10px;background:#00471b;color:#fff;border:none;border-radius:7px;font-size:13px;font-weight:600;cursor:pointer">Post Reply</button>':'<div style="text-align:center;padding:12px;font-size:12px;color:#6b7280">Sign in to reply</div>')+'</div>';
+  modal.style.display='flex';
+  if(window.currentUser){document.getElementById('submit-reply-btn').addEventListener('click',function(){submitReply(postId);});}
+}
+
+async function submitReply(postId){
+  if(!window.currentUser)return;
+  var bdy=(document.getElementById('reply-content').value||'').trim();if(!bdy)return;
+  var SB=window.SUPABASE_URL,KEY=window.SUPABASE_ANON_KEY;
+  await fetch(SB+'/rest/v1/replies',{method:'POST',headers:{'apikey':KEY,'Authorization':'Bearer '+KEY,'Content-Type':'application/json'},body:JSON.stringify({post_id:postId,clerk_id:window.currentUser.id,content:bdy})});
+  var ps=await fetch(SB+'/rest/v1/posts?id=eq.'+postId+'&select=reply_count',{headers:{'apikey':KEY,'Authorization':'Bearer '+KEY}}).then(function(r){return r.json();});
+  if(ps&&ps[0])await fetch(SB+'/rest/v1/posts?id=eq.'+postId,{method:'PATCH',headers:{'apikey':KEY,'Authorization':'Bearer '+KEY,'Content-Type':'application/json'},body:JSON.stringify({reply_count:(ps[0].reply_count||0)+1})});
+  if(typeof COMMUNITY!=='undefined')COMMUNITY.forumPost(window.currentUser.id,postId,true);
+  toast('Reply posted!','success');openPostModal(postId);
+}
+
+async function communityUpvote(postId,type,authorId){
+  if(!window.currentUser){openLoginModal();return;}
+  if(typeof COMMUNITY!=='undefined'){await COMMUNITY.upvote(window.currentUser.id,postId,type,authorId);loadCommunityData(window._communityFilter||'all');}
+}
 
 // ── COMPETITIONS PAGE ──
 function showCompetitions(){
