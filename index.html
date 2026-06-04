@@ -2728,146 +2728,151 @@ function showCommunity(){
   var next=typeof COMMUNITY!=='undefined'?COMMUNITY.getNextTier(profile.points||0):null;
   var u=currentUser||{};
   var pts=profile.points||0;
-  var SECS=[
-    {id:'all',label:'All Posts',icon:'📋'},
-    {id:'today_races',label:"Today's Races",icon:'🏇'},
-    {id:'tips_analysis',label:'Tips & Analysis',icon:'📊'},
-    {id:'winning_bets',label:'Winning Bets',icon:'💰'},
-    {id:'system_feedback',label:'System Feedback',icon:'💬'},
-    {id:'general',label:'General Chat',icon:'☕'}
+  var sections=[
+    {id:'all',label:'All Posts'},
+    {id:'today_races',label:"Today's Races"},
+    {id:'tips_analysis',label:'Tips & Analysis'},
+    {id:'winning_bets',label:'Winning Bets'},
+    {id:'system_feedback',label:'System Feedback'},
+    {id:'general',label:'General Chat'}
   ];
   var tierMins={Maiden:0,Benchmark:500,Listed:2000,'Group 3':5000,'Group 2':10000,'Group 1':25000};
   var tierMaxs={Maiden:499,Benchmark:1999,Listed:4999,'Group 3':9999,'Group 2':24999,'Group 1':999999};
   var tMin=tierMins[tier.name]||0,tMax=tierMaxs[tier.name]||499;
   var tPct=tMax>tMin?Math.min(100,Math.round((pts-tMin)/(tMax-tMin)*100)):100;
-  var init=((u.name||'?').charAt(0)).toUpperCase();
-
-  var leftHTML=
-    '<div style="padding:14px 14px 10px;border-bottom:1px solid #e5e7eb">'+
-      '<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">'+
-        '<div style="width:40px;height:40px;border-radius:50%;background:#00471b;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:800;color:#fff;flex-shrink:0">'+init+'</div>'+
-        '<div style="min-width:0">'+
-          '<div style="font-size:13px;font-weight:700;color:#111827;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+(u.name||'Punter')+'</div>'+
-          '<span style="display:inline-block;font-size:9px;font-weight:700;padding:2px 7px;border-radius:10px;background:'+tier.color+'22;color:'+tier.color+'">'+tier.emoji+' '+tier.name+'</span>'+
-        '</div>'+
-      '</div>'+
-      '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">'+
-        '<span style="font-size:12px;font-weight:800;color:#111827">'+pts.toLocaleString()+' pts</span>'+
-        (next?'<span style="font-size:10px;color:#9ca3af">'+next.needed.toLocaleString()+' to '+next.name+'</span>':'<span style="font-size:10px;color:#7c3aed">Max tier 👑</span>')+
-      '</div>'+
-      '<div style="height:5px;background:#f1f5f9;border-radius:3px;overflow:hidden;margin-bottom:10px">'+
-        '<div style="width:'+tPct+'%;height:100%;background:'+tier.color+';border-radius:3px"></div>'+
-      '</div>'+
-      '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;margin-bottom:10px">'+
-        '<div style="text-align:center;background:#f8fafc;border-radius:6px;padding:5px 2px"><div style="font-size:13px;font-weight:800;color:#111827">'+(profile.total_bets||0)+'</div><div style="font-size:9px;color:#9ca3af">Bets</div></div>'+
-        '<div style="text-align:center;background:#f8fafc;border-radius:6px;padding:5px 2px"><div style="font-size:13px;font-weight:800;color:#059669">'+((profile.total_bets||0)>0?Math.round((profile.total_wins||0)/(profile.total_bets||1)*100):0)+'%</div><div style="font-size:9px;color:#9ca3af">Win%</div></div>'+
-        '<div style="text-align:center;background:#f8fafc;border-radius:6px;padding:5px 2px"><div style="font-size:13px;font-weight:800;color:#2563eb">'+(profile.total_posts||0)+'</div><div style="font-size:9px;color:#9ca3af">Posts</div></div>'+
-      '</div>'+
-      (profile.referral_code?
-        '<div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:6px;padding:7px;margin-bottom:8px">'+
-          '<div style="font-size:9px;font-weight:600;color:#166534;margin-bottom:3px">🎁 Earn 200pts per referral</div>'+
-          '<div style="display:flex;gap:5px;align-items:center">'+
-            '<div style="font-size:9px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#374151">wagingwar.com.au?ref='+profile.referral_code+'</div>'+
-            '<button id="ref-copy-btn" style="background:#00471b;color:#fff;border:none;padding:3px 7px;border-radius:4px;font-size:9px;font-weight:700;cursor:pointer;flex-shrink:0">Copy</button>'+
-          '</div>'+
-        '</div>':'')+
-      '<div style="font-size:10px;font-weight:600;color:#6b7280;margin-bottom:5px">Badges</div>'+
-      '<div id="user-badges-row" style="display:flex;flex-wrap:wrap;gap:3px;min-height:20px"><span style="font-size:10px;color:#d1d5db">Loading...</span></div>'+
-    '</div>'+
-    '<div style="padding:10px 8px">'+
-      '<div style="font-size:9px;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:.8px;padding:0 6px;margin-bottom:6px">Sections</div>'+
-      SECS.map(function(s){
-        var isA=af===s.id;
-        return '<div data-section="'+s.id+'" class="comm-section-btn" style="display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:8px;cursor:pointer;margin-bottom:2px;background:'+(isA?'#f0fdf4':'transparent')+';color:'+(isA?'#00471b':'#374151')+';font-size:12px;font-weight:'+(isA?'700':'400')+';border-left:3px solid '+(isA?'#00471b':'transparent')+'">'+
-          '<span style="font-size:14px">'+s.icon+'</span><span>'+s.label+'</span></div>';
-      }).join('')+
-    '</div>'+
-    '<div style="padding:8px 14px 14px;border-top:1px solid #f1f5f9">'+
-      '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">'+
-        '<span style="font-size:10px;font-weight:700;color:#374151">Daily Missions</span>'+
-        '<span style="font-size:9px;color:#9ca3af">Resets midnight</span>'+
-      '</div>'+
-      '<div id="missions-wrap"><div style="font-size:10px;color:#9ca3af">Loading...</div></div>'+
-    '</div>';
-
-  var centreHTML=
-    '<div style="flex-shrink:0;background:#fff;border-bottom:1px solid #e5e7eb;position:sticky;top:0;z-index:20">'+
-      '<div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px 0">'+
-        '<div style="font-size:20px;font-weight:800;color:#111827">Community</div>'+
-        '<button id="new-post-btn" style="display:flex;align-items:center;gap:5px;background:#00471b;color:#fff;border:none;padding:8px 16px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">✏️ New Post</button>'+
-      '</div>'+
-      '<div style="display:flex;gap:0;padding:0 16px;overflow-x:auto;scrollbar-width:none">'+
-        SECS.map(function(s){
-          var isA=af===s.id;
-          return '<div data-section="'+s.id+'" class="comm-tab-btn" style="padding:10px 12px;font-size:11px;font-weight:'+(isA?'700':'400')+';color:'+(isA?'#00471b':'#6b7280')+';cursor:pointer;border-bottom:2px solid '+(isA?'#00471b':'transparent')+';white-space:nowrap;flex-shrink:0">'+s.label+'</div>';
-        }).join('')+
-      '</div>'+
-    '</div>'+
-    '<div style="padding:10px 16px 0">'+
-      '<div style="padding:8px 12px;background:#fffbeb;border:1px solid #fde68a;border-radius:6px;font-size:11px;color:#92400e">⚠️ Posts are member opinions only — not financial advice.</div>'+
-    '</div>'+
-    '<div id="comm-feed" style="padding:10px 16px 40px;overflow-y:auto;flex:1"><div style="padding:30px;text-align:center;color:#9ca3af;font-size:13px">Loading posts...</div></div>';
-
-  var rightHTML=
-    '<div style="padding:14px">'+
-      '<div style="font-size:13px;font-weight:800;color:#111827;margin-bottom:2px">Leaderboards</div>'+
-      '<div style="font-size:10px;color:#9ca3af;margin-bottom:14px">Resets every Monday</div>'+
-      '<div style="font-size:9px;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px">Weekly ROI</div>'+
-      '<div id="lb-roi-wrap"><div style="font-size:11px;color:#9ca3af">Loading...</div></div>'+
-      '<div style="font-size:9px;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:.8px;margin:14px 0 8px">Top Contributors</div>'+
-      '<div id="lb-pts-wrap"><div style="font-size:11px;color:#9ca3af">Loading...</div></div>'+
-      '<div style="font-size:9px;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:.8px;margin:14px 0 8px">Community Stats</div>'+
-      '<div id="lb-stats-wrap"><div style="font-size:11px;color:#9ca3af">Loading...</div></div>'+
-      '<div style="margin-top:16px;padding:12px;background:#f0fdf4;border-radius:8px;border:1px solid #bbf7d0">'+
-        '<div style="font-size:11px;font-weight:700;color:#166534;margin-bottom:4px">🏇 Waging War</div>'+
-        '<div style="font-size:10px;color:#374151;line-height:1.5">Australia&#39;s smartest racing community. Share tips, track results, climb the leaderboard.</div>'+
-      '</div>'+
-    '</div>';
-
-  main.innerHTML=
-    '<div id="comm-shell" style="display:grid;grid-template-columns:230px 1fr 230px;height:calc(100vh - 56px);overflow:hidden;background:#f1f5f9">'+
-      '<div id="comm-left" style="border-right:1px solid #e5e7eb;background:#fff;overflow-y:auto">'+leftHTML+'</div>'+
-      '<div id="comm-centre" style="display:flex;flex-direction:column;overflow:hidden;background:#fff;border-right:1px solid #e5e7eb">'+centreHTML+'</div>'+
-      '<div id="comm-right" style="background:#fff;overflow-y:auto">'+rightHTML+'</div>'+
-    '</div>';
-
-  // Wire section nav — update highlights without rebuilding shell
-  main.querySelectorAll('.comm-section-btn,.comm-tab-btn').forEach(function(el){
-    el.addEventListener('click',function(){
-      var s=el.getAttribute('data-section');
-      window._communityFilter=s;
-      main.querySelectorAll('.comm-section-btn').forEach(function(b){
-        var a=b.getAttribute('data-section')===s;
-        b.style.background=a?'#f0fdf4':'transparent';
-        b.style.color=a?'#00471b':'#374151';
-        b.style.fontWeight=a?'700':'400';
-        b.style.borderLeft='3px solid '+(a?'#00471b':'transparent');
-      });
-      main.querySelectorAll('.comm-tab-btn').forEach(function(b){
-        var a=b.getAttribute('data-section')===s;
-        b.style.color=a?'#00471b':'#6b7280';
-        b.style.fontWeight=a?'700':'400';
-        b.style.borderBottom='2px solid '+(a?'#00471b':'transparent');
-      });
-      loadCommFeed(s);
-    });
+  var profileHTML='<div style="padding:16px;border-bottom:0.5px solid #e5e7eb">';
+  profileHTML+='<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">';
+  profileHTML+='<div style="width:44px;height:44px;border-radius:50%;background:#00471b;display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:700;color:#fff;flex-shrink:0">'+((u.name||'A').charAt(0).toUpperCase())+'</div>';
+  profileHTML+='<div style="flex:1"><div style="font-size:13px;font-weight:600;color:#111827">'+(u.name||'Punter')+'</div>';
+  profileHTML+='<span style="font-size:9px;font-weight:700;padding:2px 7px;border-radius:4px;background:'+tier.color+'22;color:'+tier.color+'">'+tier.emoji+' '+tier.name+'</span></div></div>';
+  profileHTML+='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">';
+  profileHTML+='<span style="font-size:11px;font-weight:700;color:#111827">'+pts.toLocaleString()+' pts</span>';
+  profileHTML+=next?('<span style="font-size:10px;color:#6b7280">'+next.needed.toLocaleString()+' to '+next.name+'</span>'):'<span style="font-size:10px;color:#7c3aed">Max tier 👑</span>';
+  profileHTML+='</div>';
+  profileHTML+='<div style="height:6px;background:#f1f5f9;border-radius:3px;overflow:hidden;margin-bottom:10px"><div style="width:'+tPct+'%;height:100%;background:'+tier.color+';border-radius:3px"></div></div>';
+  var tb=profile.total_bets||0,tw=profile.total_wins||0,tp2=profile.total_posts||0;
+  var wp2=tb>0?Math.round(tw/tb*100):0;
+  profileHTML+='<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:10px">';
+  profileHTML+='<div style="text-align:center;background:#f8fafc;border-radius:6px;padding:6px 4px"><div style="font-size:13px;font-weight:700;color:#111827">'+tb+'</div><div style="font-size:9px;color:#6b7280">Bets</div></div>';
+  profileHTML+='<div style="text-align:center;background:#f8fafc;border-radius:6px;padding:6px 4px"><div style="font-size:13px;font-weight:700;color:#059669">'+wp2+'%</div><div style="font-size:9px;color:#6b7280">Win%</div></div>';
+  profileHTML+='<div style="text-align:center;background:#f8fafc;border-radius:6px;padding:6px 4px"><div style="font-size:13px;font-weight:700;color:#2563eb">'+tp2+'</div><div style="font-size:9px;color:#6b7280">Posts</div></div>';
+  profileHTML+='</div>';
+  if(profile.referral_code){
+    profileHTML+='<div style="background:#f0fdf4;border:0.5px solid #bbf7d0;border-radius:6px;padding:8px;margin-bottom:10px">';
+    profileHTML+='<div style="font-size:9px;font-weight:600;color:#166534;margin-bottom:3px">Referral link — earn 200pts per signup</div>';
+    profileHTML+='<div style="display:flex;align-items:center;gap:6px"><div style="font-size:10px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">wagingwar.com.au?ref='+profile.referral_code+'</div>';
+    profileHTML+='<button id="ref-copy-btn" style="background:#00471b;color:#fff;border:none;padding:4px 8px;border-radius:4px;font-size:9px;font-weight:600;cursor:pointer">Copy</button></div></div>';
+  }
+  profileHTML+='<div style="font-size:10px;font-weight:600;color:#374151;margin-bottom:6px">My Badges</div>';
+  profileHTML+='<div id="user-badges-row" style="display:flex;flex-wrap:wrap;gap:4px;min-height:24px"><span style="font-size:10px;color:#9ca3af">Loading...</span></div></div>';
+  var navHTML='<div style="padding:8px 12px;border-bottom:0.5px solid #e5e7eb">';
+  navHTML+='<div style="font-size:9px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Sections</div>';
+  sections.forEach(function(s){
+    var isActive=af===s.id;
+    navHTML+='<div data-section="'+s.id+'" class="comm-section-btn" style="padding:6px 8px;border-radius:6px;cursor:pointer;margin-bottom:2px;background:'+(isActive?'#f0fdf4':'')+';color:'+(isActive?'#00471b':'#374151')+';font-size:12px;font-weight:'+(isActive?'600':'400')+'">'+s.label+'</div>';
   });
-  var npBtn=main.querySelector('#new-post-btn');
-  if(npBtn)npBtn.addEventListener('click',showNewPostModal);
-  var refBtn=main.querySelector('#ref-copy-btn');
-  if(refBtn)refBtn.addEventListener('click',function(){
+  navHTML+='</div>';
+  var missionsHTML='<div style="padding:12px 16px"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px"><div style="font-size:11px;font-weight:700;color:#374151">Daily Missions</div><div style="font-size:9px;color:#9ca3af">Resets midnight</div></div><div id="missions-wrap"><div style="font-size:10px;color:#9ca3af">Loading...</div></div></div>';
+  var feedHTML='<div style="flex:1;overflow-y:auto">';
+  feedHTML+='<div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:0.5px solid #e5e7eb;position:sticky;top:0;background:#fff;z-index:10">';
+  feedHTML+='<div style="font-size:18px;font-weight:700;color:#111827">Community</div>';
+  feedHTML+='<button id="new-post-btn" style="background:#00471b;color:#fff;border:none;padding:8px 16px;border-radius:7px;font-size:12px;font-weight:600;cursor:pointer">✏️ New post</button></div>';
+  feedHTML+='<div style="display:flex;gap:0;padding:0 16px;border-bottom:0.5px solid #e5e7eb;overflow-x:auto;scrollbar-width:none">';
+  sections.forEach(function(s){
+    var isActive=af===s.id;
+    feedHTML+='<div data-section="'+s.id+'" class="comm-tab-btn" style="padding:10px 14px;font-size:11px;font-weight:'+(isActive?'600':'400')+';color:'+(isActive?'#00471b':'#6b7280')+';cursor:pointer;border-bottom:2px solid '+(isActive?'#00471b':'transparent')+';white-space:nowrap;flex-shrink:0">'+s.label+'</div>';
+  });
+  feedHTML+='</div>';
+  feedHTML+='<div style="margin:12px 16px;padding:8px 12px;background:#fffbeb;border:0.5px solid #fef08a;border-radius:6px;font-size:11px;color:#854d0e">⚠️ Posts are member opinions only — not financial advice.</div>';
+  feedHTML+='<div id="community-posts-wrap" style="padding:0 16px 16px"><div style="padding:20px;text-align:center;color:#9ca3af;font-size:12px">Loading posts...</div></div></div>';
+  var lbHTML='<div style="padding:16px;overflow-y:auto">';
+  lbHTML+='<div style="font-size:13px;font-weight:700;color:#111827;margin-bottom:2px">Leaderboards</div>';
+  lbHTML+='<div style="font-size:10px;color:#9ca3af;margin-bottom:12px">Resets every Monday</div>';
+  lbHTML+='<div style="font-size:10px;font-weight:700;color:#374151;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Weekly ROI</div>';
+  lbHTML+='<div id="lb-roi-wrap"><div style="font-size:11px;color:#9ca3af">Loading...</div></div>';
+  lbHTML+='<div style="font-size:10px;font-weight:700;color:#374151;text-transform:uppercase;letter-spacing:.5px;margin:12px 0 8px">Top Contributors</div>';
+  lbHTML+='<div id="lb-pts-wrap"><div style="font-size:11px;color:#9ca3af">Loading...</div></div>';
+  lbHTML+='<div style="font-size:10px;font-weight:700;color:#374151;text-transform:uppercase;letter-spacing:.5px;margin:12px 0 8px">Community Stats</div>';
+  lbHTML+='<div id="lb-stats-wrap"><div style="font-size:11px;color:#9ca3af">Loading...</div></div></div>';
+  main.innerHTML='<div style="display:grid;grid-template-columns:220px 1fr 240px;height:calc(100vh - 56px);overflow:hidden;background:#f8fafc">'
+    +'<div style="border-right:0.5px solid #e5e7eb;background:#fff;overflow-y:auto">'+profileHTML+navHTML+missionsHTML+'</div>'
+    +'<div style="display:flex;flex-direction:column;overflow:hidden">'+feedHTML+'</div>'
+    +'<div style="border-left:0.5px solid #e5e7eb;background:#fff;overflow-y:auto">'+lbHTML+'</div>'
+    +'</div>';
+  document.querySelectorAll('.comm-section-btn,.comm-tab-btn').forEach(function(el){
+    el.addEventListener('click',function(){communityFilter(el.getAttribute('data-section'));});
+  });
+  var npBtn=document.getElementById('new-post-btn');
+  if(npBtn) npBtn.addEventListener('click',showNewPostModal);
+  var refBtn=document.getElementById('ref-copy-btn');
+  if(refBtn) refBtn.addEventListener('click',function(){
     navigator.clipboard.writeText('https://wagingwar.com.au?ref='+(profile.referral_code||''));
-    toast('Referral link copied!','success');
+    toast('Referral link copied','success');
   });
-  loadCommFeed(af);
-  loadCommSidebars();
+  loadCommunityData(af);
 }
 
-function setCommunityTab(t){window._communityFilter=t;showCommunity();}
-function communityFilter(s){window._communityFilter=s;showCommunity();}
+function setCommunityTab(tab){window._communityMobTab=tab;showCommunity();}
+function communityFilter(s){window._communityFilter=s;window._communityMobTab='feed';showCommunity();}
 function closeModal(){var m=document.getElementById('wwModal');if(m)m.style.display='none';}
 function showNewPost(){if(!currentUser){openLoginModal();return;}showNewPostModal();}
 function getTimeAgo(ts){if(!ts)return'';var d=Date.now()-new Date(ts).getTime(),m=Math.floor(d/60000);if(m<1)return'just now';if(m<60)return m+'m ago';var h=Math.floor(m/60);if(h<24)return h+'h ago';return Math.floor(h/24)+'d ago';}
+
+async function loadCommunityData(section){
+  var SB=window.SUPABASE_URL,KEY=window.SUPABASE_ANON_KEY;
+  function sg(p){return fetch(SB+'/rest/v1/'+p,{headers:{'apikey':KEY,'Authorization':'Bearer '+KEY}}).then(function(r){return r.json();}).catch(function(){return[];});}
+  var cc={today_races:{bg:'#dbeafe',c:'#1e40af',label:"Today's Races"},tips_analysis:{bg:'#dcfce7',c:'#166534',label:'Tips & Analysis'},winning_bets:{bg:'#fef9c3',c:'#854d0e',label:'Winning Bet'},system_feedback:{bg:'#f3e8ff',c:'#6b21a8',label:'System Feedback'},general:{bg:'#f3f4f6',c:'#374151',label:'General Chat'}};
+  var sf=section&&section!=='all'?'&section=eq.'+section:'';
+  // Fetch posts without nested select (avoids FK requirement)
+  var posts=await sg('posts?order=created_at.desc&limit=20'+sf+'&select=id,user_id,section,title,body,votes,created_at');
+  // Fetch profiles for authors
+  if(posts&&posts.length){
+    var cids=[...new Set(posts.map(function(p){return p.user_id;}).filter(Boolean))];
+    if(cids.length){
+      var profs=await sg('user_profiles?clerk_id=in.('+cids.join(',')+')'+'&select=clerk_id,display_name,tier');
+      var pm={};(profs||[]).forEach(function(p){pm[p.clerk_id]=p;});
+      posts=posts.map(function(p){return Object.assign({},p,{_prof:pm[p.user_id]||{}});});
+    }
+  }
+  var pw=document.getElementById('community-posts-wrap');
+  if(pw){
+    if(!posts||!posts.length){
+      pw.innerHTML='<div style="padding:40px;text-align:center"><div style="font-size:32px;margin-bottom:8px">💬</div><div style="font-size:14px;font-weight:600;color:#111827;margin-bottom:4px">No posts yet</div><div style="font-size:12px;color:#6b7280">Be the first to post!</div></div>';
+    } else {
+      pw.innerHTML='';
+      posts.forEach(function(p){
+        var cat=cc[p.section]||cc.general,prof=p._prof||{};
+        var el=document.createElement('div');
+        el.setAttribute('data-pid',p.id);
+        el.style.cssText='border-bottom:0.5px solid #f3f4f6;padding:14px 0;cursor:pointer';
+        el.innerHTML='<div style="display:flex;align-items:flex-start;gap:10px"><div style="display:flex;flex-direction:column;align-items:center;gap:2px;flex-shrink:0;padding-top:2px"><button class="upvote-btn" data-pid="'+p.id+'" data-aid="'+p.user_id+'" style="background:none;border:none;cursor:pointer;font-size:14px;color:#9ca3af;line-height:1">▲</button><span style="font-size:12px;font-weight:700;color:#374151">'+(p.votes||0)+'</span></div><div style="flex:1;min-width:0"><div style="display:flex;align-items:center;gap:6px;margin-bottom:5px;flex-wrap:wrap"><span style="font-size:9px;font-weight:700;padding:2px 6px;border-radius:3px;background:'+cat.bg+';color:'+cat.c+'">'+cat.label+'</span>'+(false?'<span style="font-size:9px;font-weight:700;padding:2px 6px;border-radius:3px;background:#fee2e2;color:#dc2626">🔥 Hot</span>':'')+'</div><div style="font-size:13px;font-weight:600;color:#111827;margin-bottom:6px;line-height:1.4">'+((p.title||'').replace(/</g,'&lt;'))+'</div><div style="display:flex;align-items:center;gap:8px;font-size:10px;color:#6b7280"><span style="width:18px;height:18px;border-radius:50%;background:#00471b;display:inline-flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:9px">'+((prof.display_name||'?')[0])+'</span><span style="font-weight:500;color:#374151">'+(prof.display_name||'Member')+'</span><span style="font-size:9px;padding:1px 5px;border-radius:3px;background:#f3f4f6;color:#6b7280">'+(prof.tier||'Maiden')+'</span><span>💬 '+0+'</span><span>'+getTimeAgo(p.created_at)+'</span></div></div></div>';
+        el.querySelector('.upvote-btn').addEventListener('click',function(ev){ev.stopPropagation();communityUpvote(this.getAttribute('data-pid'),'post',this.getAttribute('data-aid'));});
+        el.addEventListener('click',function(){openPostModal(this.getAttribute('data-pid'));});
+        pw.appendChild(el);
+      });
+    }
+  }
+  var lr=document.getElementById('lb-roi-wrap');
+  if(lr){
+    var en=await sg('competition_entries?order=roi.desc&limit=5&select=clerk_id,roi,bets_count');
+    if(en&&en.length){var eids=[...new Set(en.map(function(e){return e.clerk_id;}).filter(Boolean))];if(eids.length){var ep=await sg('user_profiles?clerk_id=in.('+eids.join(',')+')'+'&select=clerk_id,display_name,tier');var epm={};(ep||[]).forEach(function(p){epm[p.clerk_id]=p;});en=en.map(function(e){return Object.assign({},e,{_prof:epm[e.clerk_id]||{}});});}}
+    var ic=['🥇','🥈','🥉','4','5'];
+    lr.innerHTML=(en&&en.length)?en.map(function(e,i){var pr=e._prof||{};return '<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:0.5px solid #f3f4f6"><span style="font-size:14px">'+ic[i]+'</span><div style="width:24px;height:24px;border-radius:50%;background:#00471b;display:flex;align-items:center;justify-content:center;color:#fff;font-size:10px;font-weight:700">'+((pr.display_name||'?')[0])+'</div><div style="flex:1;min-width:0"><div style="font-size:11px;font-weight:600;color:#111827">'+(pr.display_name||'Member')+'</div><div style="font-size:9px;color:#6b7280">'+(pr.tier||'Maiden')+' · '+e.bets_count+' bets</div></div><span style="font-size:12px;font-weight:700;color:#059669">+'+parseFloat(e.roi||0).toFixed(0)+'%</span></div>';}).join(''):'<div style="font-size:11px;color:#9ca3af;padding:8px 0">Log 5+ bets to appear!</div>';
+  }
+  var lp=document.getElementById('lb-pts-wrap');
+  if(lp){var tu=await sg('user_profiles?leaderboard_opt_out=eq.false&order=points.desc&limit=5&select=display_name,points,tier');lp.innerHTML=(tu&&tu.length)?tu.map(function(u,i){return '<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:0.5px solid #f3f4f6"><span style="font-size:11px;font-weight:700;color:#9ca3af;width:14px">'+(i+1)+'</span><div style="width:24px;height:24px;border-radius:50%;background:#1e40af;display:flex;align-items:center;justify-content:center;color:#fff;font-size:10px;font-weight:700">'+((u.display_name||'?')[0])+'</div><div style="flex:1;min-width:0"><div style="font-size:11px;font-weight:600;color:#111827">'+(u.display_name||'Member')+'</div><div style="font-size:9px;color:#6b7280">'+(u.tier||'Maiden')+'</div></div><span style="font-size:11px;font-weight:700;color:#374151">+'+(u.points||0).toLocaleString()+' pts</span></div>';}).join(''):'<div style="font-size:11px;color:#9ca3af">No members yet</div>';}
+  var ls=document.getElementById('lb-stats-wrap');
+  if(ls){var uc=await sg('user_profiles?select=clerk_id'),pc2=await sg('posts?select=id');ls.innerHTML='<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><div style="background:#f8fafc;border-radius:6px;padding:10px;text-align:center"><div style="font-size:18px;font-weight:800;color:#111827">'+((uc||[]).length||0)+'</div><div style="font-size:9px;color:#6b7280">Members</div></div><div style="background:#f8fafc;border-radius:6px;padding:10px;text-align:center"><div style="font-size:18px;font-weight:800;color:#111827">'+((pc2||[]).length||0)+'</div><div style="font-size:9px;color:#6b7280">Posts</div></div></div>';}
+  var br=document.getElementById('user-badges-row');
+  if(br&&window.currentUser){var ub=await sg('user_badges?clerk_id=eq.'+window.currentUser.id+'&select=badge_id,badges(name,emoji)&limit=12');br.innerHTML=(ub&&ub.length)?ub.map(function(b){var bd=b.badges||{};return '<span title="'+(bd.name||'')+'" style="font-size:16px;cursor:default">'+(bd.emoji||'🏅')+'</span>';}).join(''):'<span style="font-size:10px;color:#9ca3af">No badges yet!</span>';}
+  var mw=document.getElementById('missions-wrap');
+  if(mw&&window.currentUser){
+    var tod=new Date().toISOString().slice(0,10);
+    var ms=await sg('missions?is_daily=eq.true&limit=3');
+    var um=await sg('user_missions?clerk_id=eq.'+window.currentUser.id+'&date=eq.'+tod+'&select=mission_id,progress,completed');
+    mw.innerHTML=(ms&&ms.length)?ms.map(function(m){var u2=(um||[]).find(function(x){return x.mission_id===m.id;})||{};var pg=u2.progress||0,dn=u2.completed||false,pct=Math.min(100,Math.round(pg/m.target_count*100));return '<div style="margin-bottom:8px;padding:8px;border-radius:6px;background:'+(dn?'#f0fdf4':'#f8fafc')+';border:0.5px solid '+(dn?'#bbf7d0':'#e5e7eb')+'"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px"><div style="font-size:11px;font-weight:600;color:#111827">'+m.title+'</div><div style="font-size:10px;font-weight:700;color:#059669">+'+m.points+'pts</div></div><div style="height:4px;background:#e5e7eb;border-radius:2px;overflow:hidden"><div style="width:'+pct+'%;height:100%;background:'+(dn?'#059669':'#00471b')+';border-radius:2px"></div></div><div style="font-size:9px;color:#6b7280;margin-top:3px">'+(dn?'✅ Complete':pg+' / '+m.target_count)+'</div></div>';}).join(''):'<div style="font-size:10px;color:#9ca3af">No missions today</div>';
+  }
+}
 
 function showNewPostModal(){
   if(!window.currentUser){openLoginModal();return;}
@@ -2875,21 +2880,33 @@ function showNewPostModal(){
     showUsernameSetup(function(){showNewPostModal();});return;
   }
   var modal=document.getElementById('wwModal');if(!modal)return;
-  var secs=[{id:'today_races',label:"Today's Races"},{id:'tips_analysis',label:'Tips & Analysis'},{id:'winning_bets',label:'Winning Bets'},{id:'system_feedback',label:'System Feedback'},{id:'general',label:'General Chat'}];
+  var secs=[{id:'today_races',label:"Today's Races",icon:'🏇'},{id:'tips_analysis',label:'Tips & Analysis',icon:'📊'},{id:'winning_bets',label:'Winning Bets',icon:'💰'},{id:'system_feedback',label:'System Feedback',icon:'💬'},{id:'general',label:'General Chat',icon:'☕'}];
+  var af=window._communityFilter&&window._communityFilter!=='all'?window._communityFilter:'today_races';
   modal.innerHTML=
-    '<div style="background:#fff;border-radius:12px;padding:24px;max-width:560px;width:100%;margin:auto">'+
-      '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">'+
-        '<div style="font-size:16px;font-weight:800;color:#111827">New Post</div>'+
-        '<button id="close-post-modal" style="background:none;border:none;font-size:20px;cursor:pointer;color:#9ca3af;line-height:1">×</button>'+
+    '<div style="background:#fff;border-radius:14px;width:100%;max-width:580px;margin:auto;overflow:hidden">'+
+      '<div style="background:#00471b;padding:16px 20px;display:flex;align-items:center;justify-content:space-between">'+
+        '<div style="font-size:16px;font-weight:800;color:#fff;letter-spacing:.3px">✏️ New Post</div>'+
+        '<button id="close-post-modal" style="background:none;border:none;color:rgba(255,255,255,.7);font-size:22px;cursor:pointer;line-height:1;padding:0">×</button>'+
       '</div>'+
-      '<select id="post-section" style="width:100%;padding:9px 12px;border:1px solid #e5e7eb;border-radius:7px;font-size:12px;margin-bottom:10px;font-family:inherit;box-sizing:border-box;background:#fff">'+
-        secs.map(function(s){return '<option value="'+s.id+'">'+s.label+'</option>';}).join('')+
-      '</select>'+
-      '<input id="post-title" placeholder="Give your post a title..." style="width:100%;padding:10px 12px;border:1px solid #e5e7eb;border-radius:7px;font-size:13px;margin-bottom:10px;font-family:inherit;box-sizing:border-box">'+
-      '<textarea id="post-content" placeholder="Share your analysis, tip, or question..." style="width:100%;padding:10px 12px;border:1px solid #e5e7eb;border-radius:7px;font-size:13px;min-height:120px;resize:vertical;font-family:inherit;box-sizing:border-box;margin-bottom:14px;line-height:1.6"></textarea>'+
-      '<div style="display:flex;gap:10px">'+
-        '<button id="cancel-post-btn" style="flex:1;padding:10px;border:1px solid #e5e7eb;border-radius:7px;font-size:13px;font-weight:600;cursor:pointer;background:#fff;font-family:inherit">Cancel</button>'+
-        '<button id="submit-post-btn" style="flex:2;padding:10px;background:#00471b;color:#fff;border:none;border-radius:7px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">Post</button>'+
+      '<div style="padding:20px">'+
+        '<div style="margin-bottom:12px">'+
+          '<label style="font-size:11px;font-weight:700;color:#374151;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:5px">Section</label>'+
+          '<select id="post-section" style="width:100%;padding:10px 12px;border:1px solid #e5e7eb;border-radius:8px;font-size:13px;font-family:inherit;box-sizing:border-box;background:#fff;color:#111827;cursor:pointer">'+
+            secs.map(function(s){return '<option value="'+s.id+'"'+(s.id===af?' selected':'')+'>'+s.icon+' '+s.label+'</option>';}).join('')+
+          '</select>'+
+        '</div>'+
+        '<div style="margin-bottom:12px">'+
+          '<label style="font-size:11px;font-weight:700;color:#374151;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:5px">Title</label>'+
+          '<input id="post-title" placeholder="Give your post a clear title..." style="width:100%;padding:10px 12px;border:1px solid #e5e7eb;border-radius:8px;font-size:14px;font-family:inherit;box-sizing:border-box;outline:none">'+
+        '</div>'+
+        '<div style="margin-bottom:16px">'+
+          '<label style="font-size:11px;font-weight:700;color:#374151;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:5px">Post</label>'+
+          '<textarea id="post-content" placeholder="Share your analysis, tip, race preview or question..." style="width:100%;padding:10px 12px;border:1px solid #e5e7eb;border-radius:8px;font-size:13px;min-height:130px;resize:vertical;font-family:inherit;box-sizing:border-box;line-height:1.6;outline:none"></textarea>'+
+        '</div>'+
+        '<div style="display:flex;gap:10px">'+
+          '<button id="cancel-post-btn" style="flex:1;padding:11px;border:1px solid #e5e7eb;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;background:#fff;font-family:inherit;color:#374151">Cancel</button>'+
+          '<button id="submit-post-btn" style="flex:2;padding:11px;background:#00471b;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">Post</button>'+
+        '</div>'+
       '</div>'+
     '</div>';
   modal.style.display='flex';
@@ -2900,353 +2917,102 @@ function showNewPostModal(){
 
 function showUsernameSetup(callback){
   var modal=document.getElementById('wwModal');if(!modal)return;
-  modal.innerHTML=
-    '<div style="background:#fff;border-radius:12px;padding:24px;max-width:440px;width:100%;margin:auto">'+
-      '<div style="text-align:center;margin-bottom:16px">'+
-        '<div style="font-size:28px;margin-bottom:8px">👤</div>'+
-        '<div style="font-size:16px;font-weight:700;color:#111827;margin-bottom:4px">Choose your username</div>'+
-        '<div style="font-size:12px;color:#6b7280">This is how other members will see you in the community</div>'+
-      '</div>'+
-      '<input id="username-input" placeholder="e.g. TrackRat_QLD" style="width:100%;padding:11px 14px;border:1px solid #e5e7eb;border-radius:7px;font-size:14px;font-family:inherit;box-sizing:border-box;margin-bottom:6px">'+
-      '<div id="username-hint" style="font-size:10px;color:#9ca3af;margin-bottom:14px">3–20 characters, letters, numbers and underscores only</div>'+
-      '<button id="save-username-btn" style="width:100%;padding:12px;background:#00471b;color:#fff;border:none;border-radius:7px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit">Save Username</button>'+
-    '</div>';
+  modal.innerHTML='<div style="background:#fff;border-radius:12px;padding:24px;max-width:440px;width:100%;margin:auto"><div style="text-align:center;margin-bottom:16px"><div style="font-size:28px;margin-bottom:8px">👤</div><div style="font-size:16px;font-weight:700;color:#111827;margin-bottom:4px">Choose your username</div><div style="font-size:12px;color:#6b7280">This is how other members will see you in the community</div></div><input id="username-input" placeholder="e.g. TrackRat_QLD" style="width:100%;padding:11px 14px;border:0.5px solid #e5e7eb;border-radius:7px;font-size:14px;font-family:inherit;box-sizing:border-box;margin-bottom:6px"><div id="username-hint" style="font-size:10px;color:#9ca3af;margin-bottom:14px">3-20 characters, letters, numbers and underscores only</div><button id="save-username-btn" style="width:100%;padding:12px;background:#00471b;color:#fff;border:none;border-radius:7px;font-size:14px;font-weight:600;cursor:pointer">Save Username</button></div>';
   modal.style.display='flex';
-  var inp=modal.querySelector('#username-input');
-  var btn=modal.querySelector('#save-username-btn');
-  var hint=modal.querySelector('#username-hint');
+  var inp=document.getElementById('username-input');
+  var btn=document.getElementById('save-username-btn');
+  var hint=document.getElementById('username-hint');
   inp.addEventListener('input',function(){
     var v=inp.value.trim();
     var ok=/^[a-zA-Z0-9_]{3,20}$/.test(v);
     hint.style.color=ok?'#059669':'#9ca3af';
-    hint.textContent=ok?'✓ Looks good!':'3–20 characters, letters, numbers and underscores only';
+    hint.textContent=ok?'✓ Looks good!':'3-20 characters, letters, numbers and underscores only';
   });
   btn.addEventListener('click',async function(){
     var v=inp.value.trim();
     if(!/^[a-zA-Z0-9_]{3,20}$/.test(v)){toast('Invalid username — letters, numbers and underscores only','error');return;}
     btn.textContent='Saving...';btn.disabled=true;
     var SB=window.SUPABASE_URL,KEY=window.SUPABASE_ANON_KEY;
+    // Check uniqueness
     var check=await fetch(SB+'/rest/v1/user_profiles?username=eq.'+encodeURIComponent(v)+'&select=clerk_id',{headers:{'apikey':KEY,'Authorization':'Bearer '+KEY}}).then(function(r){return r.json();}).catch(function(){return[];});
     if(check&&check.length&&(!window.currentUser||check[0].clerk_id!==window.currentUser.id)){
       toast('Username already taken — try another','error');btn.textContent='Save Username';btn.disabled=false;return;
     }
+    // Save to Supabase
     if(window.currentUser){
       await fetch(SB+'/rest/v1/user_profiles?clerk_id=eq.'+window.currentUser.id,{method:'PATCH',headers:{'apikey':KEY,'Authorization':'Bearer '+KEY,'Content-Type':'application/json'},body:JSON.stringify({username:v,display_name:v})});
       window.wwUserProfile=window.wwUserProfile||{};
-      window.wwUserProfile.username=v;window.wwUserProfile.display_name=v;
+      window.wwUserProfile.username=v;
+      window.wwUserProfile.display_name=v;
     }
-    toast('Username saved!','success');closeModal();
+    toast('Username saved!','success');
+    closeModal();
     if(typeof callback==='function')callback();
   });
 }
 
 async function submitPost(){
-  if(!window.currentUser)return;
-  var sec=(document.getElementById('post-section').value||'general');
+  if(!window.currentUser){openLoginModal();return;}
+  var uid=window.currentUser.id;
+  if(!uid){toast('Session error — please sign out and back in','error');return;}
+  var sec=document.getElementById('post-section').value||'general';
   var ttl=(document.getElementById('post-title').value||'').trim();
   var bdy=(document.getElementById('post-content').value||'').trim();
-  if(!ttl||!bdy){toast('Please fill in title and body','error');return;}
+  if(!ttl||!bdy){toast('Please fill in title and post','error');return;}
   var btn=document.getElementById('submit-post-btn');
   if(btn){btn.disabled=true;btn.textContent='Posting...';}
   var SB=window.SUPABASE_URL,KEY=window.SUPABASE_ANON_KEY;
-  var res=await fetch(SB+'/rest/v1/posts',{method:'POST',headers:{'apikey':KEY,'Authorization':'Bearer '+KEY,'Content-Type':'application/json','Prefer':'return=representation'},body:JSON.stringify({user_id:window.currentUser.id,section:sec,title:ttl,body:bdy})}).then(function(r){return r.json();}).catch(function(){return null;});
-  if(res&&!res.error&&res.length){
-    if(typeof COMMUNITY!=='undefined')COMMUNITY.forumPost(window.currentUser.id,(res[0]||{}).id||'',false);
+  var res=await fetch(SB+'/rest/v1/posts',{
+    method:'POST',
+    headers:{'apikey':KEY,'Authorization':'Bearer '+KEY,'Content-Type':'application/json','Prefer':'return=representation'},
+    body:JSON.stringify({user_id:uid,section:sec,title:ttl,body:bdy})
+  }).then(function(r){return r.json();}).catch(function(){return null;});
+  if(res&&res.length&&!res.error&&!res[0]?.code){
+    if(typeof COMMUNITY!=='undefined')COMMUNITY.forumPost(uid,(res[0]||{}).id||'',false);
     toast('Post published! +10pts','success');
-    closeModal();
     window._communityFilter=sec;
-    loadCommFeed(sec);
+    closeModal();
+    if(typeof loadCommFeed==='function')loadCommFeed(sec);
+    else if(typeof loadCommunityData==='function')loadCommunityData(sec);
   } else {
-    toast('Error posting — please try again','error');
     console.error('Post error:',res);
+    toast('Post failed — check console','error');
     if(btn){btn.disabled=false;btn.textContent='Post';}
   }
 }
 
-// ── Load feed into centre column only ──
-async function loadCommFeed(section){
-  var ADMIN_ID='user_3ELAZyaOPUNLmkzOfuThRoCEHaG';
-  var feed=document.getElementById('comm-feed');
-  if(!feed)return;
-  feed.innerHTML='<div style="padding:30px;text-align:center;color:#9ca3af;font-size:13px">Loading...</div>';
-  var SB=window.SUPABASE_URL,KEY=window.SUPABASE_ANON_KEY;
-  function sg(p){return fetch(SB+'/rest/v1/'+p,{headers:{'apikey':KEY,'Authorization':'Bearer '+KEY}}).then(function(r){return r.json();}).catch(function(){return[];});}
-  var cc={today_races:{bg:'#dbeafe',c:'#1e40af',label:"Today's Races"},tips_analysis:{bg:'#dcfce7',c:'#166534',label:'Tips & Analysis'},winning_bets:{bg:'#fef9c3',c:'#854d0e',label:'Winning Bet'},system_feedback:{bg:'#f3e8ff',c:'#6b21a8',label:'System Feedback'},general:{bg:'#f3f4f6',c:'#374151',label:'General Chat'}};
-  var sf=section&&section!=='all'?'&section=eq.'+section:'';
-  var posts=await sg('posts?order=created_at.desc&limit=50'+sf+'&select=id,user_id,section,title,body,votes,reply_count,created_at');
-  if(posts&&posts.length){
-    var uids=[...new Set(posts.map(function(p){return p.user_id;}).filter(Boolean))];
-    if(uids.length){
-      var profs=await sg('user_profiles?clerk_id=in.('+uids.join(',')+')'+'&select=clerk_id,username,display_name,tier');
-      var pm={};(profs||[]).forEach(function(pr){pm[pr.clerk_id]=pr;});
-      posts=posts.map(function(p){return Object.assign({},p,{_prof:pm[p.user_id]||{}});});
-    }
-  }
-  if(!posts||!posts.length){
-    feed.innerHTML='<div style="padding:60px 20px;text-align:center"><div style="font-size:36px;margin-bottom:12px">💬</div><div style="font-size:15px;font-weight:700;color:#111827;margin-bottom:6px">No posts yet</div><div style="font-size:12px;color:#9ca3af">Be the first to post!</div></div>';
-    return;
-  }
-  feed.innerHTML='';
-  var uid=window.currentUser?window.currentUser.id:null;
-  var isAdmin=uid===ADMIN_ID;
-  posts.forEach(function(p){
-    var cat=cc[p.section]||cc.general;
-    var prof=p._prof||{};
-    var dname=prof.username||prof.display_name||'Member';
-    var pinit=(dname.charAt(0)||'?').toUpperCase();
-    var preview=(p.body||'').replace(/</g,'&lt;').substring(0,160);
-    var isOwn=uid&&uid===p.user_id;
-    var card=document.createElement('div');
-    card.style.cssText='display:flex;gap:0;background:#fff;border:1px solid #e5e7eb;border-radius:8px;margin-bottom:8px;overflow:hidden;transition:border-color .15s,box-shadow .15s';
-    card.innerHTML=
-      '<div class="vote-col" style="display:flex;flex-direction:column;align-items:center;padding:10px 8px;background:#f8fafc;gap:3px;flex-shrink:0;min-width:46px;border-right:1px solid #f1f5f9">'+
-        '<button class="upvote-btn" data-pid="'+p.id+'" data-uid="'+p.user_id+'" style="background:none;border:none;cursor:pointer;font-size:18px;color:#9ca3af;line-height:1;padding:2px;transition:color .15s">▲</button>'+
-        '<span class="vote-count" style="font-size:12px;font-weight:800;color:#374151">'+(p.votes||0)+'</span>'+
-      '</div>'+
-      '<div class="card-body" style="flex:1;padding:10px 12px;min-width:0;cursor:pointer">'+
-        '<div style="display:flex;align-items:center;gap:6px;margin-bottom:5px">'+
-          '<span style="font-size:9px;font-weight:700;padding:2px 8px;border-radius:10px;background:'+cat.bg+';color:'+cat.c+'">'+cat.label+'</span>'+
-        '</div>'+
-        '<div style="font-size:14px;font-weight:700;color:#111827;line-height:1.3;margin-bottom:4px">'+((p.title||'').replace(/</g,'&lt;'))+'</div>'+
-        (preview?'<div style="font-size:12px;color:#6b7280;line-height:1.5;margin-bottom:7px">'+preview+(p.body&&p.body.length>160?'…':'')+'</div>':'')+
-        '<div style="display:flex;align-items:center;gap:8px;font-size:11px;color:#9ca3af">'+
-          '<div style="display:flex;align-items:center;gap:4px">'+
-            '<div style="width:18px;height:18px;border-radius:50%;background:#00471b;display:inline-flex;align-items:center;justify-content:center;color:#fff;font-size:8px;font-weight:800">'+pinit+'</div>'+
-            '<span style="font-weight:600;color:#4b5563">'+dname+'</span>'+
-            '<span style="font-size:9px;padding:1px 5px;border-radius:6px;background:#f3f4f6;color:#6b7280">'+(prof.tier||'Maiden')+'</span>'+
-          '</div>'+
-          '<span>💬 '+(p.reply_count||0)+'</span>'+
-          '<span>'+getTimeAgo(p.created_at)+'</span>'+
-          ((isAdmin||isOwn)?'<button class="del-post-btn" data-pid="'+p.id+'" style="margin-left:auto;background:none;border:none;color:#dc2626;font-size:10px;cursor:pointer;padding:2px 6px;border-radius:4px;opacity:.5">🗑</button>':'')+
-        '</div>'+
-      '</div>';
-    card.onmouseenter=function(){this.style.borderColor='#00471b';this.style.boxShadow='0 2px 8px rgba(0,71,27,.08)';};
-    card.onmouseleave=function(){this.style.borderColor='#e5e7eb';this.style.boxShadow='none';};
-    card.querySelector('.card-body').addEventListener('click',function(){openPostThread(p.id);});
-    card.querySelector('.upvote-btn').addEventListener('click',function(e){
-      e.stopPropagation();commUpvote(p.id,p.user_id,this);
-    });
-    var db=card.querySelector('.del-post-btn');
-    if(db)db.addEventListener('click',function(e){e.stopPropagation();commDeletePost(p.id);});
-    feed.appendChild(card);
-  });
-}
-
-async function loadCommSidebars(){
-  var SB=window.SUPABASE_URL,KEY=window.SUPABASE_ANON_KEY;
-  function sg(p){return fetch(SB+'/rest/v1/'+p,{headers:{'apikey':KEY,'Authorization':'Bearer '+KEY}}).then(function(r){return r.json();}).catch(function(){return[];});}
-  var ic=['🥇','🥈','🥉','4️⃣','5️⃣'];
-  var lp=document.getElementById('lb-pts-wrap');
-  if(lp){
-    var tu=await sg('user_profiles?select=username,display_name,points,tier&order=points.desc&limit=5');
-    lp.innerHTML=(tu&&tu.length)?tu.map(function(u,i){
-      var n=u.username||u.display_name||'Member';
-      return '<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #f9fafb">'+
-        '<span style="font-size:13px;width:20px;text-align:center">'+ic[i]+'</span>'+
-        '<div style="width:22px;height:22px;border-radius:50%;background:#00471b;display:flex;align-items:center;justify-content:center;color:#fff;font-size:9px;font-weight:800">'+((n.charAt(0)||'?').toUpperCase())+'</div>'+
-        '<div style="flex:1;min-width:0"><div style="font-size:11px;font-weight:600;color:#111827;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+n+'</div><div style="font-size:9px;color:#9ca3af">'+(u.tier||'Maiden')+'</div></div>'+
-        '<span style="font-size:11px;font-weight:800;color:#059669">'+((u.points||0).toLocaleString())+'</span>'+
-      '</div>';
-    }).join(''):'<div style="font-size:11px;color:#9ca3af">No members yet</div>';
-  }
-  var ls=document.getElementById('lb-stats-wrap');
-  if(ls){
-    var uc=await sg('user_profiles?select=clerk_id');
-    var pc=await sg('posts?select=id');
-    ls.innerHTML='<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">'+
-      '<div style="background:#f8fafc;border-radius:6px;padding:8px;text-align:center"><div style="font-size:18px;font-weight:800;color:#111827">'+((uc||[]).length)+'</div><div style="font-size:9px;color:#9ca3af">Members</div></div>'+
-      '<div style="background:#f8fafc;border-radius:6px;padding:8px;text-align:center"><div style="font-size:18px;font-weight:800;color:#111827">'+((pc||[]).length)+'</div><div style="font-size:9px;color:#9ca3af">Posts</div></div>'+
-    '</div>';
-  }
-  var br=document.getElementById('user-badges-row');
-  if(br&&window.currentUser){
-    var ub=await sg('user_badges?clerk_id=eq.'+window.currentUser.id+'&select=badge_id,badges(name,emoji)&limit=10');
-    br.innerHTML=(ub&&ub.length)?ub.map(function(b){var bd=b.badges||{};return '<span title="'+(bd.name||'')+'" style="font-size:15px">'+(bd.emoji||'🏅')+'</span>';}).join(''):'<span style="font-size:10px;color:#d1d5db">No badges yet</span>';
-  }
-  var mw=document.getElementById('missions-wrap');
-  if(mw&&window.currentUser){
-    var tod=new Date().toISOString().slice(0,10);
-    var ms=await sg('missions?is_daily=eq.true&limit=3');
-    var um=await sg('user_missions?clerk_id=eq.'+window.currentUser.id+'&date=eq.'+tod+'&select=mission_id,progress,completed');
-    mw.innerHTML=(ms&&ms.length)?ms.map(function(m){
-      var u2=(um||[]).find(function(x){return x.mission_id===m.id;})||{};
-      var pg=u2.progress||0,dn=u2.completed||false,pct=Math.min(100,Math.round(pg/(m.target_count||1)*100));
-      return '<div style="margin-bottom:6px;padding:7px 8px;border-radius:6px;background:'+(dn?'#f0fdf4':'#f8fafc')+';border:1px solid '+(dn?'#bbf7d0':'#e5e7eb')+'">'+
-        '<div style="display:flex;justify-content:space-between;margin-bottom:3px"><div style="font-size:10px;font-weight:600;color:#111827">'+m.title+'</div><div style="font-size:10px;font-weight:700;color:#059669">+'+m.points+'</div></div>'+
-        '<div style="height:3px;background:#e5e7eb;border-radius:2px;overflow:hidden"><div style="width:'+pct+'%;height:100%;background:'+(dn?'#059669':'#00471b')+'"></div></div>'+
-        '<div style="font-size:9px;color:#9ca3af;margin-top:2px">'+(dn?'✅ Done':pg+'/'+m.target_count)+'</div>'+
-      '</div>';
-    }).join(''):'<div style="font-size:10px;color:#9ca3af">No missions today</div>';
-  }
-  var lr=document.getElementById('lb-roi-wrap');
-  if(lr){
-    var en=await sg('competition_entries?order=roi.desc&limit=5&select=clerk_id,roi,bets_count');
-    if(en&&en.length){
-      var eids=[...new Set(en.map(function(e){return e.clerk_id;}).filter(Boolean))];
-      if(eids.length){
-        var ep=await sg('user_profiles?clerk_id=in.('+eids.join(',')+')'+'&select=clerk_id,username,display_name,tier');
-        var epm={};(ep||[]).forEach(function(p){epm[p.clerk_id]=p;});
-        en=en.map(function(e){return Object.assign({},e,{_prof:epm[e.clerk_id]||{}});});
-      }
-    }
-    lr.innerHTML=(en&&en.length)?en.map(function(e,i){
-      var pr=e._prof||{};var n=pr.username||pr.display_name||'Member';
-      return '<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #f9fafb">'+
-        '<span style="font-size:13px;width:20px;text-align:center">'+ic[i]+'</span>'+
-        '<div style="width:22px;height:22px;border-radius:50%;background:#1e40af;display:flex;align-items:center;justify-content:center;color:#fff;font-size:9px;font-weight:800">'+((n.charAt(0)||'?').toUpperCase())+'</div>'+
-        '<div style="flex:1;min-width:0"><div style="font-size:11px;font-weight:600;color:#111827">'+n+'</div><div style="font-size:9px;color:#9ca3af">'+(pr.tier||'Maiden')+' · '+e.bets_count+' bets</div></div>'+
-        '<span style="font-size:11px;font-weight:800;color:#059669">+'+parseFloat(e.roi||0).toFixed(0)+'%</span>'+
-      '</div>';
-    }).join(''):'<div style="font-size:11px;color:#9ca3af">Log 5+ bets to appear</div>';
-  }
-}
-
-async function commUpvote(postId,authorId,btn){
-  if(!window.currentUser){openLoginModal();return;}
-  btn.style.color='#00471b';
-  if(typeof COMMUNITY!=='undefined')await COMMUNITY.upvote(window.currentUser.id,postId,'post',authorId);
-  var SB=window.SUPABASE_URL,KEY=window.SUPABASE_ANON_KEY;
-  var vr=await fetch(SB+'/rest/v1/posts?id=eq.'+postId+'&select=votes',{headers:{'apikey':KEY,'Authorization':'Bearer '+KEY}}).then(function(r){return r.json();}).catch(function(){return[];});
-  if(vr&&vr[0]){var vc=btn.parentElement.querySelector('.vote-count');if(vc)vc.textContent=vr[0].votes||0;}
-}
-
-async function commDeletePost(postId){
-  if(!window.currentUser){toast('Please sign in','error');return;}
-  if(!confirm('Delete this post and all its replies?'))return;
+async function openPostModal(postId){
   var SB=window.SUPABASE_URL,KEY=window.SUPABASE_ANON_KEY,hd={'apikey':KEY,'Authorization':'Bearer '+KEY};
-  await fetch(SB+'/rest/v1/replies?post_id=eq.'+postId,{method:'DELETE',headers:hd});
-  await fetch(SB+'/rest/v1/posts?id=eq.'+postId,{method:'DELETE',headers:hd});
-  toast('Post deleted','success');
-  loadCommFeed(window._communityFilter||'all');
-}
-
-async function openPostThread(postId){
-  var ADMIN_ID='user_3ELAZyaOPUNLmkzOfuThRoCEHaG';
-  var centre=document.getElementById('comm-centre');
-  if(!centre)return;
-  var SB=window.SUPABASE_URL,KEY=window.SUPABASE_ANON_KEY,hd={'apikey':KEY,'Authorization':'Bearer '+KEY};
-  var cc={today_races:{bg:'#dbeafe',c:'#1e40af',label:"Today's Races"},tips_analysis:{bg:'#dcfce7',c:'#166534',label:'Tips & Analysis'},winning_bets:{bg:'#fef9c3',c:'#854d0e',label:'Winning Bet'},system_feedback:{bg:'#f3e8ff',c:'#6b21a8',label:'System Feedback'},general:{bg:'#f3f4f6',c:'#374151',label:'General Chat'}};
-  centre.innerHTML='<div style="padding:40px;text-align:center;color:#9ca3af;font-size:13px">Loading thread...</div>';
   var posts=await fetch(SB+'/rest/v1/posts?id=eq.'+postId+'&select=*',{headers:hd}).then(function(r){return r.json();}).catch(function(){return[];});
-  if(!posts||!posts.length){centre.innerHTML='<div style="padding:40px;text-align:center;color:#9ca3af">Post not found.</div>';return;}
+  if(!posts||!posts.length)return;
   var p=posts[0];
-  var cat=cc[p.section]||cc.general;
-  var profR=await fetch(SB+'/rest/v1/user_profiles?clerk_id=eq.'+p.user_id+'&select=username,display_name,tier',{headers:hd}).then(function(r){return r.json();}).catch(function(){return[];});
+  var profR=await fetch(SB+'/rest/v1/user_profiles?clerk_id=eq.'+p.user_id+'&select=display_name,tier',{headers:hd}).then(function(r){return r.json();}).catch(function(){return[];});
   var prof=(profR&&profR[0])||{};
-  var dname=prof.username||prof.display_name||'Member';
-  var pinit=(dname.charAt(0)||'?').toUpperCase();
   var reps=await fetch(SB+'/rest/v1/replies?post_id=eq.'+postId+'&order=created_at.asc&select=*',{headers:hd}).then(function(r){return r.json();}).catch(function(){return[];});
-  if(reps&&reps.length){
-    var rids=[...new Set(reps.map(function(r){return r.user_id;}).filter(Boolean))];
-    if(rids.length){
-      var rprofs=await fetch(SB+'/rest/v1/user_profiles?clerk_id=in.('+rids.join(',')+')'+'&select=clerk_id,username,display_name,tier',{headers:hd}).then(function(r){return r.json();}).catch(function(){return[];});
-      var rpm={};(rprofs||[]).forEach(function(rp){rpm[rp.clerk_id]=rp;});
-      reps=reps.map(function(r){return Object.assign({},r,{_prof:rpm[r.user_id]||{}});});
-    }
-  }
-  var uid=window.currentUser?window.currentUser.id:null;
-  var isAdmin=uid===ADMIN_ID;
-  var canDel=isAdmin||(uid&&uid===p.user_id);
-  var repliesHTML=(reps&&reps.length)?reps.map(function(r){
-    var rp=r._prof||{};
-    var rname=rp.username||rp.display_name||'Member';
-    var ri=(rname.charAt(0)||'?').toUpperCase();
-    var canDelR=isAdmin||(uid&&uid===r.user_id);
-    return '<div class="ww-reply" style="display:flex;gap:10px;padding:14px 0;border-bottom:1px solid #f1f5f9">'+
-      '<div style="flex-shrink:0;width:32px;height:32px;border-radius:50%;background:#1e40af;display:flex;align-items:center;justify-content:center;color:#fff;font-size:12px;font-weight:800">'+ri+'</div>'+
-      '<div style="flex:1;min-width:0">'+
-        '<div style="display:flex;align-items:center;gap:6px;margin-bottom:5px;flex-wrap:wrap">'+
-          '<span style="font-size:12px;font-weight:700;color:#111827">'+rname+'</span>'+
-          '<span style="font-size:9px;padding:1px 6px;border-radius:6px;background:#f3f4f6;color:#6b7280">'+(rp.tier||'Maiden')+'</span>'+
-          '<span style="font-size:10px;color:#9ca3af">'+getTimeAgo(r.created_at)+'</span>'+
-          (canDelR?'<button class="del-reply-btn" data-rid="'+r.id+'" data-postid="'+postId+'" style="margin-left:auto;background:none;border:1px solid #fecaca;border-radius:4px;color:#dc2626;font-size:9px;cursor:pointer;padding:1px 6px">🗑</button>':'')+
-        '</div>'+
-        '<div style="font-size:13px;color:#374151;line-height:1.7;white-space:pre-wrap">'+((r.content||'').replace(/</g,'&lt;'))+'</div>'+
-      '</div>'+
-    '</div>';
-  }).join(''):'<div style="padding:24px 0;text-align:center;color:#9ca3af;font-size:12px">No replies yet — be the first!</div>';
-  var replyBox=uid?
-    '<div style="background:#f8fafc;border-radius:8px;padding:14px;margin-top:8px">'+
-      '<div style="font-size:11px;font-weight:600;color:#374151;margin-bottom:7px">Add a reply</div>'+
-      '<textarea id="reply-content" placeholder="Share your thoughts..." style="width:100%;padding:9px 12px;border:1px solid #e5e7eb;border-radius:7px;font-size:13px;min-height:80px;resize:vertical;font-family:inherit;box-sizing:border-box;line-height:1.6;background:#fff;outline:none"></textarea>'+
-      '<div style="display:flex;justify-content:flex-end;margin-top:6px">'+
-        '<button id="submit-reply-btn" style="padding:8px 20px;background:#00471b;color:#fff;border:none;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">Post Reply</button>'+
-      '</div>'+
-    '</div>':
-    '<div style="background:#f8fafc;border-radius:8px;padding:14px;margin-top:8px;text-align:center;font-size:12px;color:#6b7280">Sign in to reply</div>';
-  centre.innerHTML=
-    '<div style="flex-shrink:0;padding:10px 16px;border-bottom:1px solid #e5e7eb;display:flex;align-items:center;gap:8px;background:#fff">'+
-      '<button id="thread-back" style="background:none;border:1px solid #e5e7eb;border-radius:6px;padding:4px 10px;font-size:11px;color:#374151;cursor:pointer;font-family:inherit">← Back</button>'+
-      '<span style="font-size:9px;font-weight:700;padding:2px 8px;border-radius:10px;background:'+cat.bg+';color:'+cat.c+'">'+cat.label+'</span>'+
-      (canDel?'<button id="del-post-thread" style="margin-left:auto;background:none;border:1px solid #fecaca;border-radius:6px;color:#dc2626;font-size:10px;cursor:pointer;padding:4px 10px;font-family:inherit">🗑 Delete</button>':'')+
-    '</div>'+
-    '<div style="flex:1;overflow-y:auto;padding:16px">'+
-      '<h2 style="font-size:19px;font-weight:800;color:#111827;line-height:1.3;margin-bottom:10px">'+((p.title||'').replace(/</g,'&lt;'))+'</h2>'+
-      '<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">'+
-        '<div style="width:32px;height:32px;border-radius:50%;background:#00471b;display:flex;align-items:center;justify-content:center;color:#fff;font-size:12px;font-weight:800">'+pinit+'</div>'+
-        '<div><div style="font-size:12px;font-weight:700;color:#111827">'+dname+'</div><div style="font-size:10px;color:#9ca3af">'+(prof.tier||'Maiden')+' · '+getTimeAgo(p.created_at)+'</div></div>'+
-        '<div style="margin-left:auto;display:flex;align-items:center;gap:6px">'+
-          '<button id="thread-upvote" style="display:flex;align-items:center;gap:4px;background:#f8fafc;border:1px solid #e5e7eb;border-radius:6px;padding:5px 10px;cursor:pointer;font-size:12px;font-weight:700;color:#374151;font-family:inherit">▲ '+(p.votes||0)+'</button>'+
-          '<span style="font-size:11px;color:#9ca3af">💬 '+(p.reply_count||reps.length||0)+'</span>'+
-        '</div>'+
-      '</div>'+
-      '<div style="font-size:14px;color:#1f2937;line-height:1.8;padding:14px;background:#f8fafc;border-radius:8px;white-space:pre-wrap;border-left:3px solid #00471b;margin-bottom:20px">'+((p.body||'').replace(/</g,'&lt;'))+'</div>'+
-      '<div style="font-size:12px;font-weight:800;color:#374151;margin-bottom:8px;padding-bottom:8px;border-bottom:2px solid #f1f5f9">'+
-        (reps&&reps.length?reps.length+' '+(reps.length===1?'Reply':'Replies'):'Replies')+
-      '</div>'+
-      '<div id="replies-list">'+repliesHTML+'</div>'+
-      replyBox+
-    '</div>';
-  // Wire all buttons
-  centre.querySelector('#thread-back').addEventListener('click',function(){loadCommFeed(window._communityFilter||'all');});
-  var dpb=centre.querySelector('#del-post-thread');
-  if(dpb)dpb.addEventListener('click',function(){commDeletePost(postId);});
-  var uvb=centre.querySelector('#thread-upvote');
-  if(uvb)uvb.addEventListener('click',function(){
-    if(!uid){openLoginModal();return;}
-    uvb.style.color='#00471b';uvb.style.borderColor='#00471b';
-    if(typeof COMMUNITY!=='undefined')COMMUNITY.upvote(uid,postId,'post',p.user_id).then(function(){
-      var SB=window.SUPABASE_URL,KEY=window.SUPABASE_ANON_KEY;
-      fetch(SB+'/rest/v1/posts?id=eq.'+postId+'&select=votes',{headers:{'apikey':KEY,'Authorization':'Bearer '+KEY}}).then(function(r){return r.json();}).then(function(vr){if(vr&&vr[0])uvb.textContent='▲ '+(vr[0].votes||0);});
-    });
-  });
-  var srb=centre.querySelector('#submit-reply-btn');
-  if(srb)srb.addEventListener('click',function(){commSubmitReply(postId);});
-  centre.querySelectorAll('.del-reply-btn').forEach(function(btn){
-    btn.addEventListener('click',function(){commDeleteReply(this.getAttribute('data-rid'),postId);});
-  });
+  // Get reply author profiles
+  if(reps&&reps.length){var rids=[...new Set(reps.map(function(r){return r.user_id;}).filter(Boolean))];if(rids.length){var rprofs=await fetch(SB+'/rest/v1/user_profiles?clerk_id=in.('+rids.join(',')+')'+'&select=clerk_id,display_name,tier',{headers:hd}).then(function(r){return r.json();}).catch(function(){return[];});var rpm={};(rprofs||[]).forEach(function(p){rpm[p.clerk_id]=p;});reps=reps.map(function(r){return Object.assign({},r,{_prof:rpm[r.user_id]||{}});});}}
+  var modal=document.getElementById('wwModal');if(!modal)return;
+  var rH=(reps||[]).map(function(r){var rp=r._prof||{};return '<div style="padding:10px;background:#f8fafc;border-radius:6px;margin-bottom:8px"><div style="font-size:10px;font-weight:600;color:#374151;margin-bottom:4px">'+(rp.display_name||'Member')+' · '+(rp.tier||'Maiden')+' · '+getTimeAgo(r.created_at)+'</div><div style="font-size:12px;color:#374151">'+(r.content||'')+'</div></div>';}).join('');
+  modal.innerHTML='<div style="background:#fff;border-radius:12px;padding:24px;max-width:600px;width:100%;margin:auto;max-height:80vh;overflow-y:auto"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px"><div style="font-size:14px;font-weight:700;color:#111827">'+(p.title||'')+'</div><button onclick="closeModal()" style="background:none;border:none;font-size:18px;cursor:pointer;color:#9ca3af">✕</button></div><div style="font-size:11px;color:#6b7280;margin-bottom:12px"><span style="font-weight:600;color:#374151">'+(prof.display_name||'Member')+'</span> · '+(prof.tier||'Maiden')+' · '+getTimeAgo(p.created_at)+'</div><div style="font-size:13px;color:#374151;line-height:1.6;margin-bottom:16px;padding-bottom:16px;border-bottom:0.5px solid #e5e7eb">'+(p.content||'')+'</div><div style="font-size:11px;font-weight:700;color:#374151;margin-bottom:10px">💬 '+((reps||[]).length)+' Replies</div>'+rH+(window.currentUser?'<textarea id="reply-content" placeholder="Write a reply..." style="width:100%;padding:9px 12px;border:0.5px solid #e5e7eb;border-radius:7px;font-size:12px;min-height:70px;resize:none;font-family:inherit;box-sizing:border-box;margin-top:10px"></textarea><button id="submit-reply-btn" style="width:100%;margin-top:8px;padding:10px;background:#00471b;color:#fff;border:none;border-radius:7px;font-size:13px;font-weight:600;cursor:pointer">Post Reply</button>':'<div style="text-align:center;padding:12px;font-size:12px;color:#6b7280">Sign in to reply</div>')+'</div>';
+  modal.style.display='flex';
+  if(window.currentUser){document.getElementById('submit-reply-btn').addEventListener('click',function(){submitReply(postId);});}
 }
 
-async function commSubmitReply(postId){
-  if(!window.currentUser){openLoginModal();return;}
-  var bdy=(document.getElementById('reply-content').value||'').trim();
-  if(!bdy){toast('Write something first','error');return;}
-  var btn=document.getElementById('submit-reply-btn');
-  if(btn){btn.disabled=true;btn.textContent='Posting...';}
-  var SB=window.SUPABASE_URL,KEY=window.SUPABASE_ANON_KEY,hd={'apikey':KEY,'Authorization':'Bearer '+KEY};
-  await fetch(SB+'/rest/v1/replies',{method:'POST',headers:Object.assign({'Content-Type':'application/json'},hd),body:JSON.stringify({post_id:postId,user_id:window.currentUser.id,content:bdy})});
-  var ps=await fetch(SB+'/rest/v1/posts?id=eq.'+postId+'&select=reply_count',{headers:hd}).then(function(r){return r.json();}).catch(function(){return[];});
-  if(ps&&ps[0])await fetch(SB+'/rest/v1/posts?id=eq.'+postId,{method:'PATCH',headers:Object.assign({'Content-Type':'application/json'},hd),body:JSON.stringify({reply_count:(ps[0].reply_count||0)+1})});
+async function submitReply(postId){
+  if(!window.currentUser)return;
+  var bdy=(document.getElementById('reply-content').value||'').trim();if(!bdy)return;
+  var SB=window.SUPABASE_URL,KEY=window.SUPABASE_ANON_KEY;
+  await fetch(SB+'/rest/v1/replies',{method:'POST',headers:{'apikey':KEY,'Authorization':'Bearer '+KEY,'Content-Type':'application/json'},body:JSON.stringify({post_id:postId,user_id:window.currentUser.id,content:bdy})});
+  var ps=await fetch(SB+'/rest/v1/posts?id=eq.'+postId+'&select=reply_count',{headers:{'apikey':KEY,'Authorization':'Bearer '+KEY}}).then(function(r){return r.json();});
+  if(ps&&ps[0])await fetch(SB+'/rest/v1/posts?id=eq.'+postId,{method:'PATCH',headers:{'apikey':KEY,'Authorization':'Bearer '+KEY,'Content-Type':'application/json'},body:JSON.stringify({reply_count:(ps[0].reply_count||0)+1})});
   if(typeof COMMUNITY!=='undefined')COMMUNITY.forumPost(window.currentUser.id,postId,true);
-  toast('Reply posted! +5pts','success');
-  openPostThread(postId);
+  toast('Reply posted!','success');openPostModal(postId);
 }
 
-async function commDeleteReply(replyId,postId){
-  if(!window.currentUser){toast('Sign in required','error');return;}
-  if(!confirm('Delete this reply?'))return;
-  var SB=window.SUPABASE_URL,KEY=window.SUPABASE_ANON_KEY,hd={'apikey':KEY,'Authorization':'Bearer '+KEY};
-  await fetch(SB+'/rest/v1/replies?id=eq.'+replyId,{method:'DELETE',headers:hd});
-  var ps=await fetch(SB+'/rest/v1/posts?id=eq.'+postId+'&select=reply_count',{headers:hd}).then(function(r){return r.json();}).catch(function(){return[];});
-  if(ps&&ps[0]){var nc=Math.max(0,(ps[0].reply_count||1)-1);await fetch(SB+'/rest/v1/posts?id=eq.'+postId,{method:'PATCH',headers:Object.assign({'Content-Type':'application/json'},hd),body:JSON.stringify({reply_count:nc})});}
-  toast('Reply deleted','success');
-  openPostThread(postId);
+async function communityUpvote(postId,type,authorId){
+  if(!window.currentUser){openLoginModal();return;}
+  if(typeof COMMUNITY!=='undefined'){await COMMUNITY.upvote(window.currentUser.id,postId,type,authorId);loadCommunityData(window._communityFilter||'all');}
 }
-
-// Compat aliases
-function loadCommunityData(s){loadCommFeed(s);}
-function openPostModal(pid){openPostThread(pid);}
-async function submitReply(pid){commSubmitReply(pid);}
 
 // ── COMPETITIONS PAGE ──
 function showCompetitions(){
