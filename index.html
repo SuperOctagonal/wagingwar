@@ -7399,17 +7399,21 @@ const COMMUNITY = (function() {
   const KEY = window.SUPABASE_ANON_KEY;
 
   function sbFetch(path, opts = {}) {
+    var prefer = opts.prefer || 'return=representation';
     return fetch(SB + '/rest/v1/' + path, {
       headers: {
         'apikey': KEY,
         'Authorization': 'Bearer ' + KEY,
         'Content-Type': 'application/json',
-        'Prefer': opts.prefer || 'return=representation',
+        'Prefer': prefer,
         ...opts.headers
       },
       method: opts.method || 'GET',
       body: opts.body ? JSON.stringify(opts.body) : undefined
-    }).then(r => r.json()).catch(() => null);
+    }).then(r => {
+      if (r.status === 409 || r.status === 204) return null;
+      return r.json();
+    }).catch(() => null);
   }
 
   // ── TIER CALCULATION ────────────────────────────────────────
