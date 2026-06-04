@@ -519,6 +519,21 @@ document.addEventListener('DOMContentLoaded', function() {
           if (!dest) { try { dest = localStorage.getItem('ww_last_page') || 'races'; } catch(e){ dest = 'races'; } }
           window._pendingNav = null;
           navTo(dest);
+          // Init community profile and check if username needed
+          if(typeof COMMUNITY !== 'undefined') {
+            COMMUNITY.init({
+              id: u.id,
+              email: u.emailAddresses[0].emailAddress,
+              firstName: u.firstName,
+              fullName: (u.firstName||'')+' '+(u.lastName||''),
+              imageUrl: u.imageUrl,
+              primaryEmailAddress: u.emailAddresses[0]
+            }).then(function(profile){
+              if(profile && !profile.username) {
+                setTimeout(function(){ showUsernameSetup(null); }, 1000);
+              }
+            });
+          }
         } else {
           currentUser = null;
           updateAcctBtn();
@@ -2806,7 +2821,17 @@ async function loadCommunityData(section){
   function sg(p){return fetch(SB+'/rest/v1/'+p,{headers:{'apikey':KEY,'Authorization':'Bearer '+KEY}}).then(function(r){return r.json();}).catch(function(){return[];});}
   var cc={today_races:{bg:'#dbeafe',c:'#1e40af',label:"Today's Races"},tips_analysis:{bg:'#dcfce7',c:'#166534',label:'Tips & Analysis'},winning_bets:{bg:'#fef9c3',c:'#854d0e',label:'Winning Bet'},system_feedback:{bg:'#f3e8ff',c:'#6b21a8',label:'System Feedback'},general:{bg:'#f3f4f6',c:'#374151',label:'General Chat'}};
   var sf=section&&section!=='all'?'&section=eq.'+section:'';
-  var posts=await sg('posts?order=created_at.desc&limit=20'+sf+'&select=id,clerk_id,section,title,upvotes,reply_count,is_hot,created_at,user_profiles(display_name,tier)');
+  // Fetch posts without nested select (avoids FK requirement)
+  var posts=await sg('posts?order=created_at.desc&limit=20'+sf+'&select=id,clerk_id,section,title,upvotes,reply_count,is_hot,created_at');
+  // Fetch profiles for authors
+  if(posts&&posts.length){
+    var cids=[...new Set(posts.map(function(p){return p.clerk_id;}).filter(Boolean))];
+    if(cids.length){
+      var profs=await sg('user_profiles?clerk_id=in.('+cids.join(',')+')'+'&select=clerk_id,display_name,tier');
+      var pm={};(profs||[]).forEach(function(p){pm[p.clerk_id]=p;});
+      posts=posts.map(function(p){return Object.assign({},p,{_prof:pm[p.clerk_id]||{}});});
+    }
+  }
   var pw=document.getElementById('community-posts-wrap');
   if(pw){
     if(!posts||!posts.length){
@@ -2814,11 +2839,11 @@ async function loadCommunityData(section){
     } else {
       pw.innerHTML='';
       posts.forEach(function(p){
-        var cat=cc[p.section]||cc.general,prof=p.user_profiles||{};
+        var cat=cc[p.section]||cc.general,prof=p._prof||{};
         var el=document.createElement('div');
         el.setAttribute('data-pid',p.id);
         el.style.cssText='border-bottom:0.5px solid #f3f4f6;padding:14px 0;cursor:pointer';
-        el.innerHTML='<div style="display:flex;align-items:flex-start;gap:10px"><div style="display:flex;flex-direction:column;align-items:center;gap:2px;flex-shrink:0;padding-top:2px"><button class="upvote-btn" data-pid="'+p.id+'" data-aid="'+p.clerk_id+'" style="background:none;border:none;cursor:pointer;font-size:14px;color:#9ca3af;line-height:1">▲</button><span style="font-size:12px;font-weight:700;color:#374151">'+(p.upvotes||0)+'</span></div><div style="flex:1;min-width:0"><div style="display:flex;align-items:center;gap:6px;margin-bottom:5px;flex-wrap:wrap"><span style="font-size:9px;font-weight:700;padding:2px 6px;border-radius:3px;background:'+cat.bg+';color:'+cat.c+'">'+cat.label+'</span>'+(p.is_hot?'<span style="font-size:9px;font-weight:700;padding:2px 6px;border-radius:3px;background:#fee2e2;color:#dc2626">🔥 Hot</span>':'')+'</div><div style="font-size:13px;font-weight:600;color:#111827;margin-bottom:6px;line-height:1.4">'+((p.title||'').replace(/</g,'&lt;'))+'</div><div style="display:flex;align-items:center;gap:8px;font-size:10px;color:#6b7280"><span style="width:18px;height:18px;border-radius:50%;background:#00471b;display:inline-flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:9px">'+((prof.display_name||'U')[0])+'</span><span style="font-weight:500;color:#374151">'+(prof.display_name||'Member')+'</span><span style="font-size:9px;padding:1px 5px;border-radius:3px;background:#f3f4f6;color:#6b7280">'+(prof.tier||'Maiden')+'</span><span>💬 '+(p.reply_count||0)+'</span><span>'+getTimeAgo(p.created_at)+'</span></div></div></div>';
+        el.innerHTML='<div style="display:flex;align-items:flex-start;gap:10px"><div style="display:flex;flex-direction:column;align-items:center;gap:2px;flex-shrink:0;padding-top:2px"><button class="upvote-btn" data-pid="'+p.id+'" data-aid="'+p.clerk_id+'" style="background:none;border:none;cursor:pointer;font-size:14px;color:#9ca3af;line-height:1">▲</button><span style="font-size:12px;font-weight:700;color:#374151">'+(p.upvotes||0)+'</span></div><div style="flex:1;min-width:0"><div style="display:flex;align-items:center;gap:6px;margin-bottom:5px;flex-wrap:wrap"><span style="font-size:9px;font-weight:700;padding:2px 6px;border-radius:3px;background:'+cat.bg+';color:'+cat.c+'">'+cat.label+'</span>'+(p.is_hot?'<span style="font-size:9px;font-weight:700;padding:2px 6px;border-radius:3px;background:#fee2e2;color:#dc2626">🔥 Hot</span>':'')+'</div><div style="font-size:13px;font-weight:600;color:#111827;margin-bottom:6px;line-height:1.4">'+((p.title||'').replace(/</g,'&lt;'))+'</div><div style="display:flex;align-items:center;gap:8px;font-size:10px;color:#6b7280"><span style="width:18px;height:18px;border-radius:50%;background:#00471b;display:inline-flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:9px">'+((prof.display_name||'?')[0])+'</span><span style="font-weight:500;color:#374151">'+(prof.display_name||'Member')+'</span><span style="font-size:9px;padding:1px 5px;border-radius:3px;background:#f3f4f6;color:#6b7280">'+(prof.tier||'Maiden')+'</span><span>💬 '+(p.reply_count||0)+'</span><span>'+getTimeAgo(p.created_at)+'</span></div></div></div>';
         el.querySelector('.upvote-btn').addEventListener('click',function(ev){ev.stopPropagation();communityUpvote(this.getAttribute('data-pid'),'post',this.getAttribute('data-aid'));});
         el.addEventListener('click',function(){openPostModal(this.getAttribute('data-pid'));});
         pw.appendChild(el);
@@ -2826,9 +2851,14 @@ async function loadCommunityData(section){
     }
   }
   var lr=document.getElementById('lb-roi-wrap');
-  if(lr){var en=await sg('competition_entries?order=roi.desc&limit=5&select=clerk_id,roi,bets_count,user_profiles(display_name,tier)');var ic=['🥇','🥈','🥉','4','5'];lr.innerHTML=(en&&en.length)?en.map(function(e,i){var pr=e.user_profiles||{};return '<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:0.5px solid #f3f4f6"><span style="font-size:14px">'+ic[i]+'</span><div style="width:24px;height:24px;border-radius:50%;background:#00471b;display:flex;align-items:center;justify-content:center;color:#fff;font-size:10px;font-weight:700">'+((pr.display_name||'U')[0])+'</div><div style="flex:1;min-width:0"><div style="font-size:11px;font-weight:600;color:#111827">'+(pr.display_name||'Member')+'</div><div style="font-size:9px;color:#6b7280">'+(pr.tier||'Maiden')+' · '+e.bets_count+' bets</div></div><span style="font-size:12px;font-weight:700;color:#059669">+'+parseFloat(e.roi||0).toFixed(0)+'%</span></div>';}).join(''):'<div style="font-size:11px;color:#9ca3af;padding:8px 0">Log 5+ bets to appear!</div>';}
+  if(lr){
+    var en=await sg('competition_entries?order=roi.desc&limit=5&select=clerk_id,roi,bets_count');
+    if(en&&en.length){var eids=[...new Set(en.map(function(e){return e.clerk_id;}).filter(Boolean))];if(eids.length){var ep=await sg('user_profiles?clerk_id=in.('+eids.join(',')+')'+'&select=clerk_id,display_name,tier');var epm={};(ep||[]).forEach(function(p){epm[p.clerk_id]=p;});en=en.map(function(e){return Object.assign({},e,{_prof:epm[e.clerk_id]||{}});});}}
+    var ic=['🥇','🥈','🥉','4','5'];
+    lr.innerHTML=(en&&en.length)?en.map(function(e,i){var pr=e._prof||{};return '<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:0.5px solid #f3f4f6"><span style="font-size:14px">'+ic[i]+'</span><div style="width:24px;height:24px;border-radius:50%;background:#00471b;display:flex;align-items:center;justify-content:center;color:#fff;font-size:10px;font-weight:700">'+((pr.display_name||'?')[0])+'</div><div style="flex:1;min-width:0"><div style="font-size:11px;font-weight:600;color:#111827">'+(pr.display_name||'Member')+'</div><div style="font-size:9px;color:#6b7280">'+(pr.tier||'Maiden')+' · '+e.bets_count+' bets</div></div><span style="font-size:12px;font-weight:700;color:#059669">+'+parseFloat(e.roi||0).toFixed(0)+'%</span></div>';}).join(''):'<div style="font-size:11px;color:#9ca3af;padding:8px 0">Log 5+ bets to appear!</div>';
+  }
   var lp=document.getElementById('lb-pts-wrap');
-  if(lp){var tu=await sg('user_profiles?leaderboard_opt_out=eq.false&order=points.desc&limit=5&select=display_name,points,tier');lp.innerHTML=(tu&&tu.length)?tu.map(function(u,i){return '<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:0.5px solid #f3f4f6"><span style="font-size:11px;font-weight:700;color:#9ca3af;width:14px">'+(i+1)+'</span><div style="width:24px;height:24px;border-radius:50%;background:#1e40af;display:flex;align-items:center;justify-content:center;color:#fff;font-size:10px;font-weight:700">'+((u.display_name||'U')[0])+'</div><div style="flex:1;min-width:0"><div style="font-size:11px;font-weight:600;color:#111827">'+(u.display_name||'Member')+'</div><div style="font-size:9px;color:#6b7280">'+(u.tier||'Maiden')+'</div></div><span style="font-size:11px;font-weight:700;color:#374151">+'+(u.points||0).toLocaleString()+' pts</span></div>';}).join(''):'<div style="font-size:11px;color:#9ca3af">No members yet</div>';}
+  if(lp){var tu=await sg('user_profiles?leaderboard_opt_out=eq.false&order=points.desc&limit=5&select=display_name,points,tier');lp.innerHTML=(tu&&tu.length)?tu.map(function(u,i){return '<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:0.5px solid #f3f4f6"><span style="font-size:11px;font-weight:700;color:#9ca3af;width:14px">'+(i+1)+'</span><div style="width:24px;height:24px;border-radius:50%;background:#1e40af;display:flex;align-items:center;justify-content:center;color:#fff;font-size:10px;font-weight:700">'+((u.display_name||'?')[0])+'</div><div style="flex:1;min-width:0"><div style="font-size:11px;font-weight:600;color:#111827">'+(u.display_name||'Member')+'</div><div style="font-size:9px;color:#6b7280">'+(u.tier||'Maiden')+'</div></div><span style="font-size:11px;font-weight:700;color:#374151">+'+(u.points||0).toLocaleString()+' pts</span></div>';}).join(''):'<div style="font-size:11px;color:#9ca3af">No members yet</div>';}
   var ls=document.getElementById('lb-stats-wrap');
   if(ls){var uc=await sg('user_profiles?select=clerk_id'),pc2=await sg('posts?select=id');ls.innerHTML='<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><div style="background:#f8fafc;border-radius:6px;padding:10px;text-align:center"><div style="font-size:18px;font-weight:800;color:#111827">'+((uc||[]).length||0)+'</div><div style="font-size:9px;color:#6b7280">Members</div></div><div style="background:#f8fafc;border-radius:6px;padding:10px;text-align:center"><div style="font-size:18px;font-weight:800;color:#111827">'+((pc2||[]).length||0)+'</div><div style="font-size:9px;color:#6b7280">Posts</div></div></div>';}
   var br=document.getElementById('user-badges-row');
@@ -2844,11 +2874,51 @@ async function loadCommunityData(section){
 
 function showNewPostModal(){
   if(!window.currentUser){openLoginModal();return;}
+  // Check if user has a profile/username set up
+  if(!window.wwUserProfile||!window.wwUserProfile.display_name){
+    showUsernameSetup(function(){showNewPostModal();});return;
+  }
   var modal=document.getElementById('wwModal');if(!modal)return;
   var secs=[{id:'today_races',label:"Today's Races"},{id:'tips_analysis',label:'Tips & Analysis'},{id:'winning_bets',label:'Winning Bets'},{id:'system_feedback',label:'System Feedback'},{id:'general',label:'General Chat'}];
   modal.innerHTML='<div style="background:#fff;border-radius:12px;padding:24px;max-width:540px;width:100%;margin:auto"><div style="font-size:16px;font-weight:700;color:#111827;margin-bottom:16px">New Post</div><select id="post-section" style="width:100%;padding:9px 12px;border:0.5px solid #e5e7eb;border-radius:7px;font-size:12px;margin-bottom:10px;font-family:inherit;box-sizing:border-box">'+secs.map(function(s){return '<option value="'+s.id+'">'+s.label+'</option>';}).join('')+'</select><input id="post-title" placeholder="Post title..." style="width:100%;padding:9px 12px;border:0.5px solid #e5e7eb;border-radius:7px;font-size:13px;margin-bottom:10px;font-family:inherit;box-sizing:border-box"><textarea id="post-content" placeholder="Share your analysis, tip, or question..." style="width:100%;padding:9px 12px;border:0.5px solid #e5e7eb;border-radius:7px;font-size:12px;min-height:100px;resize:vertical;font-family:inherit;box-sizing:border-box;margin-bottom:14px"></textarea><div style="display:flex;gap:10px"><button onclick="closeModal()" style="flex:1;padding:10px;border:0.5px solid #e5e7eb;border-radius:7px;font-size:13px;font-weight:600;cursor:pointer;background:#fff">Cancel</button><button id="submit-post-btn" style="flex:2;padding:10px;background:#00471b;color:#fff;border:none;border-radius:7px;font-size:13px;font-weight:600;cursor:pointer">Post</button></div></div>';
   modal.style.display='flex';
   document.getElementById('submit-post-btn').addEventListener('click',submitPost);
+}
+
+function showUsernameSetup(callback){
+  var modal=document.getElementById('wwModal');if(!modal)return;
+  modal.innerHTML='<div style="background:#fff;border-radius:12px;padding:24px;max-width:440px;width:100%;margin:auto"><div style="text-align:center;margin-bottom:16px"><div style="font-size:28px;margin-bottom:8px">👤</div><div style="font-size:16px;font-weight:700;color:#111827;margin-bottom:4px">Choose your username</div><div style="font-size:12px;color:#6b7280">This is how other members will see you in the community</div></div><input id="username-input" placeholder="e.g. TrackRat_QLD" style="width:100%;padding:11px 14px;border:0.5px solid #e5e7eb;border-radius:7px;font-size:14px;font-family:inherit;box-sizing:border-box;margin-bottom:6px"><div id="username-hint" style="font-size:10px;color:#9ca3af;margin-bottom:14px">3-20 characters, letters, numbers and underscores only</div><button id="save-username-btn" style="width:100%;padding:12px;background:#00471b;color:#fff;border:none;border-radius:7px;font-size:14px;font-weight:600;cursor:pointer">Save Username</button></div>';
+  modal.style.display='flex';
+  var inp=document.getElementById('username-input');
+  var btn=document.getElementById('save-username-btn');
+  var hint=document.getElementById('username-hint');
+  inp.addEventListener('input',function(){
+    var v=inp.value.trim();
+    var ok=/^[a-zA-Z0-9_]{3,20}$/.test(v);
+    hint.style.color=ok?'#059669':'#9ca3af';
+    hint.textContent=ok?'✓ Looks good!':'3-20 characters, letters, numbers and underscores only';
+  });
+  btn.addEventListener('click',async function(){
+    var v=inp.value.trim();
+    if(!/^[a-zA-Z0-9_]{3,20}$/.test(v)){toast('Invalid username — letters, numbers and underscores only','error');return;}
+    btn.textContent='Saving...';btn.disabled=true;
+    var SB=window.SUPABASE_URL,KEY=window.SUPABASE_ANON_KEY;
+    // Check uniqueness
+    var check=await fetch(SB+'/rest/v1/user_profiles?username=eq.'+encodeURIComponent(v)+'&select=clerk_id',{headers:{'apikey':KEY,'Authorization':'Bearer '+KEY}}).then(function(r){return r.json();}).catch(function(){return[];});
+    if(check&&check.length&&(!window.currentUser||check[0].clerk_id!==window.currentUser.id)){
+      toast('Username already taken — try another','error');btn.textContent='Save Username';btn.disabled=false;return;
+    }
+    // Save to Supabase
+    if(window.currentUser){
+      await fetch(SB+'/rest/v1/user_profiles?clerk_id=eq.'+window.currentUser.id,{method:'PATCH',headers:{'apikey':KEY,'Authorization':'Bearer '+KEY,'Content-Type':'application/json'},body:JSON.stringify({username:v,display_name:v})});
+      window.wwUserProfile=window.wwUserProfile||{};
+      window.wwUserProfile.username=v;
+      window.wwUserProfile.display_name=v;
+    }
+    toast('Username saved!','success');
+    closeModal();
+    if(typeof callback==='function')callback();
+  });
 }
 
 async function submitPost(){
@@ -2860,17 +2930,21 @@ async function submitPost(){
   var SB=window.SUPABASE_URL,KEY=window.SUPABASE_ANON_KEY;
   var res=await fetch(SB+'/rest/v1/posts',{method:'POST',headers:{'apikey':KEY,'Authorization':'Bearer '+KEY,'Content-Type':'application/json','Prefer':'return=representation'},body:JSON.stringify({clerk_id:window.currentUser.id,section:sec,title:ttl,content:bdy})}).then(function(r){return r.json();}).catch(function(){return null;});
   if(res&&!res.error){if(typeof COMMUNITY!=='undefined')COMMUNITY.forumPost(window.currentUser.id,(res[0]||{}).id||'',false);toast('Post published!','success');closeModal();loadCommunityData(sec);}
-  else{toast('Error posting — please try again','error');}
+  else{toast('Error posting — please try again','error');console.error('Post error:',res);}
 }
 
 async function openPostModal(postId){
   var SB=window.SUPABASE_URL,KEY=window.SUPABASE_ANON_KEY,hd={'apikey':KEY,'Authorization':'Bearer '+KEY};
-  var posts=await fetch(SB+'/rest/v1/posts?id=eq.'+postId+'&select=*,user_profiles(display_name,tier)',{headers:hd}).then(function(r){return r.json();}).catch(function(){return[];});
+  var posts=await fetch(SB+'/rest/v1/posts?id=eq.'+postId+'&select=*',{headers:hd}).then(function(r){return r.json();}).catch(function(){return[];});
   if(!posts||!posts.length)return;
-  var p=posts[0],prof=p.user_profiles||{};
-  var reps=await fetch(SB+'/rest/v1/replies?post_id=eq.'+postId+'&order=created_at.asc&select=*,user_profiles(display_name,tier)',{headers:hd}).then(function(r){return r.json();}).catch(function(){return[];});
+  var p=posts[0];
+  var profR=await fetch(SB+'/rest/v1/user_profiles?clerk_id=eq.'+p.clerk_id+'&select=display_name,tier',{headers:hd}).then(function(r){return r.json();}).catch(function(){return[];});
+  var prof=(profR&&profR[0])||{};
+  var reps=await fetch(SB+'/rest/v1/replies?post_id=eq.'+postId+'&order=created_at.asc&select=*',{headers:hd}).then(function(r){return r.json();}).catch(function(){return[];});
+  // Get reply author profiles
+  if(reps&&reps.length){var rids=[...new Set(reps.map(function(r){return r.clerk_id;}).filter(Boolean))];if(rids.length){var rprofs=await fetch(SB+'/rest/v1/user_profiles?clerk_id=in.('+rids.join(',')+')'+'&select=clerk_id,display_name,tier',{headers:hd}).then(function(r){return r.json();}).catch(function(){return[];});var rpm={};(rprofs||[]).forEach(function(p){rpm[p.clerk_id]=p;});reps=reps.map(function(r){return Object.assign({},r,{_prof:rpm[r.clerk_id]||{}});});}}
   var modal=document.getElementById('wwModal');if(!modal)return;
-  var rH=(reps||[]).map(function(r){var rp=r.user_profiles||{};return '<div style="padding:10px;background:#f8fafc;border-radius:6px;margin-bottom:8px"><div style="font-size:10px;font-weight:600;color:#374151;margin-bottom:4px">'+(rp.display_name||'Member')+' · '+(rp.tier||'Maiden')+' · '+getTimeAgo(r.created_at)+'</div><div style="font-size:12px;color:#374151">'+(r.content||'')+'</div></div>';}).join('');
+  var rH=(reps||[]).map(function(r){var rp=r._prof||{};return '<div style="padding:10px;background:#f8fafc;border-radius:6px;margin-bottom:8px"><div style="font-size:10px;font-weight:600;color:#374151;margin-bottom:4px">'+(rp.display_name||'Member')+' · '+(rp.tier||'Maiden')+' · '+getTimeAgo(r.created_at)+'</div><div style="font-size:12px;color:#374151">'+(r.content||'')+'</div></div>';}).join('');
   modal.innerHTML='<div style="background:#fff;border-radius:12px;padding:24px;max-width:600px;width:100%;margin:auto;max-height:80vh;overflow-y:auto"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px"><div style="font-size:14px;font-weight:700;color:#111827">'+(p.title||'')+'</div><button onclick="closeModal()" style="background:none;border:none;font-size:18px;cursor:pointer;color:#9ca3af">✕</button></div><div style="font-size:11px;color:#6b7280;margin-bottom:12px"><span style="font-weight:600;color:#374151">'+(prof.display_name||'Member')+'</span> · '+(prof.tier||'Maiden')+' · '+getTimeAgo(p.created_at)+'</div><div style="font-size:13px;color:#374151;line-height:1.6;margin-bottom:16px;padding-bottom:16px;border-bottom:0.5px solid #e5e7eb">'+(p.content||'')+'</div><div style="font-size:11px;font-weight:700;color:#374151;margin-bottom:10px">💬 '+((reps||[]).length)+' Replies</div>'+rH+(window.currentUser?'<textarea id="reply-content" placeholder="Write a reply..." style="width:100%;padding:9px 12px;border:0.5px solid #e5e7eb;border-radius:7px;font-size:12px;min-height:70px;resize:none;font-family:inherit;box-sizing:border-box;margin-top:10px"></textarea><button id="submit-reply-btn" style="width:100%;margin-top:8px;padding:10px;background:#00471b;color:#fff;border:none;border-radius:7px;font-size:13px;font-weight:600;cursor:pointer">Post Reply</button>':'<div style="text-align:center;padding:12px;font-size:12px;color:#6b7280">Sign in to reply</div>')+'</div>';
   modal.style.display='flex';
   if(window.currentUser){document.getElementById('submit-reply-btn').addEventListener('click',function(){submitReply(postId);});}
