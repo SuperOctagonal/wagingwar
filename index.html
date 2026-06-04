@@ -2740,14 +2740,12 @@ function showCommunity(){
   var tierMaxs={Maiden:499,Benchmark:1999,Listed:4999,'Group 3':9999,'Group 2':24999,'Group 1':999999};
   var tMin=tierMins[tier.name]||0,tMax=tierMaxs[tier.name]||499;
   var tPct=tMax>tMin?Math.min(100,Math.round((pts-tMin)/(tMax-tMin)*100)):100;
-  var initials=((u.name||'?').charAt(0)).toUpperCase();
+  var init=((u.name||'?').charAt(0)).toUpperCase();
 
-  // ── LEFT SIDEBAR ──
   var leftHTML=
-    // Profile card
     '<div style="padding:14px 14px 10px;border-bottom:1px solid #e5e7eb">'+
       '<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">'+
-        '<div style="width:40px;height:40px;border-radius:50%;background:#00471b;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:800;color:#fff;flex-shrink:0">'+initials+'</div>'+
+        '<div style="width:40px;height:40px;border-radius:50%;background:#00471b;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:800;color:#fff;flex-shrink:0">'+init+'</div>'+
         '<div style="min-width:0">'+
           '<div style="font-size:13px;font-weight:700;color:#111827;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+(u.name||'Punter')+'</div>'+
           '<span style="display:inline-block;font-size:9px;font-weight:700;padding:2px 7px;border-radius:10px;background:'+tier.color+'22;color:'+tier.color+'">'+tier.emoji+' '+tier.name+'</span>'+
@@ -2758,7 +2756,7 @@ function showCommunity(){
         (next?'<span style="font-size:10px;color:#9ca3af">'+next.needed.toLocaleString()+' to '+next.name+'</span>':'<span style="font-size:10px;color:#7c3aed">Max tier 👑</span>')+
       '</div>'+
       '<div style="height:5px;background:#f1f5f9;border-radius:3px;overflow:hidden;margin-bottom:10px">'+
-        '<div style="width:'+tPct+'%;height:100%;background:'+tier.color+';border-radius:3px;transition:width .5s"></div>'+
+        '<div style="width:'+tPct+'%;height:100%;background:'+tier.color+';border-radius:3px"></div>'+
       '</div>'+
       '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;margin-bottom:10px">'+
         '<div style="text-align:center;background:#f8fafc;border-radius:6px;padding:5px 2px"><div style="font-size:13px;font-weight:800;color:#111827">'+(profile.total_bets||0)+'</div><div style="font-size:9px;color:#9ca3af">Bets</div></div>'+
@@ -2776,18 +2774,14 @@ function showCommunity(){
       '<div style="font-size:10px;font-weight:600;color:#6b7280;margin-bottom:5px">Badges</div>'+
       '<div id="user-badges-row" style="display:flex;flex-wrap:wrap;gap:3px;min-height:20px"><span style="font-size:10px;color:#d1d5db">Loading...</span></div>'+
     '</div>'+
-    // Section nav
     '<div style="padding:10px 8px">'+
       '<div style="font-size:9px;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:.8px;padding:0 6px;margin-bottom:6px">Sections</div>'+
       SECS.map(function(s){
         var isA=af===s.id;
         return '<div data-section="'+s.id+'" class="comm-section-btn" style="display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:8px;cursor:pointer;margin-bottom:2px;background:'+(isA?'#f0fdf4':'transparent')+';color:'+(isA?'#00471b':'#374151')+';font-size:12px;font-weight:'+(isA?'700':'400')+';border-left:3px solid '+(isA?'#00471b':'transparent')+'">'+
-          '<span style="font-size:14px">'+s.icon+'</span>'+
-          '<span>'+s.label+'</span>'+
-        '</div>';
+          '<span style="font-size:14px">'+s.icon+'</span><span>'+s.label+'</span></div>';
       }).join('')+
     '</div>'+
-    // Missions
     '<div style="padding:8px 14px 14px;border-top:1px solid #f1f5f9">'+
       '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">'+
         '<span style="font-size:10px;font-weight:700;color:#374151">Daily Missions</span>'+
@@ -2796,28 +2790,24 @@ function showCommunity(){
       '<div id="missions-wrap"><div style="font-size:10px;color:#9ca3af">Loading...</div></div>'+
     '</div>';
 
-  // ── CENTRE FEED (initial loading state) ──
   var centreHTML=
-    '<div style="position:sticky;top:0;z-index:20;background:#fff;border-bottom:1px solid #e5e7eb">'+
+    '<div style="flex-shrink:0;background:#fff;border-bottom:1px solid #e5e7eb;position:sticky;top:0;z-index:20">'+
       '<div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px 0">'+
         '<div style="font-size:20px;font-weight:800;color:#111827">Community</div>'+
-        '<button id="new-post-btn" style="display:flex;align-items:center;gap:5px;background:#00471b;color:#fff;border:none;padding:8px 16px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">✏️ New Post</button>'+
+        '<button id="new-post-btn" style="display:flex;align-items:center;gap:5px;background:#00471b;color:#fff;border:none;padding:8px 16px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">✏️ New Post</button>'+
       '</div>'+
-      '<div style="display:flex;gap:0;padding:0 16px;overflow-x:auto;scrollbar-width:none;-ms-overflow-style:none">'+
+      '<div style="display:flex;gap:0;padding:0 16px;overflow-x:auto;scrollbar-width:none">'+
         SECS.map(function(s){
           var isA=af===s.id;
-          return '<div data-section="'+s.id+'" class="comm-tab-btn" style="padding:10px 12px;font-size:11px;font-weight:'+(isA?'700':'400')+';color:'+(isA?'#00471b':'#6b7280')+';cursor:pointer;border-bottom:2px solid '+(isA?'#00471b':'transparent')+';white-space:nowrap;flex-shrink:0;transition:all .15s">'+s.label+'</div>';
+          return '<div data-section="'+s.id+'" class="comm-tab-btn" style="padding:10px 12px;font-size:11px;font-weight:'+(isA?'700':'400')+';color:'+(isA?'#00471b':'#6b7280')+';cursor:pointer;border-bottom:2px solid '+(isA?'#00471b':'transparent')+';white-space:nowrap;flex-shrink:0">'+s.label+'</div>';
         }).join('')+
       '</div>'+
     '</div>'+
-    '<div style="padding:10px 16px">'+
-      '<div style="padding:8px 12px;background:#fffbeb;border:1px solid #fde68a;border-radius:6px;font-size:11px;color:#92400e">'+
-        '⚠️ Posts are member opinions only — not financial advice.'+
-      '</div>'+
+    '<div style="padding:10px 16px 0">'+
+      '<div style="padding:8px 12px;background:#fffbeb;border:1px solid #fde68a;border-radius:6px;font-size:11px;color:#92400e">⚠️ Posts are member opinions only — not financial advice.</div>'+
     '</div>'+
-    '<div id="comm-feed" style="padding:0 16px 40px"><div style="padding:30px;text-align:center;color:#9ca3af;font-size:13px">Loading posts...</div></div>';
+    '<div id="comm-feed" style="padding:10px 16px 40px;overflow-y:auto;flex:1"><div style="padding:30px;text-align:center;color:#9ca3af;font-size:13px">Loading posts...</div></div>';
 
-  // ── RIGHT SIDEBAR ──
   var rightHTML=
     '<div style="padding:14px">'+
       '<div style="font-size:13px;font-weight:800;color:#111827;margin-bottom:2px">Leaderboards</div>'+
@@ -2830,36 +2820,34 @@ function showCommunity(){
       '<div id="lb-stats-wrap"><div style="font-size:11px;color:#9ca3af">Loading...</div></div>'+
       '<div style="margin-top:16px;padding:12px;background:#f0fdf4;border-radius:8px;border:1px solid #bbf7d0">'+
         '<div style="font-size:11px;font-weight:700;color:#166534;margin-bottom:4px">🏇 Waging War</div>'+
-        '<div style="font-size:10px;color:#374151;line-height:1.5">Australia\'s smartest racing community. Share tips, track results, climb the leaderboard.</div>'+
+        '<div style="font-size:10px;color:#374151;line-height:1.5">Australia&#39;s smartest racing community. Share tips, track results, climb the leaderboard.</div>'+
       '</div>'+
     '</div>';
 
-  // Render the 3-column shell
   main.innerHTML=
     '<div id="comm-shell" style="display:grid;grid-template-columns:230px 1fr 230px;height:calc(100vh - 56px);overflow:hidden;background:#f1f5f9">'+
-      '<div id="comm-left" style="border-right:1px solid #e5e7eb;background:#fff;overflow-y:auto;scrollbar-width:thin">'+leftHTML+'</div>'+
+      '<div id="comm-left" style="border-right:1px solid #e5e7eb;background:#fff;overflow-y:auto">'+leftHTML+'</div>'+
       '<div id="comm-centre" style="display:flex;flex-direction:column;overflow:hidden;background:#fff;border-right:1px solid #e5e7eb">'+centreHTML+'</div>'+
-      '<div id="comm-right" style="background:#fff;overflow-y:auto;scrollbar-width:thin">'+rightHTML+'</div>'+
+      '<div id="comm-right" style="background:#fff;overflow-y:auto">'+rightHTML+'</div>'+
     '</div>';
 
-  // Wire section nav (left + tabs both filter, no full re-render)
+  // Wire section nav — update highlights without rebuilding shell
   main.querySelectorAll('.comm-section-btn,.comm-tab-btn').forEach(function(el){
     el.addEventListener('click',function(){
       var s=el.getAttribute('data-section');
       window._communityFilter=s;
-      // Update active states without re-rendering shell
       main.querySelectorAll('.comm-section-btn').forEach(function(b){
-        var isA=b.getAttribute('data-section')===s;
-        b.style.background=isA?'#f0fdf4':'transparent';
-        b.style.color=isA?'#00471b':'#374151';
-        b.style.fontWeight=isA?'700':'400';
-        b.style.borderLeft='3px solid '+(isA?'#00471b':'transparent');
+        var a=b.getAttribute('data-section')===s;
+        b.style.background=a?'#f0fdf4':'transparent';
+        b.style.color=a?'#00471b':'#374151';
+        b.style.fontWeight=a?'700':'400';
+        b.style.borderLeft='3px solid '+(a?'#00471b':'transparent');
       });
       main.querySelectorAll('.comm-tab-btn').forEach(function(b){
-        var isA=b.getAttribute('data-section')===s;
-        b.style.color=isA?'#00471b':'#6b7280';
-        b.style.fontWeight=isA?'700':'400';
-        b.style.borderBottom='2px solid '+(isA?'#00471b':'transparent');
+        var a=b.getAttribute('data-section')===s;
+        b.style.color=a?'#00471b':'#6b7280';
+        b.style.fontWeight=a?'700':'400';
+        b.style.borderBottom='2px solid '+(a?'#00471b':'transparent');
       });
       loadCommFeed(s);
     });
@@ -2871,25 +2859,121 @@ function showCommunity(){
     navigator.clipboard.writeText('https://wagingwar.com.au?ref='+(profile.referral_code||''));
     toast('Referral link copied!','success');
   });
-  // Load data
   loadCommFeed(af);
   loadCommSidebars();
 }
 
+function setCommunityTab(t){window._communityFilter=t;showCommunity();}
 function communityFilter(s){window._communityFilter=s;showCommunity();}
-function setCommunityTab(t){communityFilter(t);}
+function closeModal(){var m=document.getElementById('wwModal');if(m)m.style.display='none';}
+function showNewPost(){if(!currentUser){openLoginModal();return;}showNewPostModal();}
+function getTimeAgo(ts){if(!ts)return'';var d=Date.now()-new Date(ts).getTime(),m=Math.floor(d/60000);if(m<1)return'just now';if(m<60)return m+'m ago';var h=Math.floor(m/60);if(h<24)return h+'h ago';return Math.floor(h/24)+'d ago';}
 
-// ── Load just the centre feed (no shell re-render) ──
+function showNewPostModal(){
+  if(!window.currentUser){openLoginModal();return;}
+  if(!window.wwUserProfile||!window.wwUserProfile.display_name){
+    showUsernameSetup(function(){showNewPostModal();});return;
+  }
+  var modal=document.getElementById('wwModal');if(!modal)return;
+  var secs=[{id:'today_races',label:"Today's Races"},{id:'tips_analysis',label:'Tips & Analysis'},{id:'winning_bets',label:'Winning Bets'},{id:'system_feedback',label:'System Feedback'},{id:'general',label:'General Chat'}];
+  modal.innerHTML=
+    '<div style="background:#fff;border-radius:12px;padding:24px;max-width:560px;width:100%;margin:auto">'+
+      '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">'+
+        '<div style="font-size:16px;font-weight:800;color:#111827">New Post</div>'+
+        '<button id="close-post-modal" style="background:none;border:none;font-size:20px;cursor:pointer;color:#9ca3af;line-height:1">×</button>'+
+      '</div>'+
+      '<select id="post-section" style="width:100%;padding:9px 12px;border:1px solid #e5e7eb;border-radius:7px;font-size:12px;margin-bottom:10px;font-family:inherit;box-sizing:border-box;background:#fff">'+
+        secs.map(function(s){return '<option value="'+s.id+'">'+s.label+'</option>';}).join('')+
+      '</select>'+
+      '<input id="post-title" placeholder="Give your post a title..." style="width:100%;padding:10px 12px;border:1px solid #e5e7eb;border-radius:7px;font-size:13px;margin-bottom:10px;font-family:inherit;box-sizing:border-box">'+
+      '<textarea id="post-content" placeholder="Share your analysis, tip, or question..." style="width:100%;padding:10px 12px;border:1px solid #e5e7eb;border-radius:7px;font-size:13px;min-height:120px;resize:vertical;font-family:inherit;box-sizing:border-box;margin-bottom:14px;line-height:1.6"></textarea>'+
+      '<div style="display:flex;gap:10px">'+
+        '<button id="cancel-post-btn" style="flex:1;padding:10px;border:1px solid #e5e7eb;border-radius:7px;font-size:13px;font-weight:600;cursor:pointer;background:#fff;font-family:inherit">Cancel</button>'+
+        '<button id="submit-post-btn" style="flex:2;padding:10px;background:#00471b;color:#fff;border:none;border-radius:7px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">Post</button>'+
+      '</div>'+
+    '</div>';
+  modal.style.display='flex';
+  modal.querySelector('#close-post-modal').addEventListener('click',closeModal);
+  modal.querySelector('#cancel-post-btn').addEventListener('click',closeModal);
+  modal.querySelector('#submit-post-btn').addEventListener('click',submitPost);
+}
+
+function showUsernameSetup(callback){
+  var modal=document.getElementById('wwModal');if(!modal)return;
+  modal.innerHTML=
+    '<div style="background:#fff;border-radius:12px;padding:24px;max-width:440px;width:100%;margin:auto">'+
+      '<div style="text-align:center;margin-bottom:16px">'+
+        '<div style="font-size:28px;margin-bottom:8px">👤</div>'+
+        '<div style="font-size:16px;font-weight:700;color:#111827;margin-bottom:4px">Choose your username</div>'+
+        '<div style="font-size:12px;color:#6b7280">This is how other members will see you in the community</div>'+
+      '</div>'+
+      '<input id="username-input" placeholder="e.g. TrackRat_QLD" style="width:100%;padding:11px 14px;border:1px solid #e5e7eb;border-radius:7px;font-size:14px;font-family:inherit;box-sizing:border-box;margin-bottom:6px">'+
+      '<div id="username-hint" style="font-size:10px;color:#9ca3af;margin-bottom:14px">3–20 characters, letters, numbers and underscores only</div>'+
+      '<button id="save-username-btn" style="width:100%;padding:12px;background:#00471b;color:#fff;border:none;border-radius:7px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit">Save Username</button>'+
+    '</div>';
+  modal.style.display='flex';
+  var inp=modal.querySelector('#username-input');
+  var btn=modal.querySelector('#save-username-btn');
+  var hint=modal.querySelector('#username-hint');
+  inp.addEventListener('input',function(){
+    var v=inp.value.trim();
+    var ok=/^[a-zA-Z0-9_]{3,20}$/.test(v);
+    hint.style.color=ok?'#059669':'#9ca3af';
+    hint.textContent=ok?'✓ Looks good!':'3–20 characters, letters, numbers and underscores only';
+  });
+  btn.addEventListener('click',async function(){
+    var v=inp.value.trim();
+    if(!/^[a-zA-Z0-9_]{3,20}$/.test(v)){toast('Invalid username — letters, numbers and underscores only','error');return;}
+    btn.textContent='Saving...';btn.disabled=true;
+    var SB=window.SUPABASE_URL,KEY=window.SUPABASE_ANON_KEY;
+    var check=await fetch(SB+'/rest/v1/user_profiles?username=eq.'+encodeURIComponent(v)+'&select=clerk_id',{headers:{'apikey':KEY,'Authorization':'Bearer '+KEY}}).then(function(r){return r.json();}).catch(function(){return[];});
+    if(check&&check.length&&(!window.currentUser||check[0].clerk_id!==window.currentUser.id)){
+      toast('Username already taken — try another','error');btn.textContent='Save Username';btn.disabled=false;return;
+    }
+    if(window.currentUser){
+      await fetch(SB+'/rest/v1/user_profiles?clerk_id=eq.'+window.currentUser.id,{method:'PATCH',headers:{'apikey':KEY,'Authorization':'Bearer '+KEY,'Content-Type':'application/json'},body:JSON.stringify({username:v,display_name:v})});
+      window.wwUserProfile=window.wwUserProfile||{};
+      window.wwUserProfile.username=v;window.wwUserProfile.display_name=v;
+    }
+    toast('Username saved!','success');closeModal();
+    if(typeof callback==='function')callback();
+  });
+}
+
+async function submitPost(){
+  if(!window.currentUser)return;
+  var sec=(document.getElementById('post-section').value||'general');
+  var ttl=(document.getElementById('post-title').value||'').trim();
+  var bdy=(document.getElementById('post-content').value||'').trim();
+  if(!ttl||!bdy){toast('Please fill in title and body','error');return;}
+  var btn=document.getElementById('submit-post-btn');
+  if(btn){btn.disabled=true;btn.textContent='Posting...';}
+  var SB=window.SUPABASE_URL,KEY=window.SUPABASE_ANON_KEY;
+  var res=await fetch(SB+'/rest/v1/posts',{method:'POST',headers:{'apikey':KEY,'Authorization':'Bearer '+KEY,'Content-Type':'application/json','Prefer':'return=representation'},body:JSON.stringify({user_id:window.currentUser.id,section:sec,title:ttl,body:bdy})}).then(function(r){return r.json();}).catch(function(){return null;});
+  if(res&&!res.error&&res.length){
+    if(typeof COMMUNITY!=='undefined')COMMUNITY.forumPost(window.currentUser.id,(res[0]||{}).id||'',false);
+    toast('Post published! +10pts','success');
+    closeModal();
+    window._communityFilter=sec;
+    loadCommFeed(sec);
+  } else {
+    toast('Error posting — please try again','error');
+    console.error('Post error:',res);
+    if(btn){btn.disabled=false;btn.textContent='Post';}
+  }
+}
+
+// ── Load feed into centre column only ──
 async function loadCommFeed(section){
+  var ADMIN_ID='user_3ELAZyaOPUNLmkzOfuThRoCEHaG';
   var feed=document.getElementById('comm-feed');
   if(!feed)return;
   feed.innerHTML='<div style="padding:30px;text-align:center;color:#9ca3af;font-size:13px">Loading...</div>';
   var SB=window.SUPABASE_URL,KEY=window.SUPABASE_ANON_KEY;
-  var ADMIN_ID='user_3ELAZyaOPUNLmkzOfuThRoCEHaG';
   function sg(p){return fetch(SB+'/rest/v1/'+p,{headers:{'apikey':KEY,'Authorization':'Bearer '+KEY}}).then(function(r){return r.json();}).catch(function(){return[];});}
   var cc={today_races:{bg:'#dbeafe',c:'#1e40af',label:"Today's Races"},tips_analysis:{bg:'#dcfce7',c:'#166534',label:'Tips & Analysis'},winning_bets:{bg:'#fef9c3',c:'#854d0e',label:'Winning Bet'},system_feedback:{bg:'#f3e8ff',c:'#6b21a8',label:'System Feedback'},general:{bg:'#f3f4f6',c:'#374151',label:'General Chat'}};
   var sf=section&&section!=='all'?'&section=eq.'+section:'';
-  var posts=await sg('posts?order=votes.desc,created_at.desc&limit=50'+sf+'&select=id,user_id,section,title,body,votes,reply_count,created_at');
+  var posts=await sg('posts?order=created_at.desc&limit=50'+sf+'&select=id,user_id,section,title,body,votes,reply_count,created_at');
   if(posts&&posts.length){
     var uids=[...new Set(posts.map(function(p){return p.user_id;}).filter(Boolean))];
     if(uids.length){
@@ -2899,7 +2983,7 @@ async function loadCommFeed(section){
     }
   }
   if(!posts||!posts.length){
-    feed.innerHTML='<div style="padding:60px 20px;text-align:center"><div style="font-size:36px;margin-bottom:12px">💬</div><div style="font-size:15px;font-weight:700;color:#111827;margin-bottom:6px">No posts yet</div><div style="font-size:12px;color:#9ca3af">Be the first to post in this section!</div></div>';
+    feed.innerHTML='<div style="padding:60px 20px;text-align:center"><div style="font-size:36px;margin-bottom:12px">💬</div><div style="font-size:15px;font-weight:700;color:#111827;margin-bottom:6px">No posts yet</div><div style="font-size:12px;color:#9ca3af">Be the first to post!</div></div>';
     return;
   }
   feed.innerHTML='';
@@ -2909,93 +2993,76 @@ async function loadCommFeed(section){
     var cat=cc[p.section]||cc.general;
     var prof=p._prof||{};
     var dname=prof.username||prof.display_name||'Member';
-    var init=(dname.charAt(0)||'?').toUpperCase();
+    var pinit=(dname.charAt(0)||'?').toUpperCase();
     var preview=(p.body||'').replace(/</g,'&lt;').substring(0,160);
     var isOwn=uid&&uid===p.user_id;
-    var canDel=isAdmin||isOwn;
     var card=document.createElement('div');
-    card.style.cssText='display:flex;gap:0;background:#fff;border:1px solid #e5e7eb;border-radius:8px;margin-bottom:8px;cursor:pointer;overflow:hidden;transition:border-color .15s,box-shadow .15s';
-    card.onmouseenter=function(){this.style.borderColor='#00471b';this.style.boxShadow='0 2px 8px rgba(0,71,27,.08)';};
-    card.onmouseleave=function(){this.style.borderColor='#e5e7eb';this.style.boxShadow='none';};
-    // Upvote column (like Reddit)
+    card.style.cssText='display:flex;gap:0;background:#fff;border:1px solid #e5e7eb;border-radius:8px;margin-bottom:8px;overflow:hidden;transition:border-color .15s,box-shadow .15s';
     card.innerHTML=
-      '<div class="vote-col" style="display:flex;flex-direction:column;align-items:center;padding:10px 8px;background:#f8fafc;gap:2px;flex-shrink:0;min-width:44px;border-right:1px solid #f1f5f9">'+
-        '<button class="upvote-btn" data-pid="'+p.id+'" data-uid="'+p.user_id+'" style="background:none;border:none;cursor:pointer;font-size:16px;color:#9ca3af;line-height:1;padding:2px 4px;border-radius:3px;transition:color .15s">▲</button>'+
+      '<div class="vote-col" style="display:flex;flex-direction:column;align-items:center;padding:10px 8px;background:#f8fafc;gap:3px;flex-shrink:0;min-width:46px;border-right:1px solid #f1f5f9">'+
+        '<button class="upvote-btn" data-pid="'+p.id+'" data-uid="'+p.user_id+'" style="background:none;border:none;cursor:pointer;font-size:18px;color:#9ca3af;line-height:1;padding:2px;transition:color .15s">▲</button>'+
         '<span class="vote-count" style="font-size:12px;font-weight:800;color:#374151">'+(p.votes||0)+'</span>'+
       '</div>'+
-      // Content column
-      '<div style="flex:1;padding:10px 12px;min-width:0">'+
-        '<div style="display:flex;align-items:center;gap:6px;margin-bottom:5px;flex-wrap:wrap">'+
+      '<div class="card-body" style="flex:1;padding:10px 12px;min-width:0;cursor:pointer">'+
+        '<div style="display:flex;align-items:center;gap:6px;margin-bottom:5px">'+
           '<span style="font-size:9px;font-weight:700;padding:2px 8px;border-radius:10px;background:'+cat.bg+';color:'+cat.c+'">'+cat.label+'</span>'+
         '</div>'+
         '<div style="font-size:14px;font-weight:700;color:#111827;line-height:1.3;margin-bottom:4px">'+((p.title||'').replace(/</g,'&lt;'))+'</div>'+
         (preview?'<div style="font-size:12px;color:#6b7280;line-height:1.5;margin-bottom:7px">'+preview+(p.body&&p.body.length>160?'…':'')+'</div>':'')+
-        '<div style="display:flex;align-items:center;gap:10px;font-size:11px;color:#9ca3af;flex-wrap:wrap">'+
-          '<div style="display:flex;align-items:center;gap:5px">'+
-            '<div style="width:18px;height:18px;border-radius:50%;background:#00471b;display:inline-flex;align-items:center;justify-content:center;color:#fff;font-size:8px;font-weight:800">'+init+'</div>'+
+        '<div style="display:flex;align-items:center;gap:8px;font-size:11px;color:#9ca3af">'+
+          '<div style="display:flex;align-items:center;gap:4px">'+
+            '<div style="width:18px;height:18px;border-radius:50%;background:#00471b;display:inline-flex;align-items:center;justify-content:center;color:#fff;font-size:8px;font-weight:800">'+pinit+'</div>'+
             '<span style="font-weight:600;color:#4b5563">'+dname+'</span>'+
             '<span style="font-size:9px;padding:1px 5px;border-radius:6px;background:#f3f4f6;color:#6b7280">'+(prof.tier||'Maiden')+'</span>'+
           '</div>'+
           '<span>💬 '+(p.reply_count||0)+'</span>'+
           '<span>'+getTimeAgo(p.created_at)+'</span>'+
-          (canDel?'<button class="del-post-btn" data-pid="'+p.id+'" style="margin-left:auto;background:none;border:none;color:#dc2626;font-size:10px;cursor:pointer;padding:2px 6px;border-radius:4px;opacity:.5" title="Delete">🗑</button>':'')+
+          ((isAdmin||isOwn)?'<button class="del-post-btn" data-pid="'+p.id+'" style="margin-left:auto;background:none;border:none;color:#dc2626;font-size:10px;cursor:pointer;padding:2px 6px;border-radius:4px;opacity:.5">🗑</button>':'')+
         '</div>'+
       '</div>';
-    // Click post body → open thread
-    card.querySelector('div[style*="flex:1"]').addEventListener('click',function(){openPostThread(p.id);});
-    card.querySelector('div[style*="flex:1"]').style.cursor='pointer';
-    // Upvote button
+    card.onmouseenter=function(){this.style.borderColor='#00471b';this.style.boxShadow='0 2px 8px rgba(0,71,27,.08)';};
+    card.onmouseleave=function(){this.style.borderColor='#e5e7eb';this.style.boxShadow='none';};
+    card.querySelector('.card-body').addEventListener('click',function(){openPostThread(p.id);});
     card.querySelector('.upvote-btn').addEventListener('click',function(e){
-      e.stopPropagation();
-      commUpvote(p.id,p.user_id,this);
+      e.stopPropagation();commUpvote(p.id,p.user_id,this);
     });
-    // Delete button
     var db=card.querySelector('.del-post-btn');
     if(db)db.addEventListener('click',function(e){e.stopPropagation();commDeletePost(p.id);});
     feed.appendChild(card);
   });
 }
 
-// ── Load sidebar data (leaderboards, badges, missions) ──
 async function loadCommSidebars(){
   var SB=window.SUPABASE_URL,KEY=window.SUPABASE_ANON_KEY;
   function sg(p){return fetch(SB+'/rest/v1/'+p,{headers:{'apikey':KEY,'Authorization':'Bearer '+KEY}}).then(function(r){return r.json();}).catch(function(){return[];});}
-  // Points leaderboard
+  var ic=['🥇','🥈','🥉','4️⃣','5️⃣'];
   var lp=document.getElementById('lb-pts-wrap');
   if(lp){
     var tu=await sg('user_profiles?select=username,display_name,points,tier&order=points.desc&limit=5');
-    var ic=['🥇','🥈','🥉','4️⃣','5️⃣'];
     lp.innerHTML=(tu&&tu.length)?tu.map(function(u,i){
       var n=u.username||u.display_name||'Member';
       return '<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #f9fafb">'+
         '<span style="font-size:13px;width:20px;text-align:center">'+ic[i]+'</span>'+
         '<div style="width:22px;height:22px;border-radius:50%;background:#00471b;display:flex;align-items:center;justify-content:center;color:#fff;font-size:9px;font-weight:800">'+((n.charAt(0)||'?').toUpperCase())+'</div>'+
-        '<div style="flex:1;min-width:0">'+
-          '<div style="font-size:11px;font-weight:600;color:#111827;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+n+'</div>'+
-          '<div style="font-size:9px;color:#9ca3af">'+(u.tier||'Maiden')+'</div>'+
-        '</div>'+
+        '<div style="flex:1;min-width:0"><div style="font-size:11px;font-weight:600;color:#111827;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+n+'</div><div style="font-size:9px;color:#9ca3af">'+(u.tier||'Maiden')+'</div></div>'+
         '<span style="font-size:11px;font-weight:800;color:#059669">'+((u.points||0).toLocaleString())+'</span>'+
       '</div>';
-    }).join(''):'<div style="font-size:11px;color:#9ca3af;padding:4px 0">No members yet</div>';
+    }).join(''):'<div style="font-size:11px;color:#9ca3af">No members yet</div>';
   }
-  // Community stats
   var ls=document.getElementById('lb-stats-wrap');
   if(ls){
     var uc=await sg('user_profiles?select=clerk_id');
     var pc=await sg('posts?select=id');
-    ls.innerHTML=
-      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">'+
-        '<div style="background:#f8fafc;border-radius:6px;padding:8px;text-align:center"><div style="font-size:18px;font-weight:800;color:#111827">'+((uc||[]).length)+'</div><div style="font-size:9px;color:#9ca3af">Members</div></div>'+
-        '<div style="background:#f8fafc;border-radius:6px;padding:8px;text-align:center"><div style="font-size:18px;font-weight:800;color:#111827">'+((pc||[]).length)+'</div><div style="font-size:9px;color:#9ca3af">Posts</div></div>'+
-      '</div>';
+    ls.innerHTML='<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">'+
+      '<div style="background:#f8fafc;border-radius:6px;padding:8px;text-align:center"><div style="font-size:18px;font-weight:800;color:#111827">'+((uc||[]).length)+'</div><div style="font-size:9px;color:#9ca3af">Members</div></div>'+
+      '<div style="background:#f8fafc;border-radius:6px;padding:8px;text-align:center"><div style="font-size:18px;font-weight:800;color:#111827">'+((pc||[]).length)+'</div><div style="font-size:9px;color:#9ca3af">Posts</div></div>'+
+    '</div>';
   }
-  // Badges
   var br=document.getElementById('user-badges-row');
   if(br&&window.currentUser){
     var ub=await sg('user_badges?clerk_id=eq.'+window.currentUser.id+'&select=badge_id,badges(name,emoji)&limit=10');
-    br.innerHTML=(ub&&ub.length)?ub.map(function(b){var bd=b.badges||{};return '<span title="'+(bd.name||'')+'" style="font-size:15px">'+( bd.emoji||'🏅')+'</span>';}).join(''):'<span style="font-size:10px;color:#d1d5db">No badges yet</span>';
+    br.innerHTML=(ub&&ub.length)?ub.map(function(b){var bd=b.badges||{};return '<span title="'+(bd.name||'')+'" style="font-size:15px">'+(bd.emoji||'🏅')+'</span>';}).join(''):'<span style="font-size:10px;color:#d1d5db">No badges yet</span>';
   }
-  // Missions
   var mw=document.getElementById('missions-wrap');
   if(mw&&window.currentUser){
     var tod=new Date().toISOString().slice(0,10);
@@ -3005,18 +3072,12 @@ async function loadCommSidebars(){
       var u2=(um||[]).find(function(x){return x.mission_id===m.id;})||{};
       var pg=u2.progress||0,dn=u2.completed||false,pct=Math.min(100,Math.round(pg/(m.target_count||1)*100));
       return '<div style="margin-bottom:6px;padding:7px 8px;border-radius:6px;background:'+(dn?'#f0fdf4':'#f8fafc')+';border:1px solid '+(dn?'#bbf7d0':'#e5e7eb')+'">'+
-        '<div style="display:flex;justify-content:space-between;margin-bottom:3px">'+
-          '<div style="font-size:10px;font-weight:600;color:#111827">'+m.title+'</div>'+
-          '<div style="font-size:10px;font-weight:700;color:#059669">+'+m.points+'</div>'+
-        '</div>'+
-        '<div style="height:3px;background:#e5e7eb;border-radius:2px;overflow:hidden">'+
-          '<div style="width:'+pct+'%;height:100%;background:'+(dn?'#059669':'#00471b')+'"></div>'+
-        '</div>'+
+        '<div style="display:flex;justify-content:space-between;margin-bottom:3px"><div style="font-size:10px;font-weight:600;color:#111827">'+m.title+'</div><div style="font-size:10px;font-weight:700;color:#059669">+'+m.points+'</div></div>'+
+        '<div style="height:3px;background:#e5e7eb;border-radius:2px;overflow:hidden"><div style="width:'+pct+'%;height:100%;background:'+(dn?'#059669':'#00471b')+'"></div></div>'+
         '<div style="font-size:9px;color:#9ca3af;margin-top:2px">'+(dn?'✅ Done':pg+'/'+m.target_count)+'</div>'+
       '</div>';
     }).join(''):'<div style="font-size:10px;color:#9ca3af">No missions today</div>';
   }
-  // ROI leaderboard
   var lr=document.getElementById('lb-roi-wrap');
   if(lr){
     var en=await sg('competition_entries?order=roi.desc&limit=5&select=clerk_id,roi,bets_count');
@@ -3028,35 +3089,27 @@ async function loadCommSidebars(){
         en=en.map(function(e){return Object.assign({},e,{_prof:epm[e.clerk_id]||{}});});
       }
     }
-    var ic2=['🥇','🥈','🥉','4️⃣','5️⃣'];
     lr.innerHTML=(en&&en.length)?en.map(function(e,i){
-      var pr=e._prof||{};
-      var n=pr.username||pr.display_name||'Member';
+      var pr=e._prof||{};var n=pr.username||pr.display_name||'Member';
       return '<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #f9fafb">'+
-        '<span style="font-size:13px;width:20px;text-align:center">'+ic2[i]+'</span>'+
+        '<span style="font-size:13px;width:20px;text-align:center">'+ic[i]+'</span>'+
         '<div style="width:22px;height:22px;border-radius:50%;background:#1e40af;display:flex;align-items:center;justify-content:center;color:#fff;font-size:9px;font-weight:800">'+((n.charAt(0)||'?').toUpperCase())+'</div>'+
         '<div style="flex:1;min-width:0"><div style="font-size:11px;font-weight:600;color:#111827">'+n+'</div><div style="font-size:9px;color:#9ca3af">'+(pr.tier||'Maiden')+' · '+e.bets_count+' bets</div></div>'+
         '<span style="font-size:11px;font-weight:800;color:#059669">+'+parseFloat(e.roi||0).toFixed(0)+'%</span>'+
       '</div>';
-    }).join(''):'<div style="font-size:11px;color:#9ca3af;padding:4px 0">Log 5+ bets to appear</div>';
+    }).join(''):'<div style="font-size:11px;color:#9ca3af">Log 5+ bets to appear</div>';
   }
 }
 
-// ── Upvote a post from feed ──
 async function commUpvote(postId,authorId,btn){
   if(!window.currentUser){openLoginModal();return;}
   btn.style.color='#00471b';
   if(typeof COMMUNITY!=='undefined')await COMMUNITY.upvote(window.currentUser.id,postId,'post',authorId);
-  // Refresh vote count
   var SB=window.SUPABASE_URL,KEY=window.SUPABASE_ANON_KEY;
   var vr=await fetch(SB+'/rest/v1/posts?id=eq.'+postId+'&select=votes',{headers:{'apikey':KEY,'Authorization':'Bearer '+KEY}}).then(function(r){return r.json();}).catch(function(){return[];});
-  if(vr&&vr[0]){
-    var vc=btn.parentElement.querySelector('.vote-count');
-    if(vc)vc.textContent=vr[0].votes||0;
-  }
+  if(vr&&vr[0]){var vc=btn.parentElement.querySelector('.vote-count');if(vc)vc.textContent=vr[0].votes||0;}
 }
 
-// ── Delete a post from feed ──
 async function commDeletePost(postId){
   if(!window.currentUser){toast('Please sign in','error');return;}
   if(!confirm('Delete this post and all its replies?'))return;
@@ -3067,25 +3120,21 @@ async function commDeletePost(postId){
   loadCommFeed(window._communityFilter||'all');
 }
 
-// ── Open post as a thread in the centre column ──
 async function openPostThread(postId){
-  var centre=document.getElementById('comm-centre');
-  if(!centre){openPostModal(postId);return;}
   var ADMIN_ID='user_3ELAZyaOPUNLmkzOfuThRoCEHaG';
+  var centre=document.getElementById('comm-centre');
+  if(!centre)return;
   var SB=window.SUPABASE_URL,KEY=window.SUPABASE_ANON_KEY,hd={'apikey':KEY,'Authorization':'Bearer '+KEY};
   var cc={today_races:{bg:'#dbeafe',c:'#1e40af',label:"Today's Races"},tips_analysis:{bg:'#dcfce7',c:'#166534',label:'Tips & Analysis'},winning_bets:{bg:'#fef9c3',c:'#854d0e',label:'Winning Bet'},system_feedback:{bg:'#f3e8ff',c:'#6b21a8',label:'System Feedback'},general:{bg:'#f3f4f6',c:'#374151',label:'General Chat'}};
-  centre.innerHTML='<div style="padding:30px;text-align:center;color:#9ca3af;font-size:13px">Loading thread...</div>';
-  // Fetch post
+  centre.innerHTML='<div style="padding:40px;text-align:center;color:#9ca3af;font-size:13px">Loading thread...</div>';
   var posts=await fetch(SB+'/rest/v1/posts?id=eq.'+postId+'&select=*',{headers:hd}).then(function(r){return r.json();}).catch(function(){return[];});
   if(!posts||!posts.length){centre.innerHTML='<div style="padding:40px;text-align:center;color:#9ca3af">Post not found.</div>';return;}
   var p=posts[0];
   var cat=cc[p.section]||cc.general;
-  // Fetch author
   var profR=await fetch(SB+'/rest/v1/user_profiles?clerk_id=eq.'+p.user_id+'&select=username,display_name,tier',{headers:hd}).then(function(r){return r.json();}).catch(function(){return[];});
   var prof=(profR&&profR[0])||{};
   var dname=prof.username||prof.display_name||'Member';
-  var init=(dname.charAt(0)||'?').toUpperCase();
-  // Fetch replies
+  var pinit=(dname.charAt(0)||'?').toUpperCase();
   var reps=await fetch(SB+'/rest/v1/replies?post_id=eq.'+postId+'&order=created_at.asc&select=*',{headers:hd}).then(function(r){return r.json();}).catch(function(){return[];});
   if(reps&&reps.length){
     var rids=[...new Set(reps.map(function(r){return r.user_id;}).filter(Boolean))];
@@ -3097,104 +3146,75 @@ async function openPostThread(postId){
   }
   var uid=window.currentUser?window.currentUser.id:null;
   var isAdmin=uid===ADMIN_ID;
-  var isOwn=uid&&uid===p.user_id;
-  var canDel=isAdmin||isOwn;
-  // Replies HTML
-  var repliesHTML='';
-  if(reps&&reps.length){
-    repliesHTML=reps.map(function(r){
-      var rp=r._prof||{};
-      var rname=rp.username||rp.display_name||'Member';
-      var ri=(rname.charAt(0)||'?').toUpperCase();
-      var canDelR=isAdmin||(uid&&uid===r.user_id);
-      return '<div class="ww-reply" data-rid="'+r.id+'" style="display:flex;gap:10px;padding:14px 0;border-bottom:1px solid #f1f5f9">'+
-        '<div style="flex-shrink:0;width:32px;height:32px;border-radius:50%;background:#1e40af;display:flex;align-items:center;justify-content:center;color:#fff;font-size:12px;font-weight:800">'+ri+'</div>'+
-        '<div style="flex:1;min-width:0">'+
-          '<div style="display:flex;align-items:center;gap:6px;margin-bottom:5px;flex-wrap:wrap">'+
-            '<span style="font-size:12px;font-weight:700;color:#111827">'+rname+'</span>'+
-            '<span style="font-size:9px;padding:1px 6px;border-radius:6px;background:#f3f4f6;color:#6b7280">'+(rp.tier||'Maiden')+'</span>'+
-            '<span style="font-size:10px;color:#9ca3af">'+getTimeAgo(r.created_at)+'</span>'+
-            (canDelR?'<button class="del-reply-btn" data-rid="'+r.id+'" data-postid="'+postId+'" style="margin-left:auto;background:none;border:1px solid #fecaca;border-radius:4px;color:#dc2626;font-size:9px;cursor:pointer;padding:1px 6px">🗑</button>':'')+
-          '</div>'+
-          '<div style="font-size:13px;color:#374151;line-height:1.7;white-space:pre-wrap">'+((r.content||'').replace(/</g,'&lt;'))+'</div>'+
+  var canDel=isAdmin||(uid&&uid===p.user_id);
+  var repliesHTML=(reps&&reps.length)?reps.map(function(r){
+    var rp=r._prof||{};
+    var rname=rp.username||rp.display_name||'Member';
+    var ri=(rname.charAt(0)||'?').toUpperCase();
+    var canDelR=isAdmin||(uid&&uid===r.user_id);
+    return '<div class="ww-reply" style="display:flex;gap:10px;padding:14px 0;border-bottom:1px solid #f1f5f9">'+
+      '<div style="flex-shrink:0;width:32px;height:32px;border-radius:50%;background:#1e40af;display:flex;align-items:center;justify-content:center;color:#fff;font-size:12px;font-weight:800">'+ri+'</div>'+
+      '<div style="flex:1;min-width:0">'+
+        '<div style="display:flex;align-items:center;gap:6px;margin-bottom:5px;flex-wrap:wrap">'+
+          '<span style="font-size:12px;font-weight:700;color:#111827">'+rname+'</span>'+
+          '<span style="font-size:9px;padding:1px 6px;border-radius:6px;background:#f3f4f6;color:#6b7280">'+(rp.tier||'Maiden')+'</span>'+
+          '<span style="font-size:10px;color:#9ca3af">'+getTimeAgo(r.created_at)+'</span>'+
+          (canDelR?'<button class="del-reply-btn" data-rid="'+r.id+'" data-postid="'+postId+'" style="margin-left:auto;background:none;border:1px solid #fecaca;border-radius:4px;color:#dc2626;font-size:9px;cursor:pointer;padding:1px 6px">🗑</button>':'')+
         '</div>'+
-      '</div>';
-    }).join('');
-  } else {
-    repliesHTML='<div style="padding:24px 0;text-align:center;color:#9ca3af;font-size:12px">No replies yet — be the first!</div>';
-  }
-  // Reply box
+        '<div style="font-size:13px;color:#374151;line-height:1.7;white-space:pre-wrap">'+((r.content||'').replace(/</g,'&lt;'))+'</div>'+
+      '</div>'+
+    '</div>';
+  }).join(''):'<div style="padding:24px 0;text-align:center;color:#9ca3af;font-size:12px">No replies yet — be the first!</div>';
   var replyBox=uid?
-    '<div style="background:#f8fafc;border-radius:8px;padding:14px;margin-top:4px">'+
+    '<div style="background:#f8fafc;border-radius:8px;padding:14px;margin-top:8px">'+
       '<div style="font-size:11px;font-weight:600;color:#374151;margin-bottom:7px">Add a reply</div>'+
-      '<textarea id="reply-content" placeholder="Share your thoughts..." style="width:100%;padding:9px 12px;border:1px solid #e5e7eb;border-radius:7px;font-size:13px;min-height:80px;resize:vertical;font-family:inherit;box-sizing:border-box;line-height:1.6;outline:none;background:#fff"></textarea>'+
+      '<textarea id="reply-content" placeholder="Share your thoughts..." style="width:100%;padding:9px 12px;border:1px solid #e5e7eb;border-radius:7px;font-size:13px;min-height:80px;resize:vertical;font-family:inherit;box-sizing:border-box;line-height:1.6;background:#fff;outline:none"></textarea>'+
       '<div style="display:flex;justify-content:flex-end;margin-top:6px">'+
         '<button id="submit-reply-btn" style="padding:8px 20px;background:#00471b;color:#fff;border:none;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">Post Reply</button>'+
       '</div>'+
     '</div>':
-    '<div style="background:#f8fafc;border-radius:8px;padding:14px;margin-top:4px;text-align:center;font-size:12px;color:#6b7280">Sign in to reply</div>';
-  // Build thread HTML
+    '<div style="background:#f8fafc;border-radius:8px;padding:14px;margin-top:8px;text-align:center;font-size:12px;color:#6b7280">Sign in to reply</div>';
   centre.innerHTML=
-    '<div style="display:flex;flex-direction:column;height:100%;overflow:hidden">'+
-      // Sticky header
-      '<div style="flex-shrink:0;padding:10px 16px;border-bottom:1px solid #e5e7eb;display:flex;align-items:center;gap:8px;background:#fff">'+
-        '<button id="thread-back-btn" style="display:flex;align-items:center;gap:4px;background:none;border:1px solid #e5e7eb;border-radius:6px;padding:4px 10px;font-size:11px;color:#374151;cursor:pointer;font-family:inherit">← Back</button>'+
-        '<span style="font-size:9px;font-weight:700;padding:2px 8px;border-radius:10px;background:'+cat.bg+';color:'+cat.c+'">'+cat.label+'</span>'+
-        (canDel?'<button id="del-post-thread-btn" style="margin-left:auto;background:none;border:1px solid #fecaca;border-radius:6px;color:#dc2626;font-size:10px;cursor:pointer;padding:4px 10px">🗑 Delete post</button>':'')+
-      '</div>'+
-      // Scrollable content
-      '<div style="flex:1;overflow-y:auto;padding:16px">'+
-        // OP post
-        '<div style="margin-bottom:16px">'+
-          '<h2 style="font-size:19px;font-weight:800;color:#111827;line-height:1.3;margin-bottom:10px">'+((p.title||'').replace(/</g,'&lt;'))+'</h2>'+
-          '<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">'+
-            '<div style="width:32px;height:32px;border-radius:50%;background:#00471b;display:flex;align-items:center;justify-content:center;color:#fff;font-size:12px;font-weight:800">'+init+'</div>'+
-            '<div>'+
-              '<div style="font-size:12px;font-weight:700;color:#111827">'+dname+'</div>'+
-              '<div style="font-size:10px;color:#9ca3af">'+(prof.tier||'Maiden')+' · '+getTimeAgo(p.created_at)+'</div>'+
-            '</div>'+
-            '<div style="margin-left:auto;display:flex;align-items:center;gap:6px">'+
-              '<button id="thread-upvote" style="display:flex;align-items:center;gap:4px;background:#f8fafc;border:1px solid #e5e7eb;border-radius:6px;padding:5px 10px;cursor:pointer;font-size:12px;font-weight:700;color:#374151;font-family:inherit">▲ '+(p.votes||0)+'</button>'+
-              '<span style="font-size:11px;color:#9ca3af">💬 '+(p.reply_count||reps.length||0)+'</span>'+
-            '</div>'+
-          '</div>'+
-          '<div style="font-size:14px;color:#1f2937;line-height:1.8;padding:14px;background:#f8fafc;border-radius:8px;white-space:pre-wrap;border-left:3px solid #00471b">'+((p.body||'').replace(/</g,'&lt;'))+'</div>'+
+    '<div style="flex-shrink:0;padding:10px 16px;border-bottom:1px solid #e5e7eb;display:flex;align-items:center;gap:8px;background:#fff">'+
+      '<button id="thread-back" style="background:none;border:1px solid #e5e7eb;border-radius:6px;padding:4px 10px;font-size:11px;color:#374151;cursor:pointer;font-family:inherit">← Back</button>'+
+      '<span style="font-size:9px;font-weight:700;padding:2px 8px;border-radius:10px;background:'+cat.bg+';color:'+cat.c+'">'+cat.label+'</span>'+
+      (canDel?'<button id="del-post-thread" style="margin-left:auto;background:none;border:1px solid #fecaca;border-radius:6px;color:#dc2626;font-size:10px;cursor:pointer;padding:4px 10px;font-family:inherit">🗑 Delete</button>':'')+
+    '</div>'+
+    '<div style="flex:1;overflow-y:auto;padding:16px">'+
+      '<h2 style="font-size:19px;font-weight:800;color:#111827;line-height:1.3;margin-bottom:10px">'+((p.title||'').replace(/</g,'&lt;'))+'</h2>'+
+      '<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">'+
+        '<div style="width:32px;height:32px;border-radius:50%;background:#00471b;display:flex;align-items:center;justify-content:center;color:#fff;font-size:12px;font-weight:800">'+pinit+'</div>'+
+        '<div><div style="font-size:12px;font-weight:700;color:#111827">'+dname+'</div><div style="font-size:10px;color:#9ca3af">'+(prof.tier||'Maiden')+' · '+getTimeAgo(p.created_at)+'</div></div>'+
+        '<div style="margin-left:auto;display:flex;align-items:center;gap:6px">'+
+          '<button id="thread-upvote" style="display:flex;align-items:center;gap:4px;background:#f8fafc;border:1px solid #e5e7eb;border-radius:6px;padding:5px 10px;cursor:pointer;font-size:12px;font-weight:700;color:#374151;font-family:inherit">▲ '+(p.votes||0)+'</button>'+
+          '<span style="font-size:11px;color:#9ca3af">💬 '+(p.reply_count||reps.length||0)+'</span>'+
         '</div>'+
-        // Replies
-        '<div style="font-size:12px;font-weight:800;color:#374151;margin-bottom:8px;padding-bottom:6px;border-bottom:2px solid #f1f5f9">'+
-          (reps&&reps.length?reps.length+' '+(reps.length===1?'Reply':'Replies'):'Replies')+
-        '</div>'+
-        '<div id="replies-list">'+repliesHTML+'</div>'+
-        replyBox+
       '</div>'+
+      '<div style="font-size:14px;color:#1f2937;line-height:1.8;padding:14px;background:#f8fafc;border-radius:8px;white-space:pre-wrap;border-left:3px solid #00471b;margin-bottom:20px">'+((p.body||'').replace(/</g,'&lt;'))+'</div>'+
+      '<div style="font-size:12px;font-weight:800;color:#374151;margin-bottom:8px;padding-bottom:8px;border-bottom:2px solid #f1f5f9">'+
+        (reps&&reps.length?reps.length+' '+(reps.length===1?'Reply':'Replies'):'Replies')+
+      '</div>'+
+      '<div id="replies-list">'+repliesHTML+'</div>'+
+      replyBox+
     '</div>';
-  // Wire buttons
-  centre.querySelector('#thread-back-btn').addEventListener('click',function(){
-    loadCommFeed(window._communityFilter||'all');
-  });
-  var dpb=centre.querySelector('#del-post-thread-btn');
+  // Wire all buttons
+  centre.querySelector('#thread-back').addEventListener('click',function(){loadCommFeed(window._communityFilter||'all');});
+  var dpb=centre.querySelector('#del-post-thread');
   if(dpb)dpb.addEventListener('click',function(){commDeletePost(postId);});
   var uvb=centre.querySelector('#thread-upvote');
   if(uvb)uvb.addEventListener('click',function(){
     if(!uid){openLoginModal();return;}
-    commUpvoteThread(postId,p.user_id,uvb);
+    uvb.style.color='#00471b';uvb.style.borderColor='#00471b';
+    if(typeof COMMUNITY!=='undefined')COMMUNITY.upvote(uid,postId,'post',p.user_id).then(function(){
+      var SB=window.SUPABASE_URL,KEY=window.SUPABASE_ANON_KEY;
+      fetch(SB+'/rest/v1/posts?id=eq.'+postId+'&select=votes',{headers:{'apikey':KEY,'Authorization':'Bearer '+KEY}}).then(function(r){return r.json();}).then(function(vr){if(vr&&vr[0])uvb.textContent='▲ '+(vr[0].votes||0);});
+    });
   });
   var srb=centre.querySelector('#submit-reply-btn');
   if(srb)srb.addEventListener('click',function(){commSubmitReply(postId);});
   centre.querySelectorAll('.del-reply-btn').forEach(function(btn){
-    btn.addEventListener('click',function(){
-      commDeleteReply(this.getAttribute('data-rid'),postId);
-    });
+    btn.addEventListener('click',function(){commDeleteReply(this.getAttribute('data-rid'),postId);});
   });
-}
-
-async function commUpvoteThread(postId,authorId,btn){
-  if(!window.currentUser){openLoginModal();return;}
-  btn.style.color='#00471b';btn.style.borderColor='#00471b';
-  if(typeof COMMUNITY!=='undefined')await COMMUNITY.upvote(window.currentUser.id,postId,'post',authorId);
-  var SB=window.SUPABASE_URL,KEY=window.SUPABASE_ANON_KEY;
-  var vr=await fetch(SB+'/rest/v1/posts?id=eq.'+postId+'&select=votes',{headers:{'apikey':KEY,'Authorization':'Bearer '+KEY}}).then(function(r){return r.json();}).catch(function(){return[];});
-  if(vr&&vr[0])btn.textContent='▲ '+(vr[0].votes||0);
 }
 
 async function commSubmitReply(postId){
@@ -3223,11 +3243,10 @@ async function commDeleteReply(replyId,postId){
   openPostThread(postId);
 }
 
-// Keep backward compat aliases
+// Compat aliases
 function loadCommunityData(s){loadCommFeed(s);}
-function openPostModal(postId){openPostThread(postId);}
-async function submitReply(postId){commSubmitReply(postId);}
-async function communityUpvote(pid,t,aid){commUpvoteThread(pid,aid,document.getElementById('thread-upvote'));}
+function openPostModal(pid){openPostThread(pid);}
+async function submitReply(pid){commSubmitReply(pid);}
 
 // ── COMPETITIONS PAGE ──
 function showCompetitions(){
