@@ -2950,14 +2950,7 @@ function showUsernameSetup(callback){
 async function submitPost(){
   if(!window.currentUser){openLoginModal();return;}
   var uid=window.currentUser.id;
-  // Debug: show exactly what we have
-  console.log('submitPost: currentUser=',window.currentUser);
-  console.log('submitPost: uid=',uid);
-  console.log('submitPost: SB=',window.SUPABASE_URL);
-  if(!uid){
-    alert('No user ID. currentUser='+JSON.stringify(window.currentUser));
-    toast('Session error — please sign out and back in','error');return;
-  }
+  if(!uid){toast('Session error — please sign out and back in','error');return;}
   var sec=(document.getElementById('post-section').value||'general');
   var ttl=(document.getElementById('post-title').value||'').trim();
   var bdy=(document.getElementById('post-content').value||'').trim();
@@ -2965,15 +2958,11 @@ async function submitPost(){
   var btn=document.getElementById('npm-submit');
   if(btn){btn.disabled=true;btn.textContent='Posting...';}
   var SB=window.SUPABASE_URL,KEY=window.SUPABASE_ANON_KEY;
-  var payload={user_id:uid,section:sec,title:ttl,body:bdy};
-  console.log('submitPost: payload=',payload);
   var rawRes=await fetch(SB+'/rest/v1/posts',{method:'POST',
     headers:{'apikey':KEY,'Authorization':'Bearer '+KEY,'Content-Type':'application/json','Prefer':'return=representation'},
-    body:JSON.stringify(payload)
+    body:JSON.stringify({user_id:uid,section:sec,title:ttl,body:bdy})
   });
-  console.log('submitPost: HTTP status=',rawRes.status);
   var res=await rawRes.json().catch(function(){return null;});
-  console.log('submitPost: response=',res);
   if(rawRes.status===201||(res&&Array.isArray(res)&&res.length&&!res[0]?.code)){
     if(typeof COMMUNITY!=='undefined')COMMUNITY.forumPost(uid,(res[0]||{}).id||'',false);
     toast('Post published! +10pts','success');
@@ -2981,7 +2970,6 @@ async function submitPost(){
     closeModal();
     loadCommFeed(sec);
   } else {
-    alert('Post failed. Status: '+rawRes.status+' Response: '+JSON.stringify(res));
     toast('Post failed — try again','error');
     if(btn){btn.disabled=false;btn.textContent='Post';}
   }
@@ -3195,7 +3183,36 @@ async function openPostThread(postId){
       '<div id="replies-list">'+repliesHTML+'</div>'+
       replyBox+
     '</div>';
-  centre.querySelector('#thread-back').addEventListener('click',function(){loadCommFeed(window._communityFilter||'all');});
+  centre.querySelector('#thread-back').addEventListener('click',function(){
+    // Rebuild the feed shell then load posts
+    var af=window._communityFilter||'all';
+    var SECS=[{id:'all',label:'All Posts'},{id:'today_races',label:"Today's Races"},{id:'tips_analysis',label:'Tips & Analysis'},{id:'winning_bets',label:'Winning Bets'},{id:'system_feedback',label:'System Feedback'},{id:'general',label:'General Chat'}];
+    centre.innerHTML=
+      '<div id="comm-topbar" style="flex-shrink:0;background:#fff;border-bottom:1px solid #e5e7eb">'+
+        '<div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px 0">'+
+          '<div style="font-size:20px;font-weight:800;color:#111827">Community</div>'+
+          '<button id="new-post-btn" style="background:#00471b;color:#fff;border:none;padding:8px 16px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">✏️ New Post</button>'+
+        '</div>'+
+        '<div style="display:flex;padding:0 16px;overflow-x:auto;scrollbar-width:none">'+
+          SECS.map(function(s){var isA=af===s.id;return '<div data-section="'+s.id+'" class="comm-tab-btn" style="padding:10px 12px;font-size:11px;font-weight:'+(isA?'700':'400')+';color:'+(isA?'#00471b':'#6b7280')+';cursor:pointer;border-bottom:2px solid '+(isA?'#00471b':'transparent')+';white-space:nowrap;flex-shrink:0">'+s.label+'</div>';}).join('')+
+        '</div>'+
+      '</div>'+
+      '<div style="padding:8px 16px 0"><div style="padding:8px 12px;background:#fffbeb;border:1px solid #fde68a;border-radius:6px;font-size:11px;color:#92400e">⚠️ Posts are member opinions only — not financial advice.</div></div>'+
+      '<div id="comm-feed" style="flex:1;overflow-y:auto;padding:10px 16px 40px"><div style="padding:30px;text-align:center;color:#9ca3af">Loading...</div></div>';
+    // Wire tabs
+    centre.querySelectorAll('.comm-tab-btn').forEach(function(el){
+      el.addEventListener('click',function(){
+        var s=el.getAttribute('data-section');
+        window._communityFilter=s;
+        var main=document.getElementById('main');
+        if(main){main.querySelectorAll('.comm-sec-btn').forEach(function(b){var a=b.getAttribute('data-section')===s;b.style.background=a?'#f0fdf4':'transparent';b.style.color=a?'#00471b':'#374151';b.style.fontWeight=a?'700':'400';b.style.borderLeft='3px solid '+(a?'#00471b':'transparent');});}
+        centre.querySelectorAll('.comm-tab-btn').forEach(function(b){var a=b.getAttribute('data-section')===s;b.style.color=a?'#00471b':'#6b7280';b.style.fontWeight=a?'700':'400';b.style.borderBottom='2px solid '+(a?'#00471b':'transparent');});
+        loadCommFeed(s);
+      });
+    });
+    centre.querySelector('#new-post-btn').addEventListener('click',showNewPostModal);
+    loadCommFeed(af);
+  });
   var dpb=centre.querySelector('#del-post-thread');if(dpb)dpb.addEventListener('click',function(){commDeletePost(postId);});
   var uvb=centre.querySelector('#thread-upvote');
   if(uvb)uvb.addEventListener('click',function(){
@@ -3219,7 +3236,18 @@ async function commSubmitReply(postId){
   var btn=document.getElementById('submit-reply-btn');
   if(btn){btn.disabled=true;btn.textContent='Posting...';}
   var SB=window.SUPABASE_URL,KEY=window.SUPABASE_ANON_KEY,hd={'apikey':KEY,'Authorization':'Bearer '+KEY};
-  await fetch(SB+'/rest/v1/replies',{method:'POST',headers:Object.assign({'Content-Type':'application/json'},hd),body:JSON.stringify({post_id:postId,user_id:window.currentUser.id,content:bdy})});
+  var repRes=await fetch(SB+'/rest/v1/replies',{
+    method:'POST',
+    headers:Object.assign({'Content-Type':'application/json','Prefer':'return=minimal'},hd),
+    body:JSON.stringify({post_id:postId,user_id:window.currentUser.id,content:bdy})
+  });
+  if(!repRes.ok){
+    var err=await repRes.json().catch(function(){return{};});
+    console.error('Reply error:',err);
+    toast('Reply failed — '+((err.message||err.code||repRes.status)),'error');
+    if(btn){btn.disabled=false;btn.textContent='Post Reply';}
+    return;
+  }
   var ps=await fetch(SB+'/rest/v1/posts?id=eq.'+postId+'&select=reply_count',{headers:hd}).then(function(r){return r.json();}).catch(function(){return[];});
   if(ps&&ps[0])await fetch(SB+'/rest/v1/posts?id=eq.'+postId,{method:'PATCH',headers:Object.assign({'Content-Type':'application/json'},hd),body:JSON.stringify({reply_count:(ps[0].reply_count||0)+1})});
   if(typeof COMMUNITY!=='undefined')COMMUNITY.forumPost(window.currentUser.id,postId,true);
