@@ -2810,8 +2810,11 @@ function showCommunity(){
         }).join('')+
       '</div>'+
     '</div>'+
-    '<div style="padding:8px 16px 0">'+
-      '<div style="padding:8px 12px;background:#fffbeb;border:1px solid #fde68a;border-radius:6px;font-size:11px;color:#92400e">⚠️ Posts are member opinions only — not financial advice.</div>'+
+    '<div style="padding:8px 16px 4px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">'+
+      '<div id="comm-stats-bar" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;flex:1">'+
+        '<span style="font-size:10px;color:#9ca3af">Loading...</span>'+
+      '</div>'+
+      '<div style="font-size:10px;color:#9ca3af;padding:4px 8px;background:#fffbeb;border:1px solid #fde68a;border-radius:6px;white-space:nowrap">⚠️ Member opinions only</div>'+
     '</div>'+
     '<div id="comm-feed" style="flex:1;overflow-y:auto;padding:10px 16px 40px"><div style="padding:30px;text-align:center;color:#9ca3af">Loading...</div></div>';
 
@@ -2950,7 +2953,13 @@ function showUsernameSetup(callback){
 async function submitPost(){
   if(!window.currentUser){openLoginModal();return;}
   var uid=window.currentUser.id;
-  if(!uid){toast('Session error — please sign out and back in','error');return;}
+  // Debug: show exactly what we have
+  console.log('submitPost: currentUser=',window.currentUser);
+  console.log('submitPost: uid=',uid);
+  console.log('submitPost: SB=',window.SUPABASE_URL);
+  if(!uid){
+    toast('Session error — please sign out and back in','error');return;
+  }
   var sec=(document.getElementById('post-section').value||'general');
   var ttl=(document.getElementById('post-title').value||'').trim();
   var bdy=(document.getElementById('post-content').value||'').trim();
@@ -2958,11 +2967,15 @@ async function submitPost(){
   var btn=document.getElementById('npm-submit');
   if(btn){btn.disabled=true;btn.textContent='Posting...';}
   var SB=window.SUPABASE_URL,KEY=window.SUPABASE_ANON_KEY;
+  var payload={user_id:uid,section:sec,title:ttl,body:bdy};
+  console.log('submitPost: payload=',payload);
   var rawRes=await fetch(SB+'/rest/v1/posts',{method:'POST',
     headers:{'apikey':KEY,'Authorization':'Bearer '+KEY,'Content-Type':'application/json','Prefer':'return=representation'},
-    body:JSON.stringify({user_id:uid,section:sec,title:ttl,body:bdy})
+    body:JSON.stringify(payload)
   });
+  console.log('submitPost: HTTP status=',rawRes.status);
   var res=await rawRes.json().catch(function(){return null;});
+  console.log('submitPost: response=',res);
   if(rawRes.status===201||(res&&Array.isArray(res)&&res.length&&!res[0]?.code)){
     if(typeof COMMUNITY!=='undefined')COMMUNITY.forumPost(uid,(res[0]||{}).id||'',false);
     toast('Post published! +10pts','success');
@@ -2992,6 +3005,18 @@ async function loadCommFeed(section){
       var pm={};(profs||[]).forEach(function(pr){pm[pr.clerk_id]=pr;});
       posts=posts.map(function(p){return Object.assign({},p,{_prof:pm[p.user_id]||{}});});
     }
+  }
+  // Update stats bar
+  var statsBar=document.getElementById('comm-stats-bar');
+  if(statsBar){
+    var totalVotes=(posts||[]).reduce(function(a,p){return a+(p.votes||0);},0);
+    var totalReplies=(posts||[]).reduce(function(a,p){return a+(p.reply_count||0);},0);
+    var sectionLabel=section&&section!=='all'?({today_races:"Today's Races",tips_analysis:'Tips & Analysis',winning_bets:'Winning Bets',system_feedback:'System Feedback',general:'General Chat'}[section]||section):'All Posts';
+    statsBar.innerHTML=
+      '<span style="display:inline-flex;align-items:center;gap:4px;background:#f0fdf4;border:1px solid #bbf7d0;color:#166534;font-size:11px;font-weight:700;padding:4px 10px;border-radius:20px">📋 '+(posts?posts.length:0)+' posts</span>'+
+      '<span style="display:inline-flex;align-items:center;gap:4px;background:#eff6ff;border:1px solid #bfdbfe;color:#1e40af;font-size:11px;font-weight:700;padding:4px 10px;border-radius:20px">▲ '+totalVotes+' upvotes</span>'+
+      '<span style="display:inline-flex;align-items:center;gap:4px;background:#f5f3ff;border:1px solid #ddd6fe;color:#5b21b6;font-size:11px;font-weight:700;padding:4px 10px;border-radius:20px">💬 '+totalReplies+' replies</span>'+
+      '<span style="display:inline-flex;align-items:center;gap:4px;background:#f8fafc;border:1px solid #e5e7eb;color:#6b7280;font-size:11px;font-weight:600;padding:4px 10px;border-radius:20px">📌 '+sectionLabel+'</span>';
   }
   if(!posts||!posts.length){
     feed.innerHTML='<div style="padding:60px 20px;text-align:center"><div style="font-size:36px;margin-bottom:12px">💬</div><div style="font-size:15px;font-weight:700;color:#111827;margin-bottom:6px">No posts yet</div><div style="font-size:12px;color:#9ca3af">Be the first to post!</div></div>';
@@ -3038,7 +3063,8 @@ async function loadCommFeed(section){
       if(!window.currentUser){openLoginModal();return;}
       this.style.color='#00471b';
       var self=this;
-      if(typeof COMMUNITY!=='undefined')COMMUNITY.upvote(window.currentUser.id,p.id,'post',p.user_id).then(function(){
+      var _uv=typeof COMMUNITY!=='undefined'?COMMUNITY.upvote(window.currentUser.id,p.id,'post',p.user_id):Promise.resolve();
+      (_uv&&_uv.then?_uv:Promise.resolve()).then(function(){
         var SB2=window.SUPABASE_URL,KEY2=window.SUPABASE_ANON_KEY;
         fetch(SB2+'/rest/v1/posts?id=eq.'+p.id+'&select=votes',{headers:{'apikey':KEY2,'Authorization':'Bearer '+KEY2}}).then(function(r){return r.json();}).then(function(v){
           if(v&&v[0]){var vc=self.parentElement.querySelector('.vote-count');if(vc)vc.textContent=v[0].votes||0;}
@@ -3132,17 +3158,17 @@ async function openPostThread(postId){
   var prof=(profR&&profR[0])||{},dname=prof.username||prof.display_name||'Member',pi=(dname.charAt(0)||'?').toUpperCase();
   var reps=await fetch(SB+'/rest/v1/replies?post_id=eq.'+postId+'&order=created_at.asc&select=*',{headers:hd}).then(function(r){return r.json();}).catch(function(){return[];});
   if(reps&&reps.length){
-    var rids=[...new Set(reps.map(function(r){return r.user_id;}).filter(Boolean))];
+    var rids=[...new Set(reps.map(function(r){return r.clerk_id||r.user_id;}).filter(Boolean))];
     if(rids.length){
       var rprofs=await fetch(SB+'/rest/v1/user_profiles?clerk_id=in.('+rids.join(',')+')'+'&select=clerk_id,username,display_name,tier',{headers:hd}).then(function(r){return r.json();}).catch(function(){return[];});
       var rpm={};(rprofs||[]).forEach(function(rp){rpm[rp.clerk_id]=rp;});
-      reps=reps.map(function(r){return Object.assign({},r,{_prof:rpm[r.user_id]||{}});});
+      reps=reps.map(function(r){return Object.assign({},r,{_prof:rpm[r.clerk_id||r.user_id]||{}});});
     }
   }
   var uid=window.currentUser?window.currentUser.id:null,isAdmin=uid===ADMIN_ID,canDel=isAdmin||(uid&&uid===p.user_id);
   var repliesHTML=(reps&&reps.length)?reps.map(function(r){
     var rp=r._prof||{},rname=rp.username||rp.display_name||'Member',ri=rname.charAt(0).toUpperCase();
-    var canDelR=isAdmin||(uid&&uid===r.user_id);
+    var canDelR=isAdmin||(uid&&uid===(r.clerk_id||r.user_id));
     return '<div class="ww-reply" style="display:flex;gap:10px;padding:14px 0;border-bottom:1px solid #f1f5f9">'+
       '<div style="flex-shrink:0;width:32px;height:32px;border-radius:50%;background:#1e40af;display:flex;align-items:center;justify-content:center;color:#fff;font-size:12px;font-weight:800">'+ri+'</div>'+
       '<div style="flex:1;min-width:0">'+
@@ -3184,41 +3210,43 @@ async function openPostThread(postId){
       replyBox+
     '</div>';
   centre.querySelector('#thread-back').addEventListener('click',function(){
-    // Rebuild the feed shell then load posts
-    var af=window._communityFilter||'all';
-    var SECS=[{id:'all',label:'All Posts'},{id:'today_races',label:"Today's Races"},{id:'tips_analysis',label:'Tips & Analysis'},{id:'winning_bets',label:'Winning Bets'},{id:'system_feedback',label:'System Feedback'},{id:'general',label:'General Chat'}];
+    var af2=window._communityFilter||'all';
+    var SECS2=[{id:'all',label:'All Posts'},{id:'today_races',label:"Today's Races"},{id:'tips_analysis',label:'Tips & Analysis'},{id:'winning_bets',label:'Winning Bets'},{id:'system_feedback',label:'System Feedback'},{id:'general',label:'General Chat'}];
     centre.innerHTML=
       '<div id="comm-topbar" style="flex-shrink:0;background:#fff;border-bottom:1px solid #e5e7eb">'+
         '<div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px 0">'+
           '<div style="font-size:20px;font-weight:800;color:#111827">Community</div>'+
-          '<button id="new-post-btn" style="background:#00471b;color:#fff;border:none;padding:8px 16px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">✏️ New Post</button>'+
+          '<button id="new-post-btn2" style="background:#00471b;color:#fff;border:none;padding:8px 16px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">✏️ New Post</button>'+
         '</div>'+
         '<div style="display:flex;padding:0 16px;overflow-x:auto;scrollbar-width:none">'+
-          SECS.map(function(s){var isA=af===s.id;return '<div data-section="'+s.id+'" class="comm-tab-btn" style="padding:10px 12px;font-size:11px;font-weight:'+(isA?'700':'400')+';color:'+(isA?'#00471b':'#6b7280')+';cursor:pointer;border-bottom:2px solid '+(isA?'#00471b':'transparent')+';white-space:nowrap;flex-shrink:0">'+s.label+'</div>';}).join('')+
+          SECS2.map(function(s){var isA=af2===s.id;return '<div data-section="'+s.id+'" class="comm-tab-btn2" style="padding:10px 12px;font-size:11px;font-weight:'+(isA?'700':'400')+';color:'+(isA?'#00471b':'#6b7280')+';cursor:pointer;border-bottom:2px solid '+(isA?'#00471b':'transparent')+';white-space:nowrap;flex-shrink:0">'+s.label+'</div>';}).join('')+
         '</div>'+
       '</div>'+
-      '<div style="padding:8px 16px 0"><div style="padding:8px 12px;background:#fffbeb;border:1px solid #fde68a;border-radius:6px;font-size:11px;color:#92400e">⚠️ Posts are member opinions only — not financial advice.</div></div>'+
+      '<div style="padding:8px 16px 4px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">'+
+        '<div id="comm-stats-bar" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;flex:1"><span style="font-size:10px;color:#9ca3af">Loading...</span></div>'+
+        '<div style="font-size:10px;color:#9ca3af;padding:4px 8px;background:#fffbeb;border:1px solid #fde68a;border-radius:6px;white-space:nowrap">⚠️ Member opinions only</div>'+
+      '</div>'+
       '<div id="comm-feed" style="flex:1;overflow-y:auto;padding:10px 16px 40px"><div style="padding:30px;text-align:center;color:#9ca3af">Loading...</div></div>';
-    // Wire tabs
-    centre.querySelectorAll('.comm-tab-btn').forEach(function(el){
+    centre.querySelector('#new-post-btn2').addEventListener('click',showNewPostModal);
+    centre.querySelectorAll('.comm-tab-btn2').forEach(function(el){
       el.addEventListener('click',function(){
         var s=el.getAttribute('data-section');
         window._communityFilter=s;
+        centre.querySelectorAll('.comm-tab-btn2').forEach(function(b){var a=b.getAttribute('data-section')===s;b.style.color=a?'#00471b':'#6b7280';b.style.fontWeight=a?'700':'400';b.style.borderBottom='2px solid '+(a?'#00471b':'transparent');});
         var main=document.getElementById('main');
-        if(main){main.querySelectorAll('.comm-sec-btn').forEach(function(b){var a=b.getAttribute('data-section')===s;b.style.background=a?'#f0fdf4':'transparent';b.style.color=a?'#00471b':'#374151';b.style.fontWeight=a?'700':'400';b.style.borderLeft='3px solid '+(a?'#00471b':'transparent');});}
-        centre.querySelectorAll('.comm-tab-btn').forEach(function(b){var a=b.getAttribute('data-section')===s;b.style.color=a?'#00471b':'#6b7280';b.style.fontWeight=a?'700':'400';b.style.borderBottom='2px solid '+(a?'#00471b':'transparent');});
+        if(main)main.querySelectorAll('.comm-sec-btn').forEach(function(b){var a=b.getAttribute('data-section')===s;b.style.background=a?'#f0fdf4':'transparent';b.style.color=a?'#00471b':'#374151';b.style.fontWeight=a?'700':'400';b.style.borderLeft='3px solid '+(a?'#00471b':'transparent');});
         loadCommFeed(s);
       });
     });
-    centre.querySelector('#new-post-btn').addEventListener('click',showNewPostModal);
-    loadCommFeed(af);
+    loadCommFeed(af2);
   });
   var dpb=centre.querySelector('#del-post-thread');if(dpb)dpb.addEventListener('click',function(){commDeletePost(postId);});
   var uvb=centre.querySelector('#thread-upvote');
   if(uvb)uvb.addEventListener('click',function(){
     if(!uid){openLoginModal();return;}
     uvb.style.color='#00471b';uvb.style.borderColor='#00471b';
-    if(typeof COMMUNITY!=='undefined')COMMUNITY.upvote(uid,postId,'post',p.user_id).then(function(){
+    var _tp=typeof COMMUNITY!=='undefined'?COMMUNITY.upvote(uid,postId,'post',p.user_id):Promise.resolve();
+    (_tp&&_tp.then?_tp:Promise.resolve()).then(function(){
       fetch(SB+'/rest/v1/posts?id=eq.'+postId+'&select=votes',{headers:hd}).then(function(r){return r.json();}).then(function(v){if(v&&v[0])uvb.textContent='▲ '+(v[0].votes||0);});
     });
   });
@@ -3236,18 +3264,7 @@ async function commSubmitReply(postId){
   var btn=document.getElementById('submit-reply-btn');
   if(btn){btn.disabled=true;btn.textContent='Posting...';}
   var SB=window.SUPABASE_URL,KEY=window.SUPABASE_ANON_KEY,hd={'apikey':KEY,'Authorization':'Bearer '+KEY};
-  var repRes=await fetch(SB+'/rest/v1/replies',{
-    method:'POST',
-    headers:Object.assign({'Content-Type':'application/json','Prefer':'return=minimal'},hd),
-    body:JSON.stringify({post_id:postId,user_id:window.currentUser.id,content:bdy})
-  });
-  if(!repRes.ok){
-    var err=await repRes.json().catch(function(){return{};});
-    console.error('Reply error:',err);
-    toast('Reply failed — '+((err.message||err.code||repRes.status)),'error');
-    if(btn){btn.disabled=false;btn.textContent='Post Reply';}
-    return;
-  }
+  await fetch(SB+'/rest/v1/replies',{method:'POST',headers:Object.assign({'Content-Type':'application/json'},hd),body:JSON.stringify({post_id:postId,clerk_id:window.currentUser.id,content:bdy})});
   var ps=await fetch(SB+'/rest/v1/posts?id=eq.'+postId+'&select=reply_count',{headers:hd}).then(function(r){return r.json();}).catch(function(){return[];});
   if(ps&&ps[0])await fetch(SB+'/rest/v1/posts?id=eq.'+postId,{method:'PATCH',headers:Object.assign({'Content-Type':'application/json'},hd),body:JSON.stringify({reply_count:(ps[0].reply_count||0)+1})});
   if(typeof COMMUNITY!=='undefined')COMMUNITY.forumPost(window.currentUser.id,postId,true);
@@ -7989,11 +8006,13 @@ const COMMUNITY = (function() {
 
     // Update upvote count on post/reply
     const table = targetType === 'post' ? 'posts' : 'replies';
-    const item = await sbFetch(table + '?id=eq.' + targetId + '&select=upvotes');
+    const voteCol = (table === 'posts') ? 'votes' : 'upvotes';
+    const item = await sbFetch(table + '?id=eq.' + targetId + '&select=' + voteCol);
     if (item && item[0]) {
+      const pb = {}; pb[voteCol] = (item[0][voteCol] || 0) + 1;
       await sbFetch(table + '?id=eq.' + targetId, {
         method: 'PATCH',
-        body: { upvotes: (item[0].upvotes || 0) + 1 }
+        body: pb
       });
     }
 
