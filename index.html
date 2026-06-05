@@ -2754,6 +2754,78 @@ function restoreFeed(section){
   loadCommFeed(s);
 }
 
+function showTierGuide(){
+  var modal=document.getElementById('wwModal');if(!modal)return;
+  var tiers=[
+    {name:'Maiden',emoji:'🐴',color:'#6b7280',min:0,max:499,desc:'Starting rank for all new members'},
+    {name:'Benchmark',emoji:'🏇',color:'#2563eb',min:500,max:1999,desc:'Active community participant'},
+    {name:'Listed',emoji:'🏆',color:'#059669',min:2000,max:4999,desc:'Regular contributor and bettor'},
+    {name:'Group 3',emoji:'⭐',color:'#d97706',min:5000,max:9999,desc:'Established community expert'},
+    {name:'Group 2',emoji:'⭐⭐',color:'#dc2626',min:10000,max:24999,desc:'Elite punter and contributor'},
+    {name:'Group 1',emoji:'👑',color:'#7c3aed',min:25000,max:null,desc:'The pinnacle — top of the community'},
+  ];
+  var ways=[
+    {icon:'🔐',action:'Daily login',pts:5,note:'Once per day'},
+    {icon:'📝',action:'Post in community',pts:10,note:'Per post'},
+    {icon:'💬',action:'Reply to a post',pts:5,note:'Per reply'},
+    {icon:'▲',action:'Your post gets upvoted',pts:10,note:'Per upvote received'},
+    {icon:'🎯',action:'Log a bet',pts:2,note:'Per bet logged'},
+    {icon:'✅',action:'Record a bet result',pts:3,note:'Per result'},
+    {icon:'🏆',action:'Winning bet',pts:15,note:'Per winner'},
+    {icon:'💎',action:'Big odds winner (10+)',pts:10,note:'Bonus on top of win pts'},
+    {icon:'📊',action:'Value bet winner',pts:5,note:'Bonus if bet was value'},
+    {icon:'📖',action:'Blackbook horse wins',pts:20,note:'Per win'},
+    {icon:'🎁',action:'Refer a new member',pts:200,note:'Per signup via your link'},
+    {icon:'👋',action:'Welcome bonus',pts:5,note:'One-time on signup'},
+    {icon:'🔥',action:'7-day login streak',pts:50,note:'Bonus'},
+    {icon:'🔥',action:'14-day login streak',pts:75,note:'Bonus'},
+    {icon:'🔥',action:'30-day login streak',pts:200,note:'Bonus'},
+    {icon:'🔥',action:'90-day login streak',pts:500,note:'Bonus'},
+    {icon:'🔥',action:'180-day login streak',pts:1000,note:'Bonus'},
+    {icon:'🎯',action:'Daily missions',pts:'Varies',note:'Check missions panel'},
+  ];
+  modal.innerHTML=
+    '<div style="background:#fff;border-radius:12px;width:100%;max-width:620px;margin:auto;max-height:85vh;display:flex;flex-direction:column;overflow:hidden">'+
+      '<div style="background:#00471b;padding:14px 18px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0">'+
+        '<div style="font-size:15px;font-weight:800;color:#fff">🏆 Ranks & Points Guide</div>'+
+        '<button id="tier-modal-close" style="background:none;border:none;color:rgba(255,255,255,.7);font-size:20px;cursor:pointer;line-height:1">×</button>'+
+      '</div>'+
+      '<div style="overflow-y:auto;padding:18px">'+
+        '<div style="font-size:11px;font-weight:700;color:#374151;text-transform:uppercase;letter-spacing:.6px;margin-bottom:10px">Community Ranks</div>'+
+        '<div style="border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;margin-bottom:18px">'+
+          tiers.map(function(t,i){
+            return '<div style="display:flex;align-items:center;gap:10px;padding:9px 12px;border-bottom:'+(i<tiers.length-1?'1px solid #f1f5f9':'none')+'">'+
+              '<span style="font-size:18px;width:26px;text-align:center">'+t.emoji+'</span>'+
+              '<div style="flex:1">'+
+                '<div style="font-size:12px;font-weight:700;color:'+t.color+'">'+t.name+'</div>'+
+                '<div style="font-size:10px;color:#6b7280">'+t.desc+'</div>'+
+              '</div>'+
+              '<div style="text-align:right">'+
+                '<div style="font-size:11px;font-weight:700;color:#111827">'+t.min.toLocaleString()+(t.max?'–'+t.max.toLocaleString():'+')+'</div>'+
+                '<div style="font-size:9px;color:#9ca3af">points</div>'+
+              '</div>'+
+            '</div>';
+          }).join('')+
+        '</div>'+
+        '<div style="font-size:11px;font-weight:700;color:#374151;text-transform:uppercase;letter-spacing:.6px;margin-bottom:10px">How to Earn Points</div>'+
+        '<div style="border:1px solid #e5e7eb;border-radius:8px;overflow:hidden">'+
+          ways.map(function(w,i){
+            return '<div style="display:flex;align-items:center;gap:10px;padding:8px 12px;border-bottom:'+(i<ways.length-1?'1px solid #f1f5f9':'none')+'">'+
+              '<span style="font-size:14px;width:22px;text-align:center">'+w.icon+'</span>'+
+              '<div style="flex:1">'+
+                '<div style="font-size:11px;font-weight:600;color:#111827">'+w.action+'</div>'+
+                '<div style="font-size:9px;color:#9ca3af">'+w.note+'</div>'+
+              '</div>'+
+              '<div style="font-size:12px;font-weight:800;color:#00471b;white-space:nowrap">+'+w.pts+'</div>'+
+            '</div>';
+          }).join('')+
+        '</div>'+
+      '</div>'+
+    '</div>';
+  modal.style.display='flex';
+  modal.querySelector('#tier-modal-close').addEventListener('click',closeModal);
+}
+
 function showCommunity(){
   var main=document.getElementById('main');
   if(!main)return;
@@ -2827,6 +2899,11 @@ function showCommunity(){
         '<span style="font-size:8px;color:#9ca3af">Resets midnight</span>'+
       '</div>'+
       '<div id="missions-wrap"><div style="font-size:9px;color:#9ca3af">Loading...</div></div>'+
+    '<div style="margin-top:8px">'+
+      '<div id="tier-info-btn" style="display:flex;align-items:center;gap:5px;padding:5px 6px;border-radius:5px;cursor:pointer;background:#f8fafc;border:1px solid #e5e7eb;font-size:9px;font-weight:600;color:#374151">'+
+        '<span>🏆</span><span>Ranks & Points Guide</span>'+
+      '</div>'+
+    '</div>'+
     '</div>';
 
   var centreHTML=
@@ -2868,6 +2945,8 @@ function showCommunity(){
   main.querySelectorAll('.comm-sec-btn').forEach(function(el){
     el.addEventListener('click',function(){restoreFeed(el.getAttribute('data-section'));});
   });
+  var tierBtn=main.querySelector('#tier-info-btn');
+  if(tierBtn)tierBtn.addEventListener('click',showTierGuide);
   main.querySelector('#new-post-btn').addEventListener('click',showNewPostModal);
   var refBtn=main.querySelector('#ref-copy-btn');
   if(refBtn)refBtn.addEventListener('click',function(){
@@ -3012,11 +3091,18 @@ async function loadCommFeed(section){
       '<span style="display:inline-flex;align-items:center;gap:3px;background:#f5f3ff;border:1px solid #ddd6fe;color:#5b21b6;font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px">💬 '+totalReplies+'</span>'+
       '<span style="display:inline-flex;align-items:center;gap:3px;background:#f8fafc;border:1px solid #e5e7eb;color:#6b7280;font-size:10px;font-weight:600;padding:2px 8px;border-radius:10px">'+secLabel+'</span>';
   }
+  var secNames={all:'All Posts',today_races:"Today's Races",tips_analysis:'Tips & Analysis',winning_bets:'Winning Bets',system_feedback:'System Feedback',general:'General Chat'};
+  var secDescs={all:'All community posts across every section',today_races:"Tips, previews and analysis for today's races",tips_analysis:'In-depth form analysis and betting strategies',winning_bets:'Share your winning selections and results',system_feedback:'Suggestions and feedback about Waging War',general:'General racing chat and discussion'};
+  var secName=secNames[section||'all']||'All Posts';
+  var secDesc=secDescs[section||'all']||'';
+  feed.innerHTML='<div style="padding:10px 14px 8px;border-bottom:1px solid #e5e7eb;background:#fafafa">'+
+    '<div style="font-size:14px;font-weight:800;color:#111827">'+secName+'</div>'+
+    '<div style="font-size:10px;color:#6b7280;margin-top:1px">'+secDesc+'</div>'+
+  '</div>';
   if(!posts||!posts.length){
-    feed.innerHTML='<div style="padding:50px 20px;text-align:center"><div style="font-size:32px;margin-bottom:10px">💬</div><div style="font-size:14px;font-weight:700;color:#111827;margin-bottom:4px">No posts yet</div><div style="font-size:11px;color:#9ca3af">Be the first to post!</div></div>';
+    feed.innerHTML+='<div style="padding:50px 20px;text-align:center"><div style="font-size:32px;margin-bottom:10px">💬</div><div style="font-size:14px;font-weight:700;color:#111827;margin-bottom:4px">No posts yet</div><div style="font-size:11px;color:#9ca3af">Be the first to post!</div></div>';
     return;
   }
-  feed.innerHTML='';
   var uid=window.currentUser?window.currentUser.id:null;
   var isAdmin=uid===ADMIN_ID;
   posts.forEach(function(p){
