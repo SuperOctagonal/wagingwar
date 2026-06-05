@@ -3086,6 +3086,7 @@ async function loadCommSidebars(){
   var ls=document.getElementById('lb-stats-wrap');
   if(ls){
     var uc=await sg('user_profiles?select=clerk_id'),pc=await sg('posts?select=id');
+    window._livePostCount=(pc||[]).length;
     ls.innerHTML='<div style="display:grid;grid-template-columns:1fr 1fr;gap:5px">'+
       '<div style="background:#f8fafc;border-radius:5px;padding:6px;text-align:center"><div style="font-size:16px;font-weight:800;color:#111827">'+((uc||[]).length)+'</div><div style="font-size:8px;color:#9ca3af">Members</div></div>'+
       '<div style="background:#f8fafc;border-radius:5px;padding:6px;text-align:center"><div style="font-size:16px;font-weight:800;color:#111827">'+((pc||[]).length)+'</div><div style="font-size:8px;color:#9ca3af">Posts</div></div></div>';
