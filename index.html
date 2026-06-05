@@ -2803,18 +2803,12 @@ function showCommunity(){
         '<div style="font-size:20px;font-weight:800;color:#111827">Community</div>'+
         '<button id="new-post-btn" style="background:#00471b;color:#fff;border:none;padding:8px 16px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">✏️ New Post</button>'+
       '</div>'+
-      '<div style="display:flex;padding:0 16px;overflow-x:auto;scrollbar-width:none">'+
-        SECS.map(function(s){
-          var isA=af===s.id;
-          return '<div data-section="'+s.id+'" class="comm-tab-btn" style="padding:10px 12px;font-size:11px;font-weight:'+(isA?'700':'400')+';color:'+(isA?'#00471b':'#6b7280')+';cursor:pointer;border-bottom:2px solid '+(isA?'#00471b':'transparent')+';white-space:nowrap;flex-shrink:0">'+s.label+'</div>';
-        }).join('')+
-      '</div>'+
+
     '</div>'+
-    '<div style="padding:4px 16px;display:flex;align-items:center;gap:6px;border-bottom:1px solid #e5e7eb">'+
-      '<div id="comm-stats-bar" style="display:flex;align-items:center;gap:5px;flex:1"><span style="font-size:10px;color:#9ca3af">Loading...</span></div>'+
-      '<span style="font-size:9px;color:#b45309;white-space:nowrap">⚠️ Member opinions only</span>'+
+    '<div style="padding:8px 16px 0">'+
+      '<div style="padding:8px 12px;background:#fffbeb;border:1px solid #fde68a;border-radius:6px;font-size:11px;color:#92400e">⚠️ Posts are member opinions only — not financial advice.</div>'+
     '</div>'+
-    '<div id="comm-feed" style="flex:1;overflow-y:auto;padding:10px 16px 40px"><div style="padding:30px;text-align:center;color:#9ca3af">Loading...</div></div>';
+    '<div id="comm-feed" style="flex:1;overflow-y:auto;padding:0"><div style="padding:30px;text-align:center;color:#9ca3af">Loading...</div></div>';
 
   // RIGHT SIDEBAR
   var rightHTML=
@@ -2834,7 +2828,7 @@ function showCommunity(){
     '</div>';
 
   main.innerHTML=
-    '<div id="comm-shell" style="display:grid;grid-template-columns:200px 1fr 200px;height:calc(100vh - 56px);overflow:hidden;background:#f1f5f9">'+
+    '<div id="comm-shell" style="display:grid;grid-template-columns:230px 1fr 230px;height:calc(100vh - 56px);overflow:hidden;background:#f1f5f9">'+
       '<div id="comm-left" style="border-right:1px solid #e5e7eb;background:#fff;overflow-y:auto">'+leftHTML+'</div>'+
       '<div id="comm-centre" style="display:flex;flex-direction:column;overflow:hidden;background:#fff;border-right:1px solid #e5e7eb">'+centreHTML+'</div>'+
       '<div id="comm-right" style="background:#fff;overflow-y:auto">'+rightHTML+'</div>'+
@@ -2849,12 +2843,7 @@ function showCommunity(){
       b.style.fontWeight=a?'700':'400';
       b.style.borderLeft='3px solid '+(a?'#00471b':'transparent');
     });
-    main.querySelectorAll('.comm-tab-btn').forEach(function(b){
-      var a=b.getAttribute('data-section')===s;
-      b.style.color=a?'#00471b':'#6b7280';
-      b.style.fontWeight=a?'700':'400';
-      b.style.borderBottom='2px solid '+(a?'#00471b':'transparent');
-    });
+
     loadCommFeed(s);
   }
 
@@ -2951,14 +2940,7 @@ function showUsernameSetup(callback){
 async function submitPost(){
   if(!window.currentUser){openLoginModal();return;}
   var uid=window.currentUser.id;
-  // Debug: show exactly what we have
-  console.log('submitPost: currentUser=',window.currentUser);
-  console.log('submitPost: uid=',uid);
-  console.log('submitPost: SB=',window.SUPABASE_URL);
-  if(!uid){
-    alert('No user ID. currentUser='+JSON.stringify(window.currentUser));
-    toast('Session error — please sign out and back in','error');return;
-  }
+  if(!uid){toast('Session error — please sign out and back in','error');return;}
   var sec=(document.getElementById('post-section').value||'general');
   var ttl=(document.getElementById('post-title').value||'').trim();
   var bdy=(document.getElementById('post-content').value||'').trim();
@@ -2966,15 +2948,11 @@ async function submitPost(){
   var btn=document.getElementById('npm-submit');
   if(btn){btn.disabled=true;btn.textContent='Posting...';}
   var SB=window.SUPABASE_URL,KEY=window.SUPABASE_ANON_KEY;
-  var payload={user_id:uid,section:sec,title:ttl,body:bdy};
-  console.log('submitPost: payload=',payload);
   var rawRes=await fetch(SB+'/rest/v1/posts',{method:'POST',
     headers:{'apikey':KEY,'Authorization':'Bearer '+KEY,'Content-Type':'application/json','Prefer':'return=representation'},
-    body:JSON.stringify(payload)
+    body:JSON.stringify({user_id:uid,section:sec,title:ttl,body:bdy})
   });
-  console.log('submitPost: HTTP status=',rawRes.status);
   var res=await rawRes.json().catch(function(){return null;});
-  console.log('submitPost: response=',res);
   if(rawRes.status===201||(res&&Array.isArray(res)&&res.length&&!res[0]?.code)){
     if(typeof COMMUNITY!=='undefined')COMMUNITY.forumPost(uid,(res[0]||{}).id||'',false);
     toast('Post published! +10pts','success');
@@ -2982,7 +2960,6 @@ async function submitPost(){
     closeModal();
     loadCommFeed(sec);
   } else {
-    alert('Post failed. Status: '+rawRes.status+' Response: '+JSON.stringify(res));
     toast('Post failed — try again','error');
     if(btn){btn.disabled=false;btn.textContent='Post';}
   }
@@ -3017,44 +2994,43 @@ async function loadCommFeed(section){
     var cat=cc[p.section]||cc.general,prof=p._prof||{};
     var dname=prof.username||prof.display_name||'Member';
     var pi=(dname.charAt(0)||'?').toUpperCase();
-    var preview=(p.body||'').replace(/</g,'&lt;').substring(0,160);
+    var preview=(p.body||'').replace(/</g,'&lt;').substring(0,120);
     var canDel=isAdmin||(uid&&uid===p.user_id);
     var card=document.createElement('div');
-    card.style.cssText='display:flex;background:#fff;border:1.5px solid #d1d5db;border-radius:6px;margin-bottom:6px;overflow:hidden;transition:border-color .15s,box-shadow .15s';
+    card.style.cssText='background:#fff;border-bottom:1px solid #d1d5db;padding:0;cursor:pointer;transition:background .1s';
+    card.onmouseenter=function(){this.style.background='#f9fafb';};
+    card.onmouseleave=function(){this.style.background='#fff';};
     card.innerHTML=
-      '<div style="display:flex;flex-direction:column;align-items:center;padding:10px 8px;background:#f8fafc;gap:3px;flex-shrink:0;min-width:46px;border-right:1px solid #f1f5f9">'+
-        '<button class="upvote-btn" data-pid="'+p.id+'" data-uid="'+p.user_id+'" style="background:none;border:none;cursor:pointer;font-size:18px;color:#9ca3af;line-height:1;padding:2px">▲</button>'+
-        '<span class="vote-count" style="font-size:12px;font-weight:800;color:#374151">'+(p.votes||0)+'</span>'+
+      // Title row
+      '<div style="display:flex;align-items:baseline;gap:8px;padding:8px 12px 2px">'+
+        '<span style="display:inline-block;font-size:8px;font-weight:700;padding:1px 5px;border-radius:3px;background:'+cat.bg+';color:'+cat.c+';flex-shrink:0">'+cat.label+'</span>'+
+        '<span class="card-title" style="font-size:13px;font-weight:700;color:#111827;flex:1;min-width:0">'+((p.title||'').replace(/</g,'&lt;'))+'</span>'+
+        (canDel?'<button class="del-post-btn" data-pid="'+p.id+'" style="background:none;border:none;color:#dc2626;font-size:10px;cursor:pointer;padding:0 2px;flex-shrink:0;opacity:.5">🗑</button>':'')+
       '</div>'+
-      '<div class="card-body" style="flex:1;padding:10px 12px;min-width:0;cursor:pointer">'+
-        '<div style="display:flex;align-items:center;gap:6px;margin-bottom:5px">'+
-          '<span style="font-size:9px;font-weight:700;padding:2px 8px;border-radius:10px;background:'+cat.bg+';color:'+cat.c+'">'+cat.label+'</span>'+
-        '</div>'+
-        '<div style="font-size:14px;font-weight:700;color:#111827;line-height:1.3;margin-bottom:4px">'+((p.title||'').replace(/</g,'&lt;'))+'</div>'+
-        (preview?'<div style="font-size:12px;color:#6b7280;line-height:1.5;margin-bottom:7px">'+preview+(p.body&&p.body.length>160?'…':'')+'</div>':'')+
-        '<div style="display:flex;align-items:center;gap:8px;font-size:11px;color:#9ca3af">'+
-          '<div style="display:flex;align-items:center;gap:4px">'+
-            '<div style="width:18px;height:18px;border-radius:50%;background:#00471b;display:inline-flex;align-items:center;justify-content:center;color:#fff;font-size:8px;font-weight:800">'+pi+'</div>'+
-            '<span style="font-weight:600;color:#4b5563">'+dname+'</span>'+
-            '<span style="font-size:9px;padding:1px 5px;border-radius:6px;background:#f3f4f6;color:#6b7280">'+(prof.tier||'Maiden')+'</span>'+
-          '</div>'+
-          '<span>💬 '+(p.reply_count||0)+'</span>'+
-          '<span>'+getTimeAgo(p.created_at)+'</span>'+
-          (canDel?'<button class="del-post-btn" data-pid="'+p.id+'" style="margin-left:auto;background:none;border:none;color:#dc2626;font-size:10px;cursor:pointer;padding:2px 6px;border-radius:4px;opacity:.5">🗑</button>':'')+
-        '</div>'+
+      // Preview row
+      (preview?'<div class="card-preview" style="padding:0 12px 4px;font-size:11px;color:#6b7280;line-height:1.4">'+preview+(p.body&&p.body.length>120?'…':'')+'</div>':'')+
+      // Meta row
+      '<div style="display:flex;align-items:center;gap:10px;padding:3px 12px 7px;font-size:10px;color:#9ca3af">'+
+        '<div style="width:16px;height:16px;border-radius:50%;background:#00471b;display:inline-flex;align-items:center;justify-content:center;color:#fff;font-size:7px;font-weight:800;flex-shrink:0">'+pi+'</div>'+
+        '<span style="font-weight:600;color:#4b5563">'+dname+'</span>'+
+        '<span style="font-size:8px;padding:0px 4px;border-radius:3px;background:#f3f4f6;color:#6b7280">'+(prof.tier||'Maiden')+'</span>'+
+        '<span>'+getTimeAgo(p.created_at)+'</span>'+
+        '<span style="margin-left:auto;display:flex;align-items:center;gap:6px">'+
+          '<span class="upvote-pill" data-pid="'+p.id+'" data-uid="'+p.user_id+'" style="display:inline-flex;align-items:center;gap:2px;cursor:pointer;color:#6b7280;padding:1px 4px;border-radius:3px;border:1px solid #e5e7eb">▲ '+(p.votes||0)+'</span>'+
+          '<span style="display:inline-flex;align-items:center;gap:2px;color:#6b7280">💬 '+(p.reply_count||0)+'</span>'+
+        '</span>'+
       '</div>';
-    card.onmouseenter=function(){this.style.borderColor='#00471b';this.style.boxShadow='0 2px 8px rgba(0,71,27,.08)';};
-    card.onmouseleave=function(){this.style.borderColor='#e5e7eb';this.style.boxShadow='none';};
-    card.querySelector('.card-body').addEventListener('click',function(){openPostThread(p.id);});
-    card.querySelector('.upvote-btn').addEventListener('click',function(e){
+    card.querySelector('.card-title').addEventListener('click',function(){openPostThread(p.id);});
+    if(card.querySelector('.card-preview'))card.querySelector('.card-preview').addEventListener('click',function(){openPostThread(p.id);});
+    card.querySelector('.upvote-pill').addEventListener('click',function(e){
       e.stopPropagation();
       if(!window.currentUser){openLoginModal();return;}
-      this.style.color='#00471b';
-      var self=this;
-      if(typeof COMMUNITY!=='undefined')COMMUNITY.upvote(window.currentUser.id,p.id,'post',p.user_id).then(function(){
+      var pill=this;pill.style.color='#00471b';pill.style.borderColor='#00471b';
+      var _uv=typeof COMMUNITY!=='undefined'?COMMUNITY.upvote(window.currentUser.id,p.id,'post',p.user_id):Promise.resolve();
+      (_uv&&_uv.then?_uv:Promise.resolve()).then(function(){
         var SB2=window.SUPABASE_URL,KEY2=window.SUPABASE_ANON_KEY;
         fetch(SB2+'/rest/v1/posts?id=eq.'+p.id+'&select=votes',{headers:{'apikey':KEY2,'Authorization':'Bearer '+KEY2}}).then(function(r){return r.json();}).then(function(v){
-          if(v&&v[0]){var vc=self.parentElement.querySelector('.vote-count');if(vc)vc.textContent=v[0].votes||0;}
+          if(v&&v[0])pill.textContent='▲ '+(v[0].votes||0);
         });
       });
     });
@@ -3127,38 +3103,9 @@ async function commDeletePost(postId){
   if(!window.currentUser||!confirm('Delete this post and all replies?'))return;
   var SB=window.SUPABASE_URL,KEY=window.SUPABASE_ANON_KEY,hd={'apikey':KEY,'Authorization':'Bearer '+KEY};
   await fetch(SB+'/rest/v1/replies?post_id=eq.'+postId,{method:'DELETE',headers:hd});
-  var delRes=await fetch(SB+'/rest/v1/posts?id=eq.'+postId,{method:'DELETE',headers:hd});
-  if(delRes.ok||delRes.status===204){
-    toast('Post deleted','success');
-    // Rebuild feed shell and reload
-    var centre=document.getElementById('comm-centre');
-    var af=window._communityFilter||'all';
-    var SECS3=[{id:'all',label:'All Posts'},{id:'today_races',label:"Today's Races"},{id:'tips_analysis',label:'Tips & Analysis'},{id:'winning_bets',label:'Winning Bets'},{id:'system_feedback',label:'System Feedback'},{id:'general',label:'General Chat'}];
-    if(centre){
-      centre.innerHTML=
-        '<div style="flex-shrink:0;background:#fff;border-bottom:1px solid #e5e7eb">'+
-          '<div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px 0">'+
-            '<div style="font-size:20px;font-weight:800;color:#111827">Community</div>'+
-            '<button id="del-new-post-btn" style="background:#00471b;color:#fff;border:none;padding:8px 16px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">✏️ New Post</button>'+
-          '</div>'+
-          '<div style="display:flex;padding:0 16px;overflow-x:auto;scrollbar-width:none">'+
-            SECS3.map(function(s){var isA=af===s.id;return '<div data-section="'+s.id+'" class="comm-tab-btn3" style="padding:10px 12px;font-size:11px;font-weight:'+(isA?'700':'400')+';color:'+(isA?'#00471b':'#6b7280')+';cursor:pointer;border-bottom:2px solid '+(isA?'#00471b':'transparent')+';white-space:nowrap;flex-shrink:0">'+s.label+'</div>';}).join('')+
-          '</div>'+
-        '</div>'+
-        '<div style="padding:4px 16px;display:flex;align-items:center;gap:6px;border-bottom:1px solid #e5e7eb"><div id="comm-stats-bar" style="display:flex;align-items:center;gap:5px;flex:1"><span style="font-size:10px;color:#9ca3af">Loading...</span></div><span style="font-size:9px;color:#b45309;white-space:nowrap">⚠️ Member opinions only</span></div>'+
-        '<div id="comm-feed" style="flex:1;overflow-y:auto;padding:10px 16px 40px"><div style="padding:30px;text-align:center;color:#9ca3af">Loading...</div></div>';
-      centre.querySelector('#del-new-post-btn').addEventListener('click',showNewPostModal);
-      centre.querySelectorAll('.comm-tab-btn3').forEach(function(el){
-        el.addEventListener('click',function(){
-          window._communityFilter=el.getAttribute('data-section');
-          loadCommFeed(window._communityFilter);
-        });
-      });
-    }
-    loadCommFeed(af);
-  } else {
-    toast('Delete failed — try again','error');
-  }
+  await fetch(SB+'/rest/v1/posts?id=eq.'+postId,{method:'DELETE',headers:hd});
+  toast('Post deleted','success');
+  loadCommFeed(window._communityFilter||'all');
 }
 
 async function openPostThread(postId){
@@ -3166,7 +3113,7 @@ async function openPostThread(postId){
   var centre=document.getElementById('comm-centre');if(!centre)return;
   var SB=window.SUPABASE_URL,KEY=window.SUPABASE_ANON_KEY,hd={'apikey':KEY,'Authorization':'Bearer '+KEY};
   var cc={today_races:{bg:'#dbeafe',c:'#1e40af',label:"Today's Races"},tips_analysis:{bg:'#dcfce7',c:'#166534',label:'Tips & Analysis'},winning_bets:{bg:'#fef9c3',c:'#854d0e',label:'Winning Bet'},system_feedback:{bg:'#f3e8ff',c:'#6b21a8',label:'System Feedback'},general:{bg:'#f3f4f6',c:'#374151',label:'General Chat'}};
-  centre.innerHTML='<div style="padding:40px;text-align:center;color:#9ca3af">Loading thread...</div>';
+  centre.innerHTML='<div style="padding:30px;text-align:center;color:#9ca3af;font-size:12px">Loading...</div>';
   var posts=await fetch(SB+'/rest/v1/posts?id=eq.'+postId+'&select=*',{headers:hd}).then(function(r){return r.json();}).catch(function(){return[];});
   if(!posts||!posts.length){centre.innerHTML='<div style="padding:40px;text-align:center;color:#9ca3af">Post not found.</div>';return;}
   var p=posts[0],cat=cc[p.section]||cc.general;
@@ -3174,65 +3121,108 @@ async function openPostThread(postId){
   var prof=(profR&&profR[0])||{},dname=prof.username||prof.display_name||'Member',pi=(dname.charAt(0)||'?').toUpperCase();
   var reps=await fetch(SB+'/rest/v1/replies?post_id=eq.'+postId+'&order=created_at.asc&select=*',{headers:hd}).then(function(r){return r.json();}).catch(function(){return[];});
   if(reps&&reps.length){
-    var rids=[...new Set(reps.map(function(r){return r.user_id;}).filter(Boolean))];
+    var rids=[...new Set(reps.map(function(r){return r.clerk_id||r.user_id;}).filter(Boolean))];
     if(rids.length){
       var rprofs=await fetch(SB+'/rest/v1/user_profiles?clerk_id=in.('+rids.join(',')+')'+'&select=clerk_id,username,display_name,tier',{headers:hd}).then(function(r){return r.json();}).catch(function(){return[];});
       var rpm={};(rprofs||[]).forEach(function(rp){rpm[rp.clerk_id]=rp;});
-      reps=reps.map(function(r){return Object.assign({},r,{_prof:rpm[r.user_id]||{}});});
+      reps=reps.map(function(r){return Object.assign({},r,{_prof:rpm[r.clerk_id||r.user_id]||{}});});
     }
   }
   var uid=window.currentUser?window.currentUser.id:null,isAdmin=uid===ADMIN_ID,canDel=isAdmin||(uid&&uid===p.user_id);
+
+  function makeAuthorCell(name,tier,time,initl,bgColor){
+    return '<div style="width:90px;flex-shrink:0;padding:8px 10px;border-right:1px solid #e5e7eb;background:#f9fafb;font-size:10px;color:#374151">'+
+      '<div style="width:28px;height:28px;border-radius:50%;background:'+bgColor+';display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px;font-weight:800;margin-bottom:4px">'+initl+'</div>'+
+      '<div style="font-weight:700;color:#111827;word-break:break-word">'+name+'</div>'+
+      '<div style="font-size:9px;color:#9ca3af;margin-top:1px">'+tier+'</div>'+
+      '<div style="font-size:9px;color:#9ca3af;margin-top:3px">'+time+'</div>'+
+    '</div>';
+  }
+
+  // Replies rows
   var repliesHTML=(reps&&reps.length)?reps.map(function(r){
     var rp=r._prof||{},rname=rp.username||rp.display_name||'Member',ri=rname.charAt(0).toUpperCase();
-    var canDelR=isAdmin||(uid&&uid===r.user_id);
-    return '<div class="ww-reply" style="display:flex;gap:10px;padding:14px 0;border-bottom:1px solid #f1f5f9">'+
-      '<div style="flex-shrink:0;width:32px;height:32px;border-radius:50%;background:#1e40af;display:flex;align-items:center;justify-content:center;color:#fff;font-size:12px;font-weight:800">'+ri+'</div>'+
-      '<div style="flex:1;min-width:0">'+
-        '<div style="display:flex;align-items:center;gap:6px;margin-bottom:5px;flex-wrap:wrap">'+
-          '<span style="font-size:12px;font-weight:700;color:#111827">'+rname+'</span>'+
-          '<span style="font-size:9px;padding:1px 6px;border-radius:6px;background:#f3f4f6;color:#6b7280">'+(rp.tier||'Maiden')+'</span>'+
-          '<span style="font-size:10px;color:#9ca3af">'+getTimeAgo(r.created_at)+'</span>'+
-          (canDelR?'<button class="del-reply-btn" data-rid="'+r.id+'" data-postid="'+postId+'" style="margin-left:auto;background:none;border:1px solid #fecaca;border-radius:4px;color:#dc2626;font-size:9px;cursor:pointer;padding:1px 6px">🗑</button>':'')+
-        '</div>'+
-        '<div style="font-size:13px;color:#374151;line-height:1.7;white-space:pre-wrap">'+((r.content||'').replace(/</g,'&lt;'))+'</div>'+
-      '</div></div>';
-  }).join(''):'<div style="padding:24px 0;text-align:center;color:#9ca3af;font-size:12px">No replies yet — be the first!</div>';
+    var canDelR=isAdmin||(uid&&uid===(r.clerk_id||r.user_id));
+    return '<div style="display:flex;border-bottom:1px solid #e5e7eb;min-height:60px">'+
+      makeAuthorCell(rname,rp.tier||'Maiden',getTimeAgo(r.created_at),ri,'#1e40af')+
+      '<div style="flex:1;padding:8px 12px;font-size:12px;color:#374151;line-height:1.6;white-space:pre-wrap;position:relative">'+
+        ((r.content||'').replace(/</g,'&lt;'))+
+        (canDelR?'<button class="del-reply-btn" data-rid="'+r.id+'" data-postid="'+postId+'" style="position:absolute;top:6px;right:8px;background:none;border:none;color:#dc2626;font-size:9px;cursor:pointer;opacity:.4">🗑</button>':'')+
+      '</div>'+
+    '</div>';
+  }).join(''):'<div style="padding:16px 12px;font-size:12px;color:#9ca3af;border-bottom:1px solid #e5e7eb">No replies yet — be the first!</div>';
+
+  // Reply box
   var replyBox=uid?
-    '<div style="background:#f8fafc;border-radius:8px;padding:14px;margin-top:8px">'+
-      '<div style="font-size:11px;font-weight:600;color:#374151;margin-bottom:7px">Add a reply</div>'+
-      '<textarea id="reply-content" placeholder="Share your thoughts..." style="width:100%;padding:9px 12px;border:1px solid #e5e7eb;border-radius:7px;font-size:13px;min-height:80px;resize:vertical;font-family:inherit;box-sizing:border-box;line-height:1.6;background:#fff"></textarea>'+
-      '<div style="display:flex;justify-content:flex-end;margin-top:6px"><button id="submit-reply-btn" style="padding:8px 20px;background:#00471b;color:#fff;border:none;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">Post Reply</button></div>'+
-    '</div>':
-    '<div style="background:#f8fafc;border-radius:8px;padding:14px;margin-top:8px;text-align:center;font-size:12px;color:#6b7280">Sign in to reply</div>';
-  centre.innerHTML=
-    '<div style="flex-shrink:0;padding:10px 16px;border-bottom:1px solid #e5e7eb;display:flex;align-items:center;gap:8px;background:#fff">'+
-      '<button id="thread-back" style="background:none;border:1px solid #e5e7eb;border-radius:6px;padding:4px 10px;font-size:11px;color:#374151;cursor:pointer;font-family:inherit">← Back</button>'+
-      '<span style="font-size:9px;font-weight:700;padding:2px 8px;border-radius:10px;background:'+cat.bg+';color:'+cat.c+'">'+cat.label+'</span>'+
-      (canDel?'<button id="del-post-thread" style="margin-left:auto;background:none;border:1px solid #fecaca;border-radius:6px;color:#dc2626;font-size:10px;cursor:pointer;padding:4px 10px;font-family:inherit">🗑 Delete</button>':'')+
-    '</div>'+
-    '<div style="flex:1;overflow-y:auto;padding:16px">'+
-      '<h2 style="font-size:19px;font-weight:800;color:#111827;line-height:1.3;margin-bottom:10px">'+((p.title||'').replace(/</g,'&lt;'))+'</h2>'+
-      '<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">'+
-        '<div style="width:32px;height:32px;border-radius:50%;background:#00471b;display:flex;align-items:center;justify-content:center;color:#fff;font-size:12px;font-weight:800">'+pi+'</div>'+
-        '<div><div style="font-size:12px;font-weight:700;color:#111827">'+dname+'</div><div style="font-size:10px;color:#9ca3af">'+(prof.tier||'Maiden')+' · '+getTimeAgo(p.created_at)+'</div></div>'+
-        '<div style="margin-left:auto;display:flex;align-items:center;gap:6px">'+
-          '<button id="thread-upvote" style="display:flex;align-items:center;gap:4px;background:#f0fdf4;border:1.5px solid #00471b;border-radius:6px;padding:5px 12px;cursor:pointer;font-size:12px;font-weight:700;color:#00471b;font-family:inherit">▲ '+(p.votes||0)+'</button>'+
-          '<span style="font-size:11px;color:#9ca3af">💬 '+(p.reply_count||reps.length||0)+'</span>'+
+    '<div style="border-top:2px solid #e5e7eb;background:#f9fafb">'+
+      '<div style="display:flex;border-bottom:1px solid #e5e7eb">'+
+        '<div style="width:90px;flex-shrink:0;padding:8px 10px;border-right:1px solid #e5e7eb;background:#f3f4f6;font-size:10px;color:#374151">'+
+          '<div style="width:28px;height:28px;border-radius:50%;background:#00471b;display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px;font-weight:800;margin-bottom:4px">'+((window.currentUser&&window.currentUser.name||'?').charAt(0).toUpperCase())+'</div>'+
+          '<div style="font-weight:700;color:#111827">'+(window.currentUser&&window.currentUser.name||'You')+'</div>'+
+        '</div>'+
+        '<div style="flex:1;padding:8px 10px">'+
+          '<textarea id="reply-content" placeholder="Write your reply..." style="width:100%;padding:6px 8px;border:1px solid #d1d5db;border-radius:4px;font-size:12px;min-height:70px;resize:vertical;font-family:inherit;box-sizing:border-box;line-height:1.5;background:#fff;outline:none"></textarea>'+
+          '<div style="display:flex;justify-content:flex-end;margin-top:5px">'+
+            '<button id="submit-reply-btn" style="padding:5px 16px;background:#00471b;color:#fff;border:none;border-radius:4px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">Post Reply</button>'+
+          '</div>'+
         '</div>'+
       '</div>'+
-      '<div style="font-size:14px;color:#1f2937;line-height:1.8;padding:14px;background:#f8fafc;border-radius:8px;white-space:pre-wrap;border-left:3px solid #00471b;margin-bottom:20px">'+((p.body||'').replace(/</g,'&lt;'))+'</div>'+
-      '<div style="font-size:12px;font-weight:800;color:#374151;margin-bottom:8px;padding-bottom:8px;border-bottom:2px solid #f1f5f9">'+(reps&&reps.length?reps.length+' '+(reps.length===1?'Reply':'Replies'):'Replies')+'</div>'+
+    '</div>':
+    '<div style="padding:12px;text-align:center;font-size:11px;color:#6b7280;border-top:1px solid #e5e7eb">Sign in to reply</div>';
+
+  centre.innerHTML=
+    // Sticky header bar
+    '<div style="flex-shrink:0;padding:7px 12px;border-bottom:1px solid #e5e7eb;display:flex;align-items:center;gap:8px;background:#f9fafb">'+
+      '<button id="thread-back" style="background:none;border:1px solid #d1d5db;border-radius:3px;padding:3px 8px;font-size:10px;color:#374151;cursor:pointer;font-family:inherit">← Back</button>'+
+      '<span style="font-size:8px;font-weight:700;padding:2px 6px;border-radius:3px;background:'+cat.bg+';color:'+cat.c+'">'+cat.label+'</span>'+
+      '<span style="font-size:11px;font-weight:700;color:#111827;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+((p.title||'').replace(/</g,'&lt;'))+'</span>'+
+      (canDel?'<button id="del-post-thread" style="background:none;border:1px solid #fecaca;border-radius:3px;color:#dc2626;font-size:9px;cursor:pointer;padding:3px 8px;font-family:inherit;flex-shrink:0">🗑 Delete</button>':'')+
+    '</div>'+
+    // Scrollable thread
+    '<div style="flex:1;overflow-y:auto">'+
+      // OP post row - Betfair style
+      '<div style="display:flex;border-bottom:2px solid #d1d5db;background:#fff">'+
+        makeAuthorCell(dname,prof.tier||'Maiden',getTimeAgo(p.created_at),pi,'#00471b')+
+        '<div style="flex:1;padding:8px 12px">'+
+          '<div style="font-size:13px;font-weight:800;color:#111827;margin-bottom:6px">'+((p.title||'').replace(/</g,'&lt;'))+'</div>'+
+          '<div style="font-size:12px;color:#374151;line-height:1.7;white-space:pre-wrap">'+((p.body||'').replace(/</g,'&lt;'))+'</div>'+
+          '<div style="display:flex;align-items:center;gap:8px;margin-top:8px">'+
+            '<button id="thread-upvote" style="display:inline-flex;align-items:center;gap:3px;background:#f0fdf4;border:1px solid #00471b;border-radius:3px;padding:3px 8px;cursor:pointer;font-size:10px;font-weight:700;color:#00471b;font-family:inherit">▲ '+(p.votes||0)+' upvotes</button>'+
+            '<span style="font-size:10px;color:#9ca3af">💬 '+(p.reply_count||reps.length||0)+' replies</span>'+
+          '</div>'+
+        '</div>'+
+      '</div>'+
+      // Replies header
+      '<div style="padding:5px 12px;background:#e5e7eb;font-size:10px;font-weight:700;color:#6b7280;border-bottom:1px solid #d1d5db">'+
+        'REPLIES ('+(reps&&reps.length?reps.length:0)+')'+
+      '</div>'+
       '<div id="replies-list">'+repliesHTML+'</div>'+
       replyBox+
     '</div>';
-  centre.querySelector('#thread-back').addEventListener('click',function(){loadCommFeed(window._communityFilter||'all');});
+
+  centre.querySelector('#thread-back').addEventListener('click',function(){
+    var af=window._communityFilter||'all';
+    var SECS3=[{id:'all',label:'All Posts'},{id:'today_races',label:"Today's Races"},{id:'tips_analysis',label:'Tips & Analysis'},{id:'winning_bets',label:'Winning Bets'},{id:'system_feedback',label:'System Feedback'},{id:'general',label:'General Chat'}];
+    centre.innerHTML=
+      '<div style="flex-shrink:0;background:#fff;border-bottom:1px solid #e5e7eb">'+
+        '<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 16px">'+
+          '<div style="font-size:18px;font-weight:800;color:#111827">Community</div>'+
+          '<button id="back-new-post-btn" style="background:#00471b;color:#fff;border:none;padding:6px 14px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">✏️ New Post</button>'+
+        '</div>'+
+      '</div>'+
+      '<div style="padding:4px 16px;display:flex;align-items:center;gap:6px;border-bottom:1px solid #e5e7eb"><div id="comm-stats-bar" style="display:flex;align-items:center;gap:5px;flex:1"><span style="font-size:10px;color:#9ca3af">Loading...</span></div><span style="font-size:9px;color:#b45309;white-space:nowrap">⚠️ Member opinions only</span></div>'+
+      '<div id="comm-feed" style="flex:1;overflow-y:auto;padding:0"><div style="padding:30px;text-align:center;color:#9ca3af">Loading...</div></div>';
+    centre.querySelector('#back-new-post-btn').addEventListener('click',showNewPostModal);
+    loadCommFeed(af);
+  });
   var dpb=centre.querySelector('#del-post-thread');if(dpb)dpb.addEventListener('click',function(){commDeletePost(postId);});
   var uvb=centre.querySelector('#thread-upvote');
   if(uvb)uvb.addEventListener('click',function(){
     if(!uid){openLoginModal();return;}
-    uvb.style.color='#00471b';uvb.style.borderColor='#00471b';
-    if(typeof COMMUNITY!=='undefined')COMMUNITY.upvote(uid,postId,'post',p.user_id).then(function(){
-      fetch(SB+'/rest/v1/posts?id=eq.'+postId+'&select=votes',{headers:hd}).then(function(r){return r.json();}).then(function(v){if(v&&v[0])uvb.textContent='▲ '+(v[0].votes||0);});
+    uvb.style.background='#dcfce7';
+    var _tp=typeof COMMUNITY!=='undefined'?COMMUNITY.upvote(uid,postId,'post',p.user_id):Promise.resolve();
+    (_tp&&_tp.then?_tp:Promise.resolve()).then(function(){
+      fetch(SB+'/rest/v1/posts?id=eq.'+postId+'&select=votes',{headers:hd}).then(function(r){return r.json();}).then(function(v){if(v&&v[0])uvb.textContent='▲ '+(v[0].votes||0)+' upvotes';});
     });
   });
   var srb=centre.querySelector('#submit-reply-btn');
@@ -3249,7 +3239,7 @@ async function commSubmitReply(postId){
   var btn=document.getElementById('submit-reply-btn');
   if(btn){btn.disabled=true;btn.textContent='Posting...';}
   var SB=window.SUPABASE_URL,KEY=window.SUPABASE_ANON_KEY,hd={'apikey':KEY,'Authorization':'Bearer '+KEY};
-  await fetch(SB+'/rest/v1/replies',{method:'POST',headers:Object.assign({'Content-Type':'application/json'},hd),body:JSON.stringify({post_id:postId,user_id:window.currentUser.id,content:bdy})});
+  await fetch(SB+'/rest/v1/replies',{method:'POST',headers:Object.assign({'Content-Type':'application/json'},hd),body:JSON.stringify({post_id:postId,clerk_id:window.currentUser.id,content:bdy})});
   var ps=await fetch(SB+'/rest/v1/posts?id=eq.'+postId+'&select=reply_count',{headers:hd}).then(function(r){return r.json();}).catch(function(){return[];});
   if(ps&&ps[0])await fetch(SB+'/rest/v1/posts?id=eq.'+postId,{method:'PATCH',headers:Object.assign({'Content-Type':'application/json'},hd),body:JSON.stringify({reply_count:(ps[0].reply_count||0)+1})});
   if(typeof COMMUNITY!=='undefined')COMMUNITY.forumPost(window.currentUser.id,postId,true);
@@ -7991,11 +7981,13 @@ const COMMUNITY = (function() {
 
     // Update upvote count on post/reply
     const table = targetType === 'post' ? 'posts' : 'replies';
-    const item = await sbFetch(table + '?id=eq.' + targetId + '&select=upvotes');
+    const voteCol = (table === 'posts') ? 'votes' : 'upvotes';
+    const item = await sbFetch(table + '?id=eq.' + targetId + '&select=' + voteCol);
     if (item && item[0]) {
+      const pb = {}; pb[voteCol] = (item[0][voteCol] || 0) + 1;
       await sbFetch(table + '?id=eq.' + targetId, {
         method: 'PATCH',
-        body: { upvotes: (item[0].upvotes || 0) + 1 }
+        body: pb
       });
     }
 
