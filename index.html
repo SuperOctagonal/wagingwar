@@ -2950,7 +2950,14 @@ function showUsernameSetup(callback){
 async function submitPost(){
   if(!window.currentUser){openLoginModal();return;}
   var uid=window.currentUser.id;
-  if(!uid){toast('Session error — please sign out and back in','error');return;}
+  // Debug: show exactly what we have
+  console.log('submitPost: currentUser=',window.currentUser);
+  console.log('submitPost: uid=',uid);
+  console.log('submitPost: SB=',window.SUPABASE_URL);
+  if(!uid){
+    alert('No user ID. currentUser='+JSON.stringify(window.currentUser));
+    toast('Session error — please sign out and back in','error');return;
+  }
   var sec=(document.getElementById('post-section').value||'general');
   var ttl=(document.getElementById('post-title').value||'').trim();
   var bdy=(document.getElementById('post-content').value||'').trim();
@@ -2958,18 +2965,23 @@ async function submitPost(){
   var btn=document.getElementById('npm-submit');
   if(btn){btn.disabled=true;btn.textContent='Posting...';}
   var SB=window.SUPABASE_URL,KEY=window.SUPABASE_ANON_KEY;
-  var res=await fetch(SB+'/rest/v1/posts',{method:'POST',
+  var payload={user_id:uid,section:sec,title:ttl,body:bdy};
+  console.log('submitPost: payload=',payload);
+  var rawRes=await fetch(SB+'/rest/v1/posts',{method:'POST',
     headers:{'apikey':KEY,'Authorization':'Bearer '+KEY,'Content-Type':'application/json','Prefer':'return=representation'},
-    body:JSON.stringify({user_id:uid,section:sec,title:ttl,body:bdy})
-  }).then(function(r){return r.json();}).catch(function(){return null;});
-  if(res&&Array.isArray(res)&&res.length&&!res[0].code){
+    body:JSON.stringify(payload)
+  });
+  console.log('submitPost: HTTP status=',rawRes.status);
+  var res=await rawRes.json().catch(function(){return null;});
+  console.log('submitPost: response=',res);
+  if(rawRes.status===201||(res&&Array.isArray(res)&&res.length&&!res[0]?.code)){
     if(typeof COMMUNITY!=='undefined')COMMUNITY.forumPost(uid,(res[0]||{}).id||'',false);
     toast('Post published! +10pts','success');
     window._communityFilter=sec;
     closeModal();
     loadCommFeed(sec);
   } else {
-    console.error('Post error:',res);
+    alert('Post failed. Status: '+rawRes.status+' Response: '+JSON.stringify(res));
     toast('Post failed — try again','error');
     if(btn){btn.disabled=false;btn.textContent='Post';}
   }
