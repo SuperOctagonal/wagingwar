@@ -2758,69 +2758,177 @@ function showRanksPage(){
   var main=document.getElementById('main');
   if(!main)return;
   var pts=(window.wwUserProfile&&window.wwUserProfile.points)||0;
-  var TIER_GROUPS = [{"group": "🐴 Picnic & Outback Maiden", "tiers": [{"num": 1, "name": "Adaminaby Picnic Maiden", "pts": 0, "emoji": "🐴"}, {"num": 2, "name": "Ardlethan Picnic Maiden", "pts": 50, "emoji": "🐴"}, {"num": 3, "name": "Toodyay Picnic Maiden", "pts": 100, "emoji": "🐴"}, {"num": 4, "name": "Yalgoo Picnic Maiden", "pts": 160, "emoji": "🐴"}, {"num": 5, "name": "Wyndham Picnic Maiden", "pts": 230, "emoji": "🐴"}, {"num": 6, "name": "Oakbank Picnic Maiden", "pts": 310, "emoji": "🐴"}, {"num": 7, "name": "Burrumbeet Maiden", "pts": 400, "emoji": "🐴"}, {"num": 8, "name": "Elmore Maiden", "pts": 500, "emoji": "🐴"}, {"num": 9, "name": "Casterton Maiden", "pts": 610, "emoji": "🐴"}, {"num": 10, "name": "Moe Maiden", "pts": 730, "emoji": "🐴"}, {"num": 11, "name": "Tumut Maiden", "pts": 860, "emoji": "🐴"}, {"num": 12, "name": "Moruya Maiden", "pts": 1000, "emoji": "🐴"}, {"num": 13, "name": "Coonamble Maiden", "pts": 1150, "emoji": "🐴"}, {"num": 14, "name": "Walgett Maiden", "pts": 1310, "emoji": "🐴"}, {"num": 15, "name": "Bourke Maiden", "pts": 1480, "emoji": "🐴"}, {"num": 16, "name": "Narromine Maiden", "pts": 1660, "emoji": "🐴"}, {"num": 17, "name": "Queanbeyan Maiden", "pts": 1850, "emoji": "🐴"}, {"num": 18, "name": "Colac Maiden", "pts": 2050, "emoji": "🐴"}, {"num": 19, "name": "Ararat Maiden", "pts": 2260, "emoji": "🐴"}]}, {"group": "🏇 Weak Country", "tiers": [{"num": 20, "name": "Mildura BM58", "pts": 2500, "emoji": "🏇"}, {"num": 21, "name": "Echuca BM58", "pts": 2800, "emoji": "🏇"}, {"num": 22, "name": "Swan Hill BM58", "pts": 3120, "emoji": "🏇"}, {"num": 23, "name": "Wangaratta BM58", "pts": 3460, "emoji": "🏇"}, {"num": 24, "name": "Corowa BM58", "pts": 3820, "emoji": "🏇"}, {"num": 25, "name": "Deniliquin BM58", "pts": 4200, "emoji": "🏇"}, {"num": 26, "name": "Gundagai BM58", "pts": 4600, "emoji": "🏇"}, {"num": 27, "name": "Cowra BM58", "pts": 5020, "emoji": "🏇"}, {"num": 28, "name": "Cootamundra BM58", "pts": 5460, "emoji": "🏇"}, {"num": 29, "name": "Mudgee BM58", "pts": 5920, "emoji": "🏇"}, {"num": 30, "name": "Inverell BM58", "pts": 6400, "emoji": "🏇"}, {"num": 31, "name": "Moree BM58", "pts": 6900, "emoji": "🏇"}]}, {"group": "🏇 Mid Country", "tiers": [{"num": 32, "name": "Emerald BM64", "pts": 7500, "emoji": "🏇"}, {"num": 33, "name": "Rockhampton BM64", "pts": 8100, "emoji": "🏇"}, {"num": 34, "name": "Mackay BM64", "pts": 8750, "emoji": "🏇"}, {"num": 35, "name": "Mount Isa BM64", "pts": 9450, "emoji": "🏇"}, {"num": 36, "name": "Longreach BM64", "pts": 10200, "emoji": "🏇"}, {"num": 37, "name": "Kalgoorlie BM64", "pts": 11000, "emoji": "🏇"}, {"num": 38, "name": "Geraldton BM64", "pts": 11850, "emoji": "🏇"}, {"num": 39, "name": "Port Augusta BM64", "pts": 12750, "emoji": "🏇"}, {"num": 40, "name": "Murray Bridge BM64", "pts": 13700, "emoji": "🏇"}, {"num": 41, "name": "Balaklava BM64", "pts": 14700, "emoji": "🏇"}]}, {"group": "🏆 Strong Country", "tiers": [{"num": 42, "name": "Grafton BM70", "pts": 15000, "emoji": "🏆"}, {"num": 43, "name": "Armidale BM70", "pts": 16200, "emoji": "🏆"}, {"num": 44, "name": "Taree BM70", "pts": 17500, "emoji": "🏆"}, {"num": 45, "name": "Dubbo BM70", "pts": 18900, "emoji": "🏆"}, {"num": 46, "name": "Orange BM70", "pts": 20400, "emoji": "🏆"}, {"num": 47, "name": "Wagga Wagga BM70", "pts": 22000, "emoji": "🏆"}, {"num": 48, "name": "Tamworth BM70", "pts": 23700, "emoji": "🏆"}, {"num": 49, "name": "Toowoomba BM70", "pts": 24700, "emoji": "🏆"}]}, {"group": "⭐ Weak Provincial", "tiers": [{"num": 50, "name": "Ipswich BM72", "pts": 25000, "emoji": "⭐"}, {"num": 51, "name": "Albury BM72", "pts": 26700, "emoji": "⭐"}, {"num": 52, "name": "Wodonga BM72", "pts": 28500, "emoji": "⭐"}, {"num": 53, "name": "Shepparton BM72", "pts": 30400, "emoji": "⭐"}, {"num": 54, "name": "Bendigo BM72", "pts": 32400, "emoji": "⭐"}, {"num": 55, "name": "Warrnambool BM72", "pts": 34500, "emoji": "⭐"}, {"num": 56, "name": "Sale BM72", "pts": 36700, "emoji": "⭐"}, {"num": 57, "name": "Launceston BM72", "pts": 39000, "emoji": "⭐"}]}, {"group": "⭐ Mid Provincial", "tiers": [{"num": 58, "name": "Kembla Grange BM78", "pts": 40000, "emoji": "⭐"}, {"num": 59, "name": "Hawkesbury BM78", "pts": 43000, "emoji": "⭐"}, {"num": 60, "name": "Gosford BM78", "pts": 46200, "emoji": "⭐"}, {"num": 61, "name": "Ballarat BM78", "pts": 49600, "emoji": "⭐"}, {"num": 62, "name": "Geelong BM78", "pts": 53200, "emoji": "⭐"}, {"num": 63, "name": "Sandown BM78", "pts": 57000, "emoji": "⭐"}]}, {"group": "⭐⭐ Strong Provincial", "tiers": [{"num": 64, "name": "Newcastle BM84", "pts": 60000, "emoji": "⭐⭐"}, {"num": 65, "name": "Sunshine Coast BM84", "pts": 64500, "emoji": "⭐⭐"}, {"num": 66, "name": "Gold Coast BM84", "pts": 69300, "emoji": "⭐⭐"}, {"num": 67, "name": "Doomben BM84", "pts": 74400, "emoji": "⭐⭐"}, {"num": 68, "name": "Morphettville Parks BM84", "pts": 79800, "emoji": "⭐⭐"}]}, {"group": "⭐⭐ Metropolitan", "tiers": [{"num": 69, "name": "Belmont Open", "pts": 85000, "emoji": "⭐⭐"}, {"num": 70, "name": "Doomben Saturday Open", "pts": 92000, "emoji": "⭐⭐"}, {"num": 71, "name": "Eagle Farm Open", "pts": 99500, "emoji": "⭐⭐"}, {"num": 72, "name": "Morphettville Open", "pts": 107500, "emoji": "⭐⭐"}, {"num": 73, "name": "Caulfield Open", "pts": 116000, "emoji": "⭐⭐"}, {"num": 74, "name": "Moonee Valley Open", "pts": 125000, "emoji": "⭐⭐"}, {"num": 75, "name": "Rosehill Open", "pts": 135000, "emoji": "⭐⭐"}, {"num": 76, "name": "Ascot Open", "pts": 145000, "emoji": "⭐⭐"}]}, {"group": "🏆 Feature Races", "tiers": [{"num": 77, "name": "Listed", "pts": 150000, "emoji": "🏆"}, {"num": 78, "name": "Group 3", "pts": 185000, "emoji": "🏆"}, {"num": 79, "name": "Group 2", "pts": 235000, "emoji": "🏆"}]}, {"group": "👑 Group 1 Elite", "tiers": [{"num": 80, "name": "Stradbroke Handicap", "pts": 300000, "emoji": "👑"}, {"num": 81, "name": "Queensland Oaks", "pts": 325000, "emoji": "👑"}, {"num": 82, "name": "Queensland Derby", "pts": 350000, "emoji": "👑"}, {"num": 83, "name": "Doomben 10,000", "pts": 380000, "emoji": "👑"}, {"num": 84, "name": "Doomben Cup", "pts": 410000, "emoji": "👑"}, {"num": 85, "name": "Epsom Handicap", "pts": 445000, "emoji": "👑"}, {"num": 86, "name": "George Main Stakes", "pts": 480000, "emoji": "👑"}, {"num": 87, "name": "Spring Champion Stakes", "pts": 520000, "emoji": "👑"}, {"num": 88, "name": "Caulfield Guineas", "pts": 560000, "emoji": "👑"}, {"num": 89, "name": "Victoria Derby", "pts": 605000, "emoji": "👑"}, {"num": 90, "name": "Yalumba Stakes", "pts": 650000, "emoji": "👑"}, {"num": 91, "name": "Australian Cup", "pts": 700000, "emoji": "👑"}, {"num": 92, "name": "All Aged Stakes", "pts": 755000, "emoji": "👑"}, {"num": 93, "name": "Newmarket Handicap", "pts": 810000, "emoji": "👑"}, {"num": 94, "name": "Australian Derby", "pts": 870000, "emoji": "👑"}, {"num": 95, "name": "Doncaster Handicap", "pts": 935000, "emoji": "👑"}, {"num": 96, "name": "T.J. Smith Stakes", "pts": 1000000, "emoji": "👑"}, {"num": 97, "name": "Queen Elizabeth Stakes", "pts": 1075000, "emoji": "👑"}, {"num": 98, "name": "W.S. Cox Plate", "pts": 1155000, "emoji": "👑"}, {"num": 99, "name": "Cantala Stakes", "pts": 1240000, "emoji": "👑"}, {"num": 100, "name": "Mackinnon Stakes", "pts": 1330000, "emoji": "👑"}, {"num": 101, "name": "Myer Classic", "pts": 1430000, "emoji": "👑"}, {"num": 102, "name": "Lexus Stakes", "pts": 1540000, "emoji": "👑"}, {"num": 103, "name": "Emirates Stakes", "pts": 1660000, "emoji": "👑"}, {"num": 104, "name": "AAMI Victoria Derby", "pts": 1790000, "emoji": "👑"}, {"num": 105, "name": "Thousand Guineas", "pts": 1930000, "emoji": "👑"}, {"num": 106, "name": "Australian Oaks", "pts": 2080000, "emoji": "👑"}, {"num": 107, "name": "Golden Eagle", "pts": 2240000, "emoji": "👑"}, {"num": 108, "name": "The Everest", "pts": 2415000, "emoji": "👑"}, {"num": 109, "name": "Golden Rose", "pts": 2600000, "emoji": "👑"}, {"num": 110, "name": "Winx Stakes", "pts": 2800000, "emoji": "👑"}, {"num": 111, "name": "Caulfield Cup", "pts": 3010000, "emoji": "👑"}, {"num": 112, "name": "Moonee Valley Gold Cup", "pts": 3230000, "emoji": "👑"}, {"num": 113, "name": "Sydney Cup", "pts": 3465000, "emoji": "👑"}, {"num": 114, "name": "Flemington Cup", "pts": 3715000, "emoji": "👑"}, {"num": 115, "name": "Melbourne Cup", "pts": 5000000, "emoji": "👑"}]}];
-  
-  // Find current tier
-  var currentNum=1;
-  TIER_GROUPS.forEach(function(g){g.tiers.forEach(function(t){if(pts>=t.pts)currentNum=t.num;});});
-  
-  main.innerHTML=
-    '<div style="max-width:900px;margin:0 auto;padding:24px 20px 60px">'+
-      '<div style="display:flex;align-items:center;gap:12px;margin-bottom:24px">'+
-        '<button id="ranks-back-btn" style="background:none;border:1px solid #e5e7eb;border-radius:6px;padding:5px 12px;font-size:11px;color:#374151;cursor:pointer;font-family:inherit">← Back</button>'+
-        '<h1 style="font-size:22px;font-weight:800;color:#111827;margin:0">🏆 Race Rank Ladder</h1>'+
-      '</div>'+
-      '<div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:14px 16px;margin-bottom:24px">'+
-        '<div style="font-size:12px;font-weight:700;color:#166534;margin-bottom:4px">Your Progress</div>'+
-        '<div style="font-size:13px;color:#374151">You have <strong>'+pts.toLocaleString()+' pts</strong> — currently at Rank '+currentNum+' of 115</div>'+
-        '<div style="margin-top:8px;height:8px;background:#bbf7d0;border-radius:4px;overflow:hidden">'+
-          '<div style="width:'+Math.round(currentNum/115*100)+'%;height:100%;background:#00471b;border-radius:4px"></div>'+
+  var _buildRanks=function(){
+    if(typeof COMMUNITY==='undefined')return{current:null,next20:[],all:[]};
+    var c=COMMUNITY.getTier(pts);
+    var all=[],probe=0,lastNum=-1,maxProbe=370000,step=50;
+    while(probe<=maxProbe){
+      var t=COMMUNITY.getTier(probe);
+      if(t.num!==lastNum){all.push({num:t.num,name:t.name,emoji:t.emoji,color:t.color,pts:t.points});lastNum=t.num;}
+      probe+=step;
+    }
+    var seen={},deduped=[];
+    all.forEach(function(t){if(!seen[t.num]){seen[t.num]=true;deduped.push(t);}});
+    deduped.sort(function(a,b){return a.num-b.num;});
+    var next20=deduped.filter(function(t){return t.pts>pts;}).slice(0,20);
+    return{current:c,next20:next20,all:deduped};
+  };
+  var ranks=_buildRanks();
+  var current=ranks.current||{num:1,name:'Adaminaby Picnic Maiden',emoji:'🐴',color:'#6b7280',points:0};
+  var next20=ranks.next20;
+  var totalRanks=262;
+  var pctToMC=Math.min(100,Math.round(pts/365000*100));
+
+  var next20HTML=next20.length?next20.map(function(t,i){
+    var needed=t.pts-pts;
+    var w700=Math.ceil(needed/700),w300=Math.ceil(needed/300);
+    return '<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid #f1f5f9;background:'+(i===0?'#f0fdf4':'#fff')+'">'+
+      '<div style="width:28px;height:28px;border-radius:50%;background:'+t.color+';display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px;font-weight:800;flex-shrink:0">'+(i+1)+'</div>'+
+      '<div style="flex:1;min-width:0">'+
+        '<div style="font-size:12px;font-weight:'+(i===0?'800':'600')+';color:#111827">'+t.emoji+' '+t.name+'</div>'+
+        '<div style="font-size:10px;color:#6b7280;margin-top:1px">'+needed.toLocaleString()+' pts needed &middot; '+w700+'w heavy use &middot; '+w300+'w casual</div>'+
+        '<div style="margin-top:4px;height:3px;background:#f1f5f9;border-radius:2px;overflow:hidden">'+
+          '<div style="width:'+Math.min(100,Math.round(pts/t.pts*100))+'%;height:100%;background:'+t.color+';border-radius:2px"></div>'+
         '</div>'+
-        '<div style="font-size:10px;color:#166534;margin-top:3px">'+Math.round(currentNum/115*100)+'% of the way to Melbourne Cup</div>'+
       '</div>'+
-      '<div style="font-size:12px;color:#6b7280;margin-bottom:16px;padding:10px 14px;background:#fffbeb;border:1px solid #fde68a;border-radius:8px">'+
-        '🐴 Every member starts at <strong>Adaminaby Picnic Maiden</strong> and works their way up 115 levels to the ultimate rank — the <strong>Melbourne Cup</strong>. The climb mirrors a racehorses career through the grades.'+
+      '<div style="text-align:right;flex-shrink:0">'+
+        '<div style="font-size:11px;font-weight:800;color:'+t.color+'">'+t.pts.toLocaleString()+'</div>'+
+        '<div style="font-size:9px;color:#9ca3af">pts</div>'+
+      '</div>'+
+    '</div>';
+  }).join(''):'<div style="padding:20px;text-align:center;font-size:12px;color:#6b7280">You have reached Melbourne Cup!</div>';
+
+  main.innerHTML=
+    '<div style="max-width:820px;margin:0 auto;padding:20px 20px 60px">'+
+      '<div style="display:flex;align-items:center;gap:12px;margin-bottom:20px">'+
+        '<button id="ranks-back-btn" style="background:none;border:1px solid #e5e7eb;border-radius:6px;padding:5px 12px;font-size:11px;color:#374151;cursor:pointer;font-family:inherit">← Back</button>'+
+        '<h1 style="font-size:20px;font-weight:800;color:#111827;margin:0">🏆 Race Rank Ladder</h1>'+
+        '<button id="full-ladder-btn" style="margin-left:auto;background:none;border:1px solid #e5e7eb;border-radius:6px;padding:5px 12px;font-size:11px;color:#374151;cursor:pointer;font-family:inherit">Full Ladder ↗</button>'+
+      '</div>'+
+      '<div style="background:linear-gradient(135deg,#00471b,#006629);border-radius:12px;padding:18px 20px;margin-bottom:16px;color:#fff">'+
+        '<div style="font-size:10px;font-weight:600;opacity:.7;text-transform:uppercase;letter-spacing:.8px;margin-bottom:6px">Your Current Rank</div>'+
+        '<div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">'+
+          '<div style="font-size:32px">'+current.emoji+'</div>'+
+          '<div><div style="font-size:18px;font-weight:800">'+current.name+'</div>'+
+          '<div style="font-size:11px;opacity:.8">Rank #'+(current.num||1)+' of '+totalRanks+' &middot; '+pts.toLocaleString()+' pts</div></div>'+
+        '</div>'+
+        '<div style="display:flex;justify-content:space-between;font-size:10px;opacity:.8;margin-bottom:4px"><span>Progress to Melbourne Cup</span><span>'+pctToMC+'%</span></div>'+
+        '<div style="height:6px;background:rgba(255,255,255,.2);border-radius:3px;overflow:hidden;margin-bottom:8px">'+
+          '<div style="width:'+pctToMC+'%;height:100%;background:#fff;border-radius:3px"></div>'+
+        '</div>'+
+        '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">'+
+          '<div style="background:rgba(255,255,255,.1);border-radius:6px;padding:8px;text-align:center"><div style="font-size:16px;font-weight:800">'+pts.toLocaleString()+'</div><div style="font-size:9px;opacity:.7">Your Points</div></div>'+
+          '<div style="background:rgba(255,255,255,.1);border-radius:6px;padding:8px;text-align:center"><div style="font-size:16px;font-weight:800">'+(current.num||1)+'</div><div style="font-size:9px;opacity:.7">Current Rank</div></div>'+
+          '<div style="background:rgba(255,255,255,.1);border-radius:6px;padding:8px;text-align:center"><div style="font-size:16px;font-weight:800">'+(365000-pts>0?(365000-pts).toLocaleString():'0')+'</div><div style="font-size:9px;opacity:.7">To Melbourne Cup</div></div>'+
+        '</div>'+
+      '</div>'+
+      '<div style="background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:12px 14px;margin-bottom:16px">'+
+        '<div style="font-size:11px;font-weight:700;color:#92400e;margin-bottom:6px">Fastest ways to earn points</div>'+
+        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:10px;color:#78350f">'+
+          '<div>🎁 Refer a friend <strong>+200pts</strong></div>'+
+          '<div>📖 Blackbook horse wins <strong>+20pts</strong></div>'+
+          '<div>🏆 Log a winning bet <strong>+15pts</strong></div>'+
+          '<div>▲ Post gets upvoted <strong>+10pts</strong></div>'+
+          '<div>📝 Post in community <strong>+10pts</strong></div>'+
+          '<div>🔥 30-day streak <strong>+200pts</strong></div>'+
+        '</div>'+
+      '</div>'+
+      '<div style="font-size:13px;font-weight:800;color:#111827;margin-bottom:8px">Your Next '+next20.length+' Ranks</div>'+
+      '<div style="border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;margin-bottom:20px">'+next20HTML+'</div>'+
+      '<div style="text-align:center"><button id="full-ladder-btn2" style="background:none;border:1px solid #e5e7eb;border-radius:6px;padding:8px 20px;font-size:12px;color:#374151;cursor:pointer;font-family:inherit">View Full 262-Race Ladder ↗</button></div>'+
+    '</div>';
+
+  main.querySelector('#ranks-back-btn').addEventListener('click',function(){showCommunity();});
+  [main.querySelector('#full-ladder-btn'),main.querySelector('#full-ladder-btn2')].forEach(function(btn){
+    if(btn)btn.addEventListener('click',showFullLadder);
+  });
+}
+
+function showFullLadder(){
+  var main=document.getElementById('main');
+  if(!main)return;
+  var pts=(window.wwUserProfile&&window.wwUserProfile.points)||0;
+  var allTiers=[];
+  if(typeof COMMUNITY!=='undefined'){
+    var probe=0,lastNum=-1,maxProbe=370000,step=50;
+    while(probe<=maxProbe){
+      var t=COMMUNITY.getTier(probe);
+      if(t.num!==lastNum){allTiers.push({num:t.num,name:t.name,emoji:t.emoji,color:t.color,pts:t.points});lastNum=t.num;}
+      probe+=step;
+    }
+    var seen={},deduped=[];
+    allTiers.forEach(function(t){if(!seen[t.num]){seen[t.num]=true;deduped.push(t);}});
+    allTiers=deduped.sort(function(a,b){return a.num-b.num;});
+  }
+  var TIER_GROUPS=[],currentGroup=null;
+  allTiers.forEach(function(t){
+    var grp;
+    if(t.num<=21)grp='🐴 Picnic & Outback Maiden';
+    else if(t.num<=40)grp='🐴 Medium Maidens';
+    else if(t.num<=60)grp='🐴 Strong Maidens';
+    else if(t.num<=88)grp='🏇 Weak Country';
+    else if(t.num<=119)grp='🏇 Mid Country';
+    else if(t.num<=129)grp='🏆 Strong Country';
+    else if(t.num<=137)grp='⭐ Weak Provincial';
+    else if(t.num<=143)grp='⭐ Mid Provincial';
+    else if(t.num<=148)grp='⭐⭐ Strong Provincial';
+    else if(t.num<=156)grp='⭐⭐ Metropolitan';
+    else if(t.num<=176)grp='🏆 Listed';
+    else if(t.num<=196)grp='🏆 Group 3';
+    else if(t.num<=215)grp='👑 Group 2';
+    else grp='👑 Group 1';
+    if(!currentGroup||currentGroup.group!==grp){currentGroup={group:grp,tiers:[]};TIER_GROUPS.push(currentGroup);}
+    currentGroup.tiers.push(t);
+  });
+  var currentNum=typeof COMMUNITY!=='undefined'?COMMUNITY.getTier(pts).num:1;
+  main.innerHTML=
+    '<div style="max-width:820px;margin:0 auto;padding:20px 20px 60px">'+
+      '<div style="display:flex;align-items:center;gap:12px;margin-bottom:20px">'+
+        '<button id="ladder-back-btn" style="background:none;border:1px solid #e5e7eb;border-radius:6px;padding:5px 12px;font-size:11px;color:#374151;cursor:pointer;font-family:inherit">← Back</button>'+
+        '<h1 style="font-size:20px;font-weight:800;color:#111827;margin:0">🏆 Full 262-Race Ladder</h1>'+
+      '</div>'+
+      '<div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:12px 14px;margin-bottom:16px">'+
+        '<div style="font-size:11px;color:#374151">Rank #'+currentNum+' of 262 &middot; '+pts.toLocaleString()+' pts &middot; '+Math.round(currentNum/262*100)+'% to Melbourne Cup</div>'+
+        '<div style="margin-top:6px;height:5px;background:#bbf7d0;border-radius:3px;overflow:hidden"><div style="width:'+Math.round(currentNum/262*100)+'%;height:100%;background:#00471b;border-radius:3px"></div></div>'+
       '</div>'+
       TIER_GROUPS.map(function(g){
-        return '<div style="margin-bottom:20px">'+
-          '<div style="font-size:13px;font-weight:800;color:#111827;margin-bottom:8px;padding:6px 10px;background:#f9fafb;border-radius:6px;border-left:3px solid #00471b">'+g.group+'</div>'+
-          '<div style="border:1px solid #e5e7eb;border-radius:8px;overflow:hidden">'+
+        return '<div style="margin-bottom:14px">'+
+          '<div style="font-size:12px;font-weight:800;color:#111827;margin-bottom:5px;padding:5px 10px;background:#f9fafb;border-radius:5px;border-left:3px solid #00471b">'+g.group+'</div>'+
+          '<div style="border:1px solid #e5e7eb;border-radius:6px;overflow:hidden">'+
             g.tiers.map(function(t,i){
-              var isCurrent=t.num===currentNum;
-              var isReached=pts>=t.pts;
-              var bg=isCurrent?'#f0fdf4':isReached?'#fafafa':'#fff';
-              var border=i<g.tiers.length-1?'border-bottom:1px solid #f1f5f9':'';
-              return '<div style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:'+bg+';'+border+'">'+
-                '<span style="font-size:9px;font-weight:700;color:#9ca3af;width:22px;text-align:right;flex-shrink:0">#'+t.num+'</span>'+
-                '<span style="font-size:16px;width:22px;text-align:center;flex-shrink:0">'+t.emoji+'</span>'+
-                '<span style="flex:1;font-size:12px;font-weight:'+(isCurrent?'800':isReached?'600':'400')+';color:'+(isCurrent?'#00471b':isReached?'#111827':'#9ca3af')+'">'+t.name+'</span>'+
-                '<span style="font-size:11px;font-weight:700;color:'+(isCurrent?'#00471b':isReached?'#059669':'#d1d5db')+'">'+t.pts.toLocaleString()+' pts</span>'+
-                (isCurrent?'<span style="font-size:9px;font-weight:700;background:#00471b;color:#fff;padding:2px 7px;border-radius:10px;flex-shrink:0">YOU</span>':
-                 isReached?'<span style="font-size:12px;flex-shrink:0">✓</span>':
-                 '<span style="font-size:9px;color:#d1d5db;flex-shrink:0">locked</span>')+
+              var isCurrent=t.num===currentNum,reached=pts>=t.pts;
+              return '<div style="display:flex;align-items:center;gap:8px;padding:7px 10px;background:'+(isCurrent?'#f0fdf4':reached?'#fafafa':'#fff')+';border-bottom:'+(i<g.tiers.length-1?'1px solid #f1f5f9':'none')+'">'+
+                '<span style="font-size:9px;color:#9ca3af;width:20px;text-align:right;flex-shrink:0">#'+t.num+'</span>'+
+                '<span style="font-size:14px;width:20px;flex-shrink:0">'+t.emoji+'</span>'+
+                '<span style="flex:1;font-size:11px;font-weight:'+(isCurrent?'800':reached?'600':'400')+';color:'+(isCurrent?'#00471b':reached?'#111827':'#9ca3af')+'">'+t.name+'</span>'+
+                '<span style="font-size:10px;font-weight:700;color:'+(isCurrent?'#00471b':reached?'#059669':'#d1d5db')+'">'+t.pts.toLocaleString()+'</span>'+
+                (isCurrent?'<span style="font-size:8px;font-weight:700;background:#00471b;color:#fff;padding:1px 6px;border-radius:8px;flex-shrink:0">YOU</span>':reached?'<span style="color:#059669;flex-shrink:0">✓</span>':'<span style="font-size:9px;color:#d1d5db;flex-shrink:0">🔒</span>')+
               '</div>';
             }).join('')+
           '</div>'+
         '</div>';
       }).join('')+
     '</div>';
-  
-  main.querySelector('#ranks-back-btn').addEventListener('click',function(){showCommunity();});
+  main.querySelector('#ladder-back-btn').addEventListener('click',showRanksPage);
 }
 
 function showTierGuide(){
   var modal=document.getElementById('wwModal');if(!modal)return;
   var tiers=[
-    {name:'Picnic & Country Maiden',emoji:'🐴',color:'#6b7280',min:0,max:2499,desc:'Starting point — 19 country picnic tracks'},
-    {name:'Weak Country',emoji:'🏇',color:'#0891b2',min:2500,max:7499,desc:'12 small country TAB tracks'},
-    {name:'Mid Country',emoji:'🏇',color:'#2563eb',min:7500,max:14999,desc:'10 solid country meetings'},
-    {name:'Strong Country',emoji:'🏆',color:'#059669',min:15000,max:24999,desc:'8 top country feature race tracks'},
-    {name:'Weak Provincial',emoji:'⭐',color:'#16a34a',min:25000,max:39999,desc:'8 provincial circuit tracks'},
-    {name:'Mid Provincial',emoji:'⭐',color:'#ca8a04',min:40000,max:59999,desc:'6 Saturday provincial tracks'},
-    {name:'Strong Provincial',emoji:'⭐⭐',color:'#d97706',min:60000,max:84999,desc:'5 top provincial cup tracks'},
-    {name:'Metropolitan',emoji:'⭐⭐',color:'#dc2626',min:85000,max:149999,desc:'8 major city Saturday tracks'},
-    {name:'Feature Races',emoji:'🏆',color:'#9333ea',min:150000,max:299999,desc:'Listed, Group 3 & Group 2'},
-    {name:'Group 1 → Melbourne Cup',emoji:'👑',color:'#7c3aed',min:300000,max:null,desc:'36 races from Stradbroke to Melbourne Cup'},
+    {name:'Picnic & Outback Maiden',emoji:'🐴',color:'#6b7280',min:0,max:4940,desc:'Starting point — 21 country & outback tracks'},
+    {name:'Medium Maidens',emoji:'🐴',color:'#6b7280',min:5220,max:10815,desc:'19 solid country maiden tracks'},
+    {name:'Strong Maidens',emoji:'🐴',color:'#6b7280',min:11165,max:18555,desc:'20 provincial & metro maiden tracks'},
+    {name:'Weak Country',emoji:'🏇',color:'#0891b2',min:18990,max:32860,desc:'28 weak country benchmark races'},
+    {name:'Mid Country',emoji:'🏇',color:'#2563eb',min:33460,max:55115,desc:'31 mid-strength country benchmarks'},
+    {name:'Strong Country',emoji:'🏆',color:'#059669',min:55970,max:64155,desc:'10 top country benchmark tracks'},
+    {name:'Weak Provincial',emoji:'⭐',color:'#16a34a',min:65120,max:72180,desc:'8 provincial circuit tracks'},
+    {name:'Mid Provincial',emoji:'⭐',color:'#ca8a04',min:73235,max:78695,desc:'6 Saturday provincial tracks'},
+    {name:'Strong Provincial',emoji:'⭐⭐',color:'#d97706',min:79830,max:84485,desc:'5 top provincial cup tracks'},
+    {name:'Metropolitan',emoji:'⭐⭐',color:'#dc2626',min:85680,max:94465,desc:'8 major city Saturday tracks'},
+    {name:'Listed Races',emoji:'🏆',color:'#9333ea',min:95775,max:123820,desc:'20 Listed black-type races'},
+    {name:'Group 3',emoji:'🏆',color:'#7c3aed',min:125475,max:160765,desc:'20 Group 3 races'},
+    {name:'Group 2',emoji:'👑',color:'#6d28d9',min:162845,max:204670,desc:'19 Group 2 races'},
+    {name:'Group 1',emoji:'👑',color:'#4c1d95',min:207260,max:null,desc:'47 Group 1 races up to Melbourne Cup'},
   ];
   var ways=[
     {icon:'🔐',action:'Daily login',pts:5,note:'Once per day'},
@@ -7616,239 +7724,533 @@ const COMMUNITY = (function() {
 
   // ── TIER CALCULATION ────────────────────────────────────────
   function getTier(points) {
-    if (points >= 5000000) return { num: 115, name: 'Melbourne Cup', emoji: '👑', points: 5000000, color: '#7c3aed' };
-    if (points >= 3715000) return { num: 114, name: 'Flemington Cup', emoji: '👑', points: 3715000, color: '#7c3aed' };
-    if (points >= 3465000) return { num: 113, name: 'Sydney Cup', emoji: '👑', points: 3465000, color: '#7c3aed' };
-    if (points >= 3230000) return { num: 112, name: 'Moonee Valley Gold Cup', emoji: '👑', points: 3230000, color: '#7c3aed' };
-    if (points >= 3010000) return { num: 111, name: 'Caulfield Cup', emoji: '👑', points: 3010000, color: '#7c3aed' };
-    if (points >= 2800000) return { num: 110, name: 'Winx Stakes', emoji: '👑', points: 2800000, color: '#7c3aed' };
-    if (points >= 2600000) return { num: 109, name: 'Golden Rose', emoji: '👑', points: 2600000, color: '#7c3aed' };
-    if (points >= 2415000) return { num: 108, name: 'The Everest', emoji: '👑', points: 2415000, color: '#7c3aed' };
-    if (points >= 2240000) return { num: 107, name: 'Golden Eagle', emoji: '👑', points: 2240000, color: '#7c3aed' };
-    if (points >= 2080000) return { num: 106, name: 'Australian Oaks', emoji: '👑', points: 2080000, color: '#7c3aed' };
-    if (points >= 1930000) return { num: 105, name: 'Thousand Guineas', emoji: '👑', points: 1930000, color: '#7c3aed' };
-    if (points >= 1790000) return { num: 104, name: 'AAMI Victoria Derby', emoji: '👑', points: 1790000, color: '#7c3aed' };
-    if (points >= 1660000) return { num: 103, name: 'Emirates Stakes', emoji: '👑', points: 1660000, color: '#7c3aed' };
-    if (points >= 1540000) return { num: 102, name: 'Lexus Stakes', emoji: '👑', points: 1540000, color: '#7c3aed' };
-    if (points >= 1430000) return { num: 101, name: 'Myer Classic', emoji: '👑', points: 1430000, color: '#7c3aed' };
-    if (points >= 1330000) return { num: 100, name: 'Mackinnon Stakes', emoji: '👑', points: 1330000, color: '#7c3aed' };
-    if (points >= 1240000) return { num: 99, name: 'Cantala Stakes', emoji: '👑', points: 1240000, color: '#7c3aed' };
-    if (points >= 1155000) return { num: 98, name: 'W.S. Cox Plate', emoji: '👑', points: 1155000, color: '#7c3aed' };
-    if (points >= 1075000) return { num: 97, name: 'Queen Elizabeth Stakes', emoji: '👑', points: 1075000, color: '#7c3aed' };
-    if (points >= 1000000) return { num: 96, name: 'T.J. Smith Stakes', emoji: '👑', points: 1000000, color: '#7c3aed' };
-    if (points >= 935000) return { num: 95, name: 'Doncaster Handicap', emoji: '👑', points: 935000, color: '#7c3aed' };
-    if (points >= 870000) return { num: 94, name: 'Australian Derby', emoji: '👑', points: 870000, color: '#7c3aed' };
-    if (points >= 810000) return { num: 93, name: 'Newmarket Handicap', emoji: '👑', points: 810000, color: '#7c3aed' };
-    if (points >= 755000) return { num: 92, name: 'All Aged Stakes', emoji: '👑', points: 755000, color: '#7c3aed' };
-    if (points >= 700000) return { num: 91, name: 'Australian Cup', emoji: '👑', points: 700000, color: '#7c3aed' };
-    if (points >= 650000) return { num: 90, name: 'Yalumba Stakes', emoji: '👑', points: 650000, color: '#7c3aed' };
-    if (points >= 605000) return { num: 89, name: 'Victoria Derby', emoji: '👑', points: 605000, color: '#7c3aed' };
-    if (points >= 560000) return { num: 88, name: 'Caulfield Guineas', emoji: '👑', points: 560000, color: '#7c3aed' };
-    if (points >= 520000) return { num: 87, name: 'Spring Champion Stakes', emoji: '👑', points: 520000, color: '#7c3aed' };
-    if (points >= 480000) return { num: 86, name: 'George Main Stakes', emoji: '👑', points: 480000, color: '#7c3aed' };
-    if (points >= 445000) return { num: 85, name: 'Epsom Handicap', emoji: '👑', points: 445000, color: '#7c3aed' };
-    if (points >= 410000) return { num: 84, name: 'Doomben Cup', emoji: '👑', points: 410000, color: '#7c3aed' };
-    if (points >= 380000) return { num: 83, name: 'Doomben 10,000', emoji: '👑', points: 380000, color: '#7c3aed' };
-    if (points >= 350000) return { num: 82, name: 'Queensland Derby', emoji: '👑', points: 350000, color: '#7c3aed' };
-    if (points >= 325000) return { num: 81, name: 'Queensland Oaks', emoji: '👑', points: 325000, color: '#7c3aed' };
-    if (points >= 300000) return { num: 80, name: 'Stradbroke Handicap', emoji: '👑', points: 300000, color: '#7c3aed' };
-    if (points >= 235000) return { num: 79, name: 'Group 2', emoji: '🏆', points: 235000, color: '#dc2626' };
-    if (points >= 185000) return { num: 78, name: 'Group 3', emoji: '🏆', points: 185000, color: '#dc2626' };
-    if (points >= 150000) return { num: 77, name: 'Listed', emoji: '🏆', points: 150000, color: '#dc2626' };
-    if (points >= 145000) return { num: 76, name: 'Ascot Open', emoji: '⭐⭐', points: 145000, color: '#d97706' };
-    if (points >= 135000) return { num: 75, name: 'Rosehill Open', emoji: '⭐⭐', points: 135000, color: '#d97706' };
-    if (points >= 125000) return { num: 74, name: 'Moonee Valley Open', emoji: '⭐⭐', points: 125000, color: '#d97706' };
-    if (points >= 116000) return { num: 73, name: 'Caulfield Open', emoji: '⭐⭐', points: 116000, color: '#d97706' };
-    if (points >= 107500) return { num: 72, name: 'Morphettville Open', emoji: '⭐⭐', points: 107500, color: '#d97706' };
-    if (points >= 99500) return { num: 71, name: 'Eagle Farm Open', emoji: '⭐⭐', points: 99500, color: '#d97706' };
-    if (points >= 92000) return { num: 70, name: 'Doomben Saturday Open', emoji: '⭐⭐', points: 92000, color: '#d97706' };
-    if (points >= 85000) return { num: 69, name: 'Belmont Open', emoji: '⭐⭐', points: 85000, color: '#d97706' };
-    if (points >= 79800) return { num: 68, name: 'Morphettville Parks BM84', emoji: '⭐⭐', points: 79800, color: '#059669' };
-    if (points >= 74400) return { num: 67, name: 'Doomben BM84', emoji: '⭐⭐', points: 74400, color: '#059669' };
-    if (points >= 69300) return { num: 66, name: 'Gold Coast BM84', emoji: '⭐⭐', points: 69300, color: '#059669' };
-    if (points >= 64500) return { num: 65, name: 'Sunshine Coast BM84', emoji: '⭐⭐', points: 64500, color: '#059669' };
-    if (points >= 60000) return { num: 64, name: 'Newcastle BM84', emoji: '⭐⭐', points: 60000, color: '#059669' };
-    if (points >= 57000) return { num: 63, name: 'Sandown BM78', emoji: '⭐', points: 57000, color: '#059669' };
-    if (points >= 53200) return { num: 62, name: 'Geelong BM78', emoji: '⭐', points: 53200, color: '#059669' };
-    if (points >= 49600) return { num: 61, name: 'Ballarat BM78', emoji: '⭐', points: 49600, color: '#059669' };
-    if (points >= 46200) return { num: 60, name: 'Gosford BM78', emoji: '⭐', points: 46200, color: '#059669' };
-    if (points >= 43000) return { num: 59, name: 'Hawkesbury BM78', emoji: '⭐', points: 43000, color: '#059669' };
-    if (points >= 40000) return { num: 58, name: 'Kembla Grange BM78', emoji: '⭐', points: 40000, color: '#059669' };
-    if (points >= 39000) return { num: 57, name: 'Launceston BM72', emoji: '⭐', points: 39000, color: '#059669' };
-    if (points >= 36700) return { num: 56, name: 'Sale BM72', emoji: '⭐', points: 36700, color: '#059669' };
-    if (points >= 34500) return { num: 55, name: 'Warrnambool BM72', emoji: '⭐', points: 34500, color: '#059669' };
-    if (points >= 32400) return { num: 54, name: 'Bendigo BM72', emoji: '⭐', points: 32400, color: '#059669' };
-    if (points >= 30400) return { num: 53, name: 'Shepparton BM72', emoji: '⭐', points: 30400, color: '#059669' };
-    if (points >= 28500) return { num: 52, name: 'Wodonga BM72', emoji: '⭐', points: 28500, color: '#059669' };
-    if (points >= 26700) return { num: 51, name: 'Albury BM72', emoji: '⭐', points: 26700, color: '#059669' };
-    if (points >= 25000) return { num: 50, name: 'Ipswich BM72', emoji: '⭐', points: 25000, color: '#059669' };
-    if (points >= 24700) return { num: 49, name: 'Toowoomba BM70', emoji: '🏆', points: 24700, color: '#2563eb' };
-    if (points >= 23700) return { num: 48, name: 'Tamworth BM70', emoji: '🏆', points: 23700, color: '#2563eb' };
-    if (points >= 22000) return { num: 47, name: 'Wagga Wagga BM70', emoji: '🏆', points: 22000, color: '#2563eb' };
-    if (points >= 20400) return { num: 46, name: 'Orange BM70', emoji: '🏆', points: 20400, color: '#2563eb' };
-    if (points >= 18900) return { num: 45, name: 'Dubbo BM70', emoji: '🏆', points: 18900, color: '#2563eb' };
-    if (points >= 17500) return { num: 44, name: 'Taree BM70', emoji: '🏆', points: 17500, color: '#2563eb' };
-    if (points >= 16200) return { num: 43, name: 'Armidale BM70', emoji: '🏆', points: 16200, color: '#2563eb' };
-    if (points >= 15000) return { num: 42, name: 'Grafton BM70', emoji: '🏆', points: 15000, color: '#2563eb' };
-    if (points >= 14700) return { num: 41, name: 'Balaklava BM64', emoji: '🏇', points: 14700, color: '#2563eb' };
-    if (points >= 13700) return { num: 40, name: 'Murray Bridge BM64', emoji: '🏇', points: 13700, color: '#2563eb' };
-    if (points >= 12750) return { num: 39, name: 'Port Augusta BM64', emoji: '🏇', points: 12750, color: '#2563eb' };
-    if (points >= 11850) return { num: 38, name: 'Geraldton BM64', emoji: '🏇', points: 11850, color: '#2563eb' };
-    if (points >= 11000) return { num: 37, name: 'Kalgoorlie BM64', emoji: '🏇', points: 11000, color: '#2563eb' };
-    if (points >= 10200) return { num: 36, name: 'Longreach BM64', emoji: '🏇', points: 10200, color: '#2563eb' };
-    if (points >= 9450) return { num: 35, name: 'Mount Isa BM64', emoji: '🏇', points: 9450, color: '#2563eb' };
-    if (points >= 8750) return { num: 34, name: 'Mackay BM64', emoji: '🏇', points: 8750, color: '#2563eb' };
-    if (points >= 8100) return { num: 33, name: 'Rockhampton BM64', emoji: '🏇', points: 8100, color: '#2563eb' };
-    if (points >= 7500) return { num: 32, name: 'Emerald BM64', emoji: '🏇', points: 7500, color: '#2563eb' };
-    if (points >= 6900) return { num: 31, name: 'Moree BM58', emoji: '🏇', points: 6900, color: '#0891b2' };
-    if (points >= 6400) return { num: 30, name: 'Inverell BM58', emoji: '🏇', points: 6400, color: '#0891b2' };
-    if (points >= 5920) return { num: 29, name: 'Mudgee BM58', emoji: '🏇', points: 5920, color: '#0891b2' };
-    if (points >= 5460) return { num: 28, name: 'Cootamundra BM58', emoji: '🏇', points: 5460, color: '#0891b2' };
-    if (points >= 5020) return { num: 27, name: 'Cowra BM58', emoji: '🏇', points: 5020, color: '#0891b2' };
-    if (points >= 4600) return { num: 26, name: 'Gundagai BM58', emoji: '🏇', points: 4600, color: '#0891b2' };
-    if (points >= 4200) return { num: 25, name: 'Deniliquin BM58', emoji: '🏇', points: 4200, color: '#0891b2' };
-    if (points >= 3820) return { num: 24, name: 'Corowa BM58', emoji: '🏇', points: 3820, color: '#0891b2' };
-    if (points >= 3460) return { num: 23, name: 'Wangaratta BM58', emoji: '🏇', points: 3460, color: '#0891b2' };
-    if (points >= 3120) return { num: 22, name: 'Swan Hill BM58', emoji: '🏇', points: 3120, color: '#0891b2' };
-    if (points >= 2800) return { num: 21, name: 'Echuca BM58', emoji: '🏇', points: 2800, color: '#0891b2' };
-    if (points >= 2500) return { num: 20, name: 'Mildura BM58', emoji: '🏇', points: 2500, color: '#0891b2' };
-    if (points >= 2260) return { num: 19, name: 'Ararat Maiden', emoji: '🐴', points: 2260, color: '#6b7280' };
-    if (points >= 2050) return { num: 18, name: 'Colac Maiden', emoji: '🐴', points: 2050, color: '#6b7280' };
-    if (points >= 1850) return { num: 17, name: 'Queanbeyan Maiden', emoji: '🐴', points: 1850, color: '#6b7280' };
-    if (points >= 1660) return { num: 16, name: 'Narromine Maiden', emoji: '🐴', points: 1660, color: '#6b7280' };
-    if (points >= 1480) return { num: 15, name: 'Bourke Maiden', emoji: '🐴', points: 1480, color: '#6b7280' };
-    if (points >= 1310) return { num: 14, name: 'Walgett Maiden', emoji: '🐴', points: 1310, color: '#6b7280' };
-    if (points >= 1150) return { num: 13, name: 'Coonamble Maiden', emoji: '🐴', points: 1150, color: '#6b7280' };
-    if (points >= 1000) return { num: 12, name: 'Moruya Maiden', emoji: '🐴', points: 1000, color: '#6b7280' };
-    if (points >= 860) return { num: 11, name: 'Tumut Maiden', emoji: '🐴', points: 860, color: '#6b7280' };
-    if (points >= 730) return { num: 10, name: 'Moe Maiden', emoji: '🐴', points: 730, color: '#6b7280' };
-    if (points >= 610) return { num: 9, name: 'Casterton Maiden', emoji: '🐴', points: 610, color: '#6b7280' };
-    if (points >= 500) return { num: 8, name: 'Elmore Maiden', emoji: '🐴', points: 500, color: '#6b7280' };
-    if (points >= 400) return { num: 7, name: 'Burrumbeet Maiden', emoji: '🐴', points: 400, color: '#6b7280' };
-    if (points >= 310) return { num: 6, name: 'Oakbank Picnic Maiden', emoji: '🐴', points: 310, color: '#6b7280' };
-    if (points >= 230) return { num: 5, name: 'Wyndham Picnic Maiden', emoji: '🐴', points: 230, color: '#6b7280' };
-    if (points >= 160) return { num: 4, name: 'Yalgoo Picnic Maiden', emoji: '🐴', points: 160, color: '#6b7280' };
-    if (points >= 100) return { num: 3, name: 'Toodyay Picnic Maiden', emoji: '🐴', points: 100, color: '#6b7280' };
-    if (points >= 50) return { num: 2, name: 'Ardlethan Picnic Maiden', emoji: '🐴', points: 50, color: '#6b7280' };
-    if (points >= 0) return { num: 1, name: 'Adaminaby Picnic Maiden', emoji: '🐴', points: 0, color: '#6b7280' };
-    return { num: 1, name: 'Adaminaby Picnic Maiden', emoji: '🐴', points: 0, color: '#6b7280' };
+    if (points >= 365000) return { num: 262, name: 'Melbourne Cup', emoji: '👑', color: '#4c1d95', points: 365000 };
+    if (points >= 360610) return { num: 261, name: 'W.S. Cox Plate', emoji: '👑', color: '#4c1d95', points: 360610 };
+    if (points >= 356270) return { num: 260, name: 'Caulfield Cup', emoji: '👑', color: '#4c1d95', points: 356270 };
+    if (points >= 351980) return { num: 259, name: 'Golden Slipper', emoji: '👑', color: '#4c1d95', points: 351980 };
+    if (points >= 347740) return { num: 258, name: 'Queen Elizabeth Stakes', emoji: '👑', color: '#4c1d95', points: 347740 };
+    if (points >= 343545) return { num: 257, name: 'The Everest', emoji: '👑', color: '#4c1d95', points: 343545 };
+    if (points >= 339400) return { num: 256, name: 'Turnbull Stakes', emoji: '👑', color: '#4c1d95', points: 339400 };
+    if (points >= 335305) return { num: 255, name: 'Coolmore Stud Stakes', emoji: '👑', color: '#4c1d95', points: 335305 };
+    if (points >= 331255) return { num: 254, name: 'Champions Classic', emoji: '👑', color: '#4c1d95', points: 331255 };
+    if (points >= 327250) return { num: 253, name: 'Champions Mile', emoji: '👑', color: '#4c1d95', points: 327250 };
+    if (points >= 323290) return { num: 252, name: 'Champions Sprint', emoji: '👑', color: '#4c1d95', points: 323290 };
+    if (points >= 319375) return { num: 251, name: 'Darley Classic', emoji: '👑', color: '#4c1d95', points: 319375 };
+    if (points >= 315510) return { num: 250, name: 'Caulfield Guineas', emoji: '👑', color: '#4c1d95', points: 315510 };
+    if (points >= 311685) return { num: 249, name: 'Doncaster Handicap', emoji: '👑', color: '#4c1d95', points: 311685 };
+    if (points >= 307905) return { num: 248, name: 'Australian Derby', emoji: '👑', color: '#4c1d95', points: 307905 };
+    if (points >= 304165) return { num: 247, name: 'T.J. Smith Stakes', emoji: '👑', color: '#4c1d95', points: 304165 };
+    if (points >= 300470) return { num: 246, name: 'Victoria Derby', emoji: '👑', color: '#4c1d95', points: 300470 };
+    if (points >= 296820) return { num: 245, name: 'Newmarket Handicap', emoji: '👑', color: '#4c1d95', points: 296820 };
+    if (points >= 293210) return { num: 244, name: 'All Aged Stakes', emoji: '👑', color: '#4c1d95', points: 293210 };
+    if (points >= 289640) return { num: 243, name: 'Australian Cup', emoji: '👑', color: '#4c1d95', points: 289640 };
+    if (points >= 286110) return { num: 242, name: 'Doomben 10,000', emoji: '👑', color: '#4c1d95', points: 286110 };
+    if (points >= 282620) return { num: 241, name: 'Stradbroke Handicap', emoji: '👑', color: '#4c1d95', points: 282620 };
+    if (points >= 279175) return { num: 240, name: 'Sydney Cup', emoji: '👑', color: '#4c1d95', points: 279175 };
+    if (points >= 275765) return { num: 239, name: 'Moonee Valley Gold Cup', emoji: '👑', color: '#4c1d95', points: 275765 };
+    if (points >= 272395) return { num: 238, name: 'Golden Rose', emoji: '👑', color: '#4c1d95', points: 272395 };
+    if (points >= 269060) return { num: 237, name: 'Golden Eagle', emoji: '👑', color: '#4c1d95', points: 269060 };
+    if (points >= 265770) return { num: 236, name: 'Australian Oaks', emoji: '👑', color: '#4c1d95', points: 265770 };
+    if (points >= 262515) return { num: 235, name: 'Thousand Guineas', emoji: '👑', color: '#4c1d95', points: 262515 };
+    if (points >= 259295) return { num: 234, name: 'AAMI Victoria Derby', emoji: '👑', color: '#4c1d95', points: 259295 };
+    if (points >= 256110) return { num: 233, name: 'Emirates Stakes', emoji: '👑', color: '#4c1d95', points: 256110 };
+    if (points >= 252965) return { num: 232, name: 'Lexus Stakes', emoji: '👑', color: '#4c1d95', points: 252965 };
+    if (points >= 249855) return { num: 231, name: 'Myer Classic', emoji: '👑', color: '#4c1d95', points: 249855 };
+    if (points >= 246785) return { num: 230, name: 'Champagne Stakes', emoji: '👑', color: '#4c1d95', points: 246785 };
+    if (points >= 243745) return { num: 229, name: 'Sires Produce Stakes', emoji: '👑', color: '#4c1d95', points: 243745 };
+    if (points >= 240740) return { num: 228, name: 'Empire Rose Stakes', emoji: '👑', color: '#4c1d95', points: 240740 };
+    if (points >= 237770) return { num: 227, name: 'Mackinnon Stakes', emoji: '👑', color: '#4c1d95', points: 237770 };
+    if (points >= 234835) return { num: 226, name: 'Cantala Stakes', emoji: '👑', color: '#4c1d95', points: 234835 };
+    if (points >= 231930) return { num: 225, name: 'Yalumba Stakes', emoji: '👑', color: '#4c1d95', points: 231930 };
+    if (points >= 229065) return { num: 224, name: 'Spring Champion Stakes', emoji: '👑', color: '#4c1d95', points: 229065 };
+    if (points >= 226225) return { num: 223, name: 'George Main Stakes', emoji: '👑', color: '#4c1d95', points: 226225 };
+    if (points >= 223420) return { num: 222, name: 'Epsom Handicap', emoji: '👑', color: '#4c1d95', points: 223420 };
+    if (points >= 220650) return { num: 221, name: 'Doomben Cup', emoji: '👑', color: '#4c1d95', points: 220650 };
+    if (points >= 217910) return { num: 220, name: 'Queensland Derby', emoji: '👑', color: '#4c1d95', points: 217910 };
+    if (points >= 215200) return { num: 219, name: 'Queensland Oaks', emoji: '👑', color: '#4c1d95', points: 215200 };
+    if (points >= 212525) return { num: 218, name: 'Railway Stakes', emoji: '👑', color: '#4c1d95', points: 212525 };
+    if (points >= 209875) return { num: 217, name: 'Winterbottom Stakes', emoji: '👑', color: '#4c1d95', points: 209875 };
+    if (points >= 207260) return { num: 216, name: 'Winx Stakes', emoji: '👑', color: '#4c1d95', points: 207260 };
+    if (points >= 204670) return { num: 215, name: 'Kingston Town Classic', emoji: '👑', color: '#6d28d9', points: 204670 };
+    if (points >= 202115) return { num: 214, name: 'Australian Guineas', emoji: '👑', color: '#6d28d9', points: 202115 };
+    if (points >= 199585) return { num: 213, name: 'Peter Young Stakes', emoji: '👑', color: '#6d28d9', points: 199585 };
+    if (points >= 197085) return { num: 212, name: 'Blamey Stakes', emoji: '👑', color: '#6d28d9', points: 197085 };
+    if (points >= 194615) return { num: 211, name: 'Winx Guineas', emoji: '👑', color: '#6d28d9', points: 194615 };
+    if (points >= 192170) return { num: 210, name: 'Hill Stakes', emoji: '👑', color: '#6d28d9', points: 192170 };
+    if (points >= 189755) return { num: 209, name: 'Sandown Guineas', emoji: '👑', color: '#6d28d9', points: 189755 };
+    if (points >= 187370) return { num: 208, name: 'Caulfield Classic', emoji: '👑', color: '#6d28d9', points: 187370 };
+    if (points >= 185010) return { num: 207, name: 'Heads of the River', emoji: '👑', color: '#6d28d9', points: 185010 };
+    if (points >= 182675) return { num: 206, name: 'Stutt Stakes', emoji: '👑', color: '#6d28d9', points: 182675 };
+    if (points >= 180370) return { num: 205, name: 'Matriarch Stakes', emoji: '👑', color: '#6d28d9', points: 180370 };
+    if (points >= 178090) return { num: 204, name: 'Feehan Stakes', emoji: '👑', color: '#6d28d9', points: 178090 };
+    if (points >= 175835) return { num: 203, name: 'Dato Tan Chin Nam Stakes', emoji: '👑', color: '#6d28d9', points: 175835 };
+    if (points >= 173610) return { num: 202, name: 'P.B. Lawrence Stakes', emoji: '👑', color: '#6d28d9', points: 173610 };
+    if (points >= 171405) return { num: 201, name: 'Hollindale Stakes', emoji: '👑', color: '#6d28d9', points: 171405 };
+    if (points >= 169230) return { num: 200, name: 'Queensland Guineas', emoji: '👑', color: '#6d28d9', points: 169230 };
+    if (points >= 167075) return { num: 199, name: 'Tramway Stakes', emoji: '👑', color: '#6d28d9', points: 167075 };
+    if (points >= 164950) return { num: 198, name: 'Chelmsford Stakes', emoji: '👑', color: '#6d28d9', points: 164950 };
+    if (points >= 162845) return { num: 197, name: 'Ajax Stakes', emoji: '👑', color: '#6d28d9', points: 162845 };
+    if (points >= 160765) return { num: 196, name: 'Flying Handicap', emoji: '🏆', color: '#7c3aed', points: 160765 };
+    if (points >= 158710) return { num: 195, name: 'Carbine Club Stakes', emoji: '🏆', color: '#7c3aed', points: 158710 };
+    if (points >= 156675) return { num: 194, name: 'Naturalism Stakes', emoji: '🏆', color: '#7c3aed', points: 156675 };
+    if (points >= 154670) return { num: 193, name: 'JRA Cup', emoji: '🏆', color: '#7c3aed', points: 154670 };
+    if (points >= 152680) return { num: 192, name: 'Toorak Handicap', emoji: '🏆', color: '#7c3aed', points: 152680 };
+    if (points >= 150720) return { num: 191, name: 'Thoroughbred Club Stakes', emoji: '🏆', color: '#7c3aed', points: 150720 };
+    if (points >= 148775) return { num: 190, name: 'Sunline Stakes', emoji: '🏆', color: '#7c3aed', points: 148775 };
+    if (points >= 146860) return { num: 189, name: 'Victoria Handicap', emoji: '🏆', color: '#7c3aed', points: 146860 };
+    if (points >= 144960) return { num: 188, name: 'Neds Classic', emoji: '🏆', color: '#7c3aed', points: 144960 };
+    if (points >= 143085) return { num: 187, name: 'Palmares Stakes', emoji: '🏆', color: '#7c3aed', points: 143085 };
+    if (points >= 141230) return { num: 186, name: 'Geelong Cup', emoji: '🏆', color: '#7c3aed', points: 141230 };
+    if (points >= 139400) return { num: 185, name: 'Portland Classic', emoji: '🏆', color: '#7c3aed', points: 139400 };
+    if (points >= 137590) return { num: 184, name: 'Standish Handicap', emoji: '🏆', color: '#7c3aed', points: 137590 };
+    if (points >= 135795) return { num: 183, name: 'Caulfield Sprint', emoji: '🏆', color: '#7c3aed', points: 135795 };
+    if (points >= 134025) return { num: 182, name: 'Red Anchor Stakes', emoji: '🏆', color: '#7c3aed', points: 134025 };
+    if (points >= 132275) return { num: 181, name: 'Tattersall\'s Tiara', emoji: '🏆', color: '#7c3aed', points: 132275 };
+    if (points >= 130545) return { num: 180, name: 'Fred Best Classic', emoji: '🏆', color: '#7c3aed', points: 130545 };
+    if (points >= 128835) return { num: 179, name: 'Rough Habit Plate', emoji: '🏆', color: '#7c3aed', points: 128835 };
+    if (points >= 127145) return { num: 178, name: 'Hawkesbury Gold Cup', emoji: '🏆', color: '#7c3aed', points: 127145 };
+    if (points >= 125475) return { num: 177, name: 'Show County Quality', emoji: '🏆', color: '#7c3aed', points: 125475 };
+    if (points >= 123820) return { num: 176, name: 'Exford Plate', emoji: '🏆', color: '#9333ea', points: 123820 };
+    if (points >= 122185) return { num: 175, name: 'Stocks Stakes', emoji: '🏆', color: '#9333ea', points: 122185 };
+    if (points >= 120570) return { num: 174, name: 'Gothic Stakes', emoji: '🏆', color: '#9333ea', points: 120570 };
+    if (points >= 118975) return { num: 173, name: 'Danehill Stakes', emoji: '🏆', color: '#9333ea', points: 118975 };
+    if (points >= 117395) return { num: 172, name: 'Daybreak Lover Stakes', emoji: '🏆', color: '#9333ea', points: 117395 };
+    if (points >= 115835) return { num: 171, name: 'Winter Stakes', emoji: '🏆', color: '#9333ea', points: 115835 };
+    if (points >= 114295) return { num: 170, name: 'Lord Mayor\'s Cup', emoji: '🏆', color: '#9333ea', points: 114295 };
+    if (points >= 112770) return { num: 169, name: 'Hawkesbury Guineas', emoji: '🏆', color: '#9333ea', points: 112770 };
+    if (points >= 111260) return { num: 168, name: 'Dark Jewel Classic', emoji: '🏆', color: '#9333ea', points: 111260 };
+    if (points >= 109770) return { num: 167, name: 'Bernborough Plate', emoji: '🏆', color: '#9333ea', points: 109770 };
+    if (points >= 108300) return { num: 166, name: 'Nudgee Stakes', emoji: '🏆', color: '#9333ea', points: 108300 };
+    if (points >= 106845) return { num: 165, name: 'Tattersall\'s Cup', emoji: '🏆', color: '#9333ea', points: 106845 };
+    if (points >= 105405) return { num: 164, name: 'Dulcify Stakes', emoji: '🏆', color: '#9333ea', points: 105405 };
+    if (points >= 103980) return { num: 163, name: 'Grand Prix Stakes', emoji: '🏆', color: '#9333ea', points: 103980 };
+    if (points >= 102575) return { num: 162, name: 'Angst Stakes', emoji: '🏆', color: '#9333ea', points: 102575 };
+    if (points >= 101180) return { num: 161, name: 'Kewney Stakes', emoji: '🏆', color: '#9333ea', points: 101180 };
+    if (points >= 99805) return { num: 160, name: 'Manion Cup', emoji: '🏆', color: '#9333ea', points: 99805 };
+    if (points >= 98450) return { num: 159, name: 'Rosebud', emoji: '🏆', color: '#9333ea', points: 98450 };
+    if (points >= 97105) return { num: 158, name: 'Missile Stakes', emoji: '🏆', color: '#9333ea', points: 97105 };
+    if (points >= 95775) return { num: 157, name: 'Merson Cooper Stakes', emoji: '🏆', color: '#9333ea', points: 95775 };
+    if (points >= 94465) return { num: 156, name: 'Ascot Open', emoji: '⭐⭐', color: '#dc2626', points: 94465 };
+    if (points >= 93165) return { num: 155, name: 'Rosehill Open', emoji: '⭐⭐', color: '#dc2626', points: 93165 };
+    if (points >= 91880) return { num: 154, name: 'Moonee Valley Open', emoji: '⭐⭐', color: '#dc2626', points: 91880 };
+    if (points >= 90615) return { num: 153, name: 'Caulfield Open', emoji: '⭐⭐', color: '#dc2626', points: 90615 };
+    if (points >= 89360) return { num: 152, name: 'Morphettville Open', emoji: '⭐⭐', color: '#dc2626', points: 89360 };
+    if (points >= 88120) return { num: 151, name: 'Eagle Farm Open', emoji: '⭐⭐', color: '#dc2626', points: 88120 };
+    if (points >= 86895) return { num: 150, name: 'Doomben Saturday Open', emoji: '⭐⭐', color: '#dc2626', points: 86895 };
+    if (points >= 85680) return { num: 149, name: 'Belmont Open', emoji: '⭐⭐', color: '#dc2626', points: 85680 };
+    if (points >= 84485) return { num: 148, name: 'Morphettville Parks BM84', emoji: '⭐⭐', color: '#d97706', points: 84485 };
+    if (points >= 83300) return { num: 147, name: 'Doomben BM84', emoji: '⭐⭐', color: '#d97706', points: 83300 };
+    if (points >= 82130) return { num: 146, name: 'Gold Coast BM84', emoji: '⭐⭐', color: '#d97706', points: 82130 };
+    if (points >= 80970) return { num: 145, name: 'Sunshine Coast BM84', emoji: '⭐⭐', color: '#d97706', points: 80970 };
+    if (points >= 79830) return { num: 144, name: 'Newcastle BM84', emoji: '⭐⭐', color: '#d97706', points: 79830 };
+    if (points >= 78695) return { num: 143, name: 'Sandown BM78', emoji: '⭐', color: '#ca8a04', points: 78695 };
+    if (points >= 77580) return { num: 142, name: 'Geelong BM78', emoji: '⭐', color: '#ca8a04', points: 77580 };
+    if (points >= 76475) return { num: 141, name: 'Ballarat BM78', emoji: '⭐', color: '#ca8a04', points: 76475 };
+    if (points >= 75380) return { num: 140, name: 'Gosford BM78', emoji: '⭐', color: '#ca8a04', points: 75380 };
+    if (points >= 74300) return { num: 139, name: 'Hawkesbury BM78', emoji: '⭐', color: '#ca8a04', points: 74300 };
+    if (points >= 73235) return { num: 138, name: 'Kembla Grange BM78', emoji: '⭐', color: '#ca8a04', points: 73235 };
+    if (points >= 72180) return { num: 137, name: 'Launceston BM72', emoji: '⭐', color: '#16a34a', points: 72180 };
+    if (points >= 71135) return { num: 136, name: 'Sale BM72', emoji: '⭐', color: '#16a34a', points: 71135 };
+    if (points >= 70105) return { num: 135, name: 'Warrnambool BM72', emoji: '⭐', color: '#16a34a', points: 70105 };
+    if (points >= 69085) return { num: 134, name: 'Bendigo BM72', emoji: '⭐', color: '#16a34a', points: 69085 };
+    if (points >= 68075) return { num: 133, name: 'Shepparton BM72', emoji: '⭐', color: '#16a34a', points: 68075 };
+    if (points >= 67080) return { num: 132, name: 'Wodonga BM72', emoji: '⭐', color: '#16a34a', points: 67080 };
+    if (points >= 66095) return { num: 131, name: 'Albury BM72', emoji: '⭐', color: '#16a34a', points: 66095 };
+    if (points >= 65120) return { num: 130, name: 'Ipswich BM72', emoji: '⭐', color: '#16a34a', points: 65120 };
+    if (points >= 64155) return { num: 129, name: 'Canberra BM70', emoji: '🏆', color: '#059669', points: 64155 };
+    if (points >= 63205) return { num: 128, name: 'Toowoomba BM70', emoji: '🏆', color: '#059669', points: 63205 };
+    if (points >= 62265) return { num: 127, name: 'Tamworth BM70', emoji: '🏆', color: '#059669', points: 62265 };
+    if (points >= 61335) return { num: 126, name: 'Wagga Wagga BM70', emoji: '🏆', color: '#059669', points: 61335 };
+    if (points >= 60415) return { num: 125, name: 'Orange BM70', emoji: '🏆', color: '#059669', points: 60415 };
+    if (points >= 59505) return { num: 124, name: 'Dubbo BM70', emoji: '🏆', color: '#059669', points: 59505 };
+    if (points >= 58605) return { num: 123, name: 'Scone BM70', emoji: '🏆', color: '#059669', points: 58605 };
+    if (points >= 57720) return { num: 122, name: 'Taree BM70', emoji: '🏆', color: '#059669', points: 57720 };
+    if (points >= 56840) return { num: 121, name: 'Armidale BM70', emoji: '🏆', color: '#059669', points: 56840 };
+    if (points >= 55970) return { num: 120, name: 'Grafton BM70', emoji: '🏆', color: '#059669', points: 55970 };
+    if (points >= 55115) return { num: 119, name: 'Launceston BM64', emoji: '🏇', color: '#2563eb', points: 55115 };
+    if (points >= 54265) return { num: 118, name: 'Strathalbyn BM64', emoji: '🏇', color: '#2563eb', points: 54265 };
+    if (points >= 53425) return { num: 117, name: 'Donald BM64', emoji: '🏇', color: '#2563eb', points: 53425 };
+    if (points >= 52600) return { num: 116, name: 'Ballina BM64', emoji: '🏇', color: '#2563eb', points: 52600 };
+    if (points >= 51780) return { num: 115, name: 'Ararat BM64', emoji: '🏇', color: '#2563eb', points: 51780 };
+    if (points >= 50970) return { num: 114, name: 'Colac BM64', emoji: '🏇', color: '#2563eb', points: 50970 };
+    if (points >= 50165) return { num: 113, name: 'Lismore BM64', emoji: '🏇', color: '#2563eb', points: 50165 };
+    if (points >= 49375) return { num: 112, name: 'Murwillumbah BM64', emoji: '🏇', color: '#2563eb', points: 49375 };
+    if (points >= 48590) return { num: 111, name: 'Moe BM64', emoji: '🏇', color: '#2563eb', points: 48590 };
+    if (points >= 47820) return { num: 110, name: 'Darwin BM64', emoji: '🏇', color: '#2563eb', points: 47820 };
+    if (points >= 47055) return { num: 109, name: 'Moruya BM64', emoji: '🏇', color: '#2563eb', points: 47055 };
+    if (points >= 46295) return { num: 108, name: 'Mount Gambier BM64', emoji: '🏇', color: '#2563eb', points: 46295 };
+    if (points >= 45550) return { num: 107, name: 'Bunbury BM64', emoji: '🏇', color: '#2563eb', points: 45550 };
+    if (points >= 44810) return { num: 106, name: 'Nowra BM64', emoji: '🏇', color: '#2563eb', points: 44810 };
+    if (points >= 44080) return { num: 105, name: 'Pinjarra BM64', emoji: '🏇', color: '#2563eb', points: 44080 };
+    if (points >= 43355) return { num: 104, name: 'Hobart BM64', emoji: '🏇', color: '#2563eb', points: 43355 };
+    if (points >= 42645) return { num: 103, name: 'Beaudesert BM64', emoji: '🏇', color: '#2563eb', points: 42645 };
+    if (points >= 41935) return { num: 102, name: 'Queanbeyan BM64', emoji: '🏇', color: '#2563eb', points: 41935 };
+    if (points >= 41240) return { num: 101, name: 'Balaklava BM64', emoji: '🏇', color: '#2563eb', points: 41240 };
+    if (points >= 40550) return { num: 100, name: 'Murray Bridge BM64', emoji: '🏇', color: '#2563eb', points: 40550 };
+    if (points >= 39865) return { num: 99, name: 'Port Augusta BM64', emoji: '🏇', color: '#2563eb', points: 39865 };
+    if (points >= 39195) return { num: 98, name: 'Geraldton BM64', emoji: '🏇', color: '#2563eb', points: 39195 };
+    if (points >= 38525) return { num: 97, name: 'Kalgoorlie BM64', emoji: '🏇', color: '#2563eb', points: 38525 };
+    if (points >= 37870) return { num: 96, name: 'Longreach BM64', emoji: '🏇', color: '#2563eb', points: 37870 };
+    if (points >= 37215) return { num: 95, name: 'Mount Isa BM64', emoji: '🏇', color: '#2563eb', points: 37215 };
+    if (points >= 36570) return { num: 94, name: 'Mackay BM64', emoji: '🏇', color: '#2563eb', points: 36570 };
+    if (points >= 35935) return { num: 93, name: 'Rockhampton BM64', emoji: '🏇', color: '#2563eb', points: 35935 };
+    if (points >= 35305) return { num: 92, name: 'Swan Hill BM64', emoji: '🏇', color: '#2563eb', points: 35305 };
+    if (points >= 34685) return { num: 91, name: 'Echuca BM64', emoji: '🏇', color: '#2563eb', points: 34685 };
+    if (points >= 34070) return { num: 90, name: 'Mildura BM64', emoji: '🏇', color: '#2563eb', points: 34070 };
+    if (points >= 33460) return { num: 89, name: 'Emerald BM64', emoji: '🏇', color: '#2563eb', points: 33460 };
+    if (points >= 32860) return { num: 88, name: 'Coonamble BM66', emoji: '🏇', color: '#0891b2', points: 32860 };
+    if (points >= 32265) return { num: 87, name: 'Moree BM58', emoji: '🏇', color: '#0891b2', points: 32265 };
+    if (points >= 31680) return { num: 86, name: 'Inverell BM58', emoji: '🏇', color: '#0891b2', points: 31680 };
+    if (points >= 31100) return { num: 85, name: 'Mudgee BM58', emoji: '🏇', color: '#0891b2', points: 31100 };
+    if (points >= 30525) return { num: 84, name: 'Cootamundra BM58', emoji: '🏇', color: '#0891b2', points: 30525 };
+    if (points >= 29955) return { num: 83, name: 'Cowra BM58', emoji: '🏇', color: '#0891b2', points: 29955 };
+    if (points >= 29395) return { num: 82, name: 'Gundagai BM58', emoji: '🏇', color: '#0891b2', points: 29395 };
+    if (points >= 28840) return { num: 81, name: 'Deniliquin BM58', emoji: '🏇', color: '#0891b2', points: 28840 };
+    if (points >= 28295) return { num: 80, name: 'Corowa BM58', emoji: '🏇', color: '#0891b2', points: 28295 };
+    if (points >= 27750) return { num: 79, name: 'Wangaratta BM58', emoji: '🏇', color: '#0891b2', points: 27750 };
+    if (points >= 27215) return { num: 78, name: 'Walcha BM58', emoji: '🏇', color: '#0891b2', points: 27215 };
+    if (points >= 26685) return { num: 77, name: 'Cooma BM58', emoji: '🏇', color: '#0891b2', points: 26685 };
+    if (points >= 26165) return { num: 76, name: 'Casterton BM58', emoji: '🏇', color: '#0891b2', points: 26165 };
+    if (points >= 25645) return { num: 75, name: 'Narromine BM58', emoji: '🏇', color: '#0891b2', points: 25645 };
+    if (points >= 25135) return { num: 74, name: 'Bourke BM58', emoji: '🏇', color: '#0891b2', points: 25135 };
+    if (points >= 24630) return { num: 73, name: 'Walgett BM58', emoji: '🏇', color: '#0891b2', points: 24630 };
+    if (points >= 24130) return { num: 72, name: 'Elmore BM58', emoji: '🏇', color: '#0891b2', points: 24130 };
+    if (points >= 23635) return { num: 71, name: 'Burrumbeet BM58', emoji: '🏇', color: '#0891b2', points: 23635 };
+    if (points >= 23145) return { num: 70, name: 'Oakbank BM58', emoji: '🏇', color: '#0891b2', points: 23145 };
+    if (points >= 22660) return { num: 69, name: 'Broken Hill BM58', emoji: '🏇', color: '#0891b2', points: 22660 };
+    if (points >= 22185) return { num: 68, name: 'Adaminaby BM58', emoji: '🏇', color: '#0891b2', points: 22185 };
+    if (points >= 21710) return { num: 67, name: 'Gilgandra BM55', emoji: '🏇', color: '#0891b2', points: 21710 };
+    if (points >= 21245) return { num: 66, name: 'Kingscote BM55', emoji: '🏇', color: '#0891b2', points: 21245 };
+    if (points >= 20785) return { num: 65, name: 'Tumut BM55', emoji: '🏇', color: '#0891b2', points: 20785 };
+    if (points >= 20330) return { num: 64, name: 'Wyndham BM55', emoji: '🏇', color: '#0891b2', points: 20330 };
+    if (points >= 19875) return { num: 63, name: 'Yalgoo BM55', emoji: '🏇', color: '#0891b2', points: 19875 };
+    if (points >= 19430) return { num: 62, name: 'Toodyay BM55', emoji: '🏇', color: '#0891b2', points: 19430 };
+    if (points >= 18990) return { num: 61, name: 'Ardlethan BM55', emoji: '🏇', color: '#0891b2', points: 18990 };
+    if (points >= 18555) return { num: 60, name: 'Randwick Maiden', emoji: '🐴', color: '#6b7280', points: 18555 };
+    if (points >= 18125) return { num: 59, name: 'Rosehill Maiden', emoji: '🐴', color: '#6b7280', points: 18125 };
+    if (points >= 17700) return { num: 58, name: 'Flemington Maiden', emoji: '🐴', color: '#6b7280', points: 17700 };
+    if (points >= 17280) return { num: 57, name: 'Moonee Valley Maiden', emoji: '🐴', color: '#6b7280', points: 17280 };
+    if (points >= 16860) return { num: 56, name: 'Caulfield Maiden', emoji: '🐴', color: '#6b7280', points: 16860 };
+    if (points >= 16450) return { num: 55, name: 'Kensington Maiden', emoji: '🐴', color: '#6b7280', points: 16450 };
+    if (points >= 16045) return { num: 54, name: 'Morphettville Maiden', emoji: '🐴', color: '#6b7280', points: 16045 };
+    if (points >= 15640) return { num: 53, name: 'Eagle Farm Maiden', emoji: '🐴', color: '#6b7280', points: 15640 };
+    if (points >= 15245) return { num: 52, name: 'Canterbury Maiden', emoji: '🐴', color: '#6b7280', points: 15245 };
+    if (points >= 14850) return { num: 51, name: 'Warwick Farm Maiden', emoji: '🐴', color: '#6b7280', points: 14850 };
+    if (points >= 14465) return { num: 50, name: 'Belmont Maiden', emoji: '🐴', color: '#6b7280', points: 14465 };
+    if (points >= 14080) return { num: 49, name: 'Doomben Maiden', emoji: '🐴', color: '#6b7280', points: 14080 };
+    if (points >= 13700) return { num: 48, name: 'Cranbourne Maiden', emoji: '🐴', color: '#6b7280', points: 13700 };
+    if (points >= 13325) return { num: 47, name: 'Geelong Maiden', emoji: '🐴', color: '#6b7280', points: 13325 };
+    if (points >= 12955) return { num: 46, name: 'Gosford Maiden', emoji: '🐴', color: '#6b7280', points: 12955 };
+    if (points >= 12590) return { num: 45, name: 'Werribee Maiden', emoji: '🐴', color: '#6b7280', points: 12590 };
+    if (points >= 12225) return { num: 44, name: 'Newcastle Maiden', emoji: '🐴', color: '#6b7280', points: 12225 };
+    if (points >= 11865) return { num: 43, name: 'Ballarat Maiden', emoji: '🐴', color: '#6b7280', points: 11865 };
+    if (points >= 11515) return { num: 42, name: 'Sale Maiden', emoji: '🐴', color: '#6b7280', points: 11515 };
+    if (points >= 11165) return { num: 41, name: 'Scone Maiden', emoji: '🐴', color: '#6b7280', points: 11165 };
+    if (points >= 10815) return { num: 40, name: 'Toowoomba Maiden', emoji: '🐴', color: '#6b7280', points: 10815 };
+    if (points >= 10475) return { num: 39, name: 'Tamworth Maiden', emoji: '🐴', color: '#6b7280', points: 10475 };
+    if (points >= 10135) return { num: 38, name: 'Taree Maiden', emoji: '🐴', color: '#6b7280', points: 10135 };
+    if (points >= 9800) return { num: 37, name: 'Strathalbyn Maiden', emoji: '🐴', color: '#6b7280', points: 9800 };
+    if (points >= 9470) return { num: 36, name: 'Grafton Maiden', emoji: '🐴', color: '#6b7280', points: 9470 };
+    if (points >= 9145) return { num: 35, name: 'Donald Maiden', emoji: '🐴', color: '#6b7280', points: 9145 };
+    if (points >= 8820) return { num: 34, name: 'Ballina Maiden', emoji: '🐴', color: '#6b7280', points: 8820 };
+    if (points >= 8500) return { num: 33, name: 'Ararat Maiden', emoji: '🐴', color: '#6b7280', points: 8500 };
+    if (points >= 8185) return { num: 32, name: 'Colac Maiden', emoji: '🐴', color: '#6b7280', points: 8185 };
+    if (points >= 7875) return { num: 31, name: 'Lismore Maiden', emoji: '🐴', color: '#6b7280', points: 7875 };
+    if (points >= 7565) return { num: 30, name: 'Murwillumbah Maiden', emoji: '🐴', color: '#6b7280', points: 7565 };
+    if (points >= 7260) return { num: 29, name: 'Moe Maiden', emoji: '🐴', color: '#6b7280', points: 7260 };
+    if (points >= 6960) return { num: 28, name: 'Mount Gambier Maiden', emoji: '🐴', color: '#6b7280', points: 6960 };
+    if (points >= 6660) return { num: 27, name: 'Bunbury Maiden', emoji: '🐴', color: '#6b7280', points: 6660 };
+    if (points >= 6365) return { num: 26, name: 'Nowra Maiden', emoji: '🐴', color: '#6b7280', points: 6365 };
+    if (points >= 6075) return { num: 25, name: 'Pinjarra Maiden', emoji: '🐴', color: '#6b7280', points: 6075 };
+    if (points >= 5785) return { num: 24, name: 'Hobart Maiden', emoji: '🐴', color: '#6b7280', points: 5785 };
+    if (points >= 5500) return { num: 23, name: 'Beaudesert Maiden', emoji: '🐴', color: '#6b7280', points: 5500 };
+    if (points >= 5220) return { num: 22, name: 'Queanbeyan Maiden', emoji: '🐴', color: '#6b7280', points: 5220 };
+    if (points >= 4940) return { num: 21, name: 'Moruya Maiden', emoji: '🐴', color: '#6b7280', points: 4940 };
+    if (points >= 4665) return { num: 20, name: 'Darwin Maiden', emoji: '🐴', color: '#6b7280', points: 4665 };
+    if (points >= 4395) return { num: 19, name: 'Gilgandra Maiden', emoji: '🐴', color: '#6b7280', points: 4395 };
+    if (points >= 4125) return { num: 18, name: 'Walcha Maiden', emoji: '🐴', color: '#6b7280', points: 4125 };
+    if (points >= 3860) return { num: 17, name: 'Cooma Maiden', emoji: '🐴', color: '#6b7280', points: 3860 };
+    if (points >= 3600) return { num: 16, name: 'Casterton Maiden', emoji: '🐴', color: '#6b7280', points: 3600 };
+    if (points >= 3340) return { num: 15, name: 'Narromine Maiden', emoji: '🐴', color: '#6b7280', points: 3340 };
+    if (points >= 3080) return { num: 14, name: 'Bourke Maiden', emoji: '🐴', color: '#6b7280', points: 3080 };
+    if (points >= 2830) return { num: 13, name: 'Walgett Maiden', emoji: '🐴', color: '#6b7280', points: 2830 };
+    if (points >= 2575) return { num: 12, name: 'Coonamble Maiden', emoji: '🐴', color: '#6b7280', points: 2575 };
+    if (points >= 2330) return { num: 11, name: 'Kingscote Maiden', emoji: '🐴', color: '#6b7280', points: 2330 };
+    if (points >= 2085) return { num: 10, name: 'Tumut Maiden', emoji: '🐴', color: '#6b7280', points: 2085 };
+    if (points >= 1840) return { num: 9, name: 'Elmore Maiden', emoji: '🐴', color: '#6b7280', points: 1840 };
+    if (points >= 1600) return { num: 8, name: 'Burrumbeet Maiden', emoji: '🐴', color: '#6b7280', points: 1600 };
+    if (points >= 1365) return { num: 7, name: 'Oakbank Picnic Maiden', emoji: '🐴', color: '#6b7280', points: 1365 };
+    if (points >= 1130) return { num: 6, name: 'Wyndham Picnic Maiden', emoji: '🐴', color: '#6b7280', points: 1130 };
+    if (points >= 900) return { num: 5, name: 'Yalgoo Picnic Maiden', emoji: '🐴', color: '#6b7280', points: 900 };
+    if (points >= 670) return { num: 4, name: 'Toodyay Picnic Maiden', emoji: '🐴', color: '#6b7280', points: 670 };
+    if (points >= 445) return { num: 3, name: 'Ardlethan Picnic Maiden', emoji: '🐴', color: '#6b7280', points: 445 };
+    if (points >= 220) return { num: 2, name: 'Broken Hill Maiden', emoji: '🐴', color: '#6b7280', points: 220 };
+    if (points >= 0) return { num: 1, name: 'Adaminaby Picnic Maiden', emoji: '🐴', color: '#6b7280', points: 0 };
+    return { num: 1, name: 'Adaminaby Picnic Maiden', emoji: '🐴', color: '#6b7280', points: 0 };
   }
 
   function getNextTier(points) {
-    if (points < 50) return { num: 2, name: 'Ardlethan Picnic Maiden', emoji: '🐴', points: 50, needed: 50 - points };
-    if (points < 100) return { num: 3, name: 'Toodyay Picnic Maiden', emoji: '🐴', points: 100, needed: 100 - points };
-    if (points < 160) return { num: 4, name: 'Yalgoo Picnic Maiden', emoji: '🐴', points: 160, needed: 160 - points };
-    if (points < 230) return { num: 5, name: 'Wyndham Picnic Maiden', emoji: '🐴', points: 230, needed: 230 - points };
-    if (points < 310) return { num: 6, name: 'Oakbank Picnic Maiden', emoji: '🐴', points: 310, needed: 310 - points };
-    if (points < 400) return { num: 7, name: 'Burrumbeet Maiden', emoji: '🐴', points: 400, needed: 400 - points };
-    if (points < 500) return { num: 8, name: 'Elmore Maiden', emoji: '🐴', points: 500, needed: 500 - points };
-    if (points < 610) return { num: 9, name: 'Casterton Maiden', emoji: '🐴', points: 610, needed: 610 - points };
-    if (points < 730) return { num: 10, name: 'Moe Maiden', emoji: '🐴', points: 730, needed: 730 - points };
-    if (points < 860) return { num: 11, name: 'Tumut Maiden', emoji: '🐴', points: 860, needed: 860 - points };
-    if (points < 1000) return { num: 12, name: 'Moruya Maiden', emoji: '🐴', points: 1000, needed: 1000 - points };
-    if (points < 1150) return { num: 13, name: 'Coonamble Maiden', emoji: '🐴', points: 1150, needed: 1150 - points };
-    if (points < 1310) return { num: 14, name: 'Walgett Maiden', emoji: '🐴', points: 1310, needed: 1310 - points };
-    if (points < 1480) return { num: 15, name: 'Bourke Maiden', emoji: '🐴', points: 1480, needed: 1480 - points };
-    if (points < 1660) return { num: 16, name: 'Narromine Maiden', emoji: '🐴', points: 1660, needed: 1660 - points };
-    if (points < 1850) return { num: 17, name: 'Queanbeyan Maiden', emoji: '🐴', points: 1850, needed: 1850 - points };
-    if (points < 2050) return { num: 18, name: 'Colac Maiden', emoji: '🐴', points: 2050, needed: 2050 - points };
-    if (points < 2260) return { num: 19, name: 'Ararat Maiden', emoji: '🐴', points: 2260, needed: 2260 - points };
-    if (points < 2500) return { num: 20, name: 'Mildura BM58', emoji: '🏇', points: 2500, needed: 2500 - points };
-    if (points < 2800) return { num: 21, name: 'Echuca BM58', emoji: '🏇', points: 2800, needed: 2800 - points };
-    if (points < 3120) return { num: 22, name: 'Swan Hill BM58', emoji: '🏇', points: 3120, needed: 3120 - points };
-    if (points < 3460) return { num: 23, name: 'Wangaratta BM58', emoji: '🏇', points: 3460, needed: 3460 - points };
-    if (points < 3820) return { num: 24, name: 'Corowa BM58', emoji: '🏇', points: 3820, needed: 3820 - points };
-    if (points < 4200) return { num: 25, name: 'Deniliquin BM58', emoji: '🏇', points: 4200, needed: 4200 - points };
-    if (points < 4600) return { num: 26, name: 'Gundagai BM58', emoji: '🏇', points: 4600, needed: 4600 - points };
-    if (points < 5020) return { num: 27, name: 'Cowra BM58', emoji: '🏇', points: 5020, needed: 5020 - points };
-    if (points < 5460) return { num: 28, name: 'Cootamundra BM58', emoji: '🏇', points: 5460, needed: 5460 - points };
-    if (points < 5920) return { num: 29, name: 'Mudgee BM58', emoji: '🏇', points: 5920, needed: 5920 - points };
-    if (points < 6400) return { num: 30, name: 'Inverell BM58', emoji: '🏇', points: 6400, needed: 6400 - points };
-    if (points < 6900) return { num: 31, name: 'Moree BM58', emoji: '🏇', points: 6900, needed: 6900 - points };
-    if (points < 7500) return { num: 32, name: 'Emerald BM64', emoji: '🏇', points: 7500, needed: 7500 - points };
-    if (points < 8100) return { num: 33, name: 'Rockhampton BM64', emoji: '🏇', points: 8100, needed: 8100 - points };
-    if (points < 8750) return { num: 34, name: 'Mackay BM64', emoji: '🏇', points: 8750, needed: 8750 - points };
-    if (points < 9450) return { num: 35, name: 'Mount Isa BM64', emoji: '🏇', points: 9450, needed: 9450 - points };
-    if (points < 10200) return { num: 36, name: 'Longreach BM64', emoji: '🏇', points: 10200, needed: 10200 - points };
-    if (points < 11000) return { num: 37, name: 'Kalgoorlie BM64', emoji: '🏇', points: 11000, needed: 11000 - points };
-    if (points < 11850) return { num: 38, name: 'Geraldton BM64', emoji: '🏇', points: 11850, needed: 11850 - points };
-    if (points < 12750) return { num: 39, name: 'Port Augusta BM64', emoji: '🏇', points: 12750, needed: 12750 - points };
-    if (points < 13700) return { num: 40, name: 'Murray Bridge BM64', emoji: '🏇', points: 13700, needed: 13700 - points };
-    if (points < 14700) return { num: 41, name: 'Balaklava BM64', emoji: '🏇', points: 14700, needed: 14700 - points };
-    if (points < 15000) return { num: 42, name: 'Grafton BM70', emoji: '🏆', points: 15000, needed: 15000 - points };
-    if (points < 16200) return { num: 43, name: 'Armidale BM70', emoji: '🏆', points: 16200, needed: 16200 - points };
-    if (points < 17500) return { num: 44, name: 'Taree BM70', emoji: '🏆', points: 17500, needed: 17500 - points };
-    if (points < 18900) return { num: 45, name: 'Dubbo BM70', emoji: '🏆', points: 18900, needed: 18900 - points };
-    if (points < 20400) return { num: 46, name: 'Orange BM70', emoji: '🏆', points: 20400, needed: 20400 - points };
-    if (points < 22000) return { num: 47, name: 'Wagga Wagga BM70', emoji: '🏆', points: 22000, needed: 22000 - points };
-    if (points < 23700) return { num: 48, name: 'Tamworth BM70', emoji: '🏆', points: 23700, needed: 23700 - points };
-    if (points < 24700) return { num: 49, name: 'Toowoomba BM70', emoji: '🏆', points: 24700, needed: 24700 - points };
-    if (points < 25000) return { num: 50, name: 'Ipswich BM72', emoji: '⭐', points: 25000, needed: 25000 - points };
-    if (points < 26700) return { num: 51, name: 'Albury BM72', emoji: '⭐', points: 26700, needed: 26700 - points };
-    if (points < 28500) return { num: 52, name: 'Wodonga BM72', emoji: '⭐', points: 28500, needed: 28500 - points };
-    if (points < 30400) return { num: 53, name: 'Shepparton BM72', emoji: '⭐', points: 30400, needed: 30400 - points };
-    if (points < 32400) return { num: 54, name: 'Bendigo BM72', emoji: '⭐', points: 32400, needed: 32400 - points };
-    if (points < 34500) return { num: 55, name: 'Warrnambool BM72', emoji: '⭐', points: 34500, needed: 34500 - points };
-    if (points < 36700) return { num: 56, name: 'Sale BM72', emoji: '⭐', points: 36700, needed: 36700 - points };
-    if (points < 39000) return { num: 57, name: 'Launceston BM72', emoji: '⭐', points: 39000, needed: 39000 - points };
-    if (points < 40000) return { num: 58, name: 'Kembla Grange BM78', emoji: '⭐', points: 40000, needed: 40000 - points };
-    if (points < 43000) return { num: 59, name: 'Hawkesbury BM78', emoji: '⭐', points: 43000, needed: 43000 - points };
-    if (points < 46200) return { num: 60, name: 'Gosford BM78', emoji: '⭐', points: 46200, needed: 46200 - points };
-    if (points < 49600) return { num: 61, name: 'Ballarat BM78', emoji: '⭐', points: 49600, needed: 49600 - points };
-    if (points < 53200) return { num: 62, name: 'Geelong BM78', emoji: '⭐', points: 53200, needed: 53200 - points };
-    if (points < 57000) return { num: 63, name: 'Sandown BM78', emoji: '⭐', points: 57000, needed: 57000 - points };
-    if (points < 60000) return { num: 64, name: 'Newcastle BM84', emoji: '⭐⭐', points: 60000, needed: 60000 - points };
-    if (points < 64500) return { num: 65, name: 'Sunshine Coast BM84', emoji: '⭐⭐', points: 64500, needed: 64500 - points };
-    if (points < 69300) return { num: 66, name: 'Gold Coast BM84', emoji: '⭐⭐', points: 69300, needed: 69300 - points };
-    if (points < 74400) return { num: 67, name: 'Doomben BM84', emoji: '⭐⭐', points: 74400, needed: 74400 - points };
-    if (points < 79800) return { num: 68, name: 'Morphettville Parks BM84', emoji: '⭐⭐', points: 79800, needed: 79800 - points };
-    if (points < 85000) return { num: 69, name: 'Belmont Open', emoji: '⭐⭐', points: 85000, needed: 85000 - points };
-    if (points < 92000) return { num: 70, name: 'Doomben Saturday Open', emoji: '⭐⭐', points: 92000, needed: 92000 - points };
-    if (points < 99500) return { num: 71, name: 'Eagle Farm Open', emoji: '⭐⭐', points: 99500, needed: 99500 - points };
-    if (points < 107500) return { num: 72, name: 'Morphettville Open', emoji: '⭐⭐', points: 107500, needed: 107500 - points };
-    if (points < 116000) return { num: 73, name: 'Caulfield Open', emoji: '⭐⭐', points: 116000, needed: 116000 - points };
-    if (points < 125000) return { num: 74, name: 'Moonee Valley Open', emoji: '⭐⭐', points: 125000, needed: 125000 - points };
-    if (points < 135000) return { num: 75, name: 'Rosehill Open', emoji: '⭐⭐', points: 135000, needed: 135000 - points };
-    if (points < 145000) return { num: 76, name: 'Ascot Open', emoji: '⭐⭐', points: 145000, needed: 145000 - points };
-    if (points < 150000) return { num: 77, name: 'Listed', emoji: '🏆', points: 150000, needed: 150000 - points };
-    if (points < 185000) return { num: 78, name: 'Group 3', emoji: '🏆', points: 185000, needed: 185000 - points };
-    if (points < 235000) return { num: 79, name: 'Group 2', emoji: '🏆', points: 235000, needed: 235000 - points };
-    if (points < 300000) return { num: 80, name: 'Stradbroke Handicap', emoji: '👑', points: 300000, needed: 300000 - points };
-    if (points < 325000) return { num: 81, name: 'Queensland Oaks', emoji: '👑', points: 325000, needed: 325000 - points };
-    if (points < 350000) return { num: 82, name: 'Queensland Derby', emoji: '👑', points: 350000, needed: 350000 - points };
-    if (points < 380000) return { num: 83, name: 'Doomben 10,000', emoji: '👑', points: 380000, needed: 380000 - points };
-    if (points < 410000) return { num: 84, name: 'Doomben Cup', emoji: '👑', points: 410000, needed: 410000 - points };
-    if (points < 445000) return { num: 85, name: 'Epsom Handicap', emoji: '👑', points: 445000, needed: 445000 - points };
-    if (points < 480000) return { num: 86, name: 'George Main Stakes', emoji: '👑', points: 480000, needed: 480000 - points };
-    if (points < 520000) return { num: 87, name: 'Spring Champion Stakes', emoji: '👑', points: 520000, needed: 520000 - points };
-    if (points < 560000) return { num: 88, name: 'Caulfield Guineas', emoji: '👑', points: 560000, needed: 560000 - points };
-    if (points < 605000) return { num: 89, name: 'Victoria Derby', emoji: '👑', points: 605000, needed: 605000 - points };
-    if (points < 650000) return { num: 90, name: 'Yalumba Stakes', emoji: '👑', points: 650000, needed: 650000 - points };
-    if (points < 700000) return { num: 91, name: 'Australian Cup', emoji: '👑', points: 700000, needed: 700000 - points };
-    if (points < 755000) return { num: 92, name: 'All Aged Stakes', emoji: '👑', points: 755000, needed: 755000 - points };
-    if (points < 810000) return { num: 93, name: 'Newmarket Handicap', emoji: '👑', points: 810000, needed: 810000 - points };
-    if (points < 870000) return { num: 94, name: 'Australian Derby', emoji: '👑', points: 870000, needed: 870000 - points };
-    if (points < 935000) return { num: 95, name: 'Doncaster Handicap', emoji: '👑', points: 935000, needed: 935000 - points };
-    if (points < 1000000) return { num: 96, name: 'T.J. Smith Stakes', emoji: '👑', points: 1000000, needed: 1000000 - points };
-    if (points < 1075000) return { num: 97, name: 'Queen Elizabeth Stakes', emoji: '👑', points: 1075000, needed: 1075000 - points };
-    if (points < 1155000) return { num: 98, name: 'W.S. Cox Plate', emoji: '👑', points: 1155000, needed: 1155000 - points };
-    if (points < 1240000) return { num: 99, name: 'Cantala Stakes', emoji: '👑', points: 1240000, needed: 1240000 - points };
-    if (points < 1330000) return { num: 100, name: 'Mackinnon Stakes', emoji: '👑', points: 1330000, needed: 1330000 - points };
-    if (points < 1430000) return { num: 101, name: 'Myer Classic', emoji: '👑', points: 1430000, needed: 1430000 - points };
-    if (points < 1540000) return { num: 102, name: 'Lexus Stakes', emoji: '👑', points: 1540000, needed: 1540000 - points };
-    if (points < 1660000) return { num: 103, name: 'Emirates Stakes', emoji: '👑', points: 1660000, needed: 1660000 - points };
-    if (points < 1790000) return { num: 104, name: 'AAMI Victoria Derby', emoji: '👑', points: 1790000, needed: 1790000 - points };
-    if (points < 1930000) return { num: 105, name: 'Thousand Guineas', emoji: '👑', points: 1930000, needed: 1930000 - points };
-    if (points < 2080000) return { num: 106, name: 'Australian Oaks', emoji: '👑', points: 2080000, needed: 2080000 - points };
-    if (points < 2240000) return { num: 107, name: 'Golden Eagle', emoji: '👑', points: 2240000, needed: 2240000 - points };
-    if (points < 2415000) return { num: 108, name: 'The Everest', emoji: '👑', points: 2415000, needed: 2415000 - points };
-    if (points < 2600000) return { num: 109, name: 'Golden Rose', emoji: '👑', points: 2600000, needed: 2600000 - points };
-    if (points < 2800000) return { num: 110, name: 'Winx Stakes', emoji: '👑', points: 2800000, needed: 2800000 - points };
-    if (points < 3010000) return { num: 111, name: 'Caulfield Cup', emoji: '👑', points: 3010000, needed: 3010000 - points };
-    if (points < 3230000) return { num: 112, name: 'Moonee Valley Gold Cup', emoji: '👑', points: 3230000, needed: 3230000 - points };
-    if (points < 3465000) return { num: 113, name: 'Sydney Cup', emoji: '👑', points: 3465000, needed: 3465000 - points };
-    if (points < 3715000) return { num: 114, name: 'Flemington Cup', emoji: '👑', points: 3715000, needed: 3715000 - points };
-    if (points < 5000000) return { num: 115, name: 'Melbourne Cup', emoji: '👑', points: 5000000, needed: 5000000 - points };
+    if (points < 220) return { num: 2, name: 'Broken Hill Maiden', emoji: '🐴', points: 220, needed: 220 - points };
+    if (points < 445) return { num: 3, name: 'Ardlethan Picnic Maiden', emoji: '🐴', points: 445, needed: 445 - points };
+    if (points < 670) return { num: 4, name: 'Toodyay Picnic Maiden', emoji: '🐴', points: 670, needed: 670 - points };
+    if (points < 900) return { num: 5, name: 'Yalgoo Picnic Maiden', emoji: '🐴', points: 900, needed: 900 - points };
+    if (points < 1130) return { num: 6, name: 'Wyndham Picnic Maiden', emoji: '🐴', points: 1130, needed: 1130 - points };
+    if (points < 1365) return { num: 7, name: 'Oakbank Picnic Maiden', emoji: '🐴', points: 1365, needed: 1365 - points };
+    if (points < 1600) return { num: 8, name: 'Burrumbeet Maiden', emoji: '🐴', points: 1600, needed: 1600 - points };
+    if (points < 1840) return { num: 9, name: 'Elmore Maiden', emoji: '🐴', points: 1840, needed: 1840 - points };
+    if (points < 2085) return { num: 10, name: 'Tumut Maiden', emoji: '🐴', points: 2085, needed: 2085 - points };
+    if (points < 2330) return { num: 11, name: 'Kingscote Maiden', emoji: '🐴', points: 2330, needed: 2330 - points };
+    if (points < 2575) return { num: 12, name: 'Coonamble Maiden', emoji: '🐴', points: 2575, needed: 2575 - points };
+    if (points < 2830) return { num: 13, name: 'Walgett Maiden', emoji: '🐴', points: 2830, needed: 2830 - points };
+    if (points < 3080) return { num: 14, name: 'Bourke Maiden', emoji: '🐴', points: 3080, needed: 3080 - points };
+    if (points < 3340) return { num: 15, name: 'Narromine Maiden', emoji: '🐴', points: 3340, needed: 3340 - points };
+    if (points < 3600) return { num: 16, name: 'Casterton Maiden', emoji: '🐴', points: 3600, needed: 3600 - points };
+    if (points < 3860) return { num: 17, name: 'Cooma Maiden', emoji: '🐴', points: 3860, needed: 3860 - points };
+    if (points < 4125) return { num: 18, name: 'Walcha Maiden', emoji: '🐴', points: 4125, needed: 4125 - points };
+    if (points < 4395) return { num: 19, name: 'Gilgandra Maiden', emoji: '🐴', points: 4395, needed: 4395 - points };
+    if (points < 4665) return { num: 20, name: 'Darwin Maiden', emoji: '🐴', points: 4665, needed: 4665 - points };
+    if (points < 4940) return { num: 21, name: 'Moruya Maiden', emoji: '🐴', points: 4940, needed: 4940 - points };
+    if (points < 5220) return { num: 22, name: 'Queanbeyan Maiden', emoji: '🐴', points: 5220, needed: 5220 - points };
+    if (points < 5500) return { num: 23, name: 'Beaudesert Maiden', emoji: '🐴', points: 5500, needed: 5500 - points };
+    if (points < 5785) return { num: 24, name: 'Hobart Maiden', emoji: '🐴', points: 5785, needed: 5785 - points };
+    if (points < 6075) return { num: 25, name: 'Pinjarra Maiden', emoji: '🐴', points: 6075, needed: 6075 - points };
+    if (points < 6365) return { num: 26, name: 'Nowra Maiden', emoji: '🐴', points: 6365, needed: 6365 - points };
+    if (points < 6660) return { num: 27, name: 'Bunbury Maiden', emoji: '🐴', points: 6660, needed: 6660 - points };
+    if (points < 6960) return { num: 28, name: 'Mount Gambier Maiden', emoji: '🐴', points: 6960, needed: 6960 - points };
+    if (points < 7260) return { num: 29, name: 'Moe Maiden', emoji: '🐴', points: 7260, needed: 7260 - points };
+    if (points < 7565) return { num: 30, name: 'Murwillumbah Maiden', emoji: '🐴', points: 7565, needed: 7565 - points };
+    if (points < 7875) return { num: 31, name: 'Lismore Maiden', emoji: '🐴', points: 7875, needed: 7875 - points };
+    if (points < 8185) return { num: 32, name: 'Colac Maiden', emoji: '🐴', points: 8185, needed: 8185 - points };
+    if (points < 8500) return { num: 33, name: 'Ararat Maiden', emoji: '🐴', points: 8500, needed: 8500 - points };
+    if (points < 8820) return { num: 34, name: 'Ballina Maiden', emoji: '🐴', points: 8820, needed: 8820 - points };
+    if (points < 9145) return { num: 35, name: 'Donald Maiden', emoji: '🐴', points: 9145, needed: 9145 - points };
+    if (points < 9470) return { num: 36, name: 'Grafton Maiden', emoji: '🐴', points: 9470, needed: 9470 - points };
+    if (points < 9800) return { num: 37, name: 'Strathalbyn Maiden', emoji: '🐴', points: 9800, needed: 9800 - points };
+    if (points < 10135) return { num: 38, name: 'Taree Maiden', emoji: '🐴', points: 10135, needed: 10135 - points };
+    if (points < 10475) return { num: 39, name: 'Tamworth Maiden', emoji: '🐴', points: 10475, needed: 10475 - points };
+    if (points < 10815) return { num: 40, name: 'Toowoomba Maiden', emoji: '🐴', points: 10815, needed: 10815 - points };
+    if (points < 11165) return { num: 41, name: 'Scone Maiden', emoji: '🐴', points: 11165, needed: 11165 - points };
+    if (points < 11515) return { num: 42, name: 'Sale Maiden', emoji: '🐴', points: 11515, needed: 11515 - points };
+    if (points < 11865) return { num: 43, name: 'Ballarat Maiden', emoji: '🐴', points: 11865, needed: 11865 - points };
+    if (points < 12225) return { num: 44, name: 'Newcastle Maiden', emoji: '🐴', points: 12225, needed: 12225 - points };
+    if (points < 12590) return { num: 45, name: 'Werribee Maiden', emoji: '🐴', points: 12590, needed: 12590 - points };
+    if (points < 12955) return { num: 46, name: 'Gosford Maiden', emoji: '🐴', points: 12955, needed: 12955 - points };
+    if (points < 13325) return { num: 47, name: 'Geelong Maiden', emoji: '🐴', points: 13325, needed: 13325 - points };
+    if (points < 13700) return { num: 48, name: 'Cranbourne Maiden', emoji: '🐴', points: 13700, needed: 13700 - points };
+    if (points < 14080) return { num: 49, name: 'Doomben Maiden', emoji: '🐴', points: 14080, needed: 14080 - points };
+    if (points < 14465) return { num: 50, name: 'Belmont Maiden', emoji: '🐴', points: 14465, needed: 14465 - points };
+    if (points < 14850) return { num: 51, name: 'Warwick Farm Maiden', emoji: '🐴', points: 14850, needed: 14850 - points };
+    if (points < 15245) return { num: 52, name: 'Canterbury Maiden', emoji: '🐴', points: 15245, needed: 15245 - points };
+    if (points < 15640) return { num: 53, name: 'Eagle Farm Maiden', emoji: '🐴', points: 15640, needed: 15640 - points };
+    if (points < 16045) return { num: 54, name: 'Morphettville Maiden', emoji: '🐴', points: 16045, needed: 16045 - points };
+    if (points < 16450) return { num: 55, name: 'Kensington Maiden', emoji: '🐴', points: 16450, needed: 16450 - points };
+    if (points < 16860) return { num: 56, name: 'Caulfield Maiden', emoji: '🐴', points: 16860, needed: 16860 - points };
+    if (points < 17280) return { num: 57, name: 'Moonee Valley Maiden', emoji: '🐴', points: 17280, needed: 17280 - points };
+    if (points < 17700) return { num: 58, name: 'Flemington Maiden', emoji: '🐴', points: 17700, needed: 17700 - points };
+    if (points < 18125) return { num: 59, name: 'Rosehill Maiden', emoji: '🐴', points: 18125, needed: 18125 - points };
+    if (points < 18555) return { num: 60, name: 'Randwick Maiden', emoji: '🐴', points: 18555, needed: 18555 - points };
+    if (points < 18990) return { num: 61, name: 'Ardlethan BM55', emoji: '🏇', points: 18990, needed: 18990 - points };
+    if (points < 19430) return { num: 62, name: 'Toodyay BM55', emoji: '🏇', points: 19430, needed: 19430 - points };
+    if (points < 19875) return { num: 63, name: 'Yalgoo BM55', emoji: '🏇', points: 19875, needed: 19875 - points };
+    if (points < 20330) return { num: 64, name: 'Wyndham BM55', emoji: '🏇', points: 20330, needed: 20330 - points };
+    if (points < 20785) return { num: 65, name: 'Tumut BM55', emoji: '🏇', points: 20785, needed: 20785 - points };
+    if (points < 21245) return { num: 66, name: 'Kingscote BM55', emoji: '🏇', points: 21245, needed: 21245 - points };
+    if (points < 21710) return { num: 67, name: 'Gilgandra BM55', emoji: '🏇', points: 21710, needed: 21710 - points };
+    if (points < 22185) return { num: 68, name: 'Adaminaby BM58', emoji: '🏇', points: 22185, needed: 22185 - points };
+    if (points < 22660) return { num: 69, name: 'Broken Hill BM58', emoji: '🏇', points: 22660, needed: 22660 - points };
+    if (points < 23145) return { num: 70, name: 'Oakbank BM58', emoji: '🏇', points: 23145, needed: 23145 - points };
+    if (points < 23635) return { num: 71, name: 'Burrumbeet BM58', emoji: '🏇', points: 23635, needed: 23635 - points };
+    if (points < 24130) return { num: 72, name: 'Elmore BM58', emoji: '🏇', points: 24130, needed: 24130 - points };
+    if (points < 24630) return { num: 73, name: 'Walgett BM58', emoji: '🏇', points: 24630, needed: 24630 - points };
+    if (points < 25135) return { num: 74, name: 'Bourke BM58', emoji: '🏇', points: 25135, needed: 25135 - points };
+    if (points < 25645) return { num: 75, name: 'Narromine BM58', emoji: '🏇', points: 25645, needed: 25645 - points };
+    if (points < 26165) return { num: 76, name: 'Casterton BM58', emoji: '🏇', points: 26165, needed: 26165 - points };
+    if (points < 26685) return { num: 77, name: 'Cooma BM58', emoji: '🏇', points: 26685, needed: 26685 - points };
+    if (points < 27215) return { num: 78, name: 'Walcha BM58', emoji: '🏇', points: 27215, needed: 27215 - points };
+    if (points < 27750) return { num: 79, name: 'Wangaratta BM58', emoji: '🏇', points: 27750, needed: 27750 - points };
+    if (points < 28295) return { num: 80, name: 'Corowa BM58', emoji: '🏇', points: 28295, needed: 28295 - points };
+    if (points < 28840) return { num: 81, name: 'Deniliquin BM58', emoji: '🏇', points: 28840, needed: 28840 - points };
+    if (points < 29395) return { num: 82, name: 'Gundagai BM58', emoji: '🏇', points: 29395, needed: 29395 - points };
+    if (points < 29955) return { num: 83, name: 'Cowra BM58', emoji: '🏇', points: 29955, needed: 29955 - points };
+    if (points < 30525) return { num: 84, name: 'Cootamundra BM58', emoji: '🏇', points: 30525, needed: 30525 - points };
+    if (points < 31100) return { num: 85, name: 'Mudgee BM58', emoji: '🏇', points: 31100, needed: 31100 - points };
+    if (points < 31680) return { num: 86, name: 'Inverell BM58', emoji: '🏇', points: 31680, needed: 31680 - points };
+    if (points < 32265) return { num: 87, name: 'Moree BM58', emoji: '🏇', points: 32265, needed: 32265 - points };
+    if (points < 32860) return { num: 88, name: 'Coonamble BM66', emoji: '🏇', points: 32860, needed: 32860 - points };
+    if (points < 33460) return { num: 89, name: 'Emerald BM64', emoji: '🏇', points: 33460, needed: 33460 - points };
+    if (points < 34070) return { num: 90, name: 'Mildura BM64', emoji: '🏇', points: 34070, needed: 34070 - points };
+    if (points < 34685) return { num: 91, name: 'Echuca BM64', emoji: '🏇', points: 34685, needed: 34685 - points };
+    if (points < 35305) return { num: 92, name: 'Swan Hill BM64', emoji: '🏇', points: 35305, needed: 35305 - points };
+    if (points < 35935) return { num: 93, name: 'Rockhampton BM64', emoji: '🏇', points: 35935, needed: 35935 - points };
+    if (points < 36570) return { num: 94, name: 'Mackay BM64', emoji: '🏇', points: 36570, needed: 36570 - points };
+    if (points < 37215) return { num: 95, name: 'Mount Isa BM64', emoji: '🏇', points: 37215, needed: 37215 - points };
+    if (points < 37870) return { num: 96, name: 'Longreach BM64', emoji: '🏇', points: 37870, needed: 37870 - points };
+    if (points < 38525) return { num: 97, name: 'Kalgoorlie BM64', emoji: '🏇', points: 38525, needed: 38525 - points };
+    if (points < 39195) return { num: 98, name: 'Geraldton BM64', emoji: '🏇', points: 39195, needed: 39195 - points };
+    if (points < 39865) return { num: 99, name: 'Port Augusta BM64', emoji: '🏇', points: 39865, needed: 39865 - points };
+    if (points < 40550) return { num: 100, name: 'Murray Bridge BM64', emoji: '🏇', points: 40550, needed: 40550 - points };
+    if (points < 41240) return { num: 101, name: 'Balaklava BM64', emoji: '🏇', points: 41240, needed: 41240 - points };
+    if (points < 41935) return { num: 102, name: 'Queanbeyan BM64', emoji: '🏇', points: 41935, needed: 41935 - points };
+    if (points < 42645) return { num: 103, name: 'Beaudesert BM64', emoji: '🏇', points: 42645, needed: 42645 - points };
+    if (points < 43355) return { num: 104, name: 'Hobart BM64', emoji: '🏇', points: 43355, needed: 43355 - points };
+    if (points < 44080) return { num: 105, name: 'Pinjarra BM64', emoji: '🏇', points: 44080, needed: 44080 - points };
+    if (points < 44810) return { num: 106, name: 'Nowra BM64', emoji: '🏇', points: 44810, needed: 44810 - points };
+    if (points < 45550) return { num: 107, name: 'Bunbury BM64', emoji: '🏇', points: 45550, needed: 45550 - points };
+    if (points < 46295) return { num: 108, name: 'Mount Gambier BM64', emoji: '🏇', points: 46295, needed: 46295 - points };
+    if (points < 47055) return { num: 109, name: 'Moruya BM64', emoji: '🏇', points: 47055, needed: 47055 - points };
+    if (points < 47820) return { num: 110, name: 'Darwin BM64', emoji: '🏇', points: 47820, needed: 47820 - points };
+    if (points < 48590) return { num: 111, name: 'Moe BM64', emoji: '🏇', points: 48590, needed: 48590 - points };
+    if (points < 49375) return { num: 112, name: 'Murwillumbah BM64', emoji: '🏇', points: 49375, needed: 49375 - points };
+    if (points < 50165) return { num: 113, name: 'Lismore BM64', emoji: '🏇', points: 50165, needed: 50165 - points };
+    if (points < 50970) return { num: 114, name: 'Colac BM64', emoji: '🏇', points: 50970, needed: 50970 - points };
+    if (points < 51780) return { num: 115, name: 'Ararat BM64', emoji: '🏇', points: 51780, needed: 51780 - points };
+    if (points < 52600) return { num: 116, name: 'Ballina BM64', emoji: '🏇', points: 52600, needed: 52600 - points };
+    if (points < 53425) return { num: 117, name: 'Donald BM64', emoji: '🏇', points: 53425, needed: 53425 - points };
+    if (points < 54265) return { num: 118, name: 'Strathalbyn BM64', emoji: '🏇', points: 54265, needed: 54265 - points };
+    if (points < 55115) return { num: 119, name: 'Launceston BM64', emoji: '🏇', points: 55115, needed: 55115 - points };
+    if (points < 55970) return { num: 120, name: 'Grafton BM70', emoji: '🏆', points: 55970, needed: 55970 - points };
+    if (points < 56840) return { num: 121, name: 'Armidale BM70', emoji: '🏆', points: 56840, needed: 56840 - points };
+    if (points < 57720) return { num: 122, name: 'Taree BM70', emoji: '🏆', points: 57720, needed: 57720 - points };
+    if (points < 58605) return { num: 123, name: 'Scone BM70', emoji: '🏆', points: 58605, needed: 58605 - points };
+    if (points < 59505) return { num: 124, name: 'Dubbo BM70', emoji: '🏆', points: 59505, needed: 59505 - points };
+    if (points < 60415) return { num: 125, name: 'Orange BM70', emoji: '🏆', points: 60415, needed: 60415 - points };
+    if (points < 61335) return { num: 126, name: 'Wagga Wagga BM70', emoji: '🏆', points: 61335, needed: 61335 - points };
+    if (points < 62265) return { num: 127, name: 'Tamworth BM70', emoji: '🏆', points: 62265, needed: 62265 - points };
+    if (points < 63205) return { num: 128, name: 'Toowoomba BM70', emoji: '🏆', points: 63205, needed: 63205 - points };
+    if (points < 64155) return { num: 129, name: 'Canberra BM70', emoji: '🏆', points: 64155, needed: 64155 - points };
+    if (points < 65120) return { num: 130, name: 'Ipswich BM72', emoji: '⭐', points: 65120, needed: 65120 - points };
+    if (points < 66095) return { num: 131, name: 'Albury BM72', emoji: '⭐', points: 66095, needed: 66095 - points };
+    if (points < 67080) return { num: 132, name: 'Wodonga BM72', emoji: '⭐', points: 67080, needed: 67080 - points };
+    if (points < 68075) return { num: 133, name: 'Shepparton BM72', emoji: '⭐', points: 68075, needed: 68075 - points };
+    if (points < 69085) return { num: 134, name: 'Bendigo BM72', emoji: '⭐', points: 69085, needed: 69085 - points };
+    if (points < 70105) return { num: 135, name: 'Warrnambool BM72', emoji: '⭐', points: 70105, needed: 70105 - points };
+    if (points < 71135) return { num: 136, name: 'Sale BM72', emoji: '⭐', points: 71135, needed: 71135 - points };
+    if (points < 72180) return { num: 137, name: 'Launceston BM72', emoji: '⭐', points: 72180, needed: 72180 - points };
+    if (points < 73235) return { num: 138, name: 'Kembla Grange BM78', emoji: '⭐', points: 73235, needed: 73235 - points };
+    if (points < 74300) return { num: 139, name: 'Hawkesbury BM78', emoji: '⭐', points: 74300, needed: 74300 - points };
+    if (points < 75380) return { num: 140, name: 'Gosford BM78', emoji: '⭐', points: 75380, needed: 75380 - points };
+    if (points < 76475) return { num: 141, name: 'Ballarat BM78', emoji: '⭐', points: 76475, needed: 76475 - points };
+    if (points < 77580) return { num: 142, name: 'Geelong BM78', emoji: '⭐', points: 77580, needed: 77580 - points };
+    if (points < 78695) return { num: 143, name: 'Sandown BM78', emoji: '⭐', points: 78695, needed: 78695 - points };
+    if (points < 79830) return { num: 144, name: 'Newcastle BM84', emoji: '⭐⭐', points: 79830, needed: 79830 - points };
+    if (points < 80970) return { num: 145, name: 'Sunshine Coast BM84', emoji: '⭐⭐', points: 80970, needed: 80970 - points };
+    if (points < 82130) return { num: 146, name: 'Gold Coast BM84', emoji: '⭐⭐', points: 82130, needed: 82130 - points };
+    if (points < 83300) return { num: 147, name: 'Doomben BM84', emoji: '⭐⭐', points: 83300, needed: 83300 - points };
+    if (points < 84485) return { num: 148, name: 'Morphettville Parks BM84', emoji: '⭐⭐', points: 84485, needed: 84485 - points };
+    if (points < 85680) return { num: 149, name: 'Belmont Open', emoji: '⭐⭐', points: 85680, needed: 85680 - points };
+    if (points < 86895) return { num: 150, name: 'Doomben Saturday Open', emoji: '⭐⭐', points: 86895, needed: 86895 - points };
+    if (points < 88120) return { num: 151, name: 'Eagle Farm Open', emoji: '⭐⭐', points: 88120, needed: 88120 - points };
+    if (points < 89360) return { num: 152, name: 'Morphettville Open', emoji: '⭐⭐', points: 89360, needed: 89360 - points };
+    if (points < 90615) return { num: 153, name: 'Caulfield Open', emoji: '⭐⭐', points: 90615, needed: 90615 - points };
+    if (points < 91880) return { num: 154, name: 'Moonee Valley Open', emoji: '⭐⭐', points: 91880, needed: 91880 - points };
+    if (points < 93165) return { num: 155, name: 'Rosehill Open', emoji: '⭐⭐', points: 93165, needed: 93165 - points };
+    if (points < 94465) return { num: 156, name: 'Ascot Open', emoji: '⭐⭐', points: 94465, needed: 94465 - points };
+    if (points < 95775) return { num: 157, name: 'Merson Cooper Stakes', emoji: '🏆', points: 95775, needed: 95775 - points };
+    if (points < 97105) return { num: 158, name: 'Missile Stakes', emoji: '🏆', points: 97105, needed: 97105 - points };
+    if (points < 98450) return { num: 159, name: 'Rosebud', emoji: '🏆', points: 98450, needed: 98450 - points };
+    if (points < 99805) return { num: 160, name: 'Manion Cup', emoji: '🏆', points: 99805, needed: 99805 - points };
+    if (points < 101180) return { num: 161, name: 'Kewney Stakes', emoji: '🏆', points: 101180, needed: 101180 - points };
+    if (points < 102575) return { num: 162, name: 'Angst Stakes', emoji: '🏆', points: 102575, needed: 102575 - points };
+    if (points < 103980) return { num: 163, name: 'Grand Prix Stakes', emoji: '🏆', points: 103980, needed: 103980 - points };
+    if (points < 105405) return { num: 164, name: 'Dulcify Stakes', emoji: '🏆', points: 105405, needed: 105405 - points };
+    if (points < 106845) return { num: 165, name: 'Tattersall\'s Cup', emoji: '🏆', points: 106845, needed: 106845 - points };
+    if (points < 108300) return { num: 166, name: 'Nudgee Stakes', emoji: '🏆', points: 108300, needed: 108300 - points };
+    if (points < 109770) return { num: 167, name: 'Bernborough Plate', emoji: '🏆', points: 109770, needed: 109770 - points };
+    if (points < 111260) return { num: 168, name: 'Dark Jewel Classic', emoji: '🏆', points: 111260, needed: 111260 - points };
+    if (points < 112770) return { num: 169, name: 'Hawkesbury Guineas', emoji: '🏆', points: 112770, needed: 112770 - points };
+    if (points < 114295) return { num: 170, name: 'Lord Mayor\'s Cup', emoji: '🏆', points: 114295, needed: 114295 - points };
+    if (points < 115835) return { num: 171, name: 'Winter Stakes', emoji: '🏆', points: 115835, needed: 115835 - points };
+    if (points < 117395) return { num: 172, name: 'Daybreak Lover Stakes', emoji: '🏆', points: 117395, needed: 117395 - points };
+    if (points < 118975) return { num: 173, name: 'Danehill Stakes', emoji: '🏆', points: 118975, needed: 118975 - points };
+    if (points < 120570) return { num: 174, name: 'Gothic Stakes', emoji: '🏆', points: 120570, needed: 120570 - points };
+    if (points < 122185) return { num: 175, name: 'Stocks Stakes', emoji: '🏆', points: 122185, needed: 122185 - points };
+    if (points < 123820) return { num: 176, name: 'Exford Plate', emoji: '🏆', points: 123820, needed: 123820 - points };
+    if (points < 125475) return { num: 177, name: 'Show County Quality', emoji: '🏆', points: 125475, needed: 125475 - points };
+    if (points < 127145) return { num: 178, name: 'Hawkesbury Gold Cup', emoji: '🏆', points: 127145, needed: 127145 - points };
+    if (points < 128835) return { num: 179, name: 'Rough Habit Plate', emoji: '🏆', points: 128835, needed: 128835 - points };
+    if (points < 130545) return { num: 180, name: 'Fred Best Classic', emoji: '🏆', points: 130545, needed: 130545 - points };
+    if (points < 132275) return { num: 181, name: 'Tattersall\'s Tiara', emoji: '🏆', points: 132275, needed: 132275 - points };
+    if (points < 134025) return { num: 182, name: 'Red Anchor Stakes', emoji: '🏆', points: 134025, needed: 134025 - points };
+    if (points < 135795) return { num: 183, name: 'Caulfield Sprint', emoji: '🏆', points: 135795, needed: 135795 - points };
+    if (points < 137590) return { num: 184, name: 'Standish Handicap', emoji: '🏆', points: 137590, needed: 137590 - points };
+    if (points < 139400) return { num: 185, name: 'Portland Classic', emoji: '🏆', points: 139400, needed: 139400 - points };
+    if (points < 141230) return { num: 186, name: 'Geelong Cup', emoji: '🏆', points: 141230, needed: 141230 - points };
+    if (points < 143085) return { num: 187, name: 'Palmares Stakes', emoji: '🏆', points: 143085, needed: 143085 - points };
+    if (points < 144960) return { num: 188, name: 'Neds Classic', emoji: '🏆', points: 144960, needed: 144960 - points };
+    if (points < 146860) return { num: 189, name: 'Victoria Handicap', emoji: '🏆', points: 146860, needed: 146860 - points };
+    if (points < 148775) return { num: 190, name: 'Sunline Stakes', emoji: '🏆', points: 148775, needed: 148775 - points };
+    if (points < 150720) return { num: 191, name: 'Thoroughbred Club Stakes', emoji: '🏆', points: 150720, needed: 150720 - points };
+    if (points < 152680) return { num: 192, name: 'Toorak Handicap', emoji: '🏆', points: 152680, needed: 152680 - points };
+    if (points < 154670) return { num: 193, name: 'JRA Cup', emoji: '🏆', points: 154670, needed: 154670 - points };
+    if (points < 156675) return { num: 194, name: 'Naturalism Stakes', emoji: '🏆', points: 156675, needed: 156675 - points };
+    if (points < 158710) return { num: 195, name: 'Carbine Club Stakes', emoji: '🏆', points: 158710, needed: 158710 - points };
+    if (points < 160765) return { num: 196, name: 'Flying Handicap', emoji: '🏆', points: 160765, needed: 160765 - points };
+    if (points < 162845) return { num: 197, name: 'Ajax Stakes', emoji: '👑', points: 162845, needed: 162845 - points };
+    if (points < 164950) return { num: 198, name: 'Chelmsford Stakes', emoji: '👑', points: 164950, needed: 164950 - points };
+    if (points < 167075) return { num: 199, name: 'Tramway Stakes', emoji: '👑', points: 167075, needed: 167075 - points };
+    if (points < 169230) return { num: 200, name: 'Queensland Guineas', emoji: '👑', points: 169230, needed: 169230 - points };
+    if (points < 171405) return { num: 201, name: 'Hollindale Stakes', emoji: '👑', points: 171405, needed: 171405 - points };
+    if (points < 173610) return { num: 202, name: 'P.B. Lawrence Stakes', emoji: '👑', points: 173610, needed: 173610 - points };
+    if (points < 175835) return { num: 203, name: 'Dato Tan Chin Nam Stakes', emoji: '👑', points: 175835, needed: 175835 - points };
+    if (points < 178090) return { num: 204, name: 'Feehan Stakes', emoji: '👑', points: 178090, needed: 178090 - points };
+    if (points < 180370) return { num: 205, name: 'Matriarch Stakes', emoji: '👑', points: 180370, needed: 180370 - points };
+    if (points < 182675) return { num: 206, name: 'Stutt Stakes', emoji: '👑', points: 182675, needed: 182675 - points };
+    if (points < 185010) return { num: 207, name: 'Heads of the River', emoji: '👑', points: 185010, needed: 185010 - points };
+    if (points < 187370) return { num: 208, name: 'Caulfield Classic', emoji: '👑', points: 187370, needed: 187370 - points };
+    if (points < 189755) return { num: 209, name: 'Sandown Guineas', emoji: '👑', points: 189755, needed: 189755 - points };
+    if (points < 192170) return { num: 210, name: 'Hill Stakes', emoji: '👑', points: 192170, needed: 192170 - points };
+    if (points < 194615) return { num: 211, name: 'Winx Guineas', emoji: '👑', points: 194615, needed: 194615 - points };
+    if (points < 197085) return { num: 212, name: 'Blamey Stakes', emoji: '👑', points: 197085, needed: 197085 - points };
+    if (points < 199585) return { num: 213, name: 'Peter Young Stakes', emoji: '👑', points: 199585, needed: 199585 - points };
+    if (points < 202115) return { num: 214, name: 'Australian Guineas', emoji: '👑', points: 202115, needed: 202115 - points };
+    if (points < 204670) return { num: 215, name: 'Kingston Town Classic', emoji: '👑', points: 204670, needed: 204670 - points };
+    if (points < 207260) return { num: 216, name: 'Winx Stakes', emoji: '👑', points: 207260, needed: 207260 - points };
+    if (points < 209875) return { num: 217, name: 'Winterbottom Stakes', emoji: '👑', points: 209875, needed: 209875 - points };
+    if (points < 212525) return { num: 218, name: 'Railway Stakes', emoji: '👑', points: 212525, needed: 212525 - points };
+    if (points < 215200) return { num: 219, name: 'Queensland Oaks', emoji: '👑', points: 215200, needed: 215200 - points };
+    if (points < 217910) return { num: 220, name: 'Queensland Derby', emoji: '👑', points: 217910, needed: 217910 - points };
+    if (points < 220650) return { num: 221, name: 'Doomben Cup', emoji: '👑', points: 220650, needed: 220650 - points };
+    if (points < 223420) return { num: 222, name: 'Epsom Handicap', emoji: '👑', points: 223420, needed: 223420 - points };
+    if (points < 226225) return { num: 223, name: 'George Main Stakes', emoji: '👑', points: 226225, needed: 226225 - points };
+    if (points < 229065) return { num: 224, name: 'Spring Champion Stakes', emoji: '👑', points: 229065, needed: 229065 - points };
+    if (points < 231930) return { num: 225, name: 'Yalumba Stakes', emoji: '👑', points: 231930, needed: 231930 - points };
+    if (points < 234835) return { num: 226, name: 'Cantala Stakes', emoji: '👑', points: 234835, needed: 234835 - points };
+    if (points < 237770) return { num: 227, name: 'Mackinnon Stakes', emoji: '👑', points: 237770, needed: 237770 - points };
+    if (points < 240740) return { num: 228, name: 'Empire Rose Stakes', emoji: '👑', points: 240740, needed: 240740 - points };
+    if (points < 243745) return { num: 229, name: 'Sires Produce Stakes', emoji: '👑', points: 243745, needed: 243745 - points };
+    if (points < 246785) return { num: 230, name: 'Champagne Stakes', emoji: '👑', points: 246785, needed: 246785 - points };
+    if (points < 249855) return { num: 231, name: 'Myer Classic', emoji: '👑', points: 249855, needed: 249855 - points };
+    if (points < 252965) return { num: 232, name: 'Lexus Stakes', emoji: '👑', points: 252965, needed: 252965 - points };
+    if (points < 256110) return { num: 233, name: 'Emirates Stakes', emoji: '👑', points: 256110, needed: 256110 - points };
+    if (points < 259295) return { num: 234, name: 'AAMI Victoria Derby', emoji: '👑', points: 259295, needed: 259295 - points };
+    if (points < 262515) return { num: 235, name: 'Thousand Guineas', emoji: '👑', points: 262515, needed: 262515 - points };
+    if (points < 265770) return { num: 236, name: 'Australian Oaks', emoji: '👑', points: 265770, needed: 265770 - points };
+    if (points < 269060) return { num: 237, name: 'Golden Eagle', emoji: '👑', points: 269060, needed: 269060 - points };
+    if (points < 272395) return { num: 238, name: 'Golden Rose', emoji: '👑', points: 272395, needed: 272395 - points };
+    if (points < 275765) return { num: 239, name: 'Moonee Valley Gold Cup', emoji: '👑', points: 275765, needed: 275765 - points };
+    if (points < 279175) return { num: 240, name: 'Sydney Cup', emoji: '👑', points: 279175, needed: 279175 - points };
+    if (points < 282620) return { num: 241, name: 'Stradbroke Handicap', emoji: '👑', points: 282620, needed: 282620 - points };
+    if (points < 286110) return { num: 242, name: 'Doomben 10,000', emoji: '👑', points: 286110, needed: 286110 - points };
+    if (points < 289640) return { num: 243, name: 'Australian Cup', emoji: '👑', points: 289640, needed: 289640 - points };
+    if (points < 293210) return { num: 244, name: 'All Aged Stakes', emoji: '👑', points: 293210, needed: 293210 - points };
+    if (points < 296820) return { num: 245, name: 'Newmarket Handicap', emoji: '👑', points: 296820, needed: 296820 - points };
+    if (points < 300470) return { num: 246, name: 'Victoria Derby', emoji: '👑', points: 300470, needed: 300470 - points };
+    if (points < 304165) return { num: 247, name: 'T.J. Smith Stakes', emoji: '👑', points: 304165, needed: 304165 - points };
+    if (points < 307905) return { num: 248, name: 'Australian Derby', emoji: '👑', points: 307905, needed: 307905 - points };
+    if (points < 311685) return { num: 249, name: 'Doncaster Handicap', emoji: '👑', points: 311685, needed: 311685 - points };
+    if (points < 315510) return { num: 250, name: 'Caulfield Guineas', emoji: '👑', points: 315510, needed: 315510 - points };
+    if (points < 319375) return { num: 251, name: 'Darley Classic', emoji: '👑', points: 319375, needed: 319375 - points };
+    if (points < 323290) return { num: 252, name: 'Champions Sprint', emoji: '👑', points: 323290, needed: 323290 - points };
+    if (points < 327250) return { num: 253, name: 'Champions Mile', emoji: '👑', points: 327250, needed: 327250 - points };
+    if (points < 331255) return { num: 254, name: 'Champions Classic', emoji: '👑', points: 331255, needed: 331255 - points };
+    if (points < 335305) return { num: 255, name: 'Coolmore Stud Stakes', emoji: '👑', points: 335305, needed: 335305 - points };
+    if (points < 339400) return { num: 256, name: 'Turnbull Stakes', emoji: '👑', points: 339400, needed: 339400 - points };
+    if (points < 343545) return { num: 257, name: 'The Everest', emoji: '👑', points: 343545, needed: 343545 - points };
+    if (points < 347740) return { num: 258, name: 'Queen Elizabeth Stakes', emoji: '👑', points: 347740, needed: 347740 - points };
+    if (points < 351980) return { num: 259, name: 'Golden Slipper', emoji: '👑', points: 351980, needed: 351980 - points };
+    if (points < 356270) return { num: 260, name: 'Caulfield Cup', emoji: '👑', points: 356270, needed: 356270 - points };
+    if (points < 360610) return { num: 261, name: 'W.S. Cox Plate', emoji: '👑', points: 360610, needed: 360610 - points };
+    if (points < 365000) return { num: 262, name: 'Melbourne Cup', emoji: '👑', points: 365000, needed: 365000 - points };
     return null;
   }
 
@@ -8366,11 +8768,13 @@ const COMMUNITY = (function() {
 
     // Update upvote count on post/reply
     const table = targetType === 'post' ? 'posts' : 'replies';
-    const item = await sbFetch(table + '?id=eq.' + targetId + '&select=upvotes');
+    const voteCol = (table === 'posts') ? 'votes' : 'upvotes';
+    const item = await sbFetch(table + '?id=eq.' + targetId + '&select=' + voteCol);
     if (item && item[0]) {
+      const pb = {}; pb[voteCol] = (item[0][voteCol] || 0) + 1;
       await sbFetch(table + '?id=eq.' + targetId, {
         method: 'PATCH',
-        body: { upvotes: (item[0].upvotes || 0) + 1 }
+        body: pb
       });
     }
 
