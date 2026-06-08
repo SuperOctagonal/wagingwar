@@ -2757,6 +2757,8 @@ function restoreFeed(section){
 function showRanksPage(){
   var main=document.getElementById('main');
   if(!main)return;
+  // Reset main to allow scrolling
+  main.style.cssText='overflow-y:auto;height:calc(100vh - 56px)';
   var pts=(window.wwUserProfile&&window.wwUserProfile.points)||0;
   var _buildRanks=function(){
     if(typeof COMMUNITY==='undefined')return{current:null,next20:[],all:[]};
@@ -2786,7 +2788,7 @@ function showRanksPage(){
       '<div style="width:28px;height:28px;border-radius:50%;background:'+t.color+';display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px;font-weight:800;flex-shrink:0">'+(i+1)+'</div>'+
       '<div style="flex:1;min-width:0">'+
         '<div style="font-size:12px;font-weight:'+(i===0?'800':'600')+';color:#111827">'+t.emoji+' '+t.name+'</div>'+
-        '<div style="font-size:10px;color:#6b7280;margin-top:1px">'+needed.toLocaleString()+' pts needed &middot; '+w700+'w heavy use &middot; '+w300+'w casual</div>'+
+        '<div style="font-size:10px;color:#374151;margin-top:1px">'+needed.toLocaleString()+' pts needed &middot; '+w700+'w heavy use &middot; '+w300+'w casual</div>'+
         '<div style="margin-top:4px;height:3px;background:#f1f5f9;border-radius:2px;overflow:hidden">'+
           '<div style="width:'+Math.min(100,Math.round(pts/t.pts*100))+'%;height:100%;background:'+t.color+';border-radius:2px"></div>'+
         '</div>'+
@@ -2847,6 +2849,7 @@ function showRanksPage(){
 function showFullLadder(){
   var main=document.getElementById('main');
   if(!main)return;
+  main.style.cssText='overflow-y:auto;height:calc(100vh - 56px)';
   var pts=(window.wwUserProfile&&window.wwUserProfile.points)||0;
   var allTiers=[];
   if(typeof COMMUNITY!=='undefined'){
@@ -2997,6 +3000,8 @@ function showTierGuide(){
 function showCommunity(){
   var main=document.getElementById('main');
   if(!main)return;
+  // Reset main style for shell layout
+  main.style.cssText='';
   if(document.getElementById('comm-shell')){
     restoreFeed(window._communityFilter||'all');
     return;
@@ -3287,12 +3292,12 @@ async function loadCommFeed(section){
       '<div style="display:flex;align-items:baseline;gap:6px;padding:7px 12px 2px">'+
         '<span style="font-size:8px;font-weight:700;padding:1px 5px;border-radius:3px;background:'+cat.bg+';color:'+cat.c+';flex-shrink:0">'+cat.label+'</span>'+
         '<span class="p-title" style="font-size:13px;font-weight:700;color:#111827;flex:1;min-width:0">'+((p.title||'').replace(/</g,'&lt;'))+'</span>'+
-        (canDel?'<button class="del-post-btn" data-pid="'+p.id+'" style="background:none;border:none;color:#dc2626;font-size:10px;cursor:pointer;padding:0;flex-shrink:0;opacity:.4">🗑</button>':'')+
+        (canDel?'<button class="del-post-btn" data-pid="'+p.id+'" style="background:#dc2626;border:none;border-radius:3px;color:#fff;font-size:9px;font-weight:700;cursor:pointer;padding:2px 7px;flex-shrink:0">🗑 Del</button>':'')+
       '</div>'+
       (preview?'<div class="p-prev" style="padding:0 12px 3px;font-size:11px;color:#6b7280;line-height:1.4">'+preview+(p.body&&p.body.length>120?'…':'')+'</div>':'')+
       '<div style="display:flex;align-items:center;gap:8px;padding:2px 12px 7px;font-size:10px;color:#9ca3af">'+
         '<div style="width:14px;height:14px;border-radius:50%;background:#00471b;display:inline-flex;align-items:center;justify-content:center;color:#fff;font-size:7px;font-weight:800;flex-shrink:0">'+pi+'</div>'+
-        '<span style="font-weight:600;color:#4b5563;font-size:10px">'+dname+'</span>'+
+        '<span style="font-weight:600;color:#111827;font-size:10px">'+dname+'</span>'+
         '<span style="font-size:8px;padding:0 3px;border-radius:3px;background:#f3f4f6;color:#6b7280">'+(prof.tier||'Maiden')+'</span>'+
         '<span>'+getTimeAgo(p.created_at)+'</span>'+
         '<span style="margin-left:auto;display:flex;align-items:center;gap:5px">'+
@@ -3420,8 +3425,8 @@ async function openPostThread(postId){
     return '<div style="width:88px;flex-shrink:0;padding:8px;border-right:1px solid #e5e7eb;background:#f9fafb">'+
       '<div style="width:26px;height:26px;border-radius:50%;background:'+bg+';display:flex;align-items:center;justify-content:center;color:#fff;font-size:10px;font-weight:800;margin-bottom:3px">'+initl+'</div>'+
       '<div style="font-size:10px;font-weight:700;color:#111827;word-break:break-word;line-height:1.2">'+name+'</div>'+
-      '<div style="font-size:8px;color:#9ca3af;margin-top:1px">'+tier+'</div>'+
-      '<div style="font-size:8px;color:#b0b7bf;margin-top:2px">'+time+'</div>'+
+      '<div style="font-size:8px;color:#374151;margin-top:1px">'+tier+'</div>'+
+      '<div style="font-size:8px;color:#374151;margin-top:2px">'+time+'</div>'+
     '</div>';
   }
 
@@ -3432,7 +3437,7 @@ async function openPostThread(postId){
       authorCol(rname,rp.tier||'Maiden',getTimeAgo(r.created_at),ri,'#1e40af')+
       '<div style="flex:1;padding:8px 10px;font-size:12px;color:#374151;line-height:1.6;white-space:pre-wrap;position:relative">'+
         ((r.content||'').replace(/</g,'&lt;'))+
-        (canDelR?'<button class="del-reply-btn" data-rid="'+r.id+'" data-postid="'+postId+'" style="position:absolute;top:5px;right:6px;background:none;border:none;color:#dc2626;font-size:9px;cursor:pointer;opacity:.4">🗑</button>':'')+
+        (canDelR?'<button class="del-reply-btn" data-rid="'+r.id+'" data-postid="'+postId+'" style="position:absolute;top:5px;right:6px;background:#dc2626;border:none;border-radius:3px;color:#fff;font-size:8px;font-weight:700;cursor:pointer;padding:1px 5px">🗑</button>':'')+
       '</div>'+
     '</div>';
   }).join(''):'<div style="padding:14px 12px;font-size:11px;color:#9ca3af;border-bottom:1px solid #e5e7eb">No replies yet — be the first!</div>';
@@ -3457,7 +3462,7 @@ async function openPostThread(postId){
       '<button id="thread-back" style="background:none;border:1px solid #d1d5db;border-radius:3px;padding:3px 8px;font-size:10px;color:#374151;cursor:pointer;font-family:inherit">← Back</button>'+
       '<span style="font-size:8px;font-weight:700;padding:2px 6px;border-radius:3px;background:'+cat.bg+';color:'+cat.c+'">'+cat.label+'</span>'+
       '<span style="font-size:11px;font-weight:700;color:#111827;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+((p.title||'').replace(/</g,'&lt;'))+'</span>'+
-      (canDel?'<button id="del-post-thread" style="background:none;border:1px solid #fecaca;border-radius:3px;color:#dc2626;font-size:9px;cursor:pointer;padding:3px 8px;font-family:inherit;flex-shrink:0">🗑 Delete</button>':'')+
+      (canDel?'<button id="del-post-thread" style="background:#dc2626;border:none;border-radius:4px;color:#fff;font-size:11px;font-weight:700;cursor:pointer;padding:5px 14px;font-family:inherit;flex-shrink:0">🗑 Delete</button>':'')+
     '</div>'+
     '<div style="flex:1;overflow-y:auto">'+
       '<div style="display:flex;border-bottom:2px solid #d1d5db;background:#fff">'+
