@@ -825,7 +825,7 @@ function LadderPage({ profile, onClose }) {
 
 // ─── left column ─────────────────────────────────────────────────────────────
 
-function LeftColumn({ profile, section, onSection, missions, badges, onShowRanks, onShowLadder }) {
+function LeftColumn({ profile, userId, section, onSection, missions, badges, onShowRanks, onShowLadder }) {
   const tier = getTier(profile?.points || 0);
   const totalPoints = profile?.points || 0;
   const allTierPts = ALL_TIERS.map(t => t.points).sort((a,b)=>a-b);
@@ -885,6 +885,8 @@ function LeftColumn({ profile, section, onSection, missions, badges, onShowRanks
               </div>
             )}
           </>
+        ) : userId ? (
+          <div style={{ fontSize: 11, color: '#9ca3af' }}>Loading profile…</div>
         ) : (
           <div style={{ fontSize: 11, color: '#9ca3af' }}>Sign in to see your profile.</div>
         )}
@@ -1175,6 +1177,7 @@ function CommunityPageInner() {
         className="community-grid">
       <LeftColumn
         profile={profile}
+        userId={userId}
         section={section}
         onSection={s => setSection(s)}
         missions={missions}

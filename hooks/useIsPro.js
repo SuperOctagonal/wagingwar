@@ -1,6 +1,6 @@
-import { useAuth } from '@clerk/nextjs';
+import { useUser } from '@clerk/nextjs';
 
 export default function useIsPro() {
-  const { sessionClaims } = useAuth();
-  return sessionClaims?.publicMetadata?.plan === 'pro';
+  const { user } = useUser();
+  return user?.publicMetadata?.plan === 'pro';
 }
