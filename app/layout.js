@@ -22,13 +22,28 @@ export default function RootLayout({ children }) {
         <body className="font-space text-[13px] bg-slate-100 text-gray-900 h-full flex flex-col overflow-hidden">
           <TopNav />
           {children}
+          {/* Responsible gambling banner — desktop (in flow above footer) */}
+          <div className="hidden md:flex flex-shrink-0 items-center justify-center px-4 py-1.5 bg-gray-800 text-[11px] text-gray-300 gap-3">
+            Gamble responsibly. Never bet more than you can afford to lose.
+            <a href="/responsible-gambling" className="underline hover:text-white transition-colors">
+              For help call 1800&nbsp;858&nbsp;858
+            </a>
+          </div>
           <footer className="hidden md:flex flex-shrink-0 items-center justify-center gap-5 px-4 py-2 bg-white border-t border-gray-100 text-[10px] text-gray-400">
             <span>© {new Date().getFullYear()} Waging War</span>
-            <a href="/privacy"  className="hover:text-gray-600 transition-colors">Privacy Policy</a>
-            <a href="/terms"    className="hover:text-gray-600 transition-colors">Terms of Service</a>
-            <a href="/upcoming" className="hover:text-gray-600 transition-colors">Upcoming Features</a>
+            <a href="/privacy"                 className="hover:text-gray-600 transition-colors">Privacy Policy</a>
+            <a href="/terms"                   className="hover:text-gray-600 transition-colors">Terms of Service</a>
+            <a href="/responsible-gambling"    className="hover:text-gray-600 transition-colors">Responsible Gambling</a>
+            <a href="/upcoming"                className="hover:text-gray-600 transition-colors">Upcoming Features</a>
             <a href="mailto:adam@wagingwar.com.au" className="hover:text-gray-600 transition-colors">Contact</a>
           </footer>
+          {/* Responsible gambling banner — mobile (fixed above tab bar) */}
+          <div className="md:hidden fixed bottom-14 left-0 right-0 z-[1001] flex items-center justify-center gap-2 px-3 py-1 bg-gray-800 text-[10px] text-gray-300">
+            Gamble responsibly.
+            <a href="/responsible-gambling" className="underline">
+              Help: 1800&nbsp;858&nbsp;858
+            </a>
+          </div>
         </body>
       </html>
     </ClerkProvider>
