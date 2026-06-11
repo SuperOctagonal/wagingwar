@@ -25,6 +25,7 @@ export default function RootLayout({ children }) {
           <footer className="hidden md:flex flex-shrink-0 items-center justify-center gap-5 px-4 py-2 bg-white border-t border-gray-100 text-[10px] text-gray-400">
             <span>© {new Date().getFullYear()} Waging War</span>
             <a href="/privacy"  className="hover:text-gray-600 transition-colors">Privacy Policy</a>
+            <a href="/terms"    className="hover:text-gray-600 transition-colors">Terms of Service</a>
             <a href="/upcoming" className="hover:text-gray-600 transition-colors">Upcoming Features</a>
             <a href="mailto:adam@wagingwar.com.au" className="hover:text-gray-600 transition-colors">Contact</a>
           </footer>
