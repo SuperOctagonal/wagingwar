@@ -22,6 +22,12 @@ export default function RootLayout({ children }) {
         <body className="font-space text-[13px] bg-slate-100 text-gray-900 h-full flex flex-col overflow-hidden">
           <TopNav />
           {children}
+          <footer className="hidden md:flex flex-shrink-0 items-center justify-center gap-5 px-4 py-2 bg-white border-t border-gray-100 text-[10px] text-gray-400">
+            <span>© {new Date().getFullYear()} Waging War</span>
+            <a href="/privacy"  className="hover:text-gray-600 transition-colors">Privacy Policy</a>
+            <a href="/upcoming" className="hover:text-gray-600 transition-colors">Upcoming Features</a>
+            <a href="mailto:adam@wagingwar.com.au" className="hover:text-gray-600 transition-colors">Contact</a>
+          </footer>
         </body>
       </html>
     </ClerkProvider>
