@@ -247,13 +247,13 @@ const VIEW_TABS = [
 
 function ViewTabBar({ view, setView, runnerCount }) {
   return (
-    <div className="flex items-center border-b border-gray-200 bg-white px-2 flex-shrink-0">
+    <div className="flex items-center border-b border-gray-200 bg-white px-2 flex-shrink-0 h-10">
       {VIEW_TABS.map(t => (
         <button
           key={t.id}
           onClick={() => !t.locked && setView(t.id)}
           className={[
-            'flex items-center gap-1.5 px-3 py-2.5 text-[10px] font-semibold border-b-2 transition-colors whitespace-nowrap',
+            'flex items-center gap-1.5 px-3 h-full text-[12px] font-semibold border-b-2 transition-colors whitespace-nowrap',
             view === t.id
               ? 'text-brand border-brand'
               : t.locked
@@ -276,10 +276,10 @@ function ViewTabBar({ view, setView, runnerCount }) {
 
 function RaceHeader({ rc, trackCond, setTrackCond, weights, setWeights, runnerCount, onUpgrade }) {
   return (
-    <div className="px-4 py-2.5 bg-white border-b border-gray-100 flex flex-wrap items-center justify-between gap-3 flex-shrink-0">
+    <div className="px-2.5 md:px-4 py-1.5 md:py-2.5 bg-white border-b border-gray-100 flex flex-wrap items-center justify-between gap-3 flex-shrink-0">
       <div>
         <div className="flex items-baseline gap-2">
-          <h2 className="font-bebas text-[22px] tracking-widest text-gray-900 leading-none">
+          <h2 className="font-bebas text-[19px] md:text-[22px] tracking-widest text-gray-900 leading-none">
             {rc.venue} R{rc.num}
           </h2>
           {rc.name && <span className="text-sm font-semibold text-gray-500">{rc.name}</span>}
@@ -809,10 +809,10 @@ function MobileRacePicker({ allVenues, allRaces, selectedRaceKey, onSelect }) {
   return (
     <div className="md:hidden" style={{ background: '#1a2634', flexShrink: 0 }}>
       {/* Venue row */}
-      <div style={{ display: 'flex', overflowX: 'auto', gap: 4, padding: '6px 10px 4px', scrollbarWidth: 'none' }}>
+      <div style={{ display: 'flex', overflowX: 'auto', gap: 4, padding: '5px 10px 3px', scrollbarWidth: 'none' }}>
         {venues.map(v => (
           <button key={v} onClick={() => setSelVenue(v)}
-            style={{ padding: '5px 11px', borderRadius: 20, fontSize: 10, fontWeight: 700, whiteSpace: 'nowrap', border: 'none', cursor: 'pointer', flexShrink: 0, minHeight: 30,
+            style={{ padding: '0 8px', height: 28, borderRadius: 20, fontSize: 11, fontWeight: 700, whiteSpace: 'nowrap', border: 'none', cursor: 'pointer', flexShrink: 0,
               background: selVenue === v ? '#00471b' : 'rgba(255,255,255,0.1)',
               color: selVenue === v ? '#fff' : 'rgba(255,255,255,0.6)',
             }}>
@@ -821,13 +821,13 @@ function MobileRacePicker({ allVenues, allRaces, selectedRaceKey, onSelect }) {
         ))}
       </div>
       {/* Race row */}
-      <div style={{ display: 'flex', overflowX: 'auto', gap: 4, padding: '4px 10px 7px', scrollbarWidth: 'none' }}>
+      <div style={{ display: 'flex', overflowX: 'auto', gap: 4, padding: '3px 10px 6px', scrollbarWidth: 'none' }}>
         {venueRaces.map(rk => {
           const rc = allRaces[rk];
           const isActive = rk === selectedRaceKey;
           return (
             <button key={rk} onClick={() => onSelect(rk)}
-              style={{ padding: '4px 11px', borderRadius: 20, fontSize: 10, fontWeight: 700, whiteSpace: 'nowrap', border: 'none', cursor: 'pointer', flexShrink: 0, minHeight: 30,
+              style={{ padding: '0 8px', height: 28, borderRadius: 20, fontSize: 11, fontWeight: 700, whiteSpace: 'nowrap', border: 'none', cursor: 'pointer', flexShrink: 0,
                 background: isActive ? '#fbbf24' : 'rgba(255,255,255,0.08)',
                 color: isActive ? '#111827' : 'rgba(255,255,255,0.7)',
               }}>
@@ -849,6 +849,8 @@ function MobileRunnerCard({ runner, rank, rc, trackCond, onLogBet, isResulted, i
   const pips = (runner.lastFin || []).slice(0, 4).filter(v => v !== null && v !== undefined && v !== '');
   const pm   = calcPaceMap(runner, rc.venue, +rc.dist, trackCond);
   const rankColor = rank===1?'#d97706':rank===2?'#6b7280':rank===3?'#b45309':'#9ca3af';
+  const tcLabel   = { good:'Good', soft:'Soft', heavy:'Heavy', synthetic:'Synth' }[trackCond] || 'Cond';
+  const grpLabels = { form:'Form', speed:'Speed', cond: tcLabel, conn:'Conn' };
 
   let valStr = '—', valColor = '#374151';
   if (mktO && myO) {
@@ -858,7 +860,7 @@ function MobileRunnerCard({ runner, rank, rc, trackCond, onLogBet, isResulted, i
   }
 
   return (
-    <div style={{ background: rank===1 ? '#fffbeb' : '#fff', borderBottom: '1px solid #f0f0f0', padding: '10px 12px' }}>
+    <div style={{ background: rank===1 ? '#fffbeb' : '#fff', borderBottom: '6px solid #f1f5f9', padding: '8px 12px' }}>
       {/* Row 1: tab + name + rank/lock */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 4 }}>
         <span style={{ flexShrink: 0, background: '#1e40af', color: '#fff', fontSize: 9, fontWeight: 700, fontFamily: 'monospace', padding: '2px 5px', borderRadius: 3 }}>{runner.tab}</span>
@@ -870,8 +872,8 @@ function MobileRunnerCard({ runner, rank, rc, trackCond, onLogBet, isResulted, i
       </div>
 
       {/* Row 2: jockey · weight | pips */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-        <span style={{ fontSize: 10, color: '#6b7280', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+        <span style={{ fontSize: 11, color: '#6b7280', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {[jShort(runner.jname), wt].filter(Boolean).join(' · ')}
         </span>
         <div style={{ display: 'flex', gap: 2, flexShrink: 0 }}>
@@ -883,29 +885,70 @@ function MobileRunnerCard({ runner, rank, rc, trackCond, onLogBet, isResulted, i
         </div>
       </div>
 
-      {/* Row 3: score | live$ | value | pace | bet */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        <div style={{ fontSize: 12, fontWeight: 800, color: rankColor, minWidth: 36 }}>
-          {!isPro ? <LockBtn onClick={onUpgrade} /> : runner.totalFromGroups.toFixed(1)}
+      {/* Group score chips — 2×2 grid */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 3, marginBottom: 6 }}>
+        {GRP_KEYS.map(gk => {
+          const gs   = runner.grpScores?.[gk];
+          const info = GRP_LABELS[gk];
+          return (
+            <div key={gk} style={{ background: '#f9fafb', border: '0.5px solid #e5e7eb', borderRadius: 4, padding: '3px 7px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: 8, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase' }}>{grpLabels[gk]}</span>
+              <span style={{ fontSize: 12, fontWeight: 700, color: isPro ? info.color : '#d1d5db' }}>
+                {isPro ? (gs ? gs.total.toFixed(1) : '—') : <LockBtn onClick={onUpgrade} />}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Bottom row 1: SCORE + EDGE + VALUE */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 6 }}>
+        <div>
+          <div style={{ fontSize: 8, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase' }}>Score</div>
+          <div style={{ fontSize: 12, fontWeight: 800, color: rankColor }}>
+            {!isPro ? <LockBtn onClick={onUpgrade} /> : runner.totalFromGroups.toFixed(1)}
+          </div>
         </div>
-        {mktO && <div style={{ fontSize: 11, color: '#374151', fontFamily: 'monospace' }}>${mktO.toFixed(2)}</div>}
-        <div style={{ fontSize: 10, fontWeight: 600, color: valColor }}>
-          {isPro ? valStr : null}
+        <div>
+          <div style={{ fontSize: 8, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase' }}>Edge $</div>
+          <div style={{ fontSize: 12, fontWeight: 700, color: '#059669' }}>
+            {!isPro ? <LockBtn onClick={onUpgrade} /> : (myO ? `$${formatRacingOdds(myO)}` : '—')}
+          </div>
         </div>
-        {pm && (
+        <div>
+          <div style={{ fontSize: 8, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase' }}>Value</div>
+          <div style={{ fontSize: 12, fontWeight: 600, color: valColor }}>
+            {isPro ? valStr : <LockBtn onClick={onUpgrade} />}
+          </div>
+        </div>
+      </div>
+
+      {/* Bottom row 2: PACE + Bet + Blackbook */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+        {pm ? (
           <div style={{ display: 'flex', alignItems: 'center', gap: 3, flex: 1, minWidth: 0 }}>
             <span style={{ fontSize: 8, fontWeight: 700, color: pm.color, flexShrink: 0 }}>{pm.role.slice(0,3).toUpperCase()}</span>
             <div style={{ width: 36, height: 4, background: '#f3f4f6', borderRadius: 99, overflow: 'hidden', flexShrink: 0 }}>
               <div style={{ height: '100%', width: `${pm.pct}%`, background: pm.color, borderRadius: 99 }} />
             </div>
           </div>
-        )}
+        ) : <div style={{ flex: 1 }} />}
         <button
           onClick={() => !isResulted && onLogBet(runner, rank)}
           disabled={isResulted}
-          style={{ marginLeft: 'auto', minHeight: 36, padding: '0 12px', fontSize: 11, fontWeight: 600, border: '1px solid #e5e7eb', borderRadius: 6, background: isResulted ? '#f9fafb' : '#fff', color: isResulted ? '#9ca3af' : '#374151', cursor: isResulted ? 'default' : 'pointer', whiteSpace: 'nowrap', flexShrink: 0 }}
+          style={{ minHeight: 32, padding: '0 12px', fontSize: 11, fontWeight: 600, border: '1px solid #e5e7eb', borderRadius: 6, background: isResulted ? '#f9fafb' : '#fff', color: isResulted ? '#9ca3af' : '#374151', cursor: isResulted ? 'default' : 'pointer', whiteSpace: 'nowrap', flexShrink: 0 }}
         >
           {isResulted ? 'Resulted' : '+ Bet'}
+        </button>
+        <button
+          onClick={() => isPro
+            ? window.__addToBlackbook?.({ name: runner.name, venue: rc?.venue || '', raceNumber: rc?.num || '', distance: rc?.dist || '', cls: rc?.cls || '' })
+            : onUpgrade()
+          }
+          style={{ minHeight: 32, padding: '0 10px', fontSize: 13, border: '1px solid #e5e7eb', borderRadius: 6, background: '#fff', color: '#374151', cursor: 'pointer', flexShrink: 0 }}
+          title="Add to Blackbook"
+        >
+          🔖
         </button>
       </div>
     </div>
