@@ -1051,12 +1051,24 @@ function CommunityPageInner() {
   }, [section]);
 
   useEffect(() => {
-    if (!userId) { console.log('[Community] no userId — not signed in'); return; }
-    console.log('[Community] userId:', userId);
+    if (!userId) return;
     (async () => {
       const r = await sb(`user_profiles?select=*&clerk_id=eq.${userId}&limit=1`);
-      console.log('[Community] profile query result:', r);
-      if (r && r.length) setProfile(r[0]);
+      if (r && r.length) {
+        setProfile(r[0]);
+      } else {
+        const email = user?.emailAddresses?.[0]?.emailAddress || '';
+        const display_name = user?.firstName
+          ? (user.lastName ? `${user.firstName} ${user.lastName}` : user.firstName)
+          : email.split('@')[0] || 'User';
+        const created = await sb('user_profiles', {
+          method: 'POST',
+          body: { clerk_id: userId, email, display_name, points: 0 },
+          prefer: 'return=representation',
+        });
+        if (created && created[0]) setProfile(created[0]);
+        else if (created && !Array.isArray(created)) setProfile(created);
+      }
     })();
     setBadges([]);
     sb(`user_missions?select=*,missions(title,points)&clerk_id=eq.${userId}&limit=5`).then(r => {
