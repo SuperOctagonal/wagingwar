@@ -22,8 +22,10 @@ export default clerkMiddleware(async (auth, request) => {
     try {
       await auth.protect();
     } catch {
-      const dest = new URL(SIGN_IN_URL, request.url);
-      dest.searchParams.set('redirect_url', request.url);
+      const base = process.env.NEXT_PUBLIC_APP_URL || request.nextUrl.origin;
+      const dest = new URL(SIGN_IN_URL, base);
+      const redirectTo = new URL(request.nextUrl.pathname + request.nextUrl.search, base);
+      dest.searchParams.set('redirect_url', redirectTo.toString());
       return NextResponse.redirect(dest);
     }
   }
