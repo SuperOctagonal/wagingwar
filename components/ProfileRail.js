@@ -9,7 +9,7 @@ import useIsPro from '@/hooks/useIsPro';
 const SURL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SKEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-export default function ProfileRail() {
+export default function ProfileRail({ children }) {
   const { user, isLoaded } = useUser();
   const isPro = useIsPro();
   const pathname = usePathname();
@@ -114,6 +114,7 @@ export default function ProfileRail() {
           </div>
         )}
       </div>
+      {children}
     </div>
   );
 }

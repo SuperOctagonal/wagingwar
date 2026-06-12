@@ -507,23 +507,19 @@ export default function MybetsPage() {
 
   return (
     <div className="mob-page" style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
-      <ProfileRail />
+      <ProfileRail>
+        {!isMobile && (
+          <div style={{ borderTop: '2px solid #059669' }}>
+            <div style={{ padding: '10px 12px 6px' }}>
+              <span style={{ fontSize: 13, fontWeight: 700, color: '#111827' }}>⚡ Log a Bet</span>
+            </div>
+            <div style={{ padding: '0 12px 12px', display: 'flex', flexDirection: 'column', gap: 5 }}>
 
-      {/* ── Quick Log sidebar (desktop only) ── */}
-      {!isMobile && (
-        <div style={{ width: 220, flexShrink: 0, background: '#fff', borderRight: '1px solid #e5e7eb', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-          <div style={{ padding: '12px 12px 8px', borderBottom: '2px solid #059669', flexShrink: 0 }}>
-            <span style={{ fontSize: 13, fontWeight: 700, color: '#111827' }}>⚡ Log a Bet</span>
-          </div>
-          <div style={{ padding: '10px 12px', overflowY: 'auto', flex: 1 }}>
-
-            {csvMeetings.length === 0 && (
-              <div style={{ fontSize: 10, color: '#9ca3af', marginBottom: 8, lineHeight: 1.4 }}>
-                Load a CSV on the Races page to enable meeting/horse selection.
-              </div>
-            )}
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+              {csvMeetings.length === 0 && (
+                <div style={{ fontSize: 10, color: '#9ca3af', lineHeight: 1.4 }}>
+                  Load a CSV on the Races page to enable meeting/horse selection.
+                </div>
+              )}
 
               {csvMeetings.length > 0 ? (
                 <select value={qlMeeting} onChange={e => { setQlMeeting(e.target.value); setQlRace(''); setQlHorse(''); setQlOdds(''); }} style={inp}>
@@ -593,8 +589,8 @@ export default function MybetsPage() {
               )}
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </ProfileRail>
 
       {/* ── Main content ── */}
       <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: '#f8fafc' }}>
@@ -633,7 +629,7 @@ export default function MybetsPage() {
           {pendingBetsSorted.length === 0 ? (
             <div style={{ fontSize: 12, color: '#9ca3af', paddingBottom: 10 }}>No pending bets</div>
           ) : (
-            <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 12 }}>
+            <div style={{ background: '#fff', borderRadius: 8, border: '1px solid #e5e7eb', overflow: 'hidden', marginBottom: 12 }}>
               {pendingBetsSorted.map((b, idx) => {
                 const rn = b.race_number ?? b.race_num;
                 const vn = b.track || b.venue;
@@ -642,16 +638,20 @@ export default function MybetsPage() {
                 const rank = b.rank;
                 const rankCfg = rank === 1 ? { bg: '#064e3b', color: '#ecfdf5' } : rank === 2 ? { bg: '#059669', color: '#fff' } : rank === 3 ? { bg: '#d97706', color: '#fff' } : rank ? { bg: '#9ca3af', color: '#fff' } : null;
                 return (
-                  <div key={b.id} style={{ flexShrink: 0, background: '#fff', border: '1px solid #e5e7eb', borderLeft: `4px solid ${borderColor}`, borderRadius: 8, padding: '10px 12px', minWidth: 160, maxWidth: 200, position: 'relative' }}>
-                    {idx === 0 && <div style={{ fontSize: 7, fontWeight: 700, color: '#059669', textTransform: 'uppercase', letterSpacing: '.5px', marginBottom: 3 }}>NEXT TO RACE →</div>}
-                    <div style={{ position: 'absolute', top: 8, right: 8 }}>
-                      <BetCountdown bet={b} csvRaces={csvRaces} csvVenues={csvVenues} />
+                  <div key={b.id} style={{ display: 'flex', alignItems: 'center', borderLeft: `3px solid ${borderColor}`, borderBottom: idx < pendingBetsSorted.length - 1 ? '1px solid #f3f4f6' : 'none', padding: '7px 12px', gap: 8, background: '#fff' }}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                        {idx === 0 && <span style={{ fontSize: 7, fontWeight: 700, color: '#059669', textTransform: 'uppercase', letterSpacing: '.5px', flexShrink: 0 }}>NEXT →</span>}
+                        <span style={{ fontWeight: 700, fontSize: 12, color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b.horse_name || '—'}</span>
+                      </div>
+                      <div style={{ fontSize: 10, color: '#6b7280', marginTop: 1 }}>{[vn, rn ? `R${rn}` : null].filter(Boolean).join(' · ')}</div>
                     </div>
-                    <div style={{ fontWeight: 700, fontSize: 13, color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', paddingRight: 44 }}>{b.horse_name || '—'}</div>
-                    <div style={{ fontSize: 10, color: '#6b7280', marginTop: 2 }}>{[vn, rn ? `R${rn}` : null].filter(Boolean).join(' · ')}</div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 6, flexWrap: 'wrap' }}>
-                      <span style={{ fontSize: 9, background: '#f3f4f6', color: '#374151', padding: '2px 7px', borderRadius: 10, fontFamily: 'monospace' }}>${(b.stake || 0).toFixed(0)} @ ${Number(b.odds || 0).toFixed(2)}</span>
-                      {rankCfg && <span style={{ fontSize: 9, fontWeight: 700, padding: '2px 6px', borderRadius: 4, background: rankCfg.bg, color: rankCfg.color }}>R{rank}</span>}
+                    <div style={{ flexShrink: 0, textAlign: 'right' }}>
+                      <div style={{ fontSize: 10, fontFamily: 'monospace', color: '#374151' }}>${(b.stake || 0).toFixed(0)} @ ${Number(b.odds || 0).toFixed(2)}</div>
+                      <div style={{ display: 'flex', gap: 3, justifyContent: 'flex-end', marginTop: 2 }}>
+                        {rankCfg && <span style={{ fontSize: 8, fontWeight: 700, padding: '1px 5px', borderRadius: 3, background: rankCfg.bg, color: rankCfg.color }}>R{rank}</span>}
+                        <BetCountdown bet={b} csvRaces={csvRaces} csvVenues={csvVenues} />
+                      </div>
                     </div>
                   </div>
                 );
@@ -687,11 +687,11 @@ export default function MybetsPage() {
               <div style={{ fontSize: 12, color: '#9ca3af' }}>No resulted bets</div>
             </div>
           ) : (
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
               <thead>
                 <tr style={{ background: '#f1f5f9', borderBottom: '2px solid #e5e7eb', position: 'sticky', top: 0 }}>
                   {['Date','Horse','Race','Type','Stake','Odds','Pos','P&L','Result'].map(h => (
-                    <th key={h} style={{ padding: '6px 10px', textAlign: ['Stake','Odds','P&L'].includes(h) ? 'right' : 'left', fontSize: 9, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '.4px', whiteSpace: 'nowrap' }}>{h}</th>
+                    <th key={h} style={{ padding: '5px 8px', textAlign: ['Stake','Odds','P&L'].includes(h) ? 'right' : 'left', fontSize: 9, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '.4px', whiteSpace: 'nowrap' }}>{h}</th>
                   ))}
                 </tr>
               </thead>
@@ -710,17 +710,17 @@ export default function MybetsPage() {
                   const badge = { win: { bg: '#16a34a', label: 'WIN' }, place: { bg: '#2563eb', label: 'PLACE' }, loss: { bg: '#dc2626', label: 'LOSS' } }[status] || { bg: '#9ca3af', label: 'PENDING' };
                   return (
                     <tr key={b.id} style={{ background: rowBg, borderBottom: '1px solid #f3f4f6', borderLeft: `3px solid ${rowBorder}` }}>
-                      <td style={{ padding: '7px 10px', color: '#6b7280', whiteSpace: 'nowrap' }}>{b.date ? b.date.slice(5).replace('-', '/') : '—'}</td>
-                      <td style={{ padding: '7px 10px', fontWeight: 600, color: '#111827', maxWidth: 130, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b.horse_name || '—'}</td>
-                      <td style={{ padding: '7px 10px', color: '#6b7280', whiteSpace: 'nowrap' }}>{[venue, raceNum ? `R${raceNum}` : null].filter(Boolean).join(' ')}</td>
-                      <td style={{ padding: '7px 10px', color: '#6b7280', textTransform: 'capitalize', whiteSpace: 'nowrap' }}>{b.bet_type || '—'}</td>
-                      <td style={{ padding: '7px 10px', textAlign: 'right', fontFamily: 'monospace' }}>${stake.toFixed(0)}</td>
-                      <td style={{ padding: '7px 10px', textAlign: 'right', fontFamily: 'monospace' }}>${Number(b.odds || 0).toFixed(2)}</td>
-                      <td style={{ padding: '7px 10px', textAlign: 'center', color: '#6b7280' }}>{pos ? ordinal(pos) : '—'}</td>
-                      <td style={{ padding: '7px 10px', textAlign: 'right', fontFamily: 'monospace', fontWeight: 700, color: pnl >= 0 ? '#16a34a' : '#dc2626' }}>
+                      <td style={{ padding: '4px 8px', color: '#6b7280', whiteSpace: 'nowrap' }}>{b.date ? b.date.slice(5).replace('-', '/') : '—'}</td>
+                      <td style={{ padding: '4px 8px', fontWeight: 600, color: '#111827', maxWidth: 130, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b.horse_name || '—'}</td>
+                      <td style={{ padding: '4px 8px', color: '#6b7280', whiteSpace: 'nowrap' }}>{[venue, raceNum ? `R${raceNum}` : null].filter(Boolean).join(' ')}</td>
+                      <td style={{ padding: '4px 8px', color: '#6b7280', textTransform: 'capitalize', whiteSpace: 'nowrap' }}>{b.bet_type || '—'}</td>
+                      <td style={{ padding: '4px 8px', textAlign: 'right', fontFamily: 'monospace' }}>${stake.toFixed(0)}</td>
+                      <td style={{ padding: '4px 8px', textAlign: 'right', fontFamily: 'monospace' }}>${Number(b.odds || 0).toFixed(2)}</td>
+                      <td style={{ padding: '4px 8px', textAlign: 'center', color: '#6b7280' }}>{pos ? ordinal(pos) : '—'}</td>
+                      <td style={{ padding: '4px 8px', textAlign: 'right', fontFamily: 'monospace', fontWeight: 700, color: pnl >= 0 ? '#16a34a' : '#dc2626' }}>
                         {pnl >= 0 ? '+$' : '-$'}{Math.abs(pnl).toFixed(2)}
                       </td>
-                      <td style={{ padding: '7px 10px' }}>
+                      <td style={{ padding: '4px 8px' }}>
                         <span style={{ fontSize: 9, fontWeight: 700, padding: '2px 7px', borderRadius: 4, background: badge.bg, color: '#fff' }}>{badge.label}</span>
                       </td>
                     </tr>
