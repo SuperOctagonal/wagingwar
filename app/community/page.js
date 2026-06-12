@@ -6,6 +6,7 @@ import { useUser } from '@clerk/nextjs';
 import useIsPro from '@/hooks/useIsPro';
 import useIsMobile from '@/hooks/useIsMobile';
 import UpgradeModal from '@/components/UpgradeModal';
+import { awardPoints } from '@/lib/points';
 
 const SURL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SKEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -174,7 +175,7 @@ function PostCard({ post, onSelect, onUpvote, onDelete, canDelete, isPro, onUpgr
         <TierBadge profile={post.author} />
         <span style={{ fontSize: 10, color: '#9ca3af' }}>{timeAgo(post.created_at)}</span>
         <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
-          <button onClick={e => { e.stopPropagation(); isPro ? onUpvote(post.id, post.votes) : onUpgrade(); }}
+          <button onClick={e => { e.stopPropagation(); isPro ? onUpvote(post.id, post.votes, post.user_id) : onUpgrade(); }}
             style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 11, fontWeight: 600, color: '#374151', background: '#f3f4f6', border: 'none', borderRadius: 20, padding: '2px 8px', cursor: 'pointer' }}>
             ▲ {post.votes || 0}
           </button>
@@ -229,7 +230,7 @@ function ThreadView({ post, replies, onBack, onUpvotePost, onUpvoteReply, onAddR
             <div style={{ fontSize: 15, fontWeight: 700, color: '#111827', marginBottom: 8 }}>{post.title}</div>
             <div style={{ fontSize: 12, color: '#374151', lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>{post.body}</div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 10 }}>
-              <button onClick={() => isPro ? onUpvotePost(post.id, post.votes) : onUpgrade()}
+              <button onClick={() => isPro ? onUpvotePost(post.id, post.votes, post.user_id) : onUpgrade()}
                 style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 11, fontWeight: 600, color: upvotedPosts?.has(post.id) ? '#fff' : '#374151', background: upvotedPosts?.has(post.id) ? '#00471b' : '#f3f4f6', border: 'none', borderRadius: 20, padding: '3px 10px', cursor: 'pointer' }}>
                 ▲ {post.votes || 0}
               </button>
@@ -251,7 +252,7 @@ function ThreadView({ post, replies, onBack, onUpvotePost, onUpvoteReply, onAddR
             <div style={{ flex: 1, padding: '10px 14px' }}>
               <div style={{ fontSize: 12, color: '#374151', lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>{r.content}</div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 6 }}>
-                <button onClick={() => isPro ? onUpvoteReply(r.id, r.votes) : onUpgrade()}
+                <button onClick={() => isPro ? onUpvoteReply(r.id, r.votes, r.clerk_id) : onUpgrade()}
                   style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 10, fontWeight: 600, color: upvotedReplies?.has(r.id) ? '#fff' : '#374151', background: upvotedReplies?.has(r.id) ? '#00471b' : '#f3f4f6', border: 'none', borderRadius: 20, padding: '2px 8px', cursor: 'pointer' }}>
                   ▲ {r.votes || 0}
                 </button>
@@ -1103,22 +1104,28 @@ function CommunityPageInner() {
     loadReplies(selectedPost.id).then(setReplies);
   }, [selectedPost?.id]); // eslint-disable-line
 
-  const handleUpvotePost = useCallback(async (postId, current) => {
+  const handleUpvotePost = useCallback(async (postId, current, authorId) => {
     const alreadyVoted = upvotedPosts.has(postId);
     const v = alreadyVoted ? (current || 0) - 1 : (current || 0) + 1;
     await sb(`posts?id=eq.${postId}`, { method: 'PATCH', body: { votes: v }, prefer: 'return=minimal' });
     setPosts(ps => ps.map(p => p.id === postId ? { ...p, votes: v } : p));
     setSelectedPost(sp => sp?.id === postId ? { ...sp, votes: v } : sp);
     setUpvotedPosts(prev => { const next = new Set(prev); alreadyVoted ? next.delete(postId) : next.add(postId); return next; });
-  }, [upvotedPosts]);
+    if (!alreadyVoted && authorId && authorId !== userId) {
+      awardPoints(authorId, 'upvote_received').catch(() => {});
+    }
+  }, [upvotedPosts, userId]);
 
-  const handleUpvoteReply = useCallback(async (replyId, current) => {
+  const handleUpvoteReply = useCallback(async (replyId, current, authorId) => {
     const alreadyVoted = upvotedReplies.has(replyId);
     const v = alreadyVoted ? (current || 0) - 1 : (current || 0) + 1;
     await sb(`replies?id=eq.${replyId}`, { method: 'PATCH', body: { votes: v }, prefer: 'return=minimal' });
     setReplies(rs => rs.map(r => r.id === replyId ? { ...r, votes: v } : r));
     setUpvotedReplies(prev => { const next = new Set(prev); alreadyVoted ? next.delete(replyId) : next.add(replyId); return next; });
-  }, [upvotedReplies]);
+    if (!alreadyVoted && authorId && authorId !== userId) {
+      awardPoints(authorId, 'upvote_received').catch(() => {});
+    }
+  }, [upvotedReplies, userId]);
 
   const handleDeletePost = useCallback(async (postId) => {
     await sb(`posts?id=eq.${postId}`, { method: 'DELETE' });
@@ -1145,6 +1152,7 @@ function CommunityPageInner() {
       setPosts(ps => ps.map(p => p.id === postId ? { ...p, reply_count: newCount } : p));
       setSelectedPost(sp => sp?.id === postId ? { ...sp, reply_count: newCount } : sp);
       window.dispatchEvent(new Event('ww:profile:refresh'));
+      awardPoints(userId, 'community_reply', body.slice(0, 100)).catch(() => {});
     }
     return !!result;
   }, [userId, profile, posts]);
@@ -1159,6 +1167,7 @@ function CommunityPageInner() {
     if (result && result.length) {
       setPosts(ps => [{ ...result[0], author: profile }, ...ps]);
       window.dispatchEvent(new Event('ww:profile:refresh'));
+      awardPoints(userId, 'community_post', title.slice(0, 100)).catch(() => {});
     }
     return !!result;
   }, [userId, profile]);

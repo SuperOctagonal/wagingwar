@@ -5,6 +5,7 @@ import ProfileRail from '@/components/ProfileRail';
 import useIsPro from '@/hooks/useIsPro';
 import useIsMobile from '@/hooks/useIsMobile';
 import UpgradeModal from '@/components/UpgradeModal';
+import { awardPoints } from '@/lib/points';
 
 const SURL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SKEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -275,13 +276,7 @@ export default function BlackbookPage() {
         const row = horses.find(h => h.id === b.rowId);
         const newNotified = [...(row?.notified_wins || []), b.nkey];
         await sb(`blackbook?id=eq.${b.rowId}`, { method: 'PATCH', body: { notified_wins: newNotified } });
-        const prof = await sb(`user_profiles?clerk_id=eq.${userId}&select=points`);
-        const newPts = ((prof?.[0]?.points) || 0) + 20;
-        if (prof && prof.length > 0) {
-          await sb(`user_profiles?clerk_id=eq.${userId}`, { method: 'PATCH', body: { points: newPts } });
-        } else {
-          await sb(`user_profiles`, { method: 'POST', body: { clerk_id: userId, points: newPts }, prefer: 'resolution=merge-duplicates' });
-        }
+        if (userId) awardPoints(userId, 'blackbook_win', b.horse).catch(() => {});
       });
     });
   }, [horses, userId, isLoaded]);

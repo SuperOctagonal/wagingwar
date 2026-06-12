@@ -8,6 +8,7 @@ import useIsPro from '@/hooks/useIsPro';
 import useIsMobile from '@/hooks/useIsMobile';
 import UpgradeModal from '@/components/UpgradeModal';
 import BottomSheet from '@/components/BottomSheet';
+import { awardPoints } from '@/lib/points';
 
 const SURL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SKEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -662,6 +663,7 @@ function BetModal({ horse, onClose }) {
           }),
         });
       } catch {}
+      awardPoints(user.id, 'bet_logged', horse.name).catch(() => {});
     }
 
     setSaving(false);
@@ -1483,38 +1485,9 @@ function BlackbookModal({ target, onClose, userId }) {
       const responseText = await res.clone().text();
       console.log('[BB Save] response body:', responseText);
       if (res.ok) {
-        try {
-          const todayMidnight = new Date(); todayMidnight.setHours(0, 0, 0, 0);
-          const todayISO = todayMidnight.toISOString();
-          const countRes = await fetch(
-            `${SURL}/rest/v1/blackbook?clerk_id=eq.${userId}&added_at=gte.${encodeURIComponent(todayISO)}&select=id`,
-            { headers: { apikey: SKEY, Authorization: `Bearer ${SKEY}` } }
-          );
-          const todayRows = countRes.ok ? await countRes.json() : [];
-          if ((todayRows || []).length < 10) {
-            const profRes = await fetch(
-              `${SURL}/rest/v1/user_profiles?clerk_id=eq.${userId}&select=points`,
-              { headers: { apikey: SKEY, Authorization: `Bearer ${SKEY}` } }
-            );
-            const profData = profRes.ok ? await profRes.json() : [];
-            const newPts = ((profData?.[0]?.points) || 0) + 2;
-            if (profData && profData.length > 0) {
-              await fetch(`${SURL}/rest/v1/user_profiles?clerk_id=eq.${userId}`, {
-                method: 'PATCH',
-                headers: { apikey: SKEY, Authorization: `Bearer ${SKEY}`, 'Content-Type': 'application/json' },
-                body: JSON.stringify({ points: newPts }),
-              });
-            } else {
-              await fetch(`${SURL}/rest/v1/user_profiles`, {
-                method: 'POST',
-                headers: { apikey: SKEY, Authorization: `Bearer ${SKEY}`, 'Content-Type': 'application/json' },
-                body: JSON.stringify({ clerk_id: userId, points: newPts }),
-              });
-            }
-          }
-        } catch (ptErr) {
+        awardPoints(userId, 'blackbook_save', horseName).catch(ptErr => {
           console.error('[BB Save] points error:', ptErr);
-        }
+        });
       }
     } catch (err) {
       console.error('[BB Save] fetch error:', err);

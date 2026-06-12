@@ -7,6 +7,7 @@ import useIsPro from '@/hooks/useIsPro';
 import useIsMobile from '@/hooks/useIsMobile';
 import UpgradeModal from '@/components/UpgradeModal';
 import BottomSheet from '@/components/BottomSheet';
+import { awardPoints } from '@/lib/points';
 
 const SURL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SKEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -434,9 +435,13 @@ export default function MybetsPage() {
   const handleStatusChange = useCallback(async (id, status, returnAmt) => {
     setUpdatingId(id);
     await patchBet(id, { status, return_amt: returnAmt });
+    if (status === 'win' && user?.id) {
+      const bet = bets.find(b => b.id === id);
+      awardPoints(user.id, 'win_logged', bet?.horse_name || null).catch(() => {});
+    }
     setBets(prev => prev.map(b => b.id === id ? { ...b, status, return_amt: returnAmt } : b));
     setUpdatingId(null);
-  }, []);
+  }, [bets, user?.id]);
 
   const setFilter = useCallback((key, val) => {
     setFilters(prev => {

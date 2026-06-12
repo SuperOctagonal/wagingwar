@@ -22,6 +22,45 @@ function fmtDay(ts) {
   return new Date(ts).toLocaleDateString('en-AU', { day: 'numeric', month: 'short' });
 }
 
+function timeAgo(ts) {
+  if (!ts) return '—';
+  const diff = Date.now() - new Date(ts).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  const days = Math.floor(hrs / 24);
+  if (days === 1) return 'yesterday';
+  if (days < 7) return `${days}d ago`;
+  return fmtDay(ts);
+}
+
+const ACTION_ICONS = {
+  blackbook_save:  '🏇',
+  blackbook_win:   '🏇',
+  community_post:  '💬',
+  community_reply: '💬',
+  win_logged:      '🎯',
+  bet_logged:      '📝',
+  upvote_received: '👍',
+  referral:        '⭐',
+  tier_up:         '🏆',
+};
+const ACTION_NAMES = {
+  blackbook_save:  'Blackbook Save',
+  blackbook_win:   'Blackbook Winner',
+  community_post:  'Community Post',
+  community_reply: 'Community Reply',
+  win_logged:      'Winning Bet',
+  bet_logged:      'Bet Logged',
+  upvote_received: 'Upvote Received',
+  referral:        'Referral',
+  tier_up:         'Tier Up',
+};
+function actionIcon(t) { return ACTION_ICONS[t] || '🎁'; }
+function actionName(t) { return ACTION_NAMES[t] || (t || '').replace(/_/g, ' '); }
+
 function fmtPL(val) {
   if (val === null || val === undefined) return null;
   const n = Number(val);
@@ -83,6 +122,7 @@ export default function AccountPage() {
   const [recentBets,   setRecentBets]   = useState(null);
   const [allResults,   setAllResults]   = useState(null);
   const [badges,       setBadges]       = useState(null);
+  const [pointsLog,    setPointsLog]    = useState([]);
   const [loading,      setLoading]      = useState(true);
   const [showDelete,   setShowDelete]   = useState(false);
 
@@ -91,16 +131,18 @@ export default function AccountPage() {
   useEffect(() => {
     if (!userId) return;
     (async () => {
-      const [prof, recent, allR, bdg] = await Promise.all([
+      const [prof, recent, allR, bdg, plog] = await Promise.all([
         sbFetch(`user_profiles?clerk_id=eq.${userId}&limit=1`),
         sbFetch(`bet_log?clerk_id=eq.${userId}&order=created_at.desc&limit=5`),
         sbFetch(`bet_log?clerk_id=eq.${userId}&select=result`),
         sbFetch(`user_badges?clerk_id=eq.${userId}&order=earned_at.desc`),
+        sbFetch(`points_log?clerk_id=eq.${userId}&order=created_at.desc&limit=50`),
       ]);
       setProfile(prof?.[0] ?? null);
       setRecentBets(recent ?? []);
       setAllResults(allR ?? []);
       setBadges(bdg ?? []);
+      setPointsLog(plog ?? []);
       setLoading(false);
     })();
   }, [userId]);
@@ -148,6 +190,15 @@ export default function AccountPage() {
 
   const stripeMonthlyUrl = process.env.NEXT_PUBLIC_STRIPE_MONTHLY_URL || '/sign-up';
   const stripeAnnualUrl  = process.env.NEXT_PUBLIC_STRIPE_ANNUAL_URL  || '/sign-up';
+
+  const now       = Date.now();
+  const WEEK      = 7  * 864e5;
+  const MONTH     = 30 * 864e5;
+  const ptsThisWeek  = pointsLog.filter(e => now - new Date(e.created_at) <= WEEK).reduce((s, e) => s + (e.points_earned || 0), 0);
+  const ptsThisMonth = pointsLog.filter(e => now - new Date(e.created_at) <= MONTH).reduce((s, e) => s + (e.points_earned || 0), 0);
+  const dayTotals    = {};
+  pointsLog.forEach(e => { const d = e.created_at?.slice(0, 10); if (d) dayTotals[d] = (dayTotals[d] || 0) + (e.points_earned || 0); });
+  const bestDay = Object.values(dayTotals).length ? Math.max(...Object.values(dayTotals)) : 0;
 
   return (
     <main className="flex-1 overflow-y-auto mob-page" style={{ background: '#f8fafc' }}>
@@ -244,7 +295,58 @@ export default function AccountPage() {
           </div>
         </Card>
 
-        {/* ── 4. Subscription ──────────────────────────────────────────── */}
+        {/* ── 4. Points History ────────────────────────────────────────── */}
+        <Card title="Points History" icon="🕐">
+          {/* Summary stats */}
+          <div className="grid grid-cols-3 gap-3" style={{ marginBottom: 20 }}>
+            {[
+              { label: 'This Week',  value: ptsThisWeek  },
+              { label: 'This Month', value: ptsThisMonth },
+              { label: 'Best Day',   value: bestDay      },
+            ].map(({ label, value }) => (
+              <div key={label} style={{ textAlign: 'center', background: '#f9fafb', borderRadius: 8, padding: '12px 8px' }}>
+                <div style={{ fontSize: 18, fontWeight: 800, color: TEXT }}>{value}</div>
+                <div style={{ fontSize: 10, color: '#6b7280', marginTop: 4 }}>{label}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* Feed */}
+          {pointsLog.length > 0 ? (
+            <div>
+              {pointsLog.map((entry, i) => (
+                <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '9px 0', borderBottom: i < pointsLog.length - 1 ? '0.5px solid #f1f5f9' : 'none' }}>
+                  <span style={{ fontSize: 18, flexShrink: 0, marginTop: 1 }}>{actionIcon(entry.action_type)}</span>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: TEXT }}>{actionName(entry.action_type)}</div>
+                    {entry.action_detail && (
+                      <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{entry.action_detail}</div>
+                    )}
+                  </div>
+                  <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                    <div style={{ fontSize: 10, color: '#9ca3af', marginBottom: 3 }}>{timeAgo(entry.created_at)}</div>
+                    {entry.daily_limit_hit ? (
+                      <div>
+                        <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 10, background: '#f3f4f6', color: '#9ca3af' }}>+0 pts</span>
+                        <div style={{ fontSize: 9, color: '#d1d5db', marginTop: 1 }}>Limit reached</div>
+                      </div>
+                    ) : (
+                      <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 10, background: '#fef3c7', color: '#92400e' }}>+{entry.points_earned} pts</span>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div style={{ textAlign: 'center', padding: '20px 0', color: '#9ca3af' }}>
+              <div style={{ fontSize: 28, marginBottom: 8 }}>🕐</div>
+              <div style={{ fontSize: 13, marginBottom: 4 }}>No points history yet.</div>
+              <div style={{ fontSize: 12, lineHeight: 1.5 }}>Start posting, logging bets and saving horses to your blackbook!</div>
+            </div>
+          )}
+        </Card>
+
+        {/* ── 5. Subscription ──────────────────────────────────────────── */}
         {isPro ? (
           <Card title="Subscription" icon="👑">
             <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 18 }}>
@@ -325,7 +427,7 @@ export default function AccountPage() {
           </Card>
         )}
 
-        {/* ── 5. Recent Bets ───────────────────────────────────────────── */}
+        {/* ── 6. Recent Bets ───────────────────────────────────────────── */}
         <Card title="Recent Bets" icon="📈">
           {recentBets && recentBets.length > 0 ? (
             <>
@@ -379,7 +481,7 @@ export default function AccountPage() {
           )}
         </Card>
 
-        {/* ── 6. Achievements ──────────────────────────────────────────── */}
+        {/* ── 7. Achievements ──────────────────────────────────────────── */}
         <Card title="Achievements" icon="🏅">
           {badges && badges.length > 0 ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -409,7 +511,7 @@ export default function AccountPage() {
           )}
         </Card>
 
-        {/* ── 7. Quick Links ───────────────────────────────────────────── */}
+        {/* ── 8. Quick Links ───────────────────────────────────────────── */}
         <div>
           <div style={{ fontSize: 13, fontWeight: 800, color: TEXT, marginBottom: 12, paddingLeft: 2 }}>Quick Links</div>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
@@ -422,7 +524,7 @@ export default function AccountPage() {
           </div>
         </div>
 
-        {/* ── 8. Danger zone ───────────────────────────────────────────── */}
+        {/* ── 9. Danger zone ───────────────────────────────────────────── */}
         <Card title="Account Settings" icon="⚙️">
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             <button
