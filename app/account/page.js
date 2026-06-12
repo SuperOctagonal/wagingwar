@@ -44,7 +44,8 @@ const ACTION_NAMES = {
   upvote_received: 'Upvote Received', referral: 'Referral', tier_up: 'Tier Up',
 };
 function actionIcon(t) { return ACTION_ICONS[t] || '🎁'; }
-function actionName(t) { return ACTION_NAMES[t] || (t || '').replace(/_/g, ' '); }
+// action_type must be set on every insert; empty rows fall back to 'Points earned'
+function actionName(t) { return ACTION_NAMES[t] || (t ? t.replace(/_/g, ' ') : 'Points earned'); }
 
 function fmtMonth(ts) {
   if (!ts) return '—';
@@ -215,48 +216,40 @@ export default function AccountPage() {
     <main className="flex-1 overflow-y-auto mob-page" style={{ background: '#f8fafc' }}>
 
       {/* ── HERO ── */}
-      <div style={{ background: GREEN, padding: '32px 24px 28px' }}>
-        <div style={{ maxWidth: 600, margin: '0 auto', textAlign: 'center' }}>
+      <div style={{ background: GREEN, padding: '20px 20px 18px' }}>
+        <div style={{ maxWidth: 860, margin: '0 auto' }}>
+          <div className="flex flex-col md:flex-row items-center gap-5 md:gap-8">
 
-          {/* Avatar */}
-          <div style={{
-            width: 72, height: 72, borderRadius: '50%',
-            border: `3px solid ${GOLD}`, background: 'rgba(0,0,0,0.2)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            margin: '0 auto 12px', fontSize: 28, fontWeight: 800, color: '#fff',
-          }}>
-            {initial}
-          </div>
-
-          <div style={{ fontSize: 22, fontWeight: 800, color: '#fff', marginBottom: 2 }}>{displayName}</div>
-          <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', marginBottom: 10 }}>{email}</div>
-
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, marginBottom: 24 }}>
-            {isPro
-              ? <span style={{ background: GOLD, color: '#fff', fontSize: 10, fontWeight: 800, padding: '3px 12px', borderRadius: 20 }}>👑 PRO</span>
-              : <span style={{ background: 'rgba(255,255,255,0.15)', color: 'rgba(255,255,255,0.6)', fontSize: 10, fontWeight: 700, padding: '3px 12px', borderRadius: 20 }}>FREE</span>
-            }
-            <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)' }}>Member since {memberSince}</span>
-          </div>
-
-          {/* Points total + progress ring */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 32, flexWrap: 'wrap' }}>
-
-            <div style={{ textAlign: 'left' }}>
-              <div style={{ fontSize: 40, fontWeight: 900, color: GOLD, lineHeight: 1 }}>{pts.toLocaleString()}</div>
-              <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', marginTop: 4 }}>total points</div>
-              <div style={{ fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.8)', marginTop: 6 }}>{tier.emoji} {tier.name}</div>
-              <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)', marginTop: 2 }}>Tier {tier.num} of 262</div>
+            {/* Left — avatar + name + email + badge */}
+            <div className="flex flex-col items-center md:items-start flex-shrink-0">
+              <div style={{
+                width: 54, height: 54, borderRadius: '50%',
+                border: `2.5px solid ${GOLD}`, background: 'rgba(0,0,0,0.2)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                marginBottom: 8, fontSize: 20, fontWeight: 800, color: '#fff',
+              }}>
+                {initial}
+              </div>
+              <div style={{ fontSize: 18, fontWeight: 800, color: '#fff', marginBottom: 2 }}>{displayName}</div>
+              <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', marginBottom: 7 }}>{email}</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                {isPro
+                  ? <span style={{ background: GOLD, color: '#fff', fontSize: 9, fontWeight: 800, padding: '2px 10px', borderRadius: 20 }}>👑 PRO</span>
+                  : <span style={{ background: 'rgba(255,255,255,0.15)', color: 'rgba(255,255,255,0.6)', fontSize: 9, fontWeight: 700, padding: '2px 10px', borderRadius: 20 }}>FREE</span>
+                }
+                <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)' }}>Since {memberSince}</span>
+              </div>
             </div>
 
-            <div style={{ position: 'relative', width: 120, height: 120, flexShrink: 0 }}>
-              <svg width="120" height="120" style={{ transform: 'rotate(-90deg)' }}>
-                <circle cx="60" cy="60" r={RING_R} fill="none" stroke="rgba(0,0,0,0.25)" strokeWidth="9" />
+            {/* Centre — progress ring */}
+            <div style={{ flexShrink: 0, position: 'relative', width: 110, height: 110, overflow: 'visible' }}>
+              <svg width="110" height="110" style={{ transform: 'rotate(-90deg)', overflow: 'visible' }}>
+                <circle cx="55" cy="55" r={RING_R} fill="none" stroke="rgba(0,0,0,0.25)" strokeWidth="8" />
                 <circle
-                  cx="60" cy="60" r={RING_R}
+                  cx="55" cy="55" r={RING_R}
                   fill="none"
                   stroke={GOLD}
-                  strokeWidth="9"
+                  strokeWidth="8"
                   strokeDasharray={RING_CIRC}
                   strokeDashoffset={RING_CIRC * (1 - progress / 100)}
                   strokeLinecap="round"
@@ -264,23 +257,25 @@ export default function AccountPage() {
                 />
               </svg>
               <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
-                <span style={{ fontSize: 20, fontWeight: 900, color: '#fff', lineHeight: 1 }}>{progress}%</span>
-                <span style={{ fontSize: 9, color: 'rgba(255,255,255,0.5)', marginTop: 3 }}>to next tier</span>
+                <span style={{ fontSize: 18, fontWeight: 900, color: '#fff', lineHeight: 1 }}>{progress}%</span>
+                <span style={{ fontSize: 8, color: 'rgba(255,255,255,0.5)', marginTop: 2 }}>to next</span>
               </div>
             </div>
 
+            {/* Right — points + tier */}
+            <div className="flex flex-col items-center md:items-end md:ml-auto">
+              <div style={{ fontSize: 36, fontWeight: 900, color: GOLD, lineHeight: 1 }}>{pts.toLocaleString()}</div>
+              <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.5)', marginTop: 3 }}>total points</div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.8)', marginTop: 6 }}>{tier.emoji} {tier.name}</div>
+              <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)', marginTop: 1 }}>Tier {tier.num} of 262</div>
+              {nextTier ? (
+                <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)', marginTop: 5 }}>{ptsToNext.toLocaleString()} pts to {nextTier.name}</div>
+              ) : (
+                <div style={{ fontSize: 10, color: GOLD, fontWeight: 700, marginTop: 5 }}>👑 Max tier reached!</div>
+              )}
+            </div>
+
           </div>
-
-          {nextTier ? (
-            <div style={{ marginTop: 14, fontSize: 11, color: 'rgba(255,255,255,0.4)' }}>
-              {ptsToNext.toLocaleString()} pts to reach {nextTier.emoji} {nextTier.name}
-            </div>
-          ) : (
-            <div style={{ marginTop: 14, fontSize: 11, color: GOLD, fontWeight: 700 }}>
-              👑 Melbourne Cup — Maximum tier reached!
-            </div>
-          )}
-
         </div>
       </div>
 
@@ -304,7 +299,7 @@ export default function AccountPage() {
       </div>
 
       {/* ── TAB CONTENT ── */}
-      <div style={{ maxWidth: 860, margin: '0 auto', padding: '20px 16px 48px' }}>
+      <div style={{ maxWidth: 768, margin: '0 auto', padding: '20px 16px 48px' }}>
 
         {/* ─── OVERVIEW ──────────────────────────────────────────────────── */}
         {activeTab === 'overview' && (
@@ -393,9 +388,9 @@ export default function AccountPage() {
                 { label: 'This Month', value: ptsThisMonth },
                 { label: 'Best Day',   value: bestDay      },
               ].map(({ label, value }) => (
-                <div key={label} style={{ background: '#fff', border: '0.5px solid #e5e7eb', borderRadius: 10, padding: '16px 12px', textAlign: 'center', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
-                  <div style={{ fontSize: 21, fontWeight: 800, color: TEXT }}>{value}</div>
-                  <div style={{ fontSize: 11, color: '#6b7280', marginTop: 6 }}>{label}</div>
+                <div key={label} style={{ background: '#fff', border: '0.5px solid #e5e7eb', borderRadius: 8, padding: '10px 8px', textAlign: 'center', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
+                  <div style={{ fontSize: 18, fontWeight: 800, color: TEXT }}>{value}</div>
+                  <div style={{ fontSize: 10, color: '#6b7280', marginTop: 4 }}>{label}</div>
                 </div>
               ))}
             </div>
@@ -405,23 +400,23 @@ export default function AccountPage() {
               {pointsLog.length > 0 ? (
                 <div>
                   {pointsLog.map((entry, i) => (
-                    <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '9px 0', borderBottom: i < pointsLog.length - 1 ? '0.5px solid #f1f5f9' : 'none' }}>
-                      <span style={{ fontSize: 18, flexShrink: 0, marginTop: 1 }}>{actionIcon(entry.action_type)}</span>
+                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0', borderBottom: i < pointsLog.length - 1 ? '0.5px solid #f1f5f9' : 'none' }}>
+                      <span style={{ fontSize: 15, flexShrink: 0 }}>{actionIcon(entry.action_type)}</span>
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: 13, fontWeight: 700, color: TEXT }}>{actionName(entry.action_type)}</div>
+                        <div style={{ fontSize: 12, fontWeight: 700, color: TEXT }}>{actionName(entry.action_type)}</div>
                         {entry.action_detail && (
-                          <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{entry.action_detail}</div>
+                          <div style={{ fontSize: 10, color: '#9ca3af', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{entry.action_detail}</div>
                         )}
                       </div>
                       <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                        <div style={{ fontSize: 10, color: '#9ca3af', marginBottom: 3 }}>{timeAgo(entry.created_at)}</div>
+                        <div style={{ fontSize: 9, color: '#9ca3af', marginBottom: 2 }}>{timeAgo(entry.created_at)}</div>
                         {entry.daily_limit_hit ? (
                           <div>
-                            <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 10, background: '#f3f4f6', color: '#9ca3af' }}>+0 pts</span>
-                            <div style={{ fontSize: 9, color: '#d1d5db', marginTop: 1 }}>Limit reached</div>
+                            <span style={{ fontSize: 9, fontWeight: 700, padding: '1px 6px', borderRadius: 10, background: '#f3f4f6', color: '#9ca3af' }}>+0 pts</span>
+                            <div style={{ fontSize: 8, color: '#d1d5db' }}>Limit</div>
                           </div>
                         ) : (
-                          <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 10, background: '#fef3c7', color: '#92400e' }}>+{entry.points_earned} pts</span>
+                          <span style={{ fontSize: 9, fontWeight: 700, padding: '1px 6px', borderRadius: 10, background: '#fef3c7', color: '#92400e' }}>+{entry.points_earned} pts</span>
                         )}
                       </div>
                     </div>
