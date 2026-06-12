@@ -72,8 +72,12 @@ export default function TopNav() {
       {/* ── TOP NAV ── */}
       <nav className="bg-brand h-11 flex-shrink-0 flex items-center px-3.5 gap-0 border-b border-[#003314]">
         {/* Brand */}
-        <Link href="/" style={{ display: 'flex', alignItems: 'center', flexShrink: 0, marginRight: 16 }}>
-          <img src="/images/logo-white.png" alt="Waging War" style={{ height: 36, width: 'auto' }} />
+        <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0, marginRight: 16, textDecoration: 'none' }}>
+          <img src="/images/icon-app.png" alt="Waging War" style={{ height: 36, width: 36, objectFit: 'contain' }} />
+          <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.15 }}>
+            <span className="font-bold text-white text-lg tracking-wider leading-none">WAGING WAR</span>
+            <span className="text-yellow-400 text-xs tracking-widest font-semibold leading-none">RACING ANALYTICS</span>
+          </div>
         </Link>
 
         {/* Desktop nav links */}
@@ -266,8 +270,12 @@ export default function TopNav() {
           >
             {/* Drawer header */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px', borderBottom: '1px solid rgba(255,255,255,0.1)', flexShrink: 0 }}>
-              <Link href="/" onClick={() => setDrawerOpen(false)} style={{ display: 'flex', alignItems: 'center' }}>
-                <img src="/images/logo-white.png" alt="Waging War" style={{ height: 32, width: 'auto' }} />
+              <Link href="/" onClick={() => setDrawerOpen(false)} style={{ display: 'flex', alignItems: 'center', gap: 8, textDecoration: 'none' }}>
+                <img src="/images/icon-app.png" alt="Waging War" style={{ height: 28, width: 28, objectFit: 'contain' }} />
+                <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.15 }}>
+                  <span className="font-bold text-white text-base tracking-wider leading-none">WAGING WAR</span>
+                  <span className="text-yellow-400 text-[9px] tracking-widest font-semibold leading-none">RACING ANALYTICS</span>
+                </div>
               </Link>
               <button
                 onClick={() => setDrawerOpen(false)}
