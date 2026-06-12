@@ -617,7 +617,7 @@ function BetModal({ horse, onClose }) {
   const [bookie,   setBookie]   = useState('Sportsbet');
   const [betType,  setBetType]  = useState('win');
   const [saving,   setSaving]   = useState(false);
-  const [toast,    setToast]    = useState(false);
+  const [toast,    setToast]    = useState(null);
 
   useEffect(() => { setOpen(true); }, []);
 
@@ -639,13 +639,14 @@ function BetModal({ horse, onClose }) {
     const existing = JSON.parse(localStorage.getItem('ww_bets') || '[]');
     localStorage.setItem('ww_bets', JSON.stringify([bet, ...existing]));
 
+    let dbSuccess = !user?.id; // not logged in → localStorage-only, treat as success
     if (SURL && SKEY && user?.id) {
       try {
-        await fetch(`${SURL}/rest/v1/bet_log`, {
+        const res = await fetch(`${SURL}/rest/v1/bet_log`, {
           method: 'POST',
           headers: { apikey: SKEY, Authorization: `Bearer ${SKEY}`, 'Content-Type': 'application/json', Prefer: 'return=minimal' },
           body: JSON.stringify({
-            user_id: user.id,
+            clerk_id: user.id,
             date: new Date().toISOString().slice(0, 10),
             venue: horse._venue || null,
             race_num: horse._raceNum != null ? String(horse._raceNum) : null,
@@ -662,14 +663,26 @@ function BetModal({ horse, onClose }) {
             position: null,
           }),
         });
-      } catch {}
-      awardPoints(user.id, 'bet_logged', horse.name).catch(() => {});
+        if (!res.ok) {
+          const errText = await res.text();
+          console.error('[BetSave] Supabase error:', res.status, errText);
+        } else {
+          dbSuccess = true;
+          awardPoints(user.id, 'bet_logged', horse.name).catch(err => { console.error('[BetSave] points error:', err); });
+        }
+      } catch (err) {
+        console.error('[BetSave] Network error:', err);
+      }
     }
 
     setSaving(false);
-    setToast(true);
-    window.dispatchEvent(new Event('ww:profile:refresh'));
-    setTimeout(() => { onClose(); router.push('/mybets'); }, 1500);
+    setToast(dbSuccess ? 'success' : 'error');
+    if (dbSuccess) {
+      window.dispatchEvent(new Event('ww:profile:refresh'));
+      setTimeout(() => { onClose(); router.push('/mybets'); }, 1500);
+    } else {
+      setTimeout(() => setToast(null), 3000);
+    }
   };
 
   // Shared form body (used in both mobile sheet and desktop modal)
@@ -748,8 +761,8 @@ function BetModal({ horse, onClose }) {
   );
 
   const toastEl = (
-    <div style={{ position:'fixed', bottom:24, left:'50%', transform:'translateX(-50%)', background:'#059669', color:'#fff', padding:'10px 22px', borderRadius:8, fontWeight:700, fontSize:13, zIndex:9999, boxShadow:'0 4px 16px rgba(0,0,0,0.25)', whiteSpace:'nowrap' }}>
-      Bet logged! +5pts
+    <div style={{ position:'fixed', bottom:24, left:'50%', transform:'translateX(-50%)', background: toast === 'error' ? '#dc2626' : '#059669', color:'#fff', padding:'10px 22px', borderRadius:8, fontWeight:700, fontSize:13, zIndex:9999, boxShadow:'0 4px 16px rgba(0,0,0,0.25)', whiteSpace:'nowrap' }}>
+      {toast === 'error' ? 'Failed to save bet — check your connection' : 'Bet logged! +5pts'}
     </div>
   );
 

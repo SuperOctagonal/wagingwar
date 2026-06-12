@@ -32,7 +32,7 @@ async function sbFetch(path, opts = {}) {
 }
 
 async function loadBets(userId) {
-  const data = await sbFetch(`bet_log?user_id=eq.${encodeURIComponent(userId)}&order=date.desc,id.desc`);
+  const data = await sbFetch(`bet_log?clerk_id=eq.${encodeURIComponent(userId)}&order=date.desc,id.desc`);
   return Array.isArray(data) ? data : [];
 }
 
@@ -419,6 +419,14 @@ export default function MybetsPage() {
   const [activeTab,   setActiveTab]   = useState('betlog');
   const [filters,     setFilters]     = useState({ betType: 'All Bets' });
   const [updatingId,  setUpdatingId]  = useState(null);
+  const [qlHorse,     setQlHorse]     = useState('');
+  const [qlTrack,     setQlTrack]     = useState('');
+  const [qlRaceNum,   setQlRaceNum]   = useState('');
+  const [qlBetType,   setQlBetType]   = useState('win');
+  const [qlStake,     setQlStake]     = useState('');
+  const [qlOdds,      setQlOdds]      = useState('');
+  const [qlSaving,    setQlSaving]    = useState(false);
+  const [qlToast,     setQlToast]     = useState(null);
 
   const todayISO = new Date().toISOString().slice(0, 10);
 
@@ -442,6 +450,36 @@ export default function MybetsPage() {
     setBets(prev => prev.map(b => b.id === id ? { ...b, status, return_amt: returnAmt } : b));
     setUpdatingId(null);
   }, [bets, user?.id]);
+
+  const handleQuickLog = useCallback(async () => {
+    if (!qlHorse.trim() || !qlStake || isNaN(+qlStake) || +qlStake <= 0) return;
+    if (!qlOdds || isNaN(+qlOdds) || +qlOdds <= 1) return;
+    if (!user?.id) return;
+    setQlSaving(true);
+    const body = {
+      clerk_id: user.id,
+      horse_name: qlHorse.trim(),
+      venue: qlTrack.trim() || null,
+      race_num: qlRaceNum.trim() || null,
+      bet_type: qlBetType,
+      stake: +qlStake,
+      odds: +qlOdds,
+      status: 'pending',
+      date: new Date().toISOString().slice(0, 10),
+    };
+    const inserted = await sbFetch('bet_log', { method: 'POST', body, prefer: 'return=representation' });
+    if (inserted) {
+      const newBet = Array.isArray(inserted) ? inserted[0] : inserted;
+      if (newBet) setBets(prev => [newBet, ...prev]);
+      awardPoints(user.id, 'bet_logged', qlHorse.trim()).catch(() => {});
+      setQlHorse(''); setQlTrack(''); setQlRaceNum(''); setQlBetType('win'); setQlStake(''); setQlOdds('');
+      setQlToast('success');
+    } else {
+      setQlToast('error');
+    }
+    setQlSaving(false);
+    setTimeout(() => setQlToast(null), 2500);
+  }, [user?.id, qlHorse, qlTrack, qlRaceNum, qlBetType, qlStake, qlOdds]);
 
   const setFilter = useCallback((key, val) => {
     setFilters(prev => {
@@ -489,6 +527,7 @@ export default function MybetsPage() {
   const analyticsByOdds  = useMemo(() => calcGroupStats(filtered, oddsRange), [filtered]);
   const analyticsByCond  = useMemo(() => calcGroupStats(filtered, b => b.track_condition || b.condition), [filtered]);
   const analyticsByRank  = useMemo(() => calcGroupStats(filtered, b => b.rank ? `Rank ${b.rank}` : '—'), [filtered]);
+  const pendingBets      = useMemo(() => bets.filter(b => !b.status || b.status === 'pending'), [bets]);
 
   if (isPro === false) {
     return (
@@ -512,7 +551,97 @@ export default function MybetsPage() {
   return (
     <div className="mob-page" style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
       <ProfileRail />
-      <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: '#f8fafc' }}>
+      <main style={{ flex: 1, display: 'flex', overflow: 'hidden', background: '#f8fafc' }}>
+
+        {/* ── Left panel (desktop only) ── */}
+        {!isMobile && (
+          <div style={{ width: 240, flexShrink: 0, background: '#fff', borderRight: '1px solid #e5e7eb', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+            {/* Upcoming Bets */}
+            <div style={{ padding: '10px 12px 8px', borderBottom: '1px solid #f3f4f6', flexShrink: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 8 }}>
+                <i className="ti ti-clock" style={{ fontSize: 12, color: '#6b7280' }} />
+                <span style={{ fontSize: 9, fontWeight: 700, color: '#374151', textTransform: 'uppercase', letterSpacing: '.5px' }}>Upcoming Bets</span>
+              </div>
+              {pendingBets.length === 0 ? (
+                <div style={{ fontSize: 11, color: '#9ca3af', textAlign: 'center', padding: '6px 0' }}>No upcoming bets</div>
+              ) : (
+                <div style={{ maxHeight: 220, overflowY: 'auto' }}>
+                  {pendingBets.slice(0, 8).map(b => (
+                    <div key={b.id} style={{ padding: '5px 0', borderBottom: '1px solid #f9fafb' }}>
+                      <div style={{ fontWeight: 600, fontSize: 11, color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b.horse_name || '—'}</div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 1 }}>
+                        <span style={{ fontSize: 9, color: '#9ca3af' }}>{[b.venue, b.race_num ? `R${b.race_num}` : null].filter(Boolean).join(' ')}</span>
+                        <span style={{ fontSize: 9, fontFamily: 'monospace', color: '#374151' }}>${(b.stake || 0).toFixed(0)} @ ${Number(b.odds || 0).toFixed(2)}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Divider */}
+            <div style={{ height: 1, background: '#e5e7eb', flexShrink: 0 }} />
+
+            {/* Quick Log */}
+            <div style={{ padding: '10px 12px', overflowY: 'auto' }}>
+              <div style={{ fontSize: 9, fontWeight: 700, color: '#374151', textTransform: 'uppercase', letterSpacing: '.5px', marginBottom: 7 }}>Quick Log</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                <input
+                  value={qlHorse} onChange={e => setQlHorse(e.target.value)}
+                  placeholder="Horse name"
+                  style={{ fontSize: 11, padding: '5px 8px', border: '1px solid #e5e7eb', borderRadius: 5, color: '#111827', outline: 'none', width: '100%', boxSizing: 'border-box' }}
+                />
+                <div style={{ display: 'flex', gap: 4 }}>
+                  <input
+                    value={qlTrack} onChange={e => setQlTrack(e.target.value)}
+                    placeholder="Track"
+                    style={{ flex: 1, fontSize: 11, padding: '5px 7px', border: '1px solid #e5e7eb', borderRadius: 5, color: '#111827', outline: 'none', minWidth: 0 }}
+                  />
+                  <input
+                    value={qlRaceNum} onChange={e => setQlRaceNum(e.target.value)}
+                    placeholder="R#"
+                    style={{ width: 36, fontSize: 11, padding: '5px 5px', border: '1px solid #e5e7eb', borderRadius: 5, color: '#111827', outline: 'none' }}
+                  />
+                </div>
+                <select
+                  value={qlBetType} onChange={e => setQlBetType(e.target.value)}
+                  style={{ fontSize: 11, padding: '5px 8px', border: '1px solid #e5e7eb', borderRadius: 5, color: '#111827', background: '#fff', outline: 'none' }}
+                >
+                  <option value="win">Win</option>
+                  <option value="place">Place</option>
+                  <option value="each-way">Each Way</option>
+                </select>
+                <div style={{ display: 'flex', gap: 4 }}>
+                  <input
+                    value={qlStake} onChange={e => setQlStake(e.target.value)}
+                    type="number" placeholder="Stake $" min="0.01" step="0.01"
+                    style={{ flex: 1, fontSize: 11, padding: '5px 7px', border: '1px solid #e5e7eb', borderRadius: 5, color: '#111827', outline: 'none', minWidth: 0 }}
+                  />
+                  <input
+                    value={qlOdds} onChange={e => setQlOdds(e.target.value)}
+                    type="number" placeholder="Odds $" min="1.01" step="0.01"
+                    style={{ flex: 1, fontSize: 11, padding: '5px 7px', border: '1px solid #e5e7eb', borderRadius: 5, color: '#111827', outline: 'none', minWidth: 0 }}
+                  />
+                </div>
+                <button
+                  onClick={handleQuickLog}
+                  disabled={qlSaving || !qlHorse.trim() || !qlStake || !qlOdds}
+                  style={{ padding: '7px', background: '#059669', color: '#fff', border: 'none', borderRadius: 5, fontSize: 11, fontWeight: 700, cursor: 'pointer', opacity: (qlSaving || !qlHorse.trim() || !qlStake || !qlOdds) ? 0.5 : 1 }}
+                >
+                  {qlSaving ? 'Saving…' : '+ Log Bet'}
+                </button>
+                {qlToast && (
+                  <div style={{ fontSize: 10, fontWeight: 600, color: qlToast === 'success' ? '#059669' : '#dc2626', textAlign: 'center' }}>
+                    {qlToast === 'success' ? '✓ Bet logged! +5pts' : '✗ Failed — try again'}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── Right panel ── */}
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
 
         {/* ── Stats bar ── */}
         <div style={{ background: '#1e2936', padding: '8px 20px', flexShrink: 0, overflowX: 'auto' }}>
@@ -675,6 +804,7 @@ export default function MybetsPage() {
           </div>
         </BottomSheet>
 
+        </div>{/* end right panel */}
       </main>
       {upgradeOpen && <UpgradeModal onClose={() => setUpgradeOpen(false)} />}
     </div>
