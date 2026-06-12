@@ -14,16 +14,17 @@ const SKEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
 const BOOKMAKERS = ['Sportsbet','TAB','Betfair','Bet365','BlueBet','Ladbrokes','Neds','Other'];
 
+// Direct REST fetch — bypasses Supabase JS client schema cache
 async function sbFetch(path, opts = {}) {
   if (!SURL || !SKEY) return null;
   try {
     const res = await fetch(`${SURL}/rest/v1/${path}`, {
       method: opts.method || 'GET',
       headers: {
-        apikey: SKEY,
-        Authorization: `Bearer ${SKEY}`,
         'Content-Type': 'application/json',
-        ...(opts.prefer ? { Prefer: opts.prefer } : {}),
+        'apikey': SKEY,
+        'Authorization': `Bearer ${SKEY}`,
+        ...(opts.prefer ? { 'Prefer': opts.prefer } : {}),
       },
       body: opts.body ? JSON.stringify(opts.body) : undefined,
     });
@@ -92,6 +93,10 @@ function ResultedBetRow({ b }) {
   const ret   = b.return_amt || 0;
   const pnl   = ret - stake;
   const status = b.status || '';
+  // Support both old column name (race_num) and new (race_number)
+  const raceNum = b.race_number ?? b.race_num;
+  // Support both old column name (venue) and new (track)
+  const venue = b.track || b.venue;
   const resultCfg = {
     win:   { bg: '#d1fae5', color: '#065f46', label: 'WIN'   },
     place: { bg: '#dbeafe', color: '#1e40af', label: 'PLACE' },
@@ -107,7 +112,7 @@ function ResultedBetRow({ b }) {
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontWeight: 600, fontSize: 12, color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b.horse_name || '—'}</div>
         <div style={{ fontSize: 10, color: '#9ca3af', marginTop: 2 }}>
-          {[b.venue, b.race_num ? `R${b.race_num}` : null, b.date ? b.date.slice(5).replace('-', '/') : null].filter(Boolean).join(' · ')}
+          {[venue, raceNum ? `R${raceNum}` : null, b.date ? b.date.slice(5).replace('-', '/') : null].filter(Boolean).join(' · ')}
         </div>
       </div>
       <div style={{ textAlign: 'right', flexShrink: 0 }}>
@@ -135,86 +140,115 @@ export default function MybetsPage() {
   const [bets,        setBets]        = useState([]);
   const [loading,     setLoading]     = useState(true);
   const [activeTab,   setActiveTab]   = useState('all');
-  const [updatingId,  setUpdatingId]  = useState(null);
 
-  // Quick Log form state
-  const [csvMeetings,  setCsvMeetings]  = useState([]); // ['Flemington', 'Randwick', ...]
-  const [qlMeeting,    setQlMeeting]    = useState('');
-  const [qlRace,       setQlRace]       = useState('');
-  const [qlHorse,      setQlHorse]      = useState('');
-  const [qlBetType,    setQlBetType]    = useState('win');
-  const [qlStake,      setQlStake]      = useState('');
-  const [qlOdds,       setQlOdds]       = useState('');
-  const [qlBookmaker,  setQlBookmaker]  = useState('Sportsbet');
-  const [qlSaving,     setQlSaving]     = useState(false);
-  const [qlToast,      setQlToast]      = useState(null);
+  // CSV data for Quick Log
+  const [csvMeetings, setCsvMeetings] = useState([]);   // ['Flemington', ...]
+  const [csvVenues,   setCsvVenues]   = useState({});   // { 'Flemington': ['Flemington_R1', ...] }
+  const [csvRaces,    setCsvRaces]    = useState({});   // { 'Flemington_R1': { num, horses, ... } }
+
+  // Quick Log form
+  const [qlMeeting,   setQlMeeting]   = useState('');
+  const [qlRace,      setQlRace]      = useState('');
+  const [qlHorse,     setQlHorse]     = useState('');
+  const [qlBetType,   setQlBetType]   = useState('win');
+  const [qlStake,     setQlStake]     = useState('');
+  const [qlOdds,      setQlOdds]      = useState('');
+  const [qlBookmaker, setQlBookmaker] = useState('Sportsbet');
+  const [qlSaving,    setQlSaving]    = useState(false);
+  const [qlToast,     setQlToast]     = useState(null);
 
   const todayISO = new Date().toISOString().slice(0, 10);
 
-  // Load bets
   useEffect(() => {
     if (!user?.id) { setLoading(false); return; }
     loadBets(user.id).then(data => { setBets(data); setLoading(false); });
   }, [user?.id]);
 
-  // Load meetings from localStorage CSV (same source as Races page)
+  // Load CSV race data from localStorage (key: ww_csv, set by races page)
   useEffect(() => {
     try {
       const csv = localStorage.getItem('ww_csv');
       if (csv) {
-        const { allVenues } = buildRaces(parseCSV(csv));
-        setCsvMeetings(Object.keys(allVenues));
+        const { allRaces: ar, allVenues: av } = buildRaces(parseCSV(csv));
+        setCsvRaces(ar);
+        setCsvVenues(av);
+        setCsvMeetings(Object.keys(av));
       }
     } catch {}
   }, []);
 
-  const handleDelete = useCallback(async (id) => {
-    await removeBet(id);
-    setBets(prev => prev.filter(b => b.id !== id));
-  }, []);
-
-  const handleStatusChange = useCallback(async (id, status, returnAmt) => {
-    setUpdatingId(id);
-    await patchBet(id, { status, return_amt: returnAmt });
-    if (status === 'win' && user?.id) {
-      const bet = bets.find(b => b.id === id);
-      awardPoints(user.id, 'win_logged', bet?.horse_name || null).catch(() => {});
-    }
-    setBets(prev => prev.map(b => b.id === id ? { ...b, status, return_amt: returnAmt } : b));
-    setUpdatingId(null);
-  }, [bets, user?.id]);
+  // Horses available for the selected meeting + race
+  const csvHorses = useMemo(() => {
+    if (!qlMeeting || !qlRace) return [];
+    const venueKeys = csvVenues[qlMeeting] || [];
+    const raceKey = venueKeys.find(k => {
+      const rc = csvRaces[k];
+      return rc && String(rc.num) === String(qlRace);
+    });
+    if (!raceKey) return [];
+    const rc = csvRaces[raceKey];
+    if (!rc || !rc.horses) return [];
+    return rc.horses
+      .filter(h => !h.scratched)
+      .sort((a, b) => (+a.tab || 99) - (+b.tab || 99))
+      .map(h => ({ name: h.name, tab: h.tab, odds: h.rawOdds }));
+  }, [csvRaces, csvVenues, qlMeeting, qlRace]);
 
   const handleQuickLog = useCallback(async () => {
     if (!qlHorse.trim() || !qlStake || isNaN(+qlStake) || +qlStake <= 0) return;
     if (!qlOdds || isNaN(+qlOdds) || +qlOdds <= 1) return;
-    if (!user?.id) return;
+    if (!user?.id || !SURL || !SKEY) return;
     setQlSaving(true);
-    const body = {
-      clerk_id:   user.id,
-      horse_name: qlHorse.trim(),
-      venue:      qlMeeting  || null,
-      race_num:   qlRace     ? +qlRace : null,
-      bet_type:   qlBetType,
-      stake:      +qlStake,
-      odds:       +qlOdds,
-      bookmaker:  qlBookmaker || null,
-      status:     'pending',
-      date:       new Date().toISOString().slice(0, 10),
+
+    const insertBody = {
+      clerk_id:    user.id,
+      date:        todayISO,
+      horse_name:  qlHorse.trim(),
+      track:       qlMeeting  || null,
+      venue:       qlMeeting  || null,
+      race_number: qlRace     ? +qlRace : null,
+      bet_type:    qlBetType,
+      stake:       +qlStake,
+      odds:        +qlOdds,
+      bookmaker:   qlBookmaker || null,
+      status:      'pending',
+      return_amt:  null,
+      position:    null,
     };
-    console.log('[QuickLog] Posting to bet_log:', JSON.stringify(body));
-    const inserted = await sbFetch('bet_log', { method: 'POST', body, prefer: 'return=representation' });
-    if (inserted) {
-      const newBet = Array.isArray(inserted) ? inserted[0] : inserted;
-      if (newBet) setBets(prev => [newBet, ...prev]);
-      awardPoints(user.id, 'bet_logged', qlHorse.trim()).catch(() => {});
-      setQlHorse(''); setQlStake(''); setQlOdds('');
-      setQlToast('success');
-    } else {
-      setQlToast('error');
+    console.log('[QuickLog] Posting to bet_log:', JSON.stringify(insertBody));
+
+    let ok = false;
+    try {
+      const res = await fetch(`${SURL}/rest/v1/bet_log`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': SKEY,
+          'Authorization': `Bearer ${SKEY}`,
+          'Prefer': 'return=representation',
+        },
+        body: JSON.stringify(insertBody),
+      });
+      if (!res.ok) {
+        const errText = await res.text();
+        console.error('[QuickLog] Supabase error — status:', res.status, '| body:', errText);
+      } else {
+        ok = true;
+        const text = await res.text();
+        const inserted = text ? JSON.parse(text) : null;
+        const newBet = Array.isArray(inserted) ? inserted[0] : inserted;
+        if (newBet) setBets(prev => [newBet, ...prev]);
+        awardPoints(user.id, 'bet_logged', qlHorse.trim()).catch(() => {});
+        setQlHorse(''); setQlStake(''); setQlOdds('');
+      }
+    } catch (err) {
+      console.error('[QuickLog] Network error:', err);
     }
+
+    setQlToast(ok ? 'success' : 'error');
     setQlSaving(false);
     setTimeout(() => setQlToast(null), 2500);
-  }, [user?.id, qlHorse, qlMeeting, qlRace, qlBetType, qlStake, qlOdds, qlBookmaker]);
+  }, [user?.id, todayISO, qlHorse, qlMeeting, qlRace, qlBetType, qlStake, qlOdds, qlBookmaker]);
 
   const statsRows = useMemo(() => (
     ['Today', 'This week', 'This month', 'All time'].map(p => ({ label: p, ...calcRow(bets.filter(periodFilter(p, todayISO))) }))
@@ -232,6 +266,7 @@ export default function MybetsPage() {
     );
     return resultedBets.filter(b => (b.bet_type || '').toLowerCase() === activeTab);
   }, [resultedBets, activeTab]);
+
   const pendingBets = useMemo(() => bets.filter(b => !b.status || b.status === 'pending'), [bets]);
 
   if (isPro === false) {
@@ -274,15 +309,19 @@ export default function MybetsPage() {
                 <div style={{ fontSize: 11, color: '#9ca3af', textAlign: 'center', padding: '6px 0' }}>No upcoming bets</div>
               ) : (
                 <div style={{ maxHeight: 180, overflowY: 'auto' }}>
-                  {pendingBets.slice(0, 8).map(b => (
-                    <div key={b.id} style={{ padding: '5px 0', borderBottom: '1px solid #f9fafb' }}>
-                      <div style={{ fontWeight: 600, fontSize: 11, color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b.horse_name || '—'}</div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 1 }}>
-                        <span style={{ fontSize: 9, color: '#9ca3af' }}>{[b.venue, b.race_num ? `R${b.race_num}` : null].filter(Boolean).join(' ')}</span>
-                        <span style={{ fontSize: 9, fontFamily: 'monospace', color: '#374151' }}>${(b.stake || 0).toFixed(0)} @ ${Number(b.odds || 0).toFixed(2)}</span>
+                  {pendingBets.slice(0, 8).map(b => {
+                    const rn = b.race_number ?? b.race_num;
+                    const vn = b.track || b.venue;
+                    return (
+                      <div key={b.id} style={{ padding: '5px 0', borderBottom: '1px solid #f9fafb' }}>
+                        <div style={{ fontWeight: 600, fontSize: 11, color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b.horse_name || '—'}</div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 1 }}>
+                          <span style={{ fontSize: 9, color: '#9ca3af' }}>{[vn, rn ? `R${rn}` : null].filter(Boolean).join(' ')}</span>
+                          <span style={{ fontSize: 9, fontFamily: 'monospace', color: '#374151' }}>${(b.stake || 0).toFixed(0)} @ ${Number(b.odds || 0).toFixed(2)}</span>
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -295,7 +334,7 @@ export default function MybetsPage() {
 
               {csvMeetings.length === 0 && (
                 <div style={{ fontSize: 10, color: '#9ca3af', marginBottom: 8, lineHeight: 1.4 }}>
-                  Load a CSV on the Races page to enable meeting selection.
+                  Load a CSV on the Races page to enable meeting/horse selection.
                 </div>
               )}
 
@@ -303,7 +342,7 @@ export default function MybetsPage() {
 
                 {/* Meeting */}
                 {csvMeetings.length > 0 ? (
-                  <select value={qlMeeting} onChange={e => { setQlMeeting(e.target.value); setQlRace(''); }} style={inp}>
+                  <select value={qlMeeting} onChange={e => { setQlMeeting(e.target.value); setQlRace(''); setQlHorse(''); setQlOdds(''); }} style={inp}>
                     <option value="">Meeting…</option>
                     {csvMeetings.map(v => <option key={v} value={v}>{v}</option>)}
                   </select>
@@ -312,15 +351,34 @@ export default function MybetsPage() {
                 )}
 
                 {/* Race number */}
-                <select value={qlRace} onChange={e => setQlRace(e.target.value)} style={inp}>
+                <select value={qlRace} onChange={e => { setQlRace(e.target.value); setQlHorse(''); setQlOdds(''); }} style={inp}>
                   <option value="">Race #…</option>
                   {Array.from({ length: 12 }, (_, i) => i + 1).map(n => (
                     <option key={n} value={n}>R{n}</option>
                   ))}
                 </select>
 
-                {/* Horse name */}
-                <input value={qlHorse} onChange={e => setQlHorse(e.target.value)} placeholder="Horse name *" style={inp} />
+                {/* Horse — dropdown when CSV horses available, text input otherwise */}
+                {csvHorses.length > 0 ? (
+                  <select
+                    value={qlHorse}
+                    onChange={e => {
+                      const h = csvHorses.find(x => x.name === e.target.value);
+                      setQlHorse(e.target.value);
+                      if (h?.odds) setQlOdds(h.odds.toFixed(2));
+                    }}
+                    style={inp}
+                  >
+                    <option value="">Select horse…</option>
+                    {csvHorses.map(h => (
+                      <option key={h.name} value={h.name}>
+                        {h.tab ? `${h.tab}. ` : ''}{h.name}{h.odds ? ` ($${h.odds.toFixed(1)})` : ''}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <input value={qlHorse} onChange={e => setQlHorse(e.target.value)} placeholder="Horse name *" style={inp} />
+                )}
 
                 {/* Bet type */}
                 <select value={qlBetType} onChange={e => setQlBetType(e.target.value)} style={inp}>
@@ -355,7 +413,7 @@ export default function MybetsPage() {
 
                 {qlToast && (
                   <div style={{ fontSize: 10, fontWeight: 600, color: qlToast === 'success' ? '#059669' : '#dc2626', textAlign: 'center' }}>
-                    {qlToast === 'success' ? '✓ Bet logged! +5pts' : '✗ Failed — check console for error'}
+                    {qlToast === 'success' ? '✓ Bet logged! +5pts' : '✗ Failed — check console for details'}
                   </div>
                 )}
               </div>

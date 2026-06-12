@@ -712,9 +712,10 @@ function BetModal({ horse, onClose }) {
         const insertBody = {
           clerk_id:        user.id,
           date:            new Date().toISOString().slice(0, 10),
-          venue:           horse._venue        || null,
-          race_num:        raceNumVal,
           horse_name:      horse.name,
+          track:           horse._venue        || null,
+          venue:           horse._venue        || null,
+          race_number:     raceNumVal,
           bet_type:        betType,
           stake:           +stake,
           odds:            +odds,
@@ -731,13 +732,17 @@ function BetModal({ horse, onClose }) {
         console.log('[BetSave] Posting to bet_log:', JSON.stringify(insertBody));
         const res = await fetch(`${SURL}/rest/v1/bet_log`, {
           method: 'POST',
-          headers: { apikey: SKEY, Authorization: `Bearer ${SKEY}`, 'Content-Type': 'application/json', Prefer: 'return=minimal' },
+          headers: {
+            'Content-Type': 'application/json',
+            'apikey': SKEY,
+            'Authorization': `Bearer ${SKEY}`,
+            'Prefer': 'return=minimal',
+          },
           body: JSON.stringify(insertBody),
         });
         if (!res.ok) {
           const errText = await res.text();
           console.error('[BetSave] Supabase error — status:', res.status, '| body:', errText);
-          console.error('[BetSave] If the error mentions a missing column (race_name, meeting_date, bookmaker, my_odds, track_condition, rank, position), add that column to your bet_log table in Supabase.');
         } else {
           dbSuccess = true;
           awardPoints(user.id, 'bet_logged', horse.name).catch(err => { console.error('[BetSave] points error:', err); });
