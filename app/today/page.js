@@ -112,6 +112,52 @@ function ResultPopup({ result, onClose }) {
   );
 }
 
+function parsePillDate(time, date) {
+  if (!time) return null;
+  let dateISO = date;
+  if (date) {
+    const p = date.split('/');
+    if (p.length === 3) dateISO = `${p[2]}-${p[1].padStart(2,'0')}-${p[0].padStart(2,'0')}`;
+  }
+  if (!dateISO || !/^\d{4}-\d{2}-\d{2}$/.test(dateISO)) {
+    dateISO = new Date().toISOString().slice(0, 10);
+  }
+  const m = time.match(/^(\d{1,2}):(\d{2})/);
+  if (!m) return null;
+  const raceAt = new Date(`${dateISO}T${m[1].padStart(2,'0')}:${m[2]}:00`);
+  return isNaN(raceAt.getTime()) ? null : raceAt;
+}
+
+function PillCountdown({ time, date }) {
+  const [secsLeft, setSecsLeft] = useState(null);
+
+  useEffect(() => {
+    function compute() {
+      const raceAt = parsePillDate(time, date);
+      if (!raceAt) { setSecsLeft(null); return; }
+      setSecsLeft(Math.floor((raceAt.getTime() - Date.now()) / 1000));
+    }
+    compute();
+    const id = setInterval(compute, 30000);
+    return () => clearInterval(id);
+  }, [time, date]);
+
+  if (secsLeft === null) return null;
+  if (secsLeft < 0) return <span style={{ fontSize: 9, color: '#9ca3af', marginLeft: 2 }}>Done</span>;
+
+  const h = Math.floor(secsLeft / 3600);
+  const m = Math.floor((secsLeft % 3600) / 60);
+  const s = secsLeft % 60;
+  const isUrgent = secsLeft < 300;
+  const label = h > 0 ? `${h}h ${m}m` : secsLeft >= 60 ? `${m}m` : `${s}s`;
+
+  return (
+    <span style={{ fontSize: 9, color: isUrgent ? '#dc2626' : '#9ca3af', fontWeight: isUrgent ? 700 : 400, marginLeft: 2 }}>
+      {label}
+    </span>
+  );
+}
+
 export default function TodayPage() {
   const router = useRouter();
   const isMobile = useIsMobile();
@@ -235,6 +281,7 @@ export default function TodayPage() {
                           >
                             <span style={{ fontSize:11, fontWeight:700, color:resulted?'#065f46':'#111827' }}>R{rc.num}{resulted?' ✓':''}</span>
                             {rc.time && <span style={{ fontSize:10, color:resulted?'#065f46':'#9ca3af' }}>{rc.time}</span>}
+                            {!resulted && rc.time && <PillCountdown time={rc.time} date={rc.date} />}
                           </div>
                         );
                       })}

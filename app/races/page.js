@@ -273,6 +273,42 @@ function ViewTabBar({ view, setView, runnerCount }) {
   );
 }
 
+// ─── race countdown ───────────────────────────────────────────────────────────
+
+function RaceCountdown({ rc }) {
+  const [secsLeft, setSecsLeft] = useState(null);
+
+  useEffect(() => {
+    function compute() {
+      if (!rc.time) { setSecsLeft(null); return; }
+      const dateISO = toISO(rc.date) || new Date().toISOString().slice(0, 10);
+      const m = rc.time.match(/^(\d{1,2}):(\d{2})/);
+      if (!m) { setSecsLeft(null); return; }
+      const raceAt = new Date(`${dateISO}T${m[1].padStart(2, '0')}:${m[2]}:00`);
+      if (isNaN(raceAt.getTime())) { setSecsLeft(null); return; }
+      setSecsLeft(Math.floor((raceAt.getTime() - Date.now()) / 1000));
+    }
+    compute();
+    const id = setInterval(compute, 1000);
+    return () => clearInterval(id);
+  }, [rc.time, rc.date]);
+
+  if (secsLeft === null) return null;
+  if (secsLeft < 0) return <span className="text-[10px] text-gray-400">Race time passed</span>;
+
+  const h = Math.floor(secsLeft / 3600);
+  const m = Math.floor((secsLeft % 3600) / 60);
+  const s = secsLeft % 60;
+  const isUrgent = secsLeft < 300;
+  const label = h > 0 ? `${h}h ${m}m` : isUrgent ? `${m}m ${s}s` : `${m}m`;
+
+  return (
+    <span className={`text-[10px] font-semibold${isUrgent ? ' text-red-600 animate-pulse' : ' text-gray-500'}`}>
+      Starts in {label}
+    </span>
+  );
+}
+
 // ─── race header ──────────────────────────────────────────────────────────────
 
 function RaceHeader({ rc, trackCond, setTrackCond, weights, setWeights, runnerCount, onUpgrade }) {
@@ -291,6 +327,7 @@ function RaceHeader({ rc, trackCond, setTrackCond, weights, setWeights, runnerCo
           {rc.prize && <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-gray-100 text-gray-500">${rc.prize}</span>}
           {rc.time  && <span className="text-[10px] text-gray-400">{rc.time}</span>}
           {rc.date  && <span className="text-[10px] text-gray-400">{rc.date}</span>}
+          <RaceCountdown rc={rc} />
         </div>
       </div>
       <div className="flex items-center gap-2 flex-wrap">
