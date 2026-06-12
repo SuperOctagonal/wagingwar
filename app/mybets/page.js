@@ -54,6 +54,113 @@ async function patchBet(id, fields) {
   return sbFetch(`bet_log?id=eq.${id}`, { method: 'PATCH', body: fields, prefer: 'return=minimal' });
 }
 
+function normName(n) { return (n || '').toUpperCase().replace(/[^A-Z0-9]/g, ''); }
+function ordinal(n) { if (!n) return ''; const s = ['th','st','nd','rd']; const v = n % 100; return n + (s[(v-20)%10] || s[v] || s[0]); }
+
+async function matchAndUpdateBets(pendingBets) {
+  if (!pendingBets.length || !SURL || !SKEY) return { spMap: {}, anyUpdated: false };
+
+  const dates = [...new Set(pendingBets.map(b => b.date).filter(Boolean))];
+  const allResults = {};
+  await Promise.all(dates.map(async date => {
+    try {
+      const res = await fetch(
+        `${SURL}/rest/v1/race_results?select=*&date=eq.${date}&order=venue,race_num,finish_pos`,
+        { headers: { apikey: SKEY, Authorization: `Bearer ${SKEY}` } }
+      );
+      if (res.ok) allResults[date] = await res.json();
+    } catch {}
+  }));
+
+  const spMap = {};
+  const patches = [];
+
+  for (const bet of pendingBets) {
+    const rows = allResults[bet.date] || [];
+    if (!rows.length) continue;
+
+    const betVenue = normName(bet.track || bet.venue || '');
+    const betRaceNum = +(bet.race_number ?? bet.race_num ?? 0);
+    const betHorse = normName(bet.horse_name || '');
+
+    const row = rows.find(r =>
+      normName(r.venue) === betVenue &&
+      +r.race_num === betRaceNum &&
+      normName(r.horse_name) === betHorse
+    );
+    if (!row) continue;
+
+    const stake = +(bet.stake || 0);
+    const odds  = +(bet.odds  || 0);
+    const sp    = +(row.sp    || 0);
+    const pos   = row.finish_pos;
+    const type  = (bet.bet_type || '').toLowerCase();
+    const useOdds = sp > 1 ? sp : odds;
+    const isEW = type === 'each-way' || type === 'each way';
+
+    let status, returnAmt, profitLoss;
+    if (isEW) {
+      if (pos === 1) {
+        status     = 'win';
+        profitLoss = (stake * useOdds) - stake + (stake * (useOdds / 4)) - stake;
+      } else if (pos <= 3) {
+        status     = 'place';
+        profitLoss = -stake + (stake * (useOdds / 4)) - stake;
+      } else {
+        status = 'loss'; profitLoss = -(2 * stake);
+      }
+      returnAmt = profitLoss + 2 * stake;
+    } else if (type === 'place') {
+      if (pos <= 3) {
+        status     = 'place';
+        returnAmt  = stake * (useOdds / 4);
+        profitLoss = returnAmt - stake;
+      } else {
+        status = 'loss'; returnAmt = 0; profitLoss = -stake;
+      }
+    } else {
+      if (pos === 1) {
+        status     = 'win';
+        returnAmt  = stake * useOdds;
+        profitLoss = returnAmt - stake;
+      } else {
+        status = 'loss'; returnAmt = 0; profitLoss = -stake;
+      }
+    }
+
+    spMap[bet.id] = sp || null;
+
+    const fields = {
+      status,
+      result:      status,
+      return_amt:  Math.round((returnAmt  || 0) * 100) / 100,
+      position:    pos,
+      profit_loss: Math.round((profitLoss || 0) * 100) / 100,
+    };
+
+    patches.push(
+      fetch(`${SURL}/rest/v1/bet_log?id=eq.${bet.id}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          apikey: SKEY,
+          Authorization: `Bearer ${SKEY}`,
+          Prefer: 'return=minimal',
+        },
+        body: JSON.stringify(fields),
+      }).then(async r => {
+        if (!r.ok) console.error('[BetMatch] PATCH failed bet', bet.id, ':', await r.text());
+      }).catch(err => console.error('[BetMatch] Network error:', err))
+    );
+  }
+
+  if (patches.length) {
+    await Promise.all(patches);
+    return { spMap, anyUpdated: true };
+  }
+  return { spMap: {}, anyUpdated: false };
+}
+
 // ─── Period helpers ──────────────────────────────────────────────────────────
 
 function isoDate(d) { return d.toISOString().slice(0, 10); }
@@ -88,15 +195,17 @@ function calcRow(bets) {
 
 // ─── Resulted bet row ─────────────────────────────────────────────────────────
 
-function ResultedBetRow({ b }) {
-  const stake = b.stake || 0;
-  const ret   = b.return_amt || 0;
-  const pnl   = ret - stake;
-  const status = b.status || '';
-  // Support both old column name (race_num) and new (race_number)
+function ResultedBetRow({ b, sp }) {
+  const stake  = b.stake || 0;
+  const ret    = b.return_amt || 0;
+  const isEW   = (b.bet_type || '').toLowerCase().includes('each');
+  const pnl    = b.profit_loss !== null && b.profit_loss !== undefined
+    ? b.profit_loss
+    : ret - (isEW ? stake * 2 : stake);
+  const status  = b.status || '';
+  const pos     = b.position;
   const raceNum = b.race_number ?? b.race_num;
-  // Support both old column name (venue) and new (track)
-  const venue = b.track || b.venue;
+  const venue   = b.track || b.venue;
   const resultCfg = {
     win:   { bg: '#d1fae5', color: '#065f46', label: 'WIN'   },
     place: { bg: '#dbeafe', color: '#1e40af', label: 'PLACE' },
@@ -120,8 +229,12 @@ function ResultedBetRow({ b }) {
           <span style={{ fontSize: 9, background: '#f3f4f6', color: '#6b7280', padding: '1px 6px', borderRadius: 8, textTransform: 'capitalize', display: 'block', marginBottom: 2 }}>{b.bet_type}</span>
         )}
         <span style={{ fontSize: 11, fontFamily: 'monospace', color: '#374151' }}>${stake.toFixed(0)} @ ${Number(b.odds || 0).toFixed(2)}</span>
+        {sp && <span style={{ fontSize: 9, color: '#9ca3af', display: 'block' }}>SP ${Number(sp).toFixed(2)}</span>}
       </div>
-      <span style={{ fontSize: 9, fontWeight: 700, padding: '2px 7px', borderRadius: 4, background: resultCfg.bg, color: resultCfg.color, flexShrink: 0 }}>{resultCfg.label}</span>
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, flexShrink: 0 }}>
+        <span style={{ fontSize: 9, fontWeight: 700, padding: '2px 7px', borderRadius: 4, background: resultCfg.bg, color: resultCfg.color }}>{resultCfg.label}</span>
+        {pos && <span style={{ fontSize: 8, color: '#6b7280', fontWeight: 600 }}>{ordinal(pos)}</span>}
+      </div>
       <div style={{ fontSize: 13, fontWeight: 800, fontFamily: 'monospace', color: pnl >= 0 ? '#059669' : '#dc2626', flexShrink: 0, width: 64, textAlign: 'right' }}>
         {pnl >= 0 ? '+$' : '-$'}{Math.abs(pnl).toFixed(2)}
       </div>
@@ -136,10 +249,12 @@ export default function MybetsPage() {
   const isPro    = useIsPro();
   const isMobile = useIsMobile();
 
-  const [upgradeOpen, setUpgradeOpen] = useState(false);
-  const [bets,        setBets]        = useState([]);
-  const [loading,     setLoading]     = useState(true);
-  const [activeTab,   setActiveTab]   = useState('all');
+  const [upgradeOpen,      setUpgradeOpen]      = useState(false);
+  const [bets,             setBets]             = useState([]);
+  const [loading,          setLoading]          = useState(true);
+  const [activeTab,        setActiveTab]        = useState('all');
+  const [matchingResults,  setMatchingResults]  = useState(false);
+  const [resultSpMap,      setResultSpMap]      = useState({});
 
   // CSV data for Quick Log
   const [csvMeetings, setCsvMeetings] = useState([]);   // ['Flemington', ...]
@@ -161,7 +276,21 @@ export default function MybetsPage() {
 
   useEffect(() => {
     if (!user?.id) { setLoading(false); return; }
-    loadBets(user.id).then(data => { setBets(data); setLoading(false); });
+    loadBets(user.id).then(async loaded => {
+      setBets(loaded);
+      setLoading(false);
+      const pending = loaded.filter(b => !b.status || b.status === 'pending');
+      if (pending.length > 0) {
+        setMatchingResults(true);
+        const { spMap, anyUpdated } = await matchAndUpdateBets(pending);
+        setMatchingResults(false);
+        if (Object.keys(spMap).length > 0) setResultSpMap(spMap);
+        if (anyUpdated) {
+          const fresh = await loadBets(user.id);
+          setBets(fresh);
+        }
+      }
+    });
   }, [user?.id]);
 
   // Load CSV race data from localStorage (key: ww_csv, set by races page)
@@ -482,6 +611,14 @@ export default function MybetsPage() {
             })}
           </div>
 
+          {/* Checking results indicator */}
+          {matchingResults && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 16px', background: '#fffbeb', borderBottom: '1px solid #fde68a', flexShrink: 0 }}>
+              <i className="ti ti-loader-2" style={{ fontSize: 11, color: '#d97706', animation: 'spin 1s linear infinite' }} />
+              <span style={{ fontSize: 10, color: '#92400e', fontWeight: 600 }}>Checking results…</span>
+            </div>
+          )}
+
           {/* Resulted bets list */}
           <div style={{ flex: 1, overflowY: 'auto', background: '#f8fafc' }}>
             {loading ? (
@@ -492,7 +629,7 @@ export default function MybetsPage() {
                 <div style={{ fontSize: 12, color: '#9ca3af' }}>No resulted bets yet</div>
               </div>
             ) : (
-              filteredResulted.map(b => <ResultedBetRow key={b.id} b={b} />)
+              filteredResulted.map(b => <ResultedBetRow key={b.id} b={b} sp={resultSpMap[b.id]} />)
             )}
           </div>
 
