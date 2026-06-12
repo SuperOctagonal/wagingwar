@@ -10,6 +10,7 @@ const jetbrainsMono= JetBrains_Mono({ subsets:['latin'], variable:'--font-jetbra
 export const metadata = {
   title: 'Waging War — Racing Analytics',
   description: 'Australian horse racing analytics and community platform',
+  icons: { icon: '/images/icon-app.png' },
 };
 
 export default function RootLayout({ children }) {

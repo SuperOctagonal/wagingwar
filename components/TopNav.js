@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useUser, useClerk } from '@clerk/nextjs';
 import { useState, useEffect, useRef } from 'react';
@@ -71,12 +72,9 @@ export default function TopNav() {
       {/* ── TOP NAV ── */}
       <nav className="bg-brand h-11 flex-shrink-0 flex items-center px-3.5 gap-0 border-b border-[#003314]">
         {/* Brand */}
-        <button
-          onClick={() => router.push('/')}
-          className="font-bebas text-xl tracking-[3px] text-white flex-shrink-0 mr-4 leading-none"
-        >
-          Waging<span className="text-amber-400">War</span>
-        </button>
+        <Link href="/" style={{ display: 'flex', alignItems: 'center', flexShrink: 0, marginRight: 16 }}>
+          <img src="/images/logo-white.png" alt="Waging War" style={{ height: 36, width: 'auto' }} />
+        </Link>
 
         {/* Desktop nav links */}
         <div className="hidden md:flex h-full flex-1">
@@ -268,10 +266,9 @@ export default function TopNav() {
           >
             {/* Drawer header */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px', borderBottom: '1px solid rgba(255,255,255,0.1)', flexShrink: 0 }}>
-              <button onClick={() => { setDrawerOpen(false); router.push('/'); }}
-                className="font-bebas text-xl tracking-[3px] text-white leading-none" style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
-                Waging<span style={{ color: '#fbbf24' }}>War</span>
-              </button>
+              <Link href="/" onClick={() => setDrawerOpen(false)} style={{ display: 'flex', alignItems: 'center' }}>
+                <img src="/images/logo-white.png" alt="Waging War" style={{ height: 32, width: 'auto' }} />
+              </Link>
               <button
                 onClick={() => setDrawerOpen(false)}
                 style={{ minWidth: 44, minHeight: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,0.6)', fontSize: 20 }}
