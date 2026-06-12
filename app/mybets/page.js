@@ -7,9 +7,12 @@ import useIsPro from '@/hooks/useIsPro';
 import useIsMobile from '@/hooks/useIsMobile';
 import UpgradeModal from '@/components/UpgradeModal';
 import { awardPoints } from '@/lib/points';
+import { parseCSV, buildRaces } from '@/lib/csvParser';
 
 const SURL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SKEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+const BOOKMAKERS = ['Sportsbet','TAB','Betfair','Bet365','BlueBet','Ladbrokes','Neds','Other'];
 
 async function sbFetch(path, opts = {}) {
   if (!SURL || !SKEY) return null;
@@ -24,10 +27,17 @@ async function sbFetch(path, opts = {}) {
       },
       body: opts.body ? JSON.stringify(opts.body) : undefined,
     });
-    if (!res.ok) return null;
+    if (!res.ok) {
+      const errText = await res.text();
+      console.error('[MyBets sbFetch] Error', res.status, errText);
+      return null;
+    }
     const text = await res.text();
     return text ? JSON.parse(text) : null;
-  } catch { return null; }
+  } catch (err) {
+    console.error('[MyBets sbFetch] Network error:', err);
+    return null;
+  }
 }
 
 async function loadBets(userId) {
@@ -126,21 +136,37 @@ export default function MybetsPage() {
   const [loading,     setLoading]     = useState(true);
   const [activeTab,   setActiveTab]   = useState('all');
   const [updatingId,  setUpdatingId]  = useState(null);
-  const [qlHorse,     setQlHorse]     = useState('');
-  const [qlTrack,     setQlTrack]     = useState('');
-  const [qlRaceNum,   setQlRaceNum]   = useState('');
-  const [qlBetType,   setQlBetType]   = useState('win');
-  const [qlStake,     setQlStake]     = useState('');
-  const [qlOdds,      setQlOdds]      = useState('');
-  const [qlSaving,    setQlSaving]    = useState(false);
-  const [qlToast,     setQlToast]     = useState(null);
+
+  // Quick Log form state
+  const [csvMeetings,  setCsvMeetings]  = useState([]); // ['Flemington', 'Randwick', ...]
+  const [qlMeeting,    setQlMeeting]    = useState('');
+  const [qlRace,       setQlRace]       = useState('');
+  const [qlHorse,      setQlHorse]      = useState('');
+  const [qlBetType,    setQlBetType]    = useState('win');
+  const [qlStake,      setQlStake]      = useState('');
+  const [qlOdds,       setQlOdds]       = useState('');
+  const [qlBookmaker,  setQlBookmaker]  = useState('Sportsbet');
+  const [qlSaving,     setQlSaving]     = useState(false);
+  const [qlToast,      setQlToast]      = useState(null);
 
   const todayISO = new Date().toISOString().slice(0, 10);
 
+  // Load bets
   useEffect(() => {
     if (!user?.id) { setLoading(false); return; }
     loadBets(user.id).then(data => { setBets(data); setLoading(false); });
   }, [user?.id]);
+
+  // Load meetings from localStorage CSV (same source as Races page)
+  useEffect(() => {
+    try {
+      const csv = localStorage.getItem('ww_csv');
+      if (csv) {
+        const { allVenues } = buildRaces(parseCSV(csv));
+        setCsvMeetings(Object.keys(allVenues));
+      }
+    } catch {}
+  }, []);
 
   const handleDelete = useCallback(async (id) => {
     await removeBet(id);
@@ -164,29 +190,31 @@ export default function MybetsPage() {
     if (!user?.id) return;
     setQlSaving(true);
     const body = {
-      clerk_id: user.id,
+      clerk_id:   user.id,
       horse_name: qlHorse.trim(),
-      venue: qlTrack.trim() || null,
-      race_num: qlRaceNum.trim() || null,
-      bet_type: qlBetType,
-      stake: +qlStake,
-      odds: +qlOdds,
-      status: 'pending',
-      date: new Date().toISOString().slice(0, 10),
+      venue:      qlMeeting  || null,
+      race_num:   qlRace     ? +qlRace : null,
+      bet_type:   qlBetType,
+      stake:      +qlStake,
+      odds:       +qlOdds,
+      bookmaker:  qlBookmaker || null,
+      status:     'pending',
+      date:       new Date().toISOString().slice(0, 10),
     };
+    console.log('[QuickLog] Posting to bet_log:', JSON.stringify(body));
     const inserted = await sbFetch('bet_log', { method: 'POST', body, prefer: 'return=representation' });
     if (inserted) {
       const newBet = Array.isArray(inserted) ? inserted[0] : inserted;
       if (newBet) setBets(prev => [newBet, ...prev]);
       awardPoints(user.id, 'bet_logged', qlHorse.trim()).catch(() => {});
-      setQlHorse(''); setQlTrack(''); setQlRaceNum(''); setQlBetType('win'); setQlStake(''); setQlOdds('');
+      setQlHorse(''); setQlStake(''); setQlOdds('');
       setQlToast('success');
     } else {
       setQlToast('error');
     }
     setQlSaving(false);
     setTimeout(() => setQlToast(null), 2500);
-  }, [user?.id, qlHorse, qlTrack, qlRaceNum, qlBetType, qlStake, qlOdds]);
+  }, [user?.id, qlHorse, qlMeeting, qlRace, qlBetType, qlStake, qlOdds, qlBookmaker]);
 
   const statsRows = useMemo(() => (
     ['Today', 'This week', 'This month', 'All time'].map(p => ({ label: p, ...calcRow(bets.filter(periodFilter(p, todayISO))) }))
@@ -225,6 +253,8 @@ export default function MybetsPage() {
     );
   }
 
+  const inp = { fontSize: 11, padding: '5px 8px', border: '1px solid #e5e7eb', borderRadius: 5, color: '#111827', outline: 'none', background: '#fff', width: '100%', boxSizing: 'border-box' };
+
   return (
     <div className="mob-page" style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
       <ProfileRail />
@@ -243,7 +273,7 @@ export default function MybetsPage() {
               {pendingBets.length === 0 ? (
                 <div style={{ fontSize: 11, color: '#9ca3af', textAlign: 'center', padding: '6px 0' }}>No upcoming bets</div>
               ) : (
-                <div style={{ maxHeight: 220, overflowY: 'auto' }}>
+                <div style={{ maxHeight: 180, overflowY: 'auto' }}>
                   {pendingBets.slice(0, 8).map(b => (
                     <div key={b.id} style={{ padding: '5px 0', borderBottom: '1px solid #f9fafb' }}>
                       <div style={{ fontWeight: 600, fontSize: 11, color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b.horse_name || '—'}</div>
@@ -260,56 +290,72 @@ export default function MybetsPage() {
             <div style={{ height: 1, background: '#e5e7eb', flexShrink: 0 }} />
 
             {/* Quick Log */}
-            <div style={{ padding: '10px 12px', overflowY: 'auto' }}>
-              <div style={{ fontSize: 9, fontWeight: 700, color: '#374151', textTransform: 'uppercase', letterSpacing: '.5px', marginBottom: 7 }}>Quick Log</div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-                <input
-                  value={qlHorse} onChange={e => setQlHorse(e.target.value)}
-                  placeholder="Horse name"
-                  style={{ fontSize: 11, padding: '5px 8px', border: '1px solid #e5e7eb', borderRadius: 5, color: '#111827', outline: 'none', width: '100%', boxSizing: 'border-box' }}
-                />
-                <div style={{ display: 'flex', gap: 4 }}>
-                  <input
-                    value={qlTrack} onChange={e => setQlTrack(e.target.value)}
-                    placeholder="Track"
-                    style={{ flex: 1, fontSize: 11, padding: '5px 7px', border: '1px solid #e5e7eb', borderRadius: 5, color: '#111827', outline: 'none', minWidth: 0 }}
-                  />
-                  <input
-                    value={qlRaceNum} onChange={e => setQlRaceNum(e.target.value)}
-                    placeholder="R#"
-                    style={{ width: 36, fontSize: 11, padding: '5px 5px', border: '1px solid #e5e7eb', borderRadius: 5, color: '#111827', outline: 'none' }}
-                  />
+            <div style={{ padding: '10px 12px', overflowY: 'auto', flex: 1 }}>
+              <div style={{ fontSize: 9, fontWeight: 700, color: '#374151', textTransform: 'uppercase', letterSpacing: '.5px', marginBottom: 6 }}>Quick Log</div>
+
+              {csvMeetings.length === 0 && (
+                <div style={{ fontSize: 10, color: '#9ca3af', marginBottom: 8, lineHeight: 1.4 }}>
+                  Load a CSV on the Races page to enable meeting selection.
                 </div>
-                <select
-                  value={qlBetType} onChange={e => setQlBetType(e.target.value)}
-                  style={{ fontSize: 11, padding: '5px 8px', border: '1px solid #e5e7eb', borderRadius: 5, color: '#111827', background: '#fff', outline: 'none' }}
-                >
+              )}
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+
+                {/* Meeting */}
+                {csvMeetings.length > 0 ? (
+                  <select value={qlMeeting} onChange={e => { setQlMeeting(e.target.value); setQlRace(''); }} style={inp}>
+                    <option value="">Meeting…</option>
+                    {csvMeetings.map(v => <option key={v} value={v}>{v}</option>)}
+                  </select>
+                ) : (
+                  <input value={qlMeeting} onChange={e => setQlMeeting(e.target.value)} placeholder="Track (e.g. Flemington)" style={inp} />
+                )}
+
+                {/* Race number */}
+                <select value={qlRace} onChange={e => setQlRace(e.target.value)} style={inp}>
+                  <option value="">Race #…</option>
+                  {Array.from({ length: 12 }, (_, i) => i + 1).map(n => (
+                    <option key={n} value={n}>R{n}</option>
+                  ))}
+                </select>
+
+                {/* Horse name */}
+                <input value={qlHorse} onChange={e => setQlHorse(e.target.value)} placeholder="Horse name *" style={inp} />
+
+                {/* Bet type */}
+                <select value={qlBetType} onChange={e => setQlBetType(e.target.value)} style={inp}>
                   <option value="win">Win</option>
                   <option value="place">Place</option>
                   <option value="each-way">Each Way</option>
                 </select>
+
+                {/* Stake + Odds */}
                 <div style={{ display: 'flex', gap: 4 }}>
-                  <input
-                    value={qlStake} onChange={e => setQlStake(e.target.value)}
+                  <input value={qlStake} onChange={e => setQlStake(e.target.value)}
                     type="number" placeholder="Stake $" min="0.01" step="0.01"
-                    style={{ flex: 1, fontSize: 11, padding: '5px 7px', border: '1px solid #e5e7eb', borderRadius: 5, color: '#111827', outline: 'none', minWidth: 0 }}
-                  />
-                  <input
-                    value={qlOdds} onChange={e => setQlOdds(e.target.value)}
+                    style={{ ...inp, flex: 1, minWidth: 0 }} />
+                  <input value={qlOdds} onChange={e => setQlOdds(e.target.value)}
                     type="number" placeholder="Odds $" min="1.01" step="0.01"
-                    style={{ flex: 1, fontSize: 11, padding: '5px 7px', border: '1px solid #e5e7eb', borderRadius: 5, color: '#111827', outline: 'none', minWidth: 0 }}
-                  />
+                    style={{ ...inp, flex: 1, minWidth: 0 }} />
                 </div>
+
+                {/* Bookmaker */}
+                <select value={qlBookmaker} onChange={e => setQlBookmaker(e.target.value)} style={inp}>
+                  {BOOKMAKERS.map(b => <option key={b} value={b}>{b}</option>)}
+                </select>
+
+                {/* Submit */}
                 <button
                   onClick={handleQuickLog}
                   disabled={qlSaving || !qlHorse.trim() || !qlStake || !qlOdds}
                   style={{ padding: '7px', background: '#059669', color: '#fff', border: 'none', borderRadius: 5, fontSize: 11, fontWeight: 700, cursor: 'pointer', opacity: (qlSaving || !qlHorse.trim() || !qlStake || !qlOdds) ? 0.5 : 1 }}
                 >
-                  {qlSaving ? 'Saving…' : '+ Log Bet'}
+                  {qlSaving ? 'Saving…' : 'Save Bet'}
                 </button>
+
                 {qlToast && (
                   <div style={{ fontSize: 10, fontWeight: 600, color: qlToast === 'success' ? '#059669' : '#dc2626', textAlign: 'center' }}>
-                    {qlToast === 'success' ? '✓ Bet logged! +5pts' : '✗ Failed — try again'}
+                    {qlToast === 'success' ? '✓ Bet logged! +5pts' : '✗ Failed — check console for error'}
                   </div>
                 )}
               </div>

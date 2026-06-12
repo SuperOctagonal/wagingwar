@@ -114,6 +114,19 @@ function ResultPopup({ result, onClose }) {
 
 function parsePillDate(time, date) {
   if (!time) return null;
+  let h, m;
+  const ampm = time.match(/^(\d{1,2}):(\d{2})\s*(am|pm)/i);
+  if (ampm) {
+    h = parseInt(ampm[1], 10);
+    m = parseInt(ampm[2], 10);
+    if (/pm/i.test(ampm[3]) && h !== 12) h += 12;
+    if (/am/i.test(ampm[3]) && h === 12) h = 0;
+  } else {
+    const plain = time.match(/^(\d{1,2}):(\d{2})/);
+    if (!plain) return null;
+    h = parseInt(plain[1], 10);
+    m = parseInt(plain[2], 10);
+  }
   let dateISO = date;
   if (date) {
     const p = date.split('/');
@@ -122,9 +135,7 @@ function parsePillDate(time, date) {
   if (!dateISO || !/^\d{4}-\d{2}-\d{2}$/.test(dateISO)) {
     dateISO = new Date().toISOString().slice(0, 10);
   }
-  const m = time.match(/^(\d{1,2}):(\d{2})/);
-  if (!m) return null;
-  const raceAt = new Date(`${dateISO}T${m[1].padStart(2,'0')}:${m[2]}:00`);
+  const raceAt = new Date(`${dateISO}T${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:00`);
   return isNaN(raceAt.getTime()) ? null : raceAt;
 }
 

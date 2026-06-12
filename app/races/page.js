@@ -45,6 +45,27 @@ function toISO(d) {
   return null;
 }
 
+// Parses HH:MM (24hr) or H:MM AM/PM (12hr) + DD/MM/YYYY date into a Date
+function parseRaceTime(timeStr, dateStr) {
+  if (!timeStr) return null;
+  let h, m;
+  const ampm = timeStr.match(/^(\d{1,2}):(\d{2})\s*(am|pm)/i);
+  if (ampm) {
+    h = parseInt(ampm[1], 10);
+    m = parseInt(ampm[2], 10);
+    if (/pm/i.test(ampm[3]) && h !== 12) h += 12;
+    if (/am/i.test(ampm[3]) && h === 12) h = 0;
+  } else {
+    const plain = timeStr.match(/^(\d{1,2}):(\d{2})/);
+    if (!plain) return null;
+    h = parseInt(plain[1], 10);
+    m = parseInt(plain[2], 10);
+  }
+  const dateISO = toISO(dateStr) || new Date().toISOString().slice(0, 10);
+  const raceAt = new Date(`${dateISO}T${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:00`);
+  return isNaN(raceAt.getTime()) ? null : raceAt;
+}
+
 async function fetchRaceResultsForDate(dateStr) {
   if (!SURL || !SKEY || !dateStr) return {};
   try {
@@ -280,31 +301,37 @@ function RaceCountdown({ rc }) {
 
   useEffect(() => {
     function compute() {
-      if (!rc.time) { setSecsLeft(null); return; }
-      const dateISO = toISO(rc.date) || new Date().toISOString().slice(0, 10);
-      const m = rc.time.match(/^(\d{1,2}):(\d{2})/);
-      if (!m) { setSecsLeft(null); return; }
-      const raceAt = new Date(`${dateISO}T${m[1].padStart(2, '0')}:${m[2]}:00`);
-      if (isNaN(raceAt.getTime())) { setSecsLeft(null); return; }
+      const raceAt = parseRaceTime(rc.time, rc.date);
+      console.log('[RaceCountdown]', rc.venue, 'R' + rc.num, '| time:', rc.time, '| date:', rc.date, '| raceAt:', raceAt?.toLocaleTimeString(), '| secsLeft:', raceAt ? Math.floor((raceAt.getTime() - Date.now()) / 1000) : null);
+      if (!raceAt) { setSecsLeft(null); return; }
       setSecsLeft(Math.floor((raceAt.getTime() - Date.now()) / 1000));
     }
     compute();
     const id = setInterval(compute, 1000);
     return () => clearInterval(id);
-  }, [rc.time, rc.date]);
+  }, [rc.time, rc.date, rc.venue, rc.num]);
 
   if (secsLeft === null) return null;
-  if (secsLeft < 0) return <span className="text-[10px] text-gray-400">Race time passed</span>;
+
+  if (secsLeft < 0) {
+    return (
+      <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded bg-gray-100 text-gray-400">
+        <i className="ti ti-clock" style={{ fontSize: 9 }} />
+        Passed
+      </span>
+    );
+  }
 
   const h = Math.floor(secsLeft / 3600);
-  const m = Math.floor((secsLeft % 3600) / 60);
+  const mins = Math.floor((secsLeft % 3600) / 60);
   const s = secsLeft % 60;
   const isUrgent = secsLeft < 300;
-  const label = h > 0 ? `${h}h ${m}m` : isUrgent ? `${m}m ${s}s` : `${m}m`;
+  const label = h > 0 ? `${h}h ${mins}m` : isUrgent ? `${mins}m ${s}s` : `${mins}m`;
 
   return (
-    <span className={`text-[10px] font-semibold${isUrgent ? ' text-red-600 animate-pulse' : ' text-gray-500'}`}>
-      Starts in {label}
+    <span className={`inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded${isUrgent ? ' bg-red-50 text-red-600 animate-pulse' : ' bg-sky-50 text-sky-700'}`}>
+      <i className="ti ti-clock" style={{ fontSize: 9 }} />
+      {label}
     </span>
   );
 }
@@ -679,30 +706,36 @@ function BetModal({ horse, onClose }) {
     let dbSuccess = !user?.id; // not logged in → localStorage-only, treat as success
     if (SURL && SKEY && user?.id) {
       try {
+        const raceNumVal = horse._raceNum != null ? (isNaN(+horse._raceNum) ? String(horse._raceNum) : +horse._raceNum) : null;
+        const insertBody = {
+          clerk_id:        user.id,
+          date:            new Date().toISOString().slice(0, 10),
+          venue:           horse._venue        || null,
+          race_num:        raceNumVal,
+          horse_name:      horse.name,
+          bet_type:        betType,
+          stake:           +stake,
+          odds:            +odds,
+          status:          'pending',
+          bookmaker:       bookie              || null,
+          rank:            horse._rank         || null,
+          my_odds:         horse._myOdds       ?? horse.rawOdds ?? null,
+          track_condition: horse._trackCond    || null,
+          race_name:       horse._raceName     || null,
+          meeting_date:    horse._meetingDate  || null,
+          return_amt:      null,
+          position:        null,
+        };
+        console.log('[BetSave] Posting to bet_log:', JSON.stringify(insertBody));
         const res = await fetch(`${SURL}/rest/v1/bet_log`, {
           method: 'POST',
           headers: { apikey: SKEY, Authorization: `Bearer ${SKEY}`, 'Content-Type': 'application/json', Prefer: 'return=minimal' },
-          body: JSON.stringify({
-            clerk_id: user.id,
-            date: new Date().toISOString().slice(0, 10),
-            venue: horse._venue || null,
-            race_num: horse._raceNum != null ? String(horse._raceNum) : null,
-            horse_name: horse.name,
-            rank: horse._rank || null,
-            bookmaker: bookie,
-            stake: +stake,
-            odds: +odds,
-            my_odds: horse._myOdds != null ? horse._myOdds : (horse.rawOdds || null),
-            bet_type: betType,
-            track_condition: horse._trackCond || null,
-            status: 'pending',
-            return_amt: null,
-            position: null,
-          }),
+          body: JSON.stringify(insertBody),
         });
         if (!res.ok) {
           const errText = await res.text();
-          console.error('[BetSave] Supabase error:', res.status, errText);
+          console.error('[BetSave] Supabase error — status:', res.status, '| body:', errText);
+          console.error('[BetSave] If the error mentions a missing column (race_name, meeting_date, bookmaker, my_odds, track_condition, rank, position), add that column to your bet_log table in Supabase.');
         } else {
           dbSuccess = true;
           awardPoints(user.id, 'bet_logged', horse.name).catch(err => { console.error('[BetSave] points error:', err); });
@@ -1661,7 +1694,7 @@ function RacesPageInner() {
 
   const handleLogBet = useCallback((runner, rank) => {
     const rc = allRaces[selectedKey];
-    setBetTarget({ ...runner, _rank: rank, _venue: rc?.venue, _raceNum: rc?.num, _trackCond: trackCond, _myOdds: runner.rawOdds });
+    setBetTarget({ ...runner, _rank: rank, _venue: rc?.venue, _raceNum: rc?.num, _raceName: rc?.name || null, _meetingDate: rc?.date || null, _trackCond: trackCond, _myOdds: runner.rawOdds });
   }, [allRaces, selectedKey, trackCond]);
   const hideTimerRef = useRef(null);
 
