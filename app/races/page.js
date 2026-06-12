@@ -45,18 +45,20 @@ function toISO(d) {
   return null;
 }
 
-// Parses HH:MM (24hr) or H:MM AM/PM (12hr) + DD/MM/YYYY date into a Date
+// Parses HH:MM or HH.MM (24hr) or H:MM/H.MM AM/PM (12hr) + DD/MM/YYYY date into a Date
 function parseRaceTime(timeStr, dateStr) {
   if (!timeStr) return null;
+  // Normalise: "01.58 pm" → "01:58 pm", "13.30" → "13:30"
+  const t = timeStr.trim().replace(/\./g, ':');
   let h, m;
-  const ampm = timeStr.match(/^(\d{1,2}):(\d{2})\s*(am|pm)/i);
+  const ampm = t.match(/^(\d{1,2}):(\d{2})\s*(am|pm)/i);
   if (ampm) {
     h = parseInt(ampm[1], 10);
     m = parseInt(ampm[2], 10);
     if (/pm/i.test(ampm[3]) && h !== 12) h += 12;
     if (/am/i.test(ampm[3]) && h === 12) h = 0;
   } else {
-    const plain = timeStr.match(/^(\d{1,2}):(\d{2})/);
+    const plain = t.match(/^(\d{1,2}):(\d{2})/);
     if (!plain) return null;
     h = parseInt(plain[1], 10);
     m = parseInt(plain[2], 10);
