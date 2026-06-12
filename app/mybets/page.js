@@ -173,17 +173,29 @@ export default function MybetsPage() {
         setCsvRaces(ar);
         setCsvVenues(av);
         setCsvMeetings(Object.keys(av));
+        console.log('[MyBets] CSV loaded — venues:', Object.keys(av));
       }
-    } catch {}
+    } catch (e) {
+      console.error('[MyBets] CSV parse error:', e);
+    }
   }, []);
+
+  // Race options for selected meeting — populated from CSV, falls back to R1-R12
+  const csvRaceOptions = useMemo(() => {
+    if (!qlMeeting) return [];
+    return (csvVenues[qlMeeting] || [])
+      .map(k => ({ key: k, value: csvRaces[k]?.num || '', label: `R${csvRaces[k]?.num}` }))
+      .filter(o => o.value);
+  }, [csvVenues, csvRaces, qlMeeting]);
 
   // Horses available for the selected meeting + race
   const csvHorses = useMemo(() => {
     if (!qlMeeting || !qlRace) return [];
     const venueKeys = csvVenues[qlMeeting] || [];
+    // Compare numerically so "01" matches "1", etc.
     const raceKey = venueKeys.find(k => {
       const rc = csvRaces[k];
-      return rc && String(rc.num) === String(qlRace);
+      return rc && +rc.num === +qlRace;
     });
     if (!raceKey) return [];
     const rc = csvRaces[raceKey];
@@ -350,12 +362,13 @@ export default function MybetsPage() {
                   <input value={qlMeeting} onChange={e => setQlMeeting(e.target.value)} placeholder="Track (e.g. Flemington)" style={inp} />
                 )}
 
-                {/* Race number */}
+                {/* Race number — dynamic from CSV when meeting selected, else static R1-R12 */}
                 <select value={qlRace} onChange={e => { setQlRace(e.target.value); setQlHorse(''); setQlOdds(''); }} style={inp}>
                   <option value="">Race #…</option>
-                  {Array.from({ length: 12 }, (_, i) => i + 1).map(n => (
-                    <option key={n} value={n}>R{n}</option>
-                  ))}
+                  {csvRaceOptions.length > 0
+                    ? csvRaceOptions.map(o => <option key={o.key} value={o.value}>{o.label}</option>)
+                    : Array.from({ length: 12 }, (_, i) => i + 1).map(n => <option key={n} value={n}>R{n}</option>)
+                  }
                 </select>
 
                 {/* Horse — dropdown when CSV horses available, text input otherwise */}
