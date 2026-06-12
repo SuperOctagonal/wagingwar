@@ -730,16 +730,21 @@ function BetModal({ horse, onClose }) {
           position:        null,
         };
         console.log('[BetSave] Posting to bet_log:', JSON.stringify(insertBody));
-        const res = await fetch(`${SURL}/rest/v1/bet_log`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'apikey': SKEY,
-            'Authorization': `Bearer ${SKEY}`,
-            'Prefer': 'return=minimal',
-          },
-          body: JSON.stringify(insertBody),
-        });
+        // Run in Supabase SQL: ALTER TABLE bet_log ENABLE ROW LEVEL SECURITY;
+        // CREATE POLICY "Users can insert own bets" ON bet_log FOR INSERT WITH CHECK (true);
+        const res = await fetch(
+          `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/bet_log`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'apikey': process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+              'Authorization': `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`,
+              'Prefer': 'return=minimal'
+            },
+            body: JSON.stringify(insertBody)
+          }
+        );
         if (!res.ok) {
           const errText = await res.text();
           console.error('[BetSave] Supabase error — status:', res.status, '| body:', errText);
