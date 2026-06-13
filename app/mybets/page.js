@@ -341,6 +341,7 @@ export default function MybetsPage() {
   const [qlBookmaker, setQlBookmaker] = useState('Sportsbet');
   const [qlSaving,    setQlSaving]    = useState(false);
   const [qlToast,     setQlToast]     = useState(null);
+  const [qlRaceTime,  setQlRaceTime]  = useState('');
   const [raceDate,    setRaceDate]    = useState(null);
 
   const todayISO = new Date().toISOString().slice(0, 10);
@@ -440,6 +441,7 @@ export default function MybetsPage() {
       stake:       +qlStake,
       odds:        +qlOdds,
       bookmaker:   qlBookmaker || null,
+      race_time:   qlRaceTime  || null,
       status:      'pending',
       return_amt:  null,
       position:    null,
@@ -477,7 +479,7 @@ export default function MybetsPage() {
     setQlToast(ok ? 'success' : 'error');
     setQlSaving(false);
     setTimeout(() => setQlToast(null), 2500);
-  }, [user?.id, todayISO, raceDate, qlHorse, qlMeeting, qlRace, qlBetType, qlStake, qlOdds, qlBookmaker]);
+  }, [user?.id, todayISO, raceDate, qlHorse, qlMeeting, qlRace, qlBetType, qlStake, qlOdds, qlRaceTime, qlBookmaker]);
 
   const statsRows = useMemo(() => (
     ['Today', 'This week', 'This month', 'All time'].map(p => ({ label: p, ...calcRow(bets.filter(periodFilter(p, todayISO))) }))
@@ -595,6 +597,8 @@ export default function MybetsPage() {
                 <input value={qlOdds} onChange={e => setQlOdds(e.target.value)} type="number" placeholder="Odds $" min="1.01" step="0.01" style={{ ...inp, flex: 1, minWidth: 0 }} />
               </div>
 
+              <input value={qlRaceTime} onChange={e => setQlRaceTime(e.target.value)} type="time" placeholder="Race Time" style={inp} />
+
               <select value={qlBookmaker} onChange={e => setQlBookmaker(e.target.value)} style={inp}>
                 {BOOKMAKERS.map(b => <option key={b} value={b}>{b}</option>)}
               </select>
@@ -608,7 +612,7 @@ export default function MybetsPage() {
                   {qlSaving ? 'Saving…' : 'Save Bet'}
                 </button>
                 <button
-                  onClick={() => { setQlMeeting(''); setQlRace(''); setQlHorse(''); setQlBetType('win'); setQlStake(''); setQlOdds(''); setQlBookmaker('Sportsbet'); setQlToast(null); }}
+                  onClick={() => { setQlMeeting(''); setQlRace(''); setQlHorse(''); setQlBetType('win'); setQlStake(''); setQlOdds(''); setQlRaceTime(''); setQlBookmaker('Sportsbet'); setQlToast(null); }}
                   style={{ flex: 1, padding: '7px', background: '#dc2626', color: '#fff', border: 'none', borderRadius: 5, fontSize: 11, fontWeight: 700, cursor: 'pointer' }}
                 >
                   Clear
