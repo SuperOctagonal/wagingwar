@@ -104,14 +104,14 @@ function ResultsDetail({ meeting, venue, allRaces, allVenues, weights }) {
             const rowBg = p===1?'#fffbeb':p===2?'#f8fafc':p===3?'#fdf4ff':'#fff';
             const sysRank = sysRankMap[normName(r.name)] || null;
             const rs = sysRank ? rankStyle(sysRank) : null;
-            const pad = `${isTop3 ? 5 : 3}px 8px`;
+            const pad = '4px 8px';
             return (
               <tr key={`${p}-${r.name}`} style={{ background:rowBg, borderBottom:'0.5px solid #f3f4f6' }}>
                 <td style={{ padding:pad, textAlign:'center' }}>
-                  <span style={{ width:isTop3?20:18, height:isTop3?20:18, borderRadius:4, display:'inline-flex', alignItems:'center', justifyContent:'center', fontSize:9, fontWeight:700, background:ps.bg, color:ps.color }}>{p}</span>
+                  <span style={{ width:18, height:18, borderRadius:4, display:'inline-flex', alignItems:'center', justifyContent:'center', fontSize:9, fontWeight:700, background:ps.bg, color:ps.color }}>{p}</span>
                 </td>
                 <td style={{ padding:pad, whiteSpace:'nowrap' }}>
-                  <span style={{ fontSize:isTop3?12:11, fontWeight:isTop3?600:400, color:'#111827' }}>{r.name}</span>
+                  <span style={{ fontSize:12, fontWeight:isTop3?600:400, color:'#111827' }}>{r.name}</span>
                 </td>
                 {hasSysRank && (
                   <td style={{ padding:pad, textAlign:'center' }}>
@@ -121,10 +121,10 @@ function ResultsDetail({ meeting, venue, allRaces, allVenues, weights }) {
                     }
                   </td>
                 )}
-                <td style={{ padding:pad, textAlign:'right', fontFamily:'JetBrains Mono, monospace', fontSize:11, fontWeight:700, color:'#111827' }}>
+                <td style={{ padding:pad, textAlign:'right', fontFamily:'JetBrains Mono, monospace', fontSize:12, fontWeight:700, color:'#111827' }}>
                   ${Number(r.sp || 0).toFixed(2)}
                 </td>
-                <td style={{ padding:pad, textAlign:'right', fontSize:10, color:'#374151' }}>{r.margin || '—'}</td>
+                <td style={{ padding:pad, textAlign:'right', fontSize:12, color:'#374151' }}>{r.margin || '—'}</td>
               </tr>
             );
           })}
@@ -217,14 +217,15 @@ export default function ResultsPage() {
   const venueNames = Object.keys(meetings);
   const meetingRaces = selectedMeeting ? (meetings[selectedMeeting] || []) : [];
 
-  // Active race data for detail view
-  const activeRaceData = useMemo(() => {
+  // Active race data for detail view — look up directly in grouped to avoid find() type issues
+  const activeRaceData = (() => {
     if (!selectedMeeting) return null;
-    const match = selectedRace
-      ? meetingRaces.find(r => r.raceNum === selectedRace)
-      : meetingRaces.find(r => r.results);
-    return match?.results || null;
-  }, [selectedMeeting, selectedRace, meetingRaces]);
+    if (selectedRace != null) {
+      return grouped[`${selectedMeeting}||${selectedRace}`] || null;
+    }
+    const races = meetings[selectedMeeting] || [];
+    return races.find(r => r.results)?.results || null;
+  })();
 
   // Auto-select first resulted race when meeting opens
   useEffect(() => {
