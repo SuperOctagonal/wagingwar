@@ -520,6 +520,12 @@ export default function MybetsPage() {
     setTimeout(() => setQlToast(null), 2500);
   }, [user?.id, todayISO, raceDate, qlHorse, qlMeeting, qlRace, qlBetType, qlStake, qlOdds, qlRaceTime, qlBookmaker]);
 
+  const handleDeleteBet = useCallback(async (id) => {
+    if (!confirm('Remove this bet?')) return;
+    await removeBet(id);
+    setBets(prev => prev.filter(b => b.id !== id));
+  }, []);
+
   const statsRows = useMemo(() => (
     ['Today', 'This week', 'This month', 'All time'].map(p => ({ label: p, ...calcRow(bets.filter(periodFilter(p, todayISO))) }))
   ), [bets, todayISO]);
@@ -763,7 +769,10 @@ export default function MybetsPage() {
                     <td style={{ ...td(10), color: '#9ca3af' }}>—</td>
                     <td style={td(11)}><BetCountdown bet={b} isFirst={idx === 0} /></td>
                     <td style={{ ...td(12), color: '#9ca3af' }}>—</td>
-                    <td style={td(13)}><span style={{ fontSize: 9, fontWeight: 700, padding: '2px 6px', borderRadius: 3, background: '#f3f4f6', color: '#6b7280' }}>Pending</span></td>
+                    <td style={{ ...td(13), display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <span style={{ fontSize: 9, fontWeight: 700, padding: '2px 6px', borderRadius: 3, background: '#f3f4f6', color: '#6b7280' }}>Pending</span>
+                      <button onClick={() => handleDeleteBet(b.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', fontSize: 11, padding: '0 2px', lineHeight: 1, flexShrink: 0 }}>✕</button>
+                    </td>
                   </tr>
                 );
               })}
@@ -818,7 +827,7 @@ export default function MybetsPage() {
                 const rowBg = status === 'win' ? '#f0fdf4' : status === 'loss' ? '#fef2f2' : status === 'place' ? '#eff6ff' : '#fff';
                 const hoverBg = status === 'win' ? '#dcfce7' : status === 'loss' ? '#fee2e2' : status === 'place' ? '#dbeafe' : '#f9fafb';
                 const leftBorder = status === 'win' ? '#22c55e' : status === 'loss' ? '#ef4444' : status === 'place' ? '#3b82f6' : '#e5e7eb';
-                const badge = { win: { bg: '#16a34a', label: 'WIN' }, place: { bg: '#2563eb', label: 'PLACE' }, loss: { bg: '#dc2626', label: 'LOSS' } }[status] || { bg: '#9ca3af', label: 'PENDING' };
+                const badge = { win: { bg: '#16a34a', label: 'WIN' }, place: { bg: '#2563eb', label: 'PLACE' }, loss: { bg: '#dc2626', label: 'LOSS' }, scratched: { bg: '#6b7280', label: 'SCRATCHED' } }[status] || { bg: '#9ca3af', label: 'PENDING' };
                 const posBadge = pos === 1 ? { bg: '#fef9c3', color: '#854d0e' } : pos === 2 ? { bg: '#f3f4f6', color: '#374151' } : pos === 3 ? { bg: '#fef3c7', color: '#92400e' } : { bg: 'transparent', color: '#9ca3af' };
                 const tdS = i => ({ padding: '3px 8px', borderBottom: '1px solid #f3f4f6', borderRight: i < 13 ? '1px solid #f3f4f6' : 'none', whiteSpace: 'nowrap', verticalAlign: 'middle' });
                 return (
@@ -838,7 +847,10 @@ export default function MybetsPage() {
                     <td style={{ ...tdS(10), color: '#6b7280' }}>{b.condition || '—'}</td>
                     <td style={tdS(11)}>{pos ? <span style={{ fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 3, background: posBadge.bg, color: posBadge.color }}>{ordinal(pos)}</span> : '—'}</td>
                     <td style={{ ...tdS(12), fontFamily: 'monospace', fontWeight: 700, color: hasPnl ? (pnl >= 0 ? '#15803d' : '#dc2626') : '#9ca3af' }}>{hasPnl ? (pnl >= 0 ? '+$' : '-$') + Math.abs(pnl).toFixed(2) : '—'}</td>
-                    <td style={tdS(13)}><span style={{ fontSize: 9, fontWeight: 700, padding: '2px 6px', borderRadius: 3, background: badge.bg, color: '#fff' }}>{badge.label}</span></td>
+                    <td style={{ ...tdS(13), display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <span style={{ fontSize: 9, fontWeight: 700, padding: '2px 6px', borderRadius: 3, background: badge.bg, color: '#fff' }}>{badge.label}</span>
+                      {status === 'scratched' && <button onClick={() => handleDeleteBet(b.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', fontSize: 11, padding: '0 2px', lineHeight: 1, flexShrink: 0 }}>✕</button>}
+                    </td>
                   </tr>
                 );
               })}
