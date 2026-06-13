@@ -321,6 +321,7 @@ export default function MybetsPage() {
   const [activeTab,        setActiveTab]        = useState('all');
   const [matchingResults,  setMatchingResults]  = useState(false);
   const [resultSpMap,      setResultSpMap]      = useState({});
+  const [showAnalysis,     setShowAnalysis]     = useState(true);
 
   // CSV data for Quick Log
   const [csvMeetings, setCsvMeetings] = useState([]);   // ['Flemington', ...]
@@ -606,30 +607,28 @@ export default function MybetsPage() {
       {/* ── Main content ── */}
       <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: '#f3f4f6' }}>
 
-        {/* ── Stat cards ── */}
+        {/* ── Stats bar ── */}
         {(() => {
           const at = statsRows.find(r => r.label === 'All time') || {};
           const pnl = at.pnl;
-          const cards = [
-            { label: 'P&L All Time', value: pnl !== null ? (pnl >= 0 ? '+$' : '-$') + Math.abs(pnl).toFixed(2) : '—', color: pnl === null ? '#d97706' : pnl >= 0 ? '#059669' : '#dc2626', border: pnl === null ? '#d97706' : pnl >= 0 ? '#059669' : '#dc2626' },
-            { label: 'Strike Rate',  value: at.strike || '—', color: '#059669', border: '#059669' },
-            { label: 'ROI',          value: at.roi || '—', color: parseFloat(at.roi) > 0 ? '#059669' : parseFloat(at.roi) < 0 ? '#dc2626' : '#d97706', border: parseFloat(at.roi) > 0 ? '#059669' : parseFloat(at.roi) < 0 ? '#dc2626' : '#d97706' },
-            { label: 'Pending',      value: String(pendingBets.length), color: '#374151', border: '#d97706' },
-          ];
+          const pnlStr = pnl !== null ? (pnl >= 0 ? '+$' : '-$') + Math.abs(pnl).toFixed(2) : '—';
+          const pnlColor = pnl === null ? '#6b7280' : pnl >= 0 ? '#15803d' : '#dc2626';
+          const roiColor = parseFloat(at.roi) > 0 ? '#15803d' : parseFloat(at.roi) < 0 ? '#dc2626' : '#6b7280';
           return (
-            <div style={{ display: 'flex', gap: 10, padding: '14px 16px', flexShrink: 0, overflowX: 'auto' }}>
-              {cards.map(c => (
-                <div key={c.label} style={{ flex: '1 0 130px', background: '#fff', borderRadius: 8, border: '1px solid #e5e7eb', boxShadow: '0 1px 3px rgba(0,0,0,.07)', padding: '10px 14px', borderLeft: `4px solid ${c.border}`, minWidth: 0 }}>
-                  <div style={{ fontSize: 10, color: '#6b7280', marginBottom: 4, fontWeight: 500 }}>{c.label}</div>
-                  <div style={{ fontSize: 22, fontWeight: 800, color: c.color, fontFamily: 'monospace', lineHeight: 1 }}>{c.value}</div>
-                </div>
-              ))}
+            <div style={{ padding: '8px 16px', background: '#fff', borderBottom: '1px solid #e5e7eb', flexShrink: 0, fontSize: 12, color: '#6b7280', display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+              <span><strong style={{ color: '#111827' }}>{resultedBets.length}</strong> resulted</span>
+              <span style={{ color: '#d1d5db' }}>·</span>
+              <span>P&L <strong style={{ color: pnlColor, fontFamily: 'monospace' }}>{pnlStr}</strong></span>
+              <span style={{ color: '#d1d5db' }}>·</span>
+              <span>Strike <strong style={{ color: '#111827' }}>{at.strike || '—'}</strong></span>
+              <span style={{ color: '#d1d5db' }}>·</span>
+              <span>ROI <strong style={{ color: roiColor }}>{at.roi || '—'}</strong></span>
             </div>
           );
         })()}
 
         {/* ── Battle Orders ── */}
-        <div style={{ margin: '0 16px 16px', background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, boxShadow: '0 1px 3px rgba(0,0,0,.07)', overflow: 'hidden', flexShrink: 0 }}>
+        <div style={{ margin: '12px 16px 0', background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, boxShadow: '0 1px 3px rgba(0,0,0,.07)', overflow: 'hidden', flexShrink: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', borderBottom: '1px solid #e5e7eb' }}>
             <span style={{ fontSize: 13, fontWeight: 700, color: '#111827' }}>⚔️ Battle Orders</span>
             <span style={{ fontSize: 9, fontWeight: 600, background: '#e5e7eb', color: '#6b7280', padding: '1px 7px', borderRadius: 10 }}>{pendingBets.length}</span>
@@ -683,11 +682,9 @@ export default function MybetsPage() {
         </div>
 
         {/* ── War Record ── */}
-        <div style={{ margin: '0 16px 16px', background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, boxShadow: '0 1px 3px rgba(0,0,0,.07)', overflow: 'hidden', flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
-          <div style={{ padding: '10px 14px', borderBottom: '1px solid #e5e7eb', flexShrink: 0 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-              <span style={{ fontSize: 13, fontWeight: 700, color: '#111827' }}>📊 War Record</span>
-            </div>
+        <div style={{ margin: '12px 16px 16px', background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, boxShadow: '0 1px 3px rgba(0,0,0,.07)', overflow: 'hidden', flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+          <div style={{ padding: '10px 14px', borderBottom: '1px solid #e5e7eb', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+            <span style={{ fontSize: 13, fontWeight: 700, color: '#111827' }}>📊 War Record</span>
             <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
               {['All', 'Win', 'Place', 'Loss', 'Today', 'This Week'].map(t => {
                 const key = t.toLowerCase();
@@ -703,63 +700,142 @@ export default function MybetsPage() {
           <div style={{ flex: 1, overflowY: 'auto' }}>
             {loading ? (
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 120, color: '#9ca3af', fontSize: 12 }}>Loading…</div>
-            ) : filteredResulted.length === 0 ? (
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: 160, gap: 8 }}>
-                <i className="ti ti-flag" style={{ fontSize: 32, color: '#d1d5db' }} />
-                <div style={{ fontSize: 12, color: '#9ca3af' }}>No resulted bets</div>
-              </div>
             ) : (
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
                 <thead>
                   <tr style={{ background: '#f9fafb', borderBottom: '1px solid #e5e7eb', position: 'sticky', top: 0, zIndex: 1 }}>
-                    {['Date','Horse','Venue','R#','Type','Stake','Odds','SP','Pos','P&L','Result'].map(h => (
+                    {['Date','Horse','Venue','R#','Type','Stake','Odds','SP','CLV','Rank','Cond','Pos','P&L','Result'].map(h => (
                       <th key={h} style={{ padding: '6px 10px', textAlign: ['Stake','Odds','SP','P&L'].includes(h) ? 'right' : 'left', fontSize: 10, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '.04em', whiteSpace: 'nowrap' }}>{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredResulted.map(b => {
-                    const stake    = b.stake || 0;
-                    const ret      = b.return_amt || 0;
-                    const isEW     = (b.bet_type || '').toLowerCase().includes('each');
-                    const hasPnl   = b.profit_loss !== null && b.profit_loss !== undefined;
-                    const pnl      = hasPnl ? b.profit_loss : ret - (isEW ? stake * 2 : stake);
-                    const status   = b.status || '';
-                    const pos      = b.position;
-                    const raceNum  = b.race_number ?? b.race_num;
-                    const venue    = b.track || b.venue;
-                    const sp       = resultSpMap[b.id];
-                    const pill     = typePillCfg(b.bet_type);
-                    const rowBg    = status === 'win' ? '#f0fdf4' : status === 'loss' ? '#fef2f2' : status === 'place' ? '#eff6ff' : '#fff';
-                    const hoverBg  = status === 'win' ? '#dcfce7' : status === 'loss' ? '#fee2e2' : status === 'place' ? '#dbeafe' : '#f9fafb';
-                    const rowBorderColor = status === 'win' ? '#22c55e' : status === 'loss' ? '#ef4444' : status === 'place' ? '#3b82f6' : '#e5e7eb';
-                    const badge    = { win: { bg: '#16a34a', label: 'WIN' }, place: { bg: '#2563eb', label: 'PLACE' }, loss: { bg: '#dc2626', label: 'LOSS' } }[status] || { bg: '#9ca3af', label: 'PENDING' };
-                    return (
-                      <tr key={b.id}
-                        style={{ background: rowBg, borderBottom: '1px solid #f3f4f6', borderLeft: `3px solid ${rowBorderColor}` }}
-                        onMouseEnter={e => { e.currentTarget.style.background = hoverBg; }}
-                        onMouseLeave={e => { e.currentTarget.style.background = rowBg; }}
-                      >
-                        <td style={{ padding: '5px 10px', color: '#6b7280', whiteSpace: 'nowrap' }}>{fmtDate(b.date)}</td>
-                        <td style={{ padding: '5px 10px', fontWeight: 600, color: '#111827', maxWidth: 150, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b.horse_name || '—'}</td>
-                        <td style={{ padding: '5px 10px', fontSize: 11, color: '#6b7280', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>{venue || '—'}</td>
-                        <td style={{ padding: '5px 10px', fontSize: 11, whiteSpace: 'nowrap' }}>{raceNum ? `R${raceNum}` : '—'}</td>
-                        <td style={{ padding: '5px 10px' }}>
-                          <span style={{ fontSize: 10, fontWeight: 600, padding: '1px 8px', borderRadius: 999, background: pill.bg, color: '#fff' }}>{pill.label}</span>
-                        </td>
-                        <td style={{ padding: '5px 10px', textAlign: 'right', fontFamily: 'monospace' }}>${stake.toFixed(0)}</td>
-                        <td style={{ padding: '5px 10px', textAlign: 'right', fontFamily: 'monospace' }}>${Number(b.odds || 0).toFixed(2)}</td>
-                        <td style={{ padding: '5px 10px', textAlign: 'right', fontFamily: 'monospace', color: '#6b7280' }}>{sp ? `$${Number(sp).toFixed(2)}` : '—'}</td>
-                        <td style={{ padding: '5px 10px', color: '#6b7280', whiteSpace: 'nowrap' }}>{pos ? ordinal(pos) : '—'}</td>
-                        <td style={{ padding: '5px 10px', textAlign: 'right', fontFamily: 'monospace', fontWeight: 700, color: hasPnl ? (pnl >= 0 ? '#15803d' : '#dc2626') : '#9ca3af' }}>
-                          {hasPnl ? (pnl >= 0 ? '+$' : '-$') + Math.abs(pnl).toFixed(2) : '—'}
-                        </td>
-                        <td style={{ padding: '5px 10px' }}>
-                          <span style={{ fontSize: 9, fontWeight: 700, padding: '2px 7px', borderRadius: 4, background: badge.bg, color: '#fff' }}>{badge.label}</span>
+                  {resultedBets.length === 0 ? (
+                    <tr>
+                      <td colSpan={14} style={{ textAlign: 'center', padding: '40px 16px', color: '#9ca3af', fontSize: 12 }}>
+                        <i className="ti ti-flag" style={{ fontSize: 28, color: '#d1d5db', display: 'block', marginBottom: 8 }} />
+                        No resulted bets yet
+                      </td>
+                    </tr>
+                  ) : (
+                    <>
+                      {filteredResulted.map(b => {
+                        const stake   = b.stake || 0;
+                        const ret     = b.return_amt || 0;
+                        const isEW    = (b.bet_type || '').toLowerCase().includes('each');
+                        const hasPnl  = b.profit_loss !== null && b.profit_loss !== undefined;
+                        const pnl     = hasPnl ? b.profit_loss : ret - (isEW ? stake * 2 : stake);
+                        const status  = b.status || '';
+                        const pos     = b.position;
+                        const raceNum = b.race_number ?? b.race_num;
+                        const venue   = b.track || b.venue;
+                        const sp      = resultSpMap[b.id];
+                        const pill    = typePillCfg(b.bet_type);
+                        const rank    = b.rank;
+                        const rankBg  = rank === 1 ? '#15803d' : rank === 2 ? '#16a34a' : rank === 3 ? '#ca8a04' : rank ? '#6b7280' : null;
+                        const rowBg   = status === 'win' ? '#f0fdf4' : status === 'loss' ? '#fef2f2' : status === 'place' ? '#eff6ff' : '#fff';
+                        const hoverBg = status === 'win' ? '#dcfce7' : status === 'loss' ? '#fee2e2' : status === 'place' ? '#dbeafe' : '#f9fafb';
+                        const rowBorderColor = status === 'win' ? '#22c55e' : status === 'loss' ? '#ef4444' : status === 'place' ? '#3b82f6' : '#e5e7eb';
+                        const badge   = { win: { bg: '#16a34a', label: 'WIN' }, place: { bg: '#2563eb', label: 'PLACE' }, loss: { bg: '#dc2626', label: 'LOSS' } }[status] || { bg: '#9ca3af', label: 'PENDING' };
+                        const posBadge = pos === 1 ? { bg: '#fef9c3', color: '#854d0e' } : pos === 2 ? { bg: '#f3f4f6', color: '#374151' } : pos === 3 ? { bg: '#fef3c7', color: '#92400e' } : null;
+                        return (
+                          <tr key={b.id}
+                            style={{ background: rowBg, borderBottom: '1px solid #f3f4f6', borderLeft: `3px solid ${rowBorderColor}` }}
+                            onMouseEnter={e => { e.currentTarget.style.background = hoverBg; }}
+                            onMouseLeave={e => { e.currentTarget.style.background = rowBg; }}
+                          >
+                            <td style={{ padding: '5px 10px', color: '#6b7280', whiteSpace: 'nowrap' }}>{fmtDate(b.date)}</td>
+                            <td style={{ padding: '5px 10px', fontWeight: 600, color: '#111827', maxWidth: 130, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b.horse_name || '—'}</td>
+                            <td style={{ padding: '5px 10px', fontSize: 10, color: '#6b7280', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>{venue || '—'}</td>
+                            <td style={{ padding: '5px 10px', whiteSpace: 'nowrap' }}>{raceNum ? `R${raceNum}` : '—'}</td>
+                            <td style={{ padding: '5px 10px' }}>
+                              <span style={{ fontSize: 10, fontWeight: 600, padding: '1px 8px', borderRadius: 999, background: pill.bg, color: '#fff' }}>{pill.label}</span>
+                            </td>
+                            <td style={{ padding: '5px 10px', textAlign: 'right', fontFamily: 'monospace' }}>${stake.toFixed(0)}</td>
+                            <td style={{ padding: '5px 10px', textAlign: 'right', fontFamily: 'monospace' }}>${Number(b.odds || 0).toFixed(2)}</td>
+                            <td style={{ padding: '5px 10px', textAlign: 'right', fontFamily: 'monospace', color: '#6b7280' }}>{sp ? `$${Number(sp).toFixed(2)}` : '—'}</td>
+                            <td style={{ padding: '5px 10px', color: '#9ca3af' }}>—</td>
+                            <td style={{ padding: '5px 10px' }}>
+                              {rankBg ? <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 6px', borderRadius: 4, background: rankBg, color: '#fff' }}>R{rank}</span> : <span style={{ color: '#9ca3af' }}>—</span>}
+                            </td>
+                            <td style={{ padding: '5px 10px', color: '#6b7280', whiteSpace: 'nowrap' }}>{b.condition || '—'}</td>
+                            <td style={{ padding: '5px 10px' }}>
+                              {pos ? (
+                                posBadge
+                                  ? <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 6px', borderRadius: 4, background: posBadge.bg, color: posBadge.color }}>{ordinal(pos)}</span>
+                                  : <span style={{ fontSize: 10, color: '#9ca3af' }}>{ordinal(pos)}</span>
+                              ) : '—'}
+                            </td>
+                            <td style={{ padding: '5px 10px', textAlign: 'right', fontFamily: 'monospace', fontWeight: 700, color: hasPnl ? (pnl >= 0 ? '#15803d' : '#dc2626') : '#9ca3af' }}>
+                              {hasPnl ? (pnl >= 0 ? '+$' : '-$') + Math.abs(pnl).toFixed(2) : '—'}
+                            </td>
+                            <td style={{ padding: '5px 10px' }}>
+                              <span style={{ fontSize: 9, fontWeight: 700, padding: '2px 7px', borderRadius: 4, background: badge.bg, color: '#fff' }}>{badge.label}</span>
+                            </td>
+                          </tr>
+                        );
+                      })}
+
+                      {/* ── Analysis divider ── */}
+                      <tr onClick={() => setShowAnalysis(s => !s)} style={{ background: '#f3f4f6', cursor: 'pointer' }}>
+                        <td colSpan={14} style={{ padding: 0 }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '3px 10px', fontSize: 10, fontWeight: 600, color: '#6b7280' }}>
+                            <span>📈 ANALYSIS — by venue / odds range / track condition / rank</span>
+                            <span>{showAnalysis ? '▾ hide' : '▸ show'}</span>
+                          </div>
                         </td>
                       </tr>
-                    );
-                  })}
+
+                      {/* ── Analysis rows ── */}
+                      {showAnalysis && (() => {
+                        const venueGroups = {};
+                        resultedBets.forEach(b => { const v = (b.track || b.venue || 'Unknown').toUpperCase(); (venueGroups[v] = venueGroups[v] || []).push(b); });
+                        const oddsRangeDefs = [
+                          { label: '$1–2', test: o => o >= 1 && o < 2 },
+                          { label: '$2–4', test: o => o >= 2 && o < 4 },
+                          { label: '$4–8', test: o => o >= 4 && o < 8 },
+                          { label: '$8+',  test: o => o >= 8 },
+                        ];
+                        const condGroups = {};
+                        resultedBets.forEach(b => { const c = b.condition || 'Unknown'; (condGroups[c] = condGroups[c] || []).push(b); });
+                        const rankGroups = { R1: [], R2: [], R3: [], 'R4+': [] };
+                        resultedBets.forEach(b => { const r = b.rank; if (r === 1) rankGroups.R1.push(b); else if (r === 2) rankGroups.R2.push(b); else if (r === 3) rankGroups.R3.push(b); else if (r && r >= 4) rankGroups['R4+'].push(b); });
+                        const statLine = (label, bets) => {
+                          if (!bets || !bets.length) return null;
+                          const cr = calcRow(bets);
+                          const rc = parseFloat(cr.roi);
+                          const roiColor = rc > 0 ? '#15803d' : rc < 0 ? '#dc2626' : '#6b7280';
+                          return <div key={label} style={{ fontSize: 10, lineHeight: 1.8 }}><span style={{ fontWeight: 600 }}>{label}:</span> {cr.bets} · {cr.strike} · <span style={{ color: roiColor }}>{cr.roi}</span></div>;
+                        };
+                        const hdrStyle  = { padding: '5px 10px', fontSize: 9, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '.04em', background: '#f9fafb', borderTop: '1px solid #e5e7eb' };
+                        const cellStyle = { padding: '6px 10px 10px', verticalAlign: 'top', borderTop: '1px solid #f3f4f6' };
+                        return (
+                          <>
+                            <tr>
+                              <td colSpan={3} style={hdrStyle}>By Venue</td>
+                              <td colSpan={4} style={hdrStyle}>By Odds Range</td>
+                              <td colSpan={4} style={hdrStyle}>By Track Condition</td>
+                              <td colSpan={3} style={hdrStyle}>By Rank</td>
+                            </tr>
+                            <tr>
+                              <td colSpan={3} style={cellStyle}>
+                                {Object.keys(venueGroups).length ? Object.entries(venueGroups).slice(0, 8).map(([v, bs]) => statLine(v, bs)) : <span style={{ color: '#9ca3af', fontSize: 10 }}>—</span>}
+                              </td>
+                              <td colSpan={4} style={cellStyle}>
+                                {oddsRangeDefs.map(r => statLine(r.label, resultedBets.filter(b => r.test(+(b.odds || 0)))))}
+                              </td>
+                              <td colSpan={4} style={cellStyle}>
+                                {Object.keys(condGroups).length ? Object.entries(condGroups).map(([c, bs]) => statLine(c, bs)) : <span style={{ color: '#9ca3af', fontSize: 10 }}>—</span>}
+                              </td>
+                              <td colSpan={3} style={cellStyle}>
+                                {Object.entries(rankGroups).map(([r, bs]) => statLine(r, bs))}
+                              </td>
+                            </tr>
+                          </>
+                        );
+                      })()}
+                    </>
+                  )}
                 </tbody>
               </table>
             )}
