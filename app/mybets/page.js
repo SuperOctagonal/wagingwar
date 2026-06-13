@@ -325,6 +325,8 @@ export default function MybetsPage() {
   const [resultSpMap,      setResultSpMap]      = useState({});
   const [showAnalysis,     setShowAnalysis]     = useState(true);
   const [refreshing,       setRefreshing]       = useState(false);
+  const [racePopup,        setRacePopup]        = useState(null);
+  const [racePopupData,    setRacePopupData]    = useState([]);
 
   // CSV data for Quick Log
   const [csvMeetings, setCsvMeetings] = useState([]);   // ['Flemington', ...]
@@ -364,6 +366,14 @@ export default function MybetsPage() {
       }
     });
   }, [user?.id]);
+
+  // Fetch full race result when user clicks R# in War Record
+  useEffect(() => {
+    if (!racePopup) { setRacePopupData([]); return; }
+    sbFetch(
+      `race_results?venue=eq.${encodeURIComponent(racePopup.venue)}&race_num=eq.${racePopup.race_num}&date=eq.${racePopup.date}&order=finish_pos.asc&select=horse_name,finish_pos,sp`
+    ).then(data => setRacePopupData(Array.isArray(data) ? data : []));
+  }, [racePopup]);
 
   // Fetch race date from today_meetings so Quick Log uses the correct betting date
   useEffect(() => {
@@ -789,7 +799,7 @@ export default function MybetsPage() {
                     <td style={{ ...tdS(0), color: '#9ca3af' }}>{fmtDate(b.date)}</td>
                     <td style={{ ...tdS(1), fontWeight: 600, color: '#111827', maxWidth: 150, overflow: 'hidden', textOverflow: 'ellipsis' }}>{b.horse_name || '—'}</td>
                     <td style={{ ...tdS(2), fontSize: 10, color: '#6b7280', textTransform: 'uppercase' }}>{venue || '—'}</td>
-                    <td style={{ ...tdS(3), fontSize: 10 }}>{raceNum ? `R${raceNum}` : '—'}</td>
+                    <td style={{ ...tdS(3), fontSize: 10, cursor: raceNum ? 'pointer' : 'default', textDecoration: raceNum ? 'underline' : 'none' }} onClick={() => raceNum && setRacePopup({ venue: venue, race_num: raceNum, date: b.date })}>{raceNum ? `R${raceNum}` : '—'}</td>
                     <td style={tdS(4)}><span style={{ fontSize: 9, fontWeight: 700, padding: '1px 6px', borderRadius: 3, background: pill.bg, color: '#fff' }}>{pill.label}</span></td>
                     <td style={{ ...tdS(5), fontFamily: 'monospace' }}>${stake.toFixed(0)}</td>
                     <td style={{ ...tdS(6), fontFamily: 'monospace' }}>${Number(b.odds || 0).toFixed(2)}</td>
@@ -872,6 +882,53 @@ export default function MybetsPage() {
 
       </main>
       {upgradeOpen && <UpgradeModal onClose={() => setUpgradeOpen(false)} />}
+
+      {racePopup && (
+        <div
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+          onClick={() => setRacePopup(null)}
+        >
+          <div
+            style={{ background: '#fff', borderRadius: 10, boxShadow: '0 8px 32px rgba(0,0,0,0.18)', maxWidth: 360, width: '90%', overflow: 'hidden' }}
+            onClick={e => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', borderBottom: '1px solid #e5e7eb' }}>
+              <span style={{ fontWeight: 700, fontSize: 13, color: '#111827' }}>{racePopup.venue} Race {racePopup.race_num} — {fmtDate(racePopup.date)}</span>
+              <button onClick={() => setRacePopup(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 16, color: '#6b7280', padding: '0 4px', lineHeight: 1 }}>✕</button>
+            </div>
+            <div style={{ overflowY: 'auto', maxHeight: 340 }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
+                <thead>
+                  <tr style={{ background: '#f9fafb' }}>
+                    {['Pos','Horse','SP'].map((h, i) => (
+                      <th key={h} style={{ padding: '5px 10px', textAlign: i === 2 ? 'right' : 'left', fontSize: 9, fontWeight: 600, color: '#6b7280', textTransform: 'uppercase', borderBottom: '1px solid #e5e7eb' }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {racePopupData.length === 0 ? (
+                    <tr><td colSpan={3} style={{ padding: 16, textAlign: 'center', color: '#9ca3af' }}>Loading…</td></tr>
+                  ) : racePopupData.map((r, i) => {
+                    const pos = r.finish_pos;
+                    const rowStyle = pos === 1
+                      ? { background: '#fef9c3', color: '#854d0e' }
+                      : pos === 2 ? { background: '#f3f4f6', color: '#374151' }
+                      : pos === 3 ? { background: '#fef3c7', color: '#92400e' }
+                      : { background: i % 2 === 0 ? '#fff' : '#fafafa', color: '#9ca3af' };
+                    return (
+                      <tr key={i} style={rowStyle}>
+                        <td style={{ padding: '4px 10px', fontWeight: pos <= 3 ? 700 : 400 }}>{pos ? ordinal(pos) : '—'}</td>
+                        <td style={{ padding: '4px 10px', fontWeight: pos <= 3 ? 600 : 400 }}>{r.horse_name || '—'}</td>
+                        <td style={{ padding: '4px 10px', textAlign: 'right', fontFamily: 'monospace' }}>{r.sp ? `$${Number(r.sp).toFixed(2)}` : '—'}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
