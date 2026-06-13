@@ -322,6 +322,7 @@ export default function MybetsPage() {
   const [matchingResults,  setMatchingResults]  = useState(false);
   const [resultSpMap,      setResultSpMap]      = useState({});
   const [showAnalysis,     setShowAnalysis]     = useState(true);
+  const [refreshing,       setRefreshing]       = useState(false);
 
   // CSV data for Quick Log
   const [csvMeetings, setCsvMeetings] = useState([]);   // ['Flemington', ...]
@@ -620,6 +621,23 @@ export default function MybetsPage() {
               <span>Staked <b style={{ color: '#111827' }}>{at.staked || '—'}</b></span>
               <span>Pending <b style={{ color: '#111827' }}>{pendingBets.length}</b></span>
               {matchingResults && <span style={{ color: '#d97706', fontWeight: 600 }}>Checking results…</span>}
+              <button
+                disabled={refreshing}
+                onClick={async () => {
+                  setRefreshing(true);
+                  const pending = bets.filter(b => !b.status || b.status === 'pending');
+                  const { spMap, anyUpdated } = await matchAndUpdateBets(pending);
+                  if (Object.keys(spMap).length > 0) setResultSpMap(spMap);
+                  if (anyUpdated) {
+                    const fresh = await loadBets(user.id);
+                    setBets(fresh);
+                  }
+                  setRefreshing(false);
+                }}
+                style={{ marginLeft: 'auto', fontSize: 11, padding: '3px 10px', background: '#f3f4f6', border: '1px solid #e5e7eb', borderRadius: 4, cursor: 'pointer', fontWeight: 600, color: '#374151', opacity: refreshing ? 0.6 : 1 }}
+              >
+                {refreshing ? 'Checking…' : '🔄 Refresh Results'}
+              </button>
             </div>
           );
         })()}
