@@ -217,29 +217,17 @@ export default function ResultsPage() {
   const venueNames = Object.keys(meetings);
   const meetingRaces = selectedMeeting ? (meetings[selectedMeeting] || []) : [];
 
-  // Active race data for detail view — look up directly in grouped to avoid find() type issues
+  // Active race data — if a tab is selected find it, otherwise fall back to first resulted race.
+  // Pure derived state: no useEffect needed, recomputes fresh on every render.
   const activeRaceData = (() => {
     if (!selectedMeeting) return null;
-    if (selectedRace != null) {
-      const key = `${selectedMeeting}||${selectedRace}`;
-      const found = grouped[key];
-      console.log('[Results] activeRaceData: selectedRace=', selectedRace, 'key=', key, 'found=', found ? `R${found.raceNum}` : 'null', 'grouped keys=', Object.keys(grouped).filter(k => k.startsWith(selectedMeeting)));
-      return found || null;
-    }
     const races = meetings[selectedMeeting] || [];
+    if (selectedRace != null) {
+      const match = races.find(r => r.raceNum === selectedRace);
+      if (match) return match.results || null;
+    }
     return races.find(r => r.results)?.results || null;
   })();
-
-  // Auto-select first resulted race when meeting opens
-  useEffect(() => {
-    if (selectedMeeting && !selectedRace) {
-      const first = meetingRaces.find(r => r.results);
-      if (first) {
-        console.log('[Results] selectedRace changed to:', first.raceNum, '(auto-select)');
-        setSelectedRace(first.raceNum);
-      }
-    }
-  }, [selectedMeeting]);
 
   return (
     <div style={{ display:'flex', flex:1, overflow:'hidden' }}>
@@ -360,7 +348,7 @@ export default function ResultsPage() {
                 return (
                   <div
                     key={r.raceNum}
-                    onClick={() => { console.log('[Results] selectedRace changed to:', r.raceNum, '(tab click)'); setSelectedRace(r.raceNum); }}
+                    onClick={() => setSelectedRace(r.raceNum)}
                     style={{ padding:'4px 10px', borderRadius:5, fontSize:10, fontWeight:700, cursor:'pointer', background:bg, color, border:`0.5px solid ${border}` }}
                   >
                     R{r.raceNum}{resulted ? ' ✓' : ''}
