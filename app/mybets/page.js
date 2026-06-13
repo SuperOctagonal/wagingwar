@@ -95,11 +95,13 @@ async function matchAndUpdateBets(pendingBets) {
 
     console.log('[BetMatch] Trying to match bet:', bet.id, 'horse:', betHorse, 'venue:', betVenue, 'race:', betRaceNum, 'date:', bet.date, 'rows available:', rows.length);
 
-    const row = rows.find(r =>
-      normName(r.venue) === betVenue &&
-      +r.race_num === betRaceNum &&
-      normName(r.horse_name) === betHorse
-    );
+    const row = rows.find(r => {
+      const rVenue = normName(r.venue);
+      const rRace  = +r.race_num;
+      const rHorse = normName(r.horse_name);
+      const rHorseStripped = normName(r.horse_name.replace(/\s*\([A-Z]+\)\s*$/i, ''));
+      return rVenue === betVenue && rRace === betRaceNum && (rHorse === betHorse || rHorseStripped === betHorse);
+    });
 
     console.log('[BetMatch] Match result for', bet.horse_name, ':', row ? 'FOUND' : 'NOT FOUND');
 
@@ -153,6 +155,8 @@ async function matchAndUpdateBets(pendingBets) {
       profit_loss: Math.round((profitLoss || 0) * 100) / 100,
     };
 
+    console.log('[BetMatch] Will patch bet', bet.id, 'with fields:', JSON.stringify(fields));
+
     patches.push(
       fetch(`${SURL}/rest/v1/bet_log?id=eq.${bet.id}`, {
         method: 'PATCH',
@@ -164,8 +168,9 @@ async function matchAndUpdateBets(pendingBets) {
         },
         body: JSON.stringify(fields),
       }).then(async r => {
-        if (!r.ok) console.error('[BetMatch] PATCH failed bet', bet.id, ':', await r.text());
-      }).catch(err => console.error('[BetMatch] Network error:', err))
+        const txt = await r.text();
+        console.log('[BetMatch] PATCH', bet.id, 'status:', r.status, 'response:', txt);
+      }).catch(err => console.error('[BetMatch] PATCH error:', err))
     );
   }
 
