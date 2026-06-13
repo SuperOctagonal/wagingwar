@@ -353,12 +353,41 @@ export default function MybetsPage() {
     loadBets(user.id).then(async loaded => {
       setBets(loaded);
       setLoading(false);
+
+      // Seed SP map from race_results for all already-resulted bets
+      const resultedLoaded = loaded.filter(b => b.status && b.status !== 'pending');
+      if (resultedLoaded.length > 0) {
+        const combos = {};
+        for (const b of resultedLoaded) {
+          const venue = b.track || b.venue;
+          const raceNum = +(b.race_number ?? b.race_num ?? 0);
+          if (!b.date || !venue || !raceNum) continue;
+          const key = `${b.date}|${venue}|${raceNum}`;
+          if (!combos[key]) combos[key] = { date: b.date, venue, raceNum };
+        }
+        const initSpMap = {};
+        await Promise.all(Object.values(combos).map(async ({ date, venue, raceNum }) => {
+          const rows = await sbFetch(
+            `race_results?date=eq.${date}&venue=eq.${encodeURIComponent(venue)}&race_num=eq.${raceNum}&select=horse_name,sp`
+          );
+          if (!Array.isArray(rows)) return;
+          for (const b of resultedLoaded) {
+            if (b.date !== date) continue;
+            if ((b.track || b.venue) !== venue) continue;
+            if (+(b.race_number ?? b.race_num ?? 0) !== raceNum) continue;
+            const row = rows.find(r => normName(r.horse_name) === normName(b.horse_name));
+            if (row?.sp) initSpMap[b.id] = row.sp;
+          }
+        }));
+        if (Object.keys(initSpMap).length > 0) setResultSpMap(prev => ({ ...prev, ...initSpMap }));
+      }
+
       const pending = loaded.filter(b => !b.status || b.status === 'pending');
       if (pending.length > 0) {
         setMatchingResults(true);
         const { spMap, anyUpdated } = await matchAndUpdateBets(pending);
         setMatchingResults(false);
-        if (Object.keys(spMap).length > 0) setResultSpMap(spMap);
+        if (Object.keys(spMap).length > 0) setResultSpMap(prev => ({ ...prev, ...spMap }));
         if (anyUpdated) {
           const fresh = await loadBets(user.id);
           setBets(fresh);
