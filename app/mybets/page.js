@@ -410,12 +410,21 @@ export default function MybetsPage() {
     if (!user?.id || !SURL || !SKEY) return;
     setQlSaving(true);
 
+    const QL_VENUE_NORMALISE = {
+      'SANDOWN-HILLSIDE': 'SANDOWN', 'SANDOWN HILLSIDE': 'SANDOWN',
+      'ROSEHILL GARDENS': 'ROSEHILL', 'ROSEHILL GARDENS RACECOURSE': 'ROSEHILL',
+      'AQUIS PARK GOLD COAST': 'GOLD COAST', 'AQUIS PARK GOLD COAST POLY': 'GOLD COAST POLY',
+      'THOMAS FARMS RC MURRAY BRIDGE': 'MURRAY BRIDGE', 'THOMAS FARMS MURRAY BRIDGE': 'MURRAY BRIDGE',
+      'RC MURRAY BRIDGE': 'MURRAY BRIDGE', 'SPORTSBET SANDOWN HILLSIDE': 'SANDOWN',
+    };
+    const normVenue = QL_VENUE_NORMALISE[(qlMeeting || '').toUpperCase()] || qlMeeting || null;
+
     const insertBody = {
       clerk_id:    user.id,
       date:        todayISO,
       horse_name:  qlHorse.trim(),
-      track:       qlMeeting  || null,
-      venue:       qlMeeting  || null,
+      track:       normVenue,
+      venue:       normVenue,
       race_number: qlRace     ? +qlRace : null,
       bet_type:    qlBetType,
       stake:       +qlStake,
