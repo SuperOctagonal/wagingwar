@@ -148,6 +148,7 @@ export default function ResultsPage() {
   const [allVenues, setAllVenues] = useState({});
   const [dbRows, setDbRows] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [selectedDate, setSelectedDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [selectedMeeting, setSelectedMeeting] = useState(null);
   const [selectedRace, setSelectedRace] = useState(null);
@@ -248,6 +249,18 @@ export default function ResultsPage() {
             onChange={e => setSelectedDate(e.target.value)}
             style={{ border:'0.5px solid #d1d5db', borderRadius:6, padding:'4px 8px', fontSize:11, fontFamily:'Space Grotesk, sans-serif', color:'#374151', background:'#fff', outline:'none', width: isMobile ? '100%' : undefined }}
           />
+          <button
+            disabled={refreshing}
+            onClick={async () => {
+              setRefreshing(true);
+              const rows = await fetchResultsForDate(selectedDate);
+              setDbRows(rows || []);
+              setRefreshing(false);
+            }}
+            style={{ fontSize:11, padding:'3px 10px', background:'#f3f4f6', border:'1px solid #e5e7eb', borderRadius:4, cursor:'pointer', fontWeight:600, color:'#374151', opacity: refreshing ? 0.6 : 1 }}
+          >
+            {refreshing ? 'Checking…' : '🔄 Refresh'}
+          </button>
         </div>
 
         {/* Loading */}
