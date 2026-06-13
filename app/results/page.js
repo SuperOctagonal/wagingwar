@@ -149,7 +149,7 @@ export default function ResultsPage() {
   const [dbRows, setDbRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [selectedDate, setSelectedDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [selectedDate, setSelectedDate] = useState(() => new Date().toLocaleDateString('sv-SE'));
   const [selectedMeeting, setSelectedMeeting] = useState(null);
   const [selectedRace, setSelectedRace] = useState(null);
   const weights = useMemo(() => getDefaultWeights(), []);
@@ -221,7 +221,10 @@ export default function ResultsPage() {
   const activeRaceData = (() => {
     if (!selectedMeeting) return null;
     if (selectedRace != null) {
-      return grouped[`${selectedMeeting}||${selectedRace}`] || null;
+      const key = `${selectedMeeting}||${selectedRace}`;
+      const found = grouped[key];
+      console.log('[Results] activeRaceData: selectedRace=', selectedRace, 'key=', key, 'found=', found ? `R${found.raceNum}` : 'null', 'grouped keys=', Object.keys(grouped).filter(k => k.startsWith(selectedMeeting)));
+      return found || null;
     }
     const races = meetings[selectedMeeting] || [];
     return races.find(r => r.results)?.results || null;
@@ -231,7 +234,10 @@ export default function ResultsPage() {
   useEffect(() => {
     if (selectedMeeting && !selectedRace) {
       const first = meetingRaces.find(r => r.results);
-      if (first) setSelectedRace(first.raceNum);
+      if (first) {
+        console.log('[Results] selectedRace changed to:', first.raceNum, '(auto-select)');
+        setSelectedRace(first.raceNum);
+      }
     }
   }, [selectedMeeting]);
 
@@ -354,7 +360,7 @@ export default function ResultsPage() {
                 return (
                   <div
                     key={r.raceNum}
-                    onClick={() => setSelectedRace(r.raceNum)}
+                    onClick={() => { console.log('[Results] selectedRace changed to:', r.raceNum, '(tab click)'); setSelectedRace(r.raceNum); }}
                     style={{ padding:'4px 10px', borderRadius:5, fontSize:10, fontWeight:700, cursor:'pointer', background:bg, color, border:`0.5px solid ${border}` }}
                   >
                     R{r.raceNum}{resulted ? ' ✓' : ''}
