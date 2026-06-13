@@ -129,6 +129,20 @@ const PACE_ROLES = [
   { label: 'Backmarker', color: '#dc3545' },
 ];
 
+const VENUE_NORMALISE = {
+  'SANDOWN-HILLSIDE':              'SANDOWN',
+  'SANDOWN HILLSIDE':              'SANDOWN',
+  'ROSEHILL GARDENS':              'ROSEHILL GARDENS',
+  'ROSEHILL GARDENS RACECOURSE':   'ROSEHILL GARDENS',
+  'AQUIS PARK GOLD COAST':         'GOLD COAST',
+  'AQUIS PARK GOLD COAST POLY':    'GOLD COAST POLY',
+  'THOMAS FARMS RC MURRAY BRIDGE': 'MURRAY BRIDGE',
+  'THOMAS FARMS MURRAY BRIDGE':    'MURRAY BRIDGE',
+  'RC MURRAY BRIDGE':              'MURRAY BRIDGE',
+  'SPORTSBET SANDOWN HILLSIDE':    'SANDOWN',
+  'BELMONT PARK':                  'BELMONT',
+};
+
 const VENUE_STATE_MAP = {
   // NSW
   ROSEHILL:'NSW', 'ROSEHILL GARDENS':'NSW', NEWCASTLE:'NSW', RANDWICK:'NSW',
@@ -1822,7 +1836,9 @@ function RacesPageInner() {
 
   const currentRaceResult = (() => {
     if (!currentRace) return null;
-    const key = `${(currentRace.venue||'').toUpperCase()}||${String(currentRace.num)}`;
+    const rawVenue = (currentRace.venue || '').toUpperCase();
+    const normVenue = VENUE_NORMALISE[rawVenue] || rawVenue;
+    const key = `${normVenue}||${String(currentRace.num)}`;
     return raceResults[key] || null;
   })();
 
