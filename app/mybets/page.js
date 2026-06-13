@@ -80,6 +80,8 @@ async function matchAndUpdateBets(pendingBets) {
     } catch {}
   }));
 
+  console.log('[BetMatch] Results fetched for dates:', Object.keys(allResults), 'counts:', Object.fromEntries(Object.entries(allResults).map(([k,v]) => [k, v.length])));
+
   const spMap = {};
   const patches = [];
 
@@ -91,11 +93,16 @@ async function matchAndUpdateBets(pendingBets) {
     const betRaceNum = +(bet.race_number ?? bet.race_num ?? 0);
     const betHorse = normName(bet.horse_name || '');
 
+    console.log('[BetMatch] Trying to match bet:', bet.id, 'horse:', betHorse, 'venue:', betVenue, 'race:', betRaceNum, 'date:', bet.date, 'rows available:', rows.length);
+
     const row = rows.find(r =>
       normName(r.venue) === betVenue &&
       +r.race_num === betRaceNum &&
       normName(r.horse_name) === betHorse
     );
+
+    console.log('[BetMatch] Match result for', bet.horse_name, ':', row ? 'FOUND' : 'NOT FOUND');
+
     if (!row) continue;
 
     const stake = +(bet.stake || 0);
