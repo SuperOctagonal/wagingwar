@@ -129,6 +129,35 @@ const PACE_ROLES = [
   { label: 'Backmarker', color: '#dc3545' },
 ];
 
+const VENUE_STATE_MAP = {
+  // NSW
+  ROSEHILL:'NSW', 'ROSEHILL GARDENS':'NSW', NEWCASTLE:'NSW', RANDWICK:'NSW',
+  'WARWICK FARM':'NSW', 'KEMBLA GRANGE':'NSW', GOSFORD:'NSW', HAWKESBURY:'NSW',
+  NARRANDERA:'NSW', MUDGEE:'NSW', GOULBURN:'NSW', BATHURST:'NSW', ORANGE:'NSW',
+  TAMWORTH:'NSW', GRAFTON:'NSW', LISMORE:'NSW', ARMIDALE:'NSW', TAREE:'NSW',
+  'COFFS HARBOUR':'NSW', 'PORT MACQUARIE':'NSW', DUBBO:'NSW', 'WAGGA WAGGA':'NSW',
+  // VIC
+  FLEMINGTON:'VIC', CAULFIELD:'VIC', 'MOONEE VALLEY':'VIC', SANDOWN:'VIC',
+  'SANDOWN-HILLSIDE':'VIC', 'SANDOWN HILLSIDE':'VIC', 'SANDOWN LAKESIDE':'VIC',
+  BENDIGO:'VIC', BALLARAT:'VIC', GEELONG:'VIC', PAKENHAM:'VIC', CRANBOURNE:'VIC',
+  MORNINGTON:'VIC', SEYMOUR:'VIC', ECHUCA:'VIC', HAMILTON:'VIC', HORSHAM:'VIC',
+  'SWAN HILL':'VIC', WODONGA:'VIC', WANGARATTA:'VIC',
+  // QLD
+  'EAGLE FARM':'QLD', DOOMBEN:'QLD', 'GOLD COAST':'QLD', 'GOLD COAST POLY':'QLD',
+  TOOWOOMBA:'QLD', WARWICK:'QLD', IPSWICH:'QLD', 'SUNSHINE COAST':'QLD',
+  ROCKHAMPTON:'QLD', TOWNSVILLE:'QLD', CAIRNS:'QLD', MACKAY:'QLD',
+  // SA
+  MORPHETTVILLE:'SA', 'MORPHETTVILLE PARKS':'SA', 'MURRAY BRIDGE':'SA', GAWLER:'SA',
+  'PORT AUGUSTA':'SA', NARACOORTE:'SA', BALAKLAVA:'SA', 'MOUNT GAMBIER':'SA',
+  // WA
+  'BELMONT PARK':'WA', BELMONT:'WA', ASCOT:'WA', PINJARRA:'WA',
+  BUNBURY:'WA', GERALDTON:'WA', KALGOORLIE:'WA', ALBANY:'WA',
+  // NT
+  DARWIN:'NT', 'ALICE SPRINGS':'NT',
+  // TAS
+  HOBART:'TAS', LAUNCESTON:'TAS', SPREYTON:'TAS', DEVONPORT:'TAS',
+};
+
 // ─── upload zone ──────────────────────────────────────────────────────────────
 
 function UploadZone({ onFile }) {
@@ -1696,6 +1725,7 @@ function RacesPageInner() {
   const [raceResults,   setRaceResults]   = useState({});
   const [resultPopup,   setResultPopup]   = useState(null);
   const [bbTarget,      setBbTarget]      = useState(null);
+  const [meetingsSynced, setMeetingsSynced] = useState(false);
   const popupRef     = useRef(null);
 
   const currentRace = selectedKey ? allRaces[selectedKey] : null;
@@ -1730,10 +1760,43 @@ function RacesPageInner() {
     } catch (err) { alert('Error parsing CSV: ' + err.message); }
   }, []);
 
-  const handleFile = useCallback((text, name) => {
+  const handleFile = useCallback(async (text, name) => {
     localStorage.setItem('ww_csv', text);
     localStorage.setItem('ww_csv_name', name);
     loadCSV(text, name, null);
+
+    if (SURL && SKEY) {
+      try {
+        const { allRaces: ar, allVenues: av } = buildRaces(parseCSV(text));
+        const firstKey = Object.keys(ar)[0];
+        const dateISO = firstKey ? toISO(ar[firstKey]?.date) : null;
+        if (dateISO) {
+          const venues = Object.keys(av);
+          const rows = venues.map(v => ({
+            venue: v.toUpperCase(),
+            state: VENUE_STATE_MAP[v.toUpperCase()] || null,
+            date:  dateISO,
+          }));
+          await fetch(`${SURL}/rest/v1/today_meetings?date=gte.1900-01-01`, {
+            method: 'DELETE',
+            headers: { apikey: SKEY, Authorization: `Bearer ${SKEY}`, Prefer: 'return=minimal' },
+          });
+          const res = await fetch(`${SURL}/rest/v1/today_meetings`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', apikey: SKEY, Authorization: `Bearer ${SKEY}`, Prefer: 'return=minimal' },
+            body: JSON.stringify(rows),
+          });
+          if (res.ok) {
+            console.log('[Races] today_meetings updated:', venues.length, 'venues');
+            setMeetingsSynced(true);
+          } else {
+            console.error('[Races] today_meetings sync failed:', res.status, await res.text());
+          }
+        }
+      } catch (err) {
+        console.error('[Races] today_meetings sync error:', err);
+      }
+    }
   }, [loadCSV]);
 
   // On mount: restore CSV from localStorage and honour ?select param
@@ -1850,8 +1913,9 @@ function RacesPageInner() {
               <span className="font-medium text-gray-700">{fileName}</span>
               <span className="text-gray-300">·</span>
               <span>{raceKeys.length} races</span>
+              {meetingsSynced && <span style={{ color: '#059669', fontWeight: 600 }}>✓ Meetings synced</span>}
               <button
-                onClick={() => { setAllRaces({}); setAllVenues({}); setRaceKeys([]); setSelectedKey(null); setFileName(''); }}
+                onClick={() => { setAllRaces({}); setAllVenues({}); setRaceKeys([]); setSelectedKey(null); setFileName(''); setMeetingsSynced(false); }}
                 className="ml-auto text-[9px] font-semibold text-gray-400 hover:text-red-500 transition-colors flex items-center gap-1"
               >
                 <i className="ti ti-x text-xs" /> Clear
