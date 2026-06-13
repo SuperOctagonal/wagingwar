@@ -341,6 +341,7 @@ export default function MybetsPage() {
   const [qlBookmaker, setQlBookmaker] = useState('Sportsbet');
   const [qlSaving,    setQlSaving]    = useState(false);
   const [qlToast,     setQlToast]     = useState(null);
+  const [raceDate,    setRaceDate]    = useState(null);
 
   const todayISO = new Date().toISOString().slice(0, 10);
 
@@ -362,6 +363,15 @@ export default function MybetsPage() {
       }
     });
   }, [user?.id]);
+
+  // Fetch race date from today_meetings so Quick Log uses the correct betting date
+  useEffect(() => {
+    sbFetch('today_meetings?select=date&limit=1').then(data => {
+      if (Array.isArray(data) && data.length > 0 && data[0].date) {
+        setRaceDate(data[0].date);
+      }
+    });
+  }, []);
 
   // Load CSV race data from localStorage (key: ww_csv, set by races page)
   useEffect(() => {
@@ -421,7 +431,7 @@ export default function MybetsPage() {
 
     const insertBody = {
       clerk_id:    user.id,
-      date:        todayISO,
+      date:        raceDate || todayISO,
       horse_name:  qlHorse.trim(),
       track:       normVenue,
       venue:       normVenue,
@@ -467,7 +477,7 @@ export default function MybetsPage() {
     setQlToast(ok ? 'success' : 'error');
     setQlSaving(false);
     setTimeout(() => setQlToast(null), 2500);
-  }, [user?.id, todayISO, qlHorse, qlMeeting, qlRace, qlBetType, qlStake, qlOdds, qlBookmaker]);
+  }, [user?.id, todayISO, raceDate, qlHorse, qlMeeting, qlRace, qlBetType, qlStake, qlOdds, qlBookmaker]);
 
   const statsRows = useMemo(() => (
     ['Today', 'This week', 'This month', 'All time'].map(p => ({ label: p, ...calcRow(bets.filter(periodFilter(p, todayISO))) }))
