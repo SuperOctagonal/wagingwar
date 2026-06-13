@@ -174,11 +174,13 @@ async function matchAndUpdateBets(pendingBets) {
     );
   }
 
+  let anyUpdated = false;
   if (patches.length) {
     await Promise.all(patches);
-    return { spMap, anyUpdated: true };
+    anyUpdated = true;
   }
-  return { spMap: {}, anyUpdated: false };
+  console.log('[BetMatch] Done — anyUpdated:', anyUpdated, 'spMap keys:', Object.keys(spMap));
+  return { spMap, anyUpdated };
 }
 
 // ─── Period helpers ──────────────────────────────────────────────────────────
@@ -363,6 +365,7 @@ export default function MybetsPage() {
       if (pending.length > 0) {
         setMatchingResults(true);
         const { spMap, anyUpdated } = await matchAndUpdateBets(pending);
+        console.log('[MyBets] matchAndUpdateBets returned anyUpdated:', anyUpdated);
         setMatchingResults(false);
         if (Object.keys(spMap).length > 0) setResultSpMap(spMap);
         if (anyUpdated) {
@@ -639,6 +642,7 @@ export default function MybetsPage() {
                   setRefreshing(true);
                   const pending = bets.filter(b => !b.status || b.status === 'pending');
                   const { spMap, anyUpdated } = await matchAndUpdateBets(pending);
+                  console.log('[MyBets] matchAndUpdateBets returned anyUpdated:', anyUpdated);
                   if (Object.keys(spMap).length > 0) setResultSpMap(spMap);
                   if (anyUpdated) {
                     const fresh = await loadBets(user.id);
