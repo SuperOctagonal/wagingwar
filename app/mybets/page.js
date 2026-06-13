@@ -80,8 +80,6 @@ async function matchAndUpdateBets(pendingBets) {
     } catch {}
   }));
 
-  console.log('[BetMatch] Results fetched for dates:', Object.keys(allResults), 'counts:', Object.fromEntries(Object.entries(allResults).map(([k,v]) => [k, v.length])));
-
   const spMap = {};
   const patches = [];
 
@@ -93,8 +91,6 @@ async function matchAndUpdateBets(pendingBets) {
     const betRaceNum = +(bet.race_number ?? bet.race_num ?? 0);
     const betHorse = normName(bet.horse_name || '');
 
-    console.log('[BetMatch] Trying to match bet:', bet.id, 'horse:', betHorse, 'venue:', betVenue, 'race:', betRaceNum, 'date:', bet.date, 'rows available:', rows.length);
-
     const row = rows.find(r => {
       const rVenue = normName(r.venue);
       const rRace  = +r.race_num;
@@ -102,8 +98,6 @@ async function matchAndUpdateBets(pendingBets) {
       const rHorseStripped = normName(r.horse_name.replace(/\s*\([A-Z]+\)\s*$/i, ''));
       return rVenue === betVenue && rRace === betRaceNum && (rHorse === betHorse || rHorseStripped === betHorse);
     });
-
-    console.log('[BetMatch] Match result for', bet.horse_name, ':', row ? 'FOUND' : 'NOT FOUND');
 
     if (!row) continue;
 
@@ -155,8 +149,6 @@ async function matchAndUpdateBets(pendingBets) {
       profit_loss: Math.round((profitLoss || 0) * 100) / 100,
     };
 
-    console.log('[BetMatch] Will patch bet', bet.id, 'with fields:', JSON.stringify(fields));
-
     patches.push(
       fetch(`${SURL}/rest/v1/bet_log?id=eq.${bet.id}`, {
         method: 'PATCH',
@@ -167,10 +159,7 @@ async function matchAndUpdateBets(pendingBets) {
           Prefer: 'return=minimal',
         },
         body: JSON.stringify(fields),
-      }).then(async r => {
-        const txt = await r.text();
-        console.log('[BetMatch] PATCH', bet.id, 'status:', r.status, 'response:', txt);
-      }).catch(err => console.error('[BetMatch] PATCH error:', err))
+      })
     );
   }
 
@@ -179,7 +168,6 @@ async function matchAndUpdateBets(pendingBets) {
     await Promise.all(patches);
     anyUpdated = true;
   }
-  console.log('[BetMatch] Done — anyUpdated:', anyUpdated, 'spMap keys:', Object.keys(spMap));
   return { spMap, anyUpdated };
 }
 
@@ -365,7 +353,6 @@ export default function MybetsPage() {
       if (pending.length > 0) {
         setMatchingResults(true);
         const { spMap, anyUpdated } = await matchAndUpdateBets(pending);
-        console.log('[MyBets] matchAndUpdateBets returned anyUpdated:', anyUpdated);
         setMatchingResults(false);
         if (Object.keys(spMap).length > 0) setResultSpMap(spMap);
         if (anyUpdated) {
@@ -385,7 +372,6 @@ export default function MybetsPage() {
         setCsvRaces(ar);
         setCsvVenues(av);
         setCsvMeetings(Object.keys(av));
-        console.log('[MyBets] CSV loaded — venues:', Object.keys(av));
       }
     } catch (e) {
       console.error('[MyBets] CSV parse error:', e);
@@ -642,7 +628,6 @@ export default function MybetsPage() {
                   setRefreshing(true);
                   const pending = bets.filter(b => !b.status || b.status === 'pending');
                   const { spMap, anyUpdated } = await matchAndUpdateBets(pending);
-                  console.log('[MyBets] matchAndUpdateBets returned anyUpdated:', anyUpdated);
                   if (Object.keys(spMap).length > 0) setResultSpMap(spMap);
                   if (anyUpdated) {
                     const fresh = await loadBets(user.id);
