@@ -217,17 +217,16 @@ export default function ResultsPage() {
   const venueNames = Object.keys(meetings);
   const meetingRaces = selectedMeeting ? (meetings[selectedMeeting] || []) : [];
 
-  // Active race data — if a tab is selected find it, otherwise fall back to first resulted race.
-  // Pure derived state: no useEffect needed, recomputes fresh on every render.
+  // Active race data — only show results for an explicitly selected tab.
+  // No auto-default: opening a meeting shows nothing until a tab is clicked.
   const activeRaceData = (() => {
     if (!selectedMeeting) return null;
     const races = meetings[selectedMeeting] || [];
     if (selectedRace != null) {
       const match = races.find(r => Number(r.raceNum) === Number(selectedRace));
-      if (match !== undefined) return match.results || {}; // match found but no results yet — return empty object to show "no results" not R1
+      return match ? (match.results || {}) : null;
     }
-    // No tab selected — default to first resulted race
-    return races.find(r => r.results)?.results || null;
+    return null;
   })();
 
   return (
@@ -340,9 +339,7 @@ export default function ResultsPage() {
             <div style={{ display:'flex', gap:4, flexWrap:'wrap', marginBottom:12 }}>
               {meetingRaces.map(r => {
                 const resulted = !!r.results;
-                const isActive = selectedRace != null
-                  ? Number(r.raceNum) === Number(selectedRace)
-                  : r.results && Number(r.raceNum) === Number(meetingRaces.find(rc => rc.results)?.raceNum);
+                const isActive = selectedRace != null && Number(r.raceNum) === Number(selectedRace);
                 const bg     = isActive ? '#1e2936' : resulted ? '#d1fae5' : '#f1f5f9';
                 const color  = isActive ? '#fff'     : resulted ? '#065f46' : '#9ca3af';
                 const border = isActive ? '#1e2936'  : resulted ? '#86efac' : '#e5e7eb';
