@@ -224,8 +224,9 @@ export default function ResultsPage() {
     const races = meetings[selectedMeeting] || [];
     if (selectedRace != null) {
       const match = races.find(r => Number(r.raceNum) === Number(selectedRace));
-      if (match !== undefined) return match.results || null;
+      if (match !== undefined) return match.results || {}; // match found but no results yet — return empty object to show "no results" not R1
     }
+    // No tab selected — default to first resulted race
     return races.find(r => r.results)?.results || null;
   })();
 
@@ -339,9 +340,9 @@ export default function ResultsPage() {
             <div style={{ display:'flex', gap:4, flexWrap:'wrap', marginBottom:12 }}>
               {meetingRaces.map(r => {
                 const resulted = !!r.results;
-                const isActive = selectedRace
-                  ? r.raceNum === selectedRace
-                  : r.raceNum === activeRaceData?.raceNum;
+                const isActive = selectedRace != null
+                  ? Number(r.raceNum) === Number(selectedRace)
+                  : r.results && Number(r.raceNum) === Number(meetingRaces.find(rc => rc.results)?.raceNum);
                 const bg     = isActive ? '#1e2936' : resulted ? '#d1fae5' : '#f1f5f9';
                 const color  = isActive ? '#fff'     : resulted ? '#065f46' : '#9ca3af';
                 const border = isActive ? '#1e2936'  : resulted ? '#86efac' : '#e5e7eb';
