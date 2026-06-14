@@ -223,8 +223,8 @@ export default function ResultsPage() {
     if (!selectedMeeting) return null;
     const races = meetings[selectedMeeting] || [];
     if (selectedRace != null) {
-      const match = races.find(r => r.raceNum === selectedRace);
-      if (match) return match.results || null;
+      const match = races.find(r => Number(r.raceNum) === Number(selectedRace));
+      if (match !== undefined) return match.results || null;
     }
     return races.find(r => r.results)?.results || null;
   })();
