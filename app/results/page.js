@@ -289,7 +289,11 @@ export default function ResultsPage() {
                     return (
                       <div
                         key={venue}
-                        onClick={() => { setSelectedMeeting(venue); setSelectedRace(null); }}
+                        onClick={() => {
+                          const firstResulted = (meetings[venue] || []).find(r => r.results)?.raceNum ?? null;
+                          setSelectedMeeting(venue);
+                          setSelectedRace(firstResulted);
+                        }}
                         style={{ background:'#fff', border:'0.5px solid #e5e7eb', borderRadius:8, overflow:'hidden', cursor:'pointer', transition:'box-shadow .15s' }}
                         onMouseEnter={e => { e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,.08)'; }}
                         onMouseLeave={e => { e.currentTarget.style.boxShadow = ''; }}
