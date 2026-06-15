@@ -224,7 +224,8 @@ export default function ResultsPage() {
     const races = meetings[selectedMeeting] || [];
     if (selectedRace != null) {
       const match = races.find(r => Number(r.raceNum) === Number(selectedRace));
-      return match ? (match.results || {}) : null;
+      if (!match) return null;
+      return match.results ? { ...match.results, raceNum: match.raceNum } : null;
     }
     return null;
   })();
