@@ -273,9 +273,52 @@ export default function ResultsPage() {
           </div>
         )}
 
-        {/* Meetings grid */}
-        {!loading && !selectedMeeting && (
+        {!loading && (selectedMeeting ? (
           <>
+            {/* Individual meeting view */}
+            {/* Back + title */}
+            <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:12 }}>
+              <button
+                onClick={() => { setSelectedMeeting(null); setSelectedRace(null); }}
+                style={{ display:'flex', alignItems:'center', gap:4, padding:'5px 10px', borderRadius:6, border:'0.5px solid #e5e7eb', background:'#fff', color:'#374151', fontSize:10, fontWeight:600, cursor:'pointer', fontFamily:'inherit' }}
+              >
+                <i className="ti ti-arrow-left" style={{ fontSize:12 }} /> All meetings
+              </button>
+              <span style={{ fontSize:14, fontWeight:700, color:'#111827' }}>{selectedMeeting}</span>
+            </div>
+
+            {/* Race tab pills */}
+            <div style={{ display:'flex', gap:4, flexWrap:'wrap', marginBottom:12 }}>
+              {meetingRaces.map(r => {
+                const resulted = !!r.results;
+                const isActive = selectedRace != null && Number(r.raceNum) === Number(selectedRace);
+                const bg     = isActive ? '#1e2936' : resulted ? '#d1fae5' : '#f1f5f9';
+                const color  = isActive ? '#fff'     : resulted ? '#065f46' : '#9ca3af';
+                const border = isActive ? '#1e2936'  : resulted ? '#86efac' : '#e5e7eb';
+                return (
+                  <div
+                    key={r.raceNum}
+                    onClick={() => setSelectedRace(Number(r.raceNum))}
+                    style={{ padding:'4px 10px', borderRadius:5, fontSize:10, fontWeight:700, cursor:'pointer', background:bg, color, border:`0.5px solid ${border}` }}
+                  >
+                    R{r.raceNum}{resulted ? ' ✓' : ''}
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Results detail */}
+            <ResultsDetail
+              meeting={activeRaceData}
+              venue={selectedMeeting}
+              allRaces={allRaces}
+              allVenues={allVenues}
+              weights={weights}
+            />
+          </>
+        ) : (
+          <>
+            {/* Meetings grid */}
             {venueNames.length === 0 ? (
               <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:200, gap:10, color:'#9ca3af' }}>
                 <i className="ti ti-flag-check" style={{ fontSize:36 }} />
@@ -330,52 +373,7 @@ export default function ResultsPage() {
               </>
             )}
           </>
-        )}
-
-        {/* Individual meeting view */}
-        {!loading && selectedMeeting && (
-          <>
-            {/* Back + title */}
-            <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:12 }}>
-              <button
-                onClick={() => { setSelectedMeeting(null); setSelectedRace(null); }}
-                style={{ display:'flex', alignItems:'center', gap:4, padding:'5px 10px', borderRadius:6, border:'0.5px solid #e5e7eb', background:'#fff', color:'#374151', fontSize:10, fontWeight:600, cursor:'pointer', fontFamily:'inherit' }}
-              >
-                <i className="ti ti-arrow-left" style={{ fontSize:12 }} /> All meetings
-              </button>
-              <span style={{ fontSize:14, fontWeight:700, color:'#111827' }}>{selectedMeeting}</span>
-            </div>
-
-            {/* Race tab pills */}
-            <div style={{ display:'flex', gap:4, flexWrap:'wrap', marginBottom:12 }}>
-              {meetingRaces.map(r => {
-                const resulted = !!r.results;
-                const isActive = selectedRace != null && Number(r.raceNum) === Number(selectedRace);
-                const bg     = isActive ? '#1e2936' : resulted ? '#d1fae5' : '#f1f5f9';
-                const color  = isActive ? '#fff'     : resulted ? '#065f46' : '#9ca3af';
-                const border = isActive ? '#1e2936'  : resulted ? '#86efac' : '#e5e7eb';
-                return (
-                  <div
-                    key={r.raceNum}
-                    onClick={() => setSelectedRace(Number(r.raceNum))}
-                    style={{ padding:'4px 10px', borderRadius:5, fontSize:10, fontWeight:700, cursor:'pointer', background:bg, color, border:`0.5px solid ${border}` }}
-                  >
-                    R{r.raceNum}{resulted ? ' ✓' : ''}
-                  </div>
-                );
-              })}
-            </div>
-
-            {/* Results detail */}
-            <ResultsDetail
-              meeting={activeRaceData}
-              venue={selectedMeeting}
-              allRaces={allRaces}
-              allVenues={allVenues}
-              weights={weights}
-            />
-          </>
-        )}
+        ))}
       </div>
       </main>
     </div>
