@@ -351,7 +351,7 @@ export default function ResultsPage() {
                 return (
                   <div
                     key={r.raceNum}
-                    onClick={() => setSelectedRace(r.raceNum)}
+                    onClick={() => setSelectedRace(Number(r.raceNum))}
                     style={{ padding:'4px 10px', borderRadius:5, fontSize:10, fontWeight:700, cursor:'pointer', background:bg, color, border:`0.5px solid ${border}` }}
                   >
                     R{r.raceNum}{resulted ? ' ✓' : ''}
