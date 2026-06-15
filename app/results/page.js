@@ -222,8 +222,10 @@ export default function ResultsPage() {
   const activeRaceData = (() => {
     if (!selectedMeeting) return null;
     const races = meetings[selectedMeeting] || [];
+    console.log('activeRaceData: selectedRace=', selectedRace, 'races=', races.map(r => r.raceNum));
     if (selectedRace != null) {
       const match = races.find(r => Number(r.raceNum) === Number(selectedRace));
+      console.log('activeRaceData: match=', match?.raceNum);
       if (!match) return null;
       return match.results ? { ...match.results, raceNum: match.raceNum } : null;
     }
