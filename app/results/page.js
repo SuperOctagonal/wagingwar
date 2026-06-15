@@ -174,6 +174,10 @@ export default function ResultsPage() {
     });
   }, [selectedDate]);
 
+  useEffect(() => {
+    console.log('selectedRace changed to:', selectedRace);
+  }, [selectedRace]);
+
   // Group raw rows into { 'VENUE||raceNum': { venue, raceNum, runners, ... } }
   const grouped = useMemo(() => {
     const g = {};
