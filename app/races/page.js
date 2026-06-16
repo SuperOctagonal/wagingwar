@@ -495,7 +495,7 @@ function WeightsPanel({ weights, setWeights, onUpgrade }) {
 
 function PaceLegend() {
   return (
-    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-1.5 bg-slate-50 border-b border-gray-100 text-[9px] text-gray-500 flex-shrink-0">
+    <div className="flex flex-wrap items-center justify-end gap-x-4 gap-y-1 px-4 py-1.5 bg-slate-50 border-b border-gray-100 text-[9px] text-gray-500 flex-shrink-0">
       {PACE_ROLES.map(r => (
         <span key={r.label} className="flex items-center gap-1">
           <span className="w-2 h-2 rounded-sm flex-shrink-0" style={{ background: r.color }} />
@@ -553,7 +553,7 @@ function buildPopupHTML(h) {
 
   const finArr = Array.isArray(h.lastFin) ? h.lastFin : [h.lastFin,null,null,null];
   const spArr  = Array.isArray(h.lastSP)  ? h.lastSP  : [h.lastSP,null,null,null];
-  const pips   = finArr.slice(0,4).filter(v => v !== null && v !== undefined && v !== '');
+  const pips   = finArr.slice(0,4).filter(v => v !== null && v !== undefined && v !== '').reverse();
 
   const pipSty = n => {
     if (n===1) return 'background:#fbbf24;color:#78350f';
@@ -988,7 +988,7 @@ function MobileRunnerCard({ runner, rank, rc, trackCond, onLogBet, isResulted, i
   const myO  = runner.myOdds;
   const mktO = runner.rawOdds;
   const wt   = runner['Weight'] ? `${runner['Weight']}kg` : '';
-  const pips = (runner.lastFin || []).slice(0, 4).filter(v => v !== null && v !== undefined && v !== '');
+  const pips = (runner.lastFin || []).slice(0, 4).filter(v => v !== null && v !== undefined && v !== '').reverse();
   const pm   = calcPaceMap(runner, rc.venue, +rc.dist, trackCond);
   const rankColor = rank===1?'#d97706':rank===2?'#6b7280':rank===3?'#b45309':'#9ca3af';
   const tcLabel   = { good:'Good', soft:'Soft', heavy:'Heavy', synthetic:'Synth' }[trackCond] || 'Cond';
@@ -1122,7 +1122,7 @@ function RunnerRow({ runner, rank, rc, trackCond, onLogBet, onShowPopup, onHideP
     valColor = p >= 20 ? '#059669' : p <= -20 ? '#dc2626' : '#374151';
   }
 
-  const pips = (runner.lastFin || []).slice(0, 4).filter(v => v !== null && v !== undefined && v !== '');
+  const pips = (runner.lastFin || []).slice(0, 4).filter(v => v !== null && v !== undefined && v !== '').reverse();
   const bp   = runner['BP'] || runner.BP || '';
   const wt   = runner['Weight'] ? `${runner['Weight']}kg` : '';
   const rankColor = rank===1?'#d97706':rank===2?'#6b7280':rank===3?'#b45309':'#9ca3af';
@@ -1149,7 +1149,7 @@ function RunnerRow({ runner, rank, rc, trackCond, onLogBet, onShowPopup, onHideP
           {runner.allowance > 0 && <span className="text-[8px] font-bold bg-amber-100 text-amber-800 rounded px-1">-{runner.allowance}kg</span>}
           {classChangeEl(runner.classChange)}
         </div>
-        <div className="text-[9px] mt-0.5 truncate" style={{ color: '#6b7280' }}>
+        <div className="text-[9px] mt-0.5 truncate" style={{ color: '#111827' }}>
           {[wt, jShort(runner.jname), runner.trainer].filter(Boolean).join(' · ')}
         </div>
       </td>
@@ -1206,7 +1206,7 @@ function RunnerRow({ runner, rank, rc, trackCond, onLogBet, onShowPopup, onHideP
             <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden" style={{ width: 55 }}>
               <div className="h-full rounded-full transition-all" style={{ width: `${pm.pct}%`, background: pm.color }} />
             </div>
-            <span className="text-[8px] font-semibold w-6 text-right" style={{ color: '#6b7280' }}>{crsLabel}</span>
+            <span className="text-[8px] font-semibold w-6 text-right" style={{ color: '#111827' }}>{crsLabel}</span>
           </div>
         )}
       </td>
@@ -1227,9 +1227,9 @@ function FieldView({ results, scratched, rc, trackCond, onLogBet, onShowPopup, o
         <table className="w-full border-collapse" style={{ minWidth: 800 }}>
           <thead>
             <tr className="border-b border-gray-200">
-              <th style={{ ...th, textAlign:'center', width:28 }}>#</th>
+              <th style={{ ...th, textAlign:'center', width:28 }}>WW</th>
               <th style={{ ...th, textAlign:'left', minWidth:140 }}>Horse / Jockey / Trainer</th>
-              <th style={{ ...th, textAlign:'center', width:78 }}>Last 4</th>
+              <th style={{ ...th, textAlign:'center', width:78 }}>Last 4 →</th>
               <th style={{ ...th, textAlign:'center', width:60 }}>Record</th>
               <th style={{ ...th, textAlign:'right', width:52, color: GRP_LABELS.form.color }}>Form</th>
               <th style={{ ...th, textAlign:'right', width:52, color: GRP_LABELS.speed.color }}>Speed</th>
