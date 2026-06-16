@@ -703,7 +703,7 @@ function RaceResultModal({ result, results, onClose }) {
                     }
                   </td>
                   <td style={{ padding:'6px 10px', fontSize:11, fontWeight:600, color:'#374151', fontFamily:'monospace' }}>{r.sp>0?`$${Number(r.sp).toFixed(2)}`:'—'}</td>
-                  <td style={{ padding:'6px 10px', fontSize:10, color:'#6b7280' }}>{r.margin||'—'}</td>
+                  <td style={{ padding:'6px 10px', fontSize:10, color:'#111827' }}>{r.margin||'—'}</td>
                 </tr>
               );
             })}
@@ -1227,7 +1227,7 @@ function FieldView({ results, scratched, rc, trackCond, onLogBet, onShowPopup, o
         <table className="w-full border-collapse" style={{ minWidth: 800 }}>
           <thead>
             <tr className="border-b border-gray-200">
-              <th style={{ ...th, textAlign:'center', width:28 }}>WW</th>
+              <th style={{ ...th, textAlign:'center', width:28 }}>RANK</th>
               <th style={{ ...th, textAlign:'left', minWidth:140 }}>Horse / Jockey / Trainer</th>
               <th style={{ ...th, textAlign:'center', width:78 }}>Last 4 →</th>
               <th style={{ ...th, textAlign:'center', width:60 }}>Record</th>
@@ -1240,7 +1240,17 @@ function FieldView({ results, scratched, rc, trackCond, onLogBet, onShowPopup, o
               <th style={{ ...th, textAlign:'right', width:52 }}>Live $</th>
               <th style={{ ...th, textAlign:'right', width:52 }}>Value</th>
               <th style={{ ...th, width:52 }} />
-              <th style={{ ...th, textAlign:'left', minWidth:100 }}>Pace</th>
+              <th style={{ ...th, textAlign:'left', minWidth:100 }}>
+                <div style={{fontSize:9,fontWeight:700,color:'#9ca3af',textTransform:'uppercase',marginBottom:2}}>Pace</div>
+                <div style={{display:'flex',flexWrap:'wrap',gap:'4px 8px'}}>
+                  {PACE_ROLES.map(r => (
+                    <span key={r.label} style={{display:'flex',alignItems:'center',gap:2,fontSize:8,color:'#6b7280'}}>
+                      <span style={{width:6,height:6,borderRadius:2,background:r.color,flexShrink:0}} />
+                      {r.label}
+                    </span>
+                  ))}
+                </div>
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -1336,7 +1346,7 @@ function FormCard({ runner: r, rank, onLogBet, isResulted, rc, isPro, onUpgrade,
     const rowBg = ri%2===0?'#fff':'#f9fafb';
     runRows.push(
       <tr key={ri} style={{ background:rowBg }}>
-        <td style={{ padding:'3px 6px', fontSize:11, color:'#6b7280', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{fmtDate(dtl.date)}</td>
+        <td style={{ padding:'3px 6px', fontSize:11, color:'#111827', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{fmtDate(dtl.date)}</td>
         <td style={{ padding:'3px 6px', textAlign:'center' }}>
           <span style={{ width:20, height:20, borderRadius:'50%', display:'inline-flex', alignItems:'center', justifyContent:'center', fontSize:9, fontWeight:700, ...pipStyle(n) }}>{n>9?'0':pos}</span>
         </td>
@@ -1345,8 +1355,8 @@ function FormCard({ runner: r, rank, onLogBet, isResulted, rc, isPro, onUpgrade,
           <span style={{ fontSize:10, padding:'1px 5px', borderRadius:3, background:'#eff6ff', color:'#1d4ed8', whiteSpace:'nowrap' }}>{dtl.cls||'—'}</span>
         </td>
         <td style={{ padding:'3px 6px', fontSize:11, color:'#111827', whiteSpace:'nowrap' }}>{dtl.dist?`${dtl.dist}m`:'—'}</td>
-        <td style={{ padding:'3px 6px', fontSize:11, color:'#6b7280', whiteSpace:'nowrap' }}>{dtl.wt?`${dtl.wt}kg`:'—'}</td>
-        <td style={{ padding:'3px 6px', fontSize:11, color:'#6b7280', whiteSpace:'nowrap' }}>{fmtSP(sp)}</td>
+        <td style={{ padding:'3px 6px', fontSize:11, color:'#111827', whiteSpace:'nowrap' }}>{dtl.wt?`${dtl.wt}kg`:'—'}</td>
+        <td style={{ padding:'3px 6px', fontSize:11, color:'#111827', whiteSpace:'nowrap' }}>{fmtSP(sp)}</td>
         <td style={{ padding:'3px 6px', fontSize:11, color:mgColor, whiteSpace:'nowrap' }}>{mgTxt}</td>
       </tr>
     );
@@ -1425,7 +1435,7 @@ function FormCard({ runner: r, rank, onLogBet, isResulted, rc, isPro, onUpgrade,
             <div style={{ fontSize:11, fontWeight:500, color:stColor(st.w, st.s) }}>
               {st.s ? `${st.s}S ${st.w}W ${st.p}P` : '—'}
             </div>
-            <div style={{ fontSize:10, color:'#6b7280', marginTop:1 }}>{st.s>0?`${Math.round(st.w/st.s*100)}% win`:'0% win'}</div>
+            <div style={{ fontSize:10, color:'#111827', marginTop:1 }}>{st.s>0?`${Math.round(st.w/st.s*100)}% win`:'0% win'}</div>
           </div>
         ))}
       </div>
@@ -2010,8 +2020,6 @@ function RacesPageInner() {
                     </button>
                   </div>
                 )}
-                {view !== 'pacemap' && <PaceLegend />}
-
                 {/* View content */}
                 <div className="flex-1 overflow-hidden flex flex-col">
                   {view === 'field' && (
