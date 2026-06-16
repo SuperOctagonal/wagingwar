@@ -174,10 +174,6 @@ export default function ResultsPage() {
     });
   }, [selectedDate]);
 
-  useEffect(() => {
-    console.log('selectedRace changed to:', selectedRace);
-  }, [selectedRace]);
-
   // Group raw rows into { 'VENUE||raceNum': { venue, raceNum, runners, ... } }
   const grouped = useMemo(() => {
     const g = {};
@@ -226,10 +222,8 @@ export default function ResultsPage() {
   const activeRaceData = (() => {
     if (!selectedMeeting) return null;
     const races = meetings[selectedMeeting] || [];
-    console.log('activeRaceData: selectedRace=', selectedRace, 'races=', races.map(r => r.raceNum));
     if (selectedRace != null) {
       const match = races.find(r => Number(r.raceNum) === Number(selectedRace));
-      console.log('activeRaceData: match=', match?.raceNum);
       if (!match) return null;
       return match.results ? { ...match.results, raceNum: match.raceNum } : null;
     }
@@ -299,7 +293,7 @@ export default function ResultsPage() {
                   <button
                     key={r.raceNum}
                     type="button"
-                    onClick={(e) => { e.stopPropagation(); e.preventDefault(); setSelectedRace(Number(r.raceNum)); console.log('TAB CLICKED', r.raceNum); }}
+                    onClick={(e) => { e.stopPropagation(); e.preventDefault(); setSelectedRace(Number(r.raceNum)); }}
                     style={{ padding:'4px 10px', borderRadius:5, fontSize:10, fontWeight:700, cursor:'pointer', background:bg, color, border:`0.5px solid ${border}`, fontFamily:'inherit' }}
                   >
                     R{r.raceNum}{resulted ? ' ✓' : ''}
