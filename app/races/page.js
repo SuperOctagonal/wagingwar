@@ -219,7 +219,7 @@ const TC_PILL = {
   synthetic: { bg: '#2563eb', label: 'Syn'   },
 };
 
-function LeftRail({ allVenues, allRaces, selectedRaceKey, onSelect, trackConds }) {
+function LeftRail({ allVenues, allRaces, selectedRaceKey, onSelect, trackConds, venueTrackConds = {} }) {
   const [openVenue, setOpenVenue] = useState(null);
 
   const toggle = useCallback(venue => {
@@ -246,7 +246,7 @@ function LeftRail({ allVenues, allRaces, selectedRaceKey, onSelect, trackConds }
             >
               <div style={{ flex: 1, minWidth: 0, textAlign: 'left' }}>
                 <div style={{ fontSize: 9, fontWeight: 700, color: isOpen ? '#fff' : 'rgba(255,255,255,0.7)', textTransform: 'uppercase', letterSpacing: '0.8px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{venue}</div>
-                <div style={{ fontSize: 8, color: 'rgba(255,255,255,0.4)', marginTop: 1 }}>{raceCount} race{raceCount !== 1 ? 's' : ''}</div>
+                <div style={{ fontSize: 8, color: 'rgba(255,255,255,0.4)', marginTop: 1 }}>{raceCount} race{raceCount !== 1 ? 's' : ''}{venueTrackConds[venue] ? ` · ${venueTrackConds[venue]}` : ''}</div>
               </div>
               {(() => { const p = TC_PILL[trackConds[venue] || 'good']; return p ? <span style={{ fontSize: 7, fontWeight: 700, padding: '1px 4px', borderRadius: 3, background: p.bg, color: '#fff', flexShrink: 0 }}>{p.label}</span> : null; })()}
               <span style={{ fontSize: 9, color: 'rgba(255,255,255,0.3)', flexShrink: 0 }}>›</span>
@@ -984,7 +984,7 @@ function MobileRacePicker({ allVenues, allRaces, selectedRaceKey, onSelect }) {
 
 // ─── mobile runner card ───────────────────────────────────────────────────────
 
-function MobileRunnerCard({ runner, rank, rc, trackCond, onLogBet, isResulted, isPro, onUpgrade }) {
+function MobileRunnerCard({ runner, rank, rc, trackCond, onLogBet, isResulted, isPro, onUpgrade, isDbScratched }) {
   const myO  = runner.myOdds;
   const mktO = runner.rawOdds;
   const wt   = runner['Weight'] ? `${runner['Weight']}kg` : '';
@@ -1002,14 +1002,15 @@ function MobileRunnerCard({ runner, rank, rc, trackCond, onLogBet, isResulted, i
   }
 
   return (
-    <div style={{ background: rank===1 ? '#fffbeb' : '#fff', borderBottom: '6px solid #f1f5f9', padding: '8px 12px' }}>
+    <div style={{ background: isDbScratched ? '#fafafa' : (rank===1 ? '#fffbeb' : '#fff'), borderBottom: '6px solid #f1f5f9', padding: '8px 12px', opacity: isDbScratched ? 0.45 : 1 }}>
       {/* Row 1: tab + name + rank/lock */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 4 }}>
         <span style={{ flexShrink: 0, background: '#1e40af', color: '#fff', fontSize: 9, fontWeight: 700, fontFamily: 'monospace', padding: '2px 5px', borderRadius: 3 }}>{runner.tab}</span>
-        <span style={{ fontWeight: 700, fontSize: 13, color: '#111827', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{runner.name}</span>
+        <span style={{ fontWeight: 700, fontSize: 13, color: '#111827', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textDecoration: isDbScratched ? 'line-through' : 'none' }}>{runner.name}</span>
+        {isDbScratched && <span style={{ fontSize: 8, fontWeight: 700, padding: '1px 4px', borderRadius: 3, background: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca', flexShrink: 0 }}>SCR</span>}
         {classChangeEl(runner.classChange)}
         <span style={{ fontWeight: 800, fontSize: 13, color: rankColor, flexShrink: 0 }}>
-          {!isPro ? <LockBtn onClick={onUpgrade} /> : `#${rank}`}
+          {isDbScratched ? '' : (!isPro ? <LockBtn onClick={onUpgrade} /> : `#${rank}`)}
         </span>
       </div>
 
@@ -1107,7 +1108,7 @@ function LockBtn({ onClick }) {
   );
 }
 
-function RunnerRow({ runner, rank, rc, trackCond, onLogBet, onShowPopup, onHidePopup, isResulted, isPro, onUpgrade }) {
+function RunnerRow({ runner, rank, rc, trackCond, onLogBet, onShowPopup, onHidePopup, isResulted, isPro, onUpgrade, isDbScratched }) {
   const myO  = runner.myOdds;
   const mktO = runner.rawOdds;
   const pm   = calcPaceMap(runner, rc.venue, +rc.dist, trackCond);
@@ -1128,21 +1129,22 @@ function RunnerRow({ runner, rank, rc, trackCond, onLogBet, onShowPopup, onHideP
 
   const td = 'px-[6px] py-[5px]';
   return (
-    <tr className="border-b border-gray-100 text-[11px]" style={{ background: rank===1 ? '#fffbeb' : 'white' }}>
+    <tr className="border-b border-gray-100 text-[11px]" style={{ background: isDbScratched ? '#fafafa' : (rank===1 ? '#fffbeb' : 'white'), opacity: isDbScratched ? 0.45 : 1 }}>
       <td className={`${td} text-center font-bold w-7`} style={{ color: rankColor }}>
-        {!isPro ? <LockBtn onClick={onUpgrade} /> : rank}
+        {isDbScratched ? '—' : (!isPro ? <LockBtn onClick={onUpgrade} /> : rank)}
       </td>
       <td className={`${td} min-w-[140px] max-w-[180px]`}>
         <div className="flex items-center flex-wrap gap-x-1 leading-snug">
           <span className="flex-shrink-0 bg-blue-800 text-white text-[8px] font-bold font-mono px-[4px] py-[1px] rounded-sm leading-tight mr-0.5">{runner.tab}</span>
           <span
             className="font-semibold text-[11px] hover:text-brand hover:underline cursor-pointer"
-            style={{ color: '#111827' }}
+            style={{ color: '#111827', textDecoration: isDbScratched ? 'line-through' : 'none' }}
             onMouseEnter={e => onShowPopup({ ...runner, _venue: rc?.venue, _raceNum: rc?.num, _dist: rc?.dist, _cls: rc?.cls }, e.clientX, e.clientY)}
             onMouseLeave={onHidePopup}
           >
             {runner.name}
           </span>
+          {isDbScratched && <span style={{ fontSize: 8, fontWeight: 700, padding: '1px 4px', borderRadius: 3, background: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca' }}>SCR</span>}
           {bp && <span className="text-[9px] text-gray-400 font-mono">({bp})</span>}
           {runner.allowance > 0 && <span className="text-[8px] font-bold bg-amber-100 text-amber-800 rounded px-1">-{runner.allowance}kg</span>}
           {classChangeEl(runner.classChange)}
@@ -1212,8 +1214,11 @@ function RunnerRow({ runner, rank, rc, trackCond, onLogBet, onShowPopup, onHideP
   );
 }
 
-function FieldView({ results, scratched, rc, trackCond, onLogBet, onShowPopup, onHidePopup, isResulted, isPro, onUpgrade }) {
+function FieldView({ results, scratched, rc, trackCond, onLogBet, onShowPopup, onHidePopup, isResulted, isPro, onUpgrade, scratchingsSet = new Set() }) {
   const tcLabel = { good:'Good', soft:'Soft', heavy:'Heavy', synthetic:'Synth' }[trackCond] || 'Good';
+  const scrKey = h => `${(rc.venue||'').toUpperCase()}||${rc.num}||${h.name.toUpperCase()}`;
+  const activeResults = results.filter(h => !scratchingsSet.has(scrKey(h)));
+  const dbScratched   = results.filter(h =>  scratchingsSet.has(scrKey(h)));
   const th = { background: '#f8fafc', color: '#9ca3af', letterSpacing: '0.5px', position: 'sticky', top: 0, zIndex: 1, padding: '5px 6px', fontSize: 8, fontWeight: 700, textTransform: 'uppercase', whiteSpace: 'nowrap' };
   return (
     <>
@@ -1239,8 +1244,11 @@ function FieldView({ results, scratched, rc, trackCond, onLogBet, onShowPopup, o
             </tr>
           </thead>
           <tbody>
-            {results.map((r, i) => (
+            {activeResults.map((r, i) => (
               <RunnerRow key={r.tab || r.name} runner={r} rank={i+1} rc={rc} trackCond={trackCond} onLogBet={onLogBet} onShowPopup={onShowPopup} onHidePopup={onHidePopup} isResulted={isResulted} isPro={isPro} onUpgrade={onUpgrade} />
+            ))}
+            {dbScratched.map(r => (
+              <RunnerRow key={r.tab || r.name} runner={r} rank={null} rc={rc} trackCond={trackCond} onLogBet={onLogBet} onShowPopup={onShowPopup} onHidePopup={onHidePopup} isResulted={true} isPro={isPro} onUpgrade={onUpgrade} isDbScratched />
             ))}
           </tbody>
           {scratched.length > 0 && (
@@ -1257,9 +1265,13 @@ function FieldView({ results, scratched, rc, trackCond, onLogBet, onShowPopup, o
 
       {/* Mobile cards */}
       <div className="md:hidden flex-1 overflow-y-auto mob-page">
-        {results.map((r, i) => (
+        {activeResults.map((r, i) => (
           <MobileRunnerCard key={r.tab || r.name} runner={r} rank={i+1} rc={rc} trackCond={trackCond}
             onLogBet={onLogBet} isResulted={isResulted} isPro={isPro} onUpgrade={onUpgrade} />
+        ))}
+        {dbScratched.map(r => (
+          <MobileRunnerCard key={r.tab || r.name} runner={r} rank={null} rc={rc} trackCond={trackCond}
+            onLogBet={onLogBet} isResulted={true} isPro={isPro} onUpgrade={onUpgrade} isDbScratched />
         ))}
         {scratched.length > 0 && (
           <div style={{ padding: '8px 12px', fontSize: 10, color: '#9ca3af', background: '#f9fafb', borderTop: '1px solid #f3f4f6' }}>
@@ -1273,7 +1285,7 @@ function FieldView({ results, scratched, rc, trackCond, onLogBet, onShowPopup, o
 
 // ─── form view ────────────────────────────────────────────────────────────────
 
-function FormCard({ runner: r, rank, onLogBet, isResulted, rc, isPro, onUpgrade }) {
+function FormCard({ runner: r, rank, onLogBet, isResulted, rc, isPro, onUpgrade, isDbScratched }) {
   const bp      = r['BP'] || r.BP || '';
   const wt      = r['Weight'] ? `${r['Weight']}kg` : '';
   const allow   = r.allowance ? ` -${r.allowance}kg` : '';
@@ -1358,7 +1370,8 @@ function FormCard({ runner: r, rank, onLogBet, isResulted, rc, isPro, onUpgrade 
             : <LockBtn onClick={onUpgrade} />
           }
           <span style={{ background:'#1e3a8a', color:'#fff', fontSize:9, fontWeight:700, fontFamily:'monospace', padding:'1px 5px', borderRadius:3, flexShrink:0 }}>{r.tab}</span>
-          <span style={{ fontSize:13, fontWeight:500, color:'white', flexShrink:0 }}>{r.name}</span>
+          <span style={{ fontSize:13, fontWeight:500, color:'white', flexShrink:0, textDecoration: isDbScratched ? 'line-through' : 'none' }}>{r.name}</span>
+          {isDbScratched && <span style={{ fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 3, background: '#dc2626', color: '#fff', flexShrink: 0 }}>SCR</span>}
           {bp && <span style={{ fontSize:11, color:'rgba(255,255,255,0.65)', flexShrink:0 }}>({bp})</span>}
           {r.winJockBack && <span style={{ background:'rgba(251,191,36,0.25)', color:'#fcd34d', fontSize:8, fontWeight:700, padding:'1px 5px', borderRadius:3, flexShrink:0 }}>WJ BACK</span>}
           {(wt||allow) && <span style={{ fontSize:11, color:'rgba(255,255,255,0.75)', flexShrink:0 }}>{wt}{allow}</span>}
@@ -1420,12 +1433,21 @@ function FormCard({ runner: r, rank, onLogBet, isResulted, rc, isPro, onUpgrade 
   );
 }
 
-function FormView({ results, scratched, onLogBet, isResulted, rc, isPro, onUpgrade }) {
+function FormView({ results, scratched, onLogBet, isResulted, rc, isPro, onUpgrade, scratchingsSet = new Set() }) {
+  const scrKey = h => `${(rc.venue||'').toUpperCase()}||${rc.num}||${h.name.toUpperCase()}`;
+  const sorted = [...results].sort((a, b) => (+a.tab || 99) - (+b.tab || 99));
+  const activeSorted     = sorted.filter(r => !scratchingsSet.has(scrKey(r)));
+  const dbScratchedSorted = sorted.filter(r =>  scratchingsSet.has(scrKey(r)));
   return (
     <div className="flex-1 overflow-y-auto" style={{ padding:'10px 14px' }}>
-      {[...results].sort((a, b) => (+a.tab || 99) - (+b.tab || 99)).map((r, i) => (
-        <div key={r.tab||r.name} style={{ marginBottom: i < results.length-1 ? 12 : 0 }}>
+      {activeSorted.map((r, i) => (
+        <div key={r.tab||r.name} style={{ marginBottom: i < activeSorted.length-1 ? 12 : 0 }}>
           <FormCard runner={r} rank={i+1} onLogBet={onLogBet} isResulted={isResulted} rc={rc} isPro={isPro} onUpgrade={onUpgrade} />
+        </div>
+      ))}
+      {dbScratchedSorted.map(r => (
+        <div key={r.tab||r.name} style={{ marginBottom: 12, opacity: 0.45 }}>
+          <FormCard runner={r} rank={null} onLogBet={onLogBet} isResulted={true} rc={rc} isPro={isPro} onUpgrade={onUpgrade} isDbScratched />
         </div>
       ))}
       {scratched.length > 0 && (
@@ -1742,6 +1764,8 @@ function RacesPageInner() {
   const [resultPopup,   setResultPopup]   = useState(null);
   const [bbTarget,      setBbTarget]      = useState(null);
   const [meetingsSynced, setMeetingsSynced] = useState(false);
+  const [venueTrackConds, setVenueTrackConds] = useState({});
+  const [scratchingsSet,  setScratchingsSet]  = useState(new Set());
   const popupRef     = useRef(null);
 
   const currentRace = selectedKey ? allRaces[selectedKey] : null;
@@ -1824,7 +1848,7 @@ function RacesPageInner() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Fetch race results when allRaces loads
+  // Fetch race results and scratchings when allRaces loads
   useEffect(() => {
     const keys = Object.keys(allRaces);
     if (keys.length === 0) return;
@@ -1832,7 +1856,37 @@ function RacesPageInner() {
     const dateISO = toISO(firstRace?.date);
     if (!dateISO) return;
     fetchRaceResultsForDate(dateISO).then(setRaceResults);
+    if (SURL && SKEY) {
+      fetch(`${SURL}/rest/v1/scratchings?date=eq.${dateISO}&select=venue,race_num,horse_name`, {
+        headers: { apikey: SKEY, Authorization: `Bearer ${SKEY}` }
+      })
+        .then(r => r.ok ? r.json() : [])
+        .then(rows => {
+          const s = new Set();
+          rows.forEach(row => {
+            s.add(`${(row.venue||'').toUpperCase()}||${row.race_num}||${(row.horse_name||'').toUpperCase()}`);
+          });
+          setScratchingsSet(s);
+        })
+        .catch(() => {});
+    }
   }, [allRaces]);
+
+  // Fetch today_meetings for track conditions shown in left rail
+  useEffect(() => {
+    if (!SURL || !SKEY) return;
+    const todayISO = new Date().toLocaleDateString('sv-SE', { timeZone: 'Australia/Brisbane' });
+    fetch(`${SURL}/rest/v1/today_meetings?date=eq.${todayISO}&select=venue,track_condition`, {
+      headers: { apikey: SKEY, Authorization: `Bearer ${SKEY}` }
+    })
+      .then(r => r.ok ? r.json() : [])
+      .then(rows => {
+        const m = {};
+        rows.forEach(r => { if (r.track_condition) m[(r.venue||'').toUpperCase()] = r.track_condition; });
+        setVenueTrackConds(m);
+      })
+      .catch(() => {});
+  }, []);
 
   const hasData = raceKeys.length > 0;
 
@@ -1912,7 +1966,7 @@ function RacesPageInner() {
       {/* Left rail — desktop only */}
       {hasData && (
         <div className="hidden md:flex">
-          <LeftRail allVenues={allVenues} allRaces={allRaces} selectedRaceKey={selectedKey} onSelect={handleSelectRace} trackConds={trackConds} />
+          <LeftRail allVenues={allVenues} allRaces={allRaces} selectedRaceKey={selectedKey} onSelect={handleSelectRace} trackConds={trackConds} venueTrackConds={venueTrackConds} />
         </div>
       )}
 
@@ -1966,11 +2020,12 @@ function RacesPageInner() {
                         trackCond={trackCond} onLogBet={handleLogBet}
                         onShowPopup={showHorsePopup} onHidePopup={hideHorsePopup}
                         isResulted={!!currentRaceResult}
-                        isPro={isPro} onUpgrade={() => setUpgradeOpen(true)} />
+                        isPro={isPro} onUpgrade={() => setUpgradeOpen(true)}
+                        scratchingsSet={scratchingsSet} />
                     </div>
                   )}
                   {view === 'form' && (
-                    <FormView results={results} scratched={scratched} onLogBet={handleLogBet} isResulted={!!currentRaceResult} rc={currentRace} isPro={isPro} onUpgrade={() => setUpgradeOpen(true)} />
+                    <FormView results={results} scratched={scratched} onLogBet={handleLogBet} isResulted={!!currentRaceResult} rc={currentRace} isPro={isPro} onUpgrade={() => setUpgradeOpen(true)} scratchingsSet={scratchingsSet} />
                   )}
                   {view === 'pacemap' && (
                     <PaceMapView results={results} scratched={scratched} rc={currentRace} trackCond={trackCond} isPro={isPro} onUpgrade={() => setUpgradeOpen(true)} />
