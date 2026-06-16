@@ -288,7 +288,7 @@ export default function ResultsPage() {
             </div>
 
             {/* Race tab pills */}
-            <div style={{ display:'flex', gap:4, flexWrap:'wrap', marginBottom:12 }}>
+            <div style={{ display:'flex', gap:4, flexWrap:'wrap', marginBottom:12, position:'relative', zIndex:10 }}>
               {meetingRaces.map(r => {
                 const resulted = !!r.results;
                 const isActive = selectedRace != null && Number(r.raceNum) === Number(selectedRace);
