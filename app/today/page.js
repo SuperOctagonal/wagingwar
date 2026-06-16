@@ -184,7 +184,7 @@ export default function TodayPage() {
   const weights = useMemo(() => getDefaultWeights(), []);
 
   const today = new Date();
-  const todayISO = today.toISOString().slice(0, 10);
+  const todayISO = today.toLocaleDateString('sv-SE', { timeZone: 'Australia/Brisbane' });
   const dateStr = today.toLocaleDateString('en-AU', { weekday: 'long', day: 'numeric', month: 'long' });
   const tc = 'good';
   const tcC = TC_COLORS[tc];
@@ -195,11 +195,22 @@ export default function TodayPage() {
     if (csv) {
       try {
         const { allRaces: ar, allVenues: av, raceKeys: rk } = buildRaces(parseCSV(csv));
-        if (rk.length > 0) { setAllRaces(ar); setAllVenues(av); setRaceKeys(rk); }
+        if (rk.length > 0) {
+          // Only show CSV races if they match today's AEST date
+          const firstRace = ar[rk[0]];
+          let csvDateISO = null;
+          if (firstRace?.date) {
+            const p = firstRace.date.split('/');
+            if (p.length === 3) csvDateISO = `${p[2]}-${p[1].padStart(2,'0')}-${p[0].padStart(2,'0')}`;
+          }
+          if (!csvDateISO || csvDateISO === todayISO) {
+            setAllRaces(ar); setAllVenues(av); setRaceKeys(rk);
+          }
+        }
       } catch {}
     }
     fetchTodayResults(todayISO).then(setResults);
-  }, []);
+  }, [todayISO]);
 
   const venues = Object.keys(allVenues);
   const hasCSV = raceKeys.length > 0;
