@@ -55,6 +55,24 @@ async function patchBet(id, fields) {
 }
 
 function normName(n) { return (n || '').toUpperCase().replace(/[^A-Z0-9]/g, ''); }
+
+const BET_VENUE_NORMALISE = {
+  'BELMONT PARK':                  'BELMONT',
+  'SANDOWN-HILLSIDE':              'SANDOWN',
+  'SANDOWN HILLSIDE':              'SANDOWN',
+  'ROSEHILL GARDENS':              'ROSEHILL GARDENS',
+  'ROSEHILL GARDENS RACECOURSE':   'ROSEHILL GARDENS',
+  'AQUIS PARK GOLD COAST':         'GOLD COAST',
+  'THOMAS FARMS RC MURRAY BRIDGE': 'MURRAY BRIDGE',
+  'THOMAS FARMS MURRAY BRIDGE':    'MURRAY BRIDGE',
+  'RC MURRAY BRIDGE':              'MURRAY BRIDGE',
+  'SPORTSBET SANDOWN HILLSIDE':    'SANDOWN',
+};
+function normVenueName(v) {
+  const upper = (v || '').toUpperCase().trim();
+  return BET_VENUE_NORMALISE[upper] || upper;
+}
+
 function ordinal(n) { if (!n) return ''; const s = ['th','st','nd','rd']; const v = n % 100; return n + (s[(v-20)%10] || s[v] || s[0]); }
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 function fmtDate(iso) { if (!iso) return '—'; const d = new Date(iso + 'T00:00:00'); return `${d.getDate()} ${MONTHS[d.getMonth()]}`; }
@@ -87,12 +105,12 @@ async function matchAndUpdateBets(pendingBets) {
     const rows = allResults[bet.date] || [];
     if (!rows.length) continue;
 
-    const betVenue = normName(bet.track || bet.venue || '');
+    const betVenue = normName(normVenueName(bet.track || bet.venue || ''));
     const betRaceNum = +(bet.race_number ?? bet.race_num ?? 0);
     const betHorse = normName(bet.horse_name || '');
 
     const row = rows.find(r => {
-      const rVenue = normName(r.venue);
+      const rVenue = normName(normVenueName(r.venue));
       const rRace  = +r.race_num;
       const rHorse = normName(r.horse_name);
       const rHorseStripped = normName(r.horse_name.replace(/\s*\([A-Z]+\)\s*$/i, ''));
