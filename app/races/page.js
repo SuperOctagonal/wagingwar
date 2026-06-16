@@ -229,7 +229,7 @@ function LeftRail({ allVenues, allRaces, selectedRaceKey, onSelect, trackConds, 
   useEffect(() => { setOpenVenue(null); }, [allVenues]);
 
   return (
-    <aside className="w-[148px] flex-shrink-0 bg-[#1a2634] h-full overflow-y-auto flex flex-col">
+    <aside className="w-[172px] flex-shrink-0 bg-[#1a2634] h-full overflow-y-auto flex flex-col">
       {/* Meetings header */}
       <div style={{ background: '#1a2634', color: '#fff', fontSize: 10, fontWeight: 700, padding: '6px 10px', letterSpacing: '0.5px', textTransform: 'uppercase', borderBottom: '1px solid rgba(255,255,255,0.08)', flexShrink: 0 }}>
         Meetings
@@ -245,7 +245,7 @@ function LeftRail({ allVenues, allRaces, selectedRaceKey, onSelect, trackConds, 
               style={{ background: isOpen ? 'rgba(255,255,255,0.1)' : 'transparent', borderLeft: `2px solid ${isOpen ? '#00471b' : 'transparent'}` }}
             >
               <div style={{ flex: 1, minWidth: 0, textAlign: 'left' }}>
-                <div style={{ fontSize: 9, fontWeight: 700, color: isOpen ? '#fff' : 'rgba(255,255,255,0.7)', textTransform: 'uppercase', letterSpacing: '0.8px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{venue}</div>
+                <div style={{ fontSize: 10, fontWeight: 700, color: '#fff', textTransform: 'uppercase', letterSpacing: '0.8px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{venue}</div>
                 <div style={{ fontSize: 8, color: 'rgba(255,255,255,0.4)', marginTop: 1 }}>{raceCount} race{raceCount !== 1 ? 's' : ''}{venueTrackConds[venue] ? ` · ${venueTrackConds[venue]}` : ''}</div>
               </div>
               {(() => { const p = TC_PILL[trackConds[venue] || 'good']; return p ? <span style={{ fontSize: 7, fontWeight: 700, padding: '1px 4px', borderRadius: 3, background: p.bg, color: '#fff', flexShrink: 0 }}>{p.label}</span> : null; })()}
@@ -280,10 +280,16 @@ function LeftRail({ allVenues, allRaces, selectedRaceKey, onSelect, trackConds, 
 // ─── right rail ───────────────────────────────────────────────────────────────
 
 function RightRail({ allRaces, allVenues, selectedRaceKey, onSelect }) {
-  const keys = Object.values(allVenues).flat().filter(k => k !== selectedRaceKey).slice(0, 12);
+  const keys = Object.values(allVenues).flat().filter(k => k !== selectedRaceKey).sort((a, b) => {
+    const ta = allRaces[a]?.time || '99:99';
+    const tb = allRaces[b]?.time || '99:99';
+    const na = Number(ta.replace('.', '').replace(' am','').replace(' pm','').replace(':',''));
+    const nb = Number(tb.replace('.', '').replace(' am','').replace(' pm','').replace(':',''));
+    return na - nb;
+  }).slice(0, 12);
   return (
     <aside className="w-[162px] flex-shrink-0 bg-white border-l border-gray-100 overflow-y-auto">
-      <div className="px-3 pt-3 pb-1 text-[9px] font-bold text-gray-400 uppercase tracking-[0.8px]">Up Next</div>
+      <div className="px-3 pt-3 pb-1 text-[9px] font-bold text-gray-600 uppercase tracking-[0.8px]">Up Next</div>
       {keys.map(rk => {
         const rc = allRaces[rk];
         return (
@@ -291,9 +297,9 @@ function RightRail({ allRaces, allVenues, selectedRaceKey, onSelect }) {
             className="w-full text-left px-3 py-2 hover:bg-slate-50 transition-colors border-b border-gray-50">
             <div className="flex items-baseline gap-1">
               <span className="text-[8px] font-bold text-blue-800 bg-blue-50 px-1 rounded leading-tight">R{rc.num}</span>
-              <span className="text-[10px] font-semibold text-gray-800 truncate">{rc.venue}</span>
+              <span className="text-[10px] font-bold text-gray-900 truncate">{rc.venue}</span>
             </div>
-            <div className="mt-0.5 flex items-center gap-1 text-[9px] text-gray-400">
+            <div className="mt-0.5 flex items-center gap-1 text-[9px] text-gray-600">
               <span>{rc.dist}m</span>
               {rc.time && <><span>·</span><span>{rc.time}</span></>}
             </div>
@@ -1219,7 +1225,7 @@ function FieldView({ results, scratched, rc, trackCond, onLogBet, onShowPopup, o
   const scrKey = h => `${(rc.venue||'').toUpperCase()}||${rc.num}||${h.name.toUpperCase()}`;
   const activeResults = results.filter(h => !scratchingsSet.has(scrKey(h)));
   const dbScratched   = results.filter(h =>  scratchingsSet.has(scrKey(h)));
-  const th = { background: '#f8fafc', color: '#374151', letterSpacing: '0.5px', position: 'sticky', top: 0, zIndex: 1, padding: '3px 6px', fontSize: 8, fontWeight: 700, textTransform: 'uppercase', whiteSpace: 'nowrap', borderBottom: '1px solid #e5e7eb' };
+  const th = { background: '#f8fafc', color: '#374151', letterSpacing: '0.5px', position: 'sticky', top: 0, zIndex: 1, padding: '2px 4px', fontSize: 7, fontWeight: 700, textTransform: 'uppercase', whiteSpace: 'nowrap', borderBottom: '1px solid #e5e7eb' };
   return (
     <>
       {/* Desktop table */}
