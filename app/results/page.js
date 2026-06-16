@@ -296,13 +296,14 @@ export default function ResultsPage() {
                 const color  = isActive ? '#fff'     : resulted ? '#065f46' : '#9ca3af';
                 const border = isActive ? '#1e2936'  : resulted ? '#86efac' : '#e5e7eb';
                 return (
-                  <div
+                  <button
                     key={r.raceNum}
-                    onClick={() => setSelectedRace(Number(r.raceNum))}
-                    style={{ padding:'4px 10px', borderRadius:5, fontSize:10, fontWeight:700, cursor:'pointer', background:bg, color, border:`0.5px solid ${border}` }}
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); e.preventDefault(); setSelectedRace(Number(r.raceNum)); console.log('TAB CLICKED', r.raceNum); }}
+                    style={{ padding:'4px 10px', borderRadius:5, fontSize:10, fontWeight:700, cursor:'pointer', background:bg, color, border:`0.5px solid ${border}`, fontFamily:'inherit' }}
                   >
                     R{r.raceNum}{resulted ? ' ✓' : ''}
-                  </div>
+                  </button>
                 );
               })}
             </div>
