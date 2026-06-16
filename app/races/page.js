@@ -336,7 +336,7 @@ function ViewTabBar({ view, setView, runnerCount }) {
           {t.premium && !t.locked && <span className="text-[8px] text-amber-500 font-bold">★</span>}
         </button>
       ))}
-      <span className="ml-auto pr-3 text-[10px] text-gray-400">{runnerCount} runners</span>
+      <span className="ml-auto pr-3 text-[10px] text-gray-700">{runnerCount} runners</span>
     </div>
   );
 }
@@ -362,7 +362,7 @@ function RaceCountdown({ rc }) {
 
   if (secsLeft < 0) {
     return (
-      <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded bg-gray-100 text-gray-400">
+      <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded bg-gray-200 text-gray-700">
         <i className="ti ti-clock" style={{ fontSize: 9 }} />
         Passed
       </span>
@@ -564,7 +564,7 @@ function buildPopupHTML(h) {
 
   const pipsHTML = pips.length > 0
     ? pips.map(v => `<span style="display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%;font-size:9px;font-weight:700;${pipSty(+v)}">${+v>9?'0':v}</span>`).join('')
-    : '<span style="font-size:9px;color:#9ca3af">FS</span>';
+    : '<span style="font-size:9px;color:#4b5563">FS</span>';
 
   let runRowsHTML = '';
   for (let ri = 0; ri < 4; ri++) {
@@ -1162,7 +1162,7 @@ function RunnerRow({ runner, rank, rc, trackCond, onLogBet, onShowPopup, onHideP
                   {+v>9?'0':v}
                 </span>
               ))
-            : <span className="text-[9px] text-gray-400">FS</span>
+            : <span className="text-[9px] text-gray-600">FS</span>
           }
         </div>
       </td>
@@ -1219,7 +1219,7 @@ function FieldView({ results, scratched, rc, trackCond, onLogBet, onShowPopup, o
   const scrKey = h => `${(rc.venue||'').toUpperCase()}||${rc.num}||${h.name.toUpperCase()}`;
   const activeResults = results.filter(h => !scratchingsSet.has(scrKey(h)));
   const dbScratched   = results.filter(h =>  scratchingsSet.has(scrKey(h)));
-  const th = { background: '#f8fafc', color: '#9ca3af', letterSpacing: '0.5px', position: 'sticky', top: 0, zIndex: 1, padding: '5px 6px', fontSize: 8, fontWeight: 700, textTransform: 'uppercase', whiteSpace: 'nowrap' };
+  const th = { background: '#f8fafc', color: '#374151', letterSpacing: '0.5px', position: 'sticky', top: 0, zIndex: 1, padding: '3px 6px', fontSize: 8, fontWeight: 700, textTransform: 'uppercase', whiteSpace: 'nowrap', borderBottom: '1px solid #e5e7eb' };
   return (
     <>
       {/* Desktop table */}
