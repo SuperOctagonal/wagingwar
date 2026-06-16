@@ -68,6 +68,20 @@ function parseRaceTime(timeStr, dateStr) {
   return isNaN(raceAt.getTime()) ? null : raceAt;
 }
 
+const VENUE_NORMALISE = {
+  'SANDOWN-HILLSIDE':              'SANDOWN',
+  'SANDOWN HILLSIDE':              'SANDOWN',
+  'ROSEHILL GARDENS':              'ROSEHILL GARDENS',
+  'ROSEHILL GARDENS RACECOURSE':   'ROSEHILL GARDENS',
+  'AQUIS PARK GOLD COAST':         'GOLD COAST',
+  'AQUIS PARK GOLD COAST POLY':    'GOLD COAST POLY',
+  'THOMAS FARMS RC MURRAY BRIDGE': 'MURRAY BRIDGE',
+  'THOMAS FARMS MURRAY BRIDGE':    'MURRAY BRIDGE',
+  'RC MURRAY BRIDGE':              'MURRAY BRIDGE',
+  'SPORTSBET SANDOWN HILLSIDE':    'SANDOWN',
+  'BELMONT PARK':                  'BELMONT',
+};
+
 async function fetchRaceResultsForDate(dateStr) {
   if (!SURL || !SKEY || !dateStr) return {};
   try {
@@ -79,8 +93,10 @@ async function fetchRaceResultsForDate(dateStr) {
     const rows = await res.json();
     const g = {};
     rows.forEach(row => {
-      const key = `${(row.venue||'').toUpperCase()}||${String(row.race_num)}`;
-      if (!g[key]) g[key] = { venue:(row.venue||'').toUpperCase(), raceNum:row.race_num, runners:[] };
+      const rawV = (row.venue||'').toUpperCase();
+      const normV = VENUE_NORMALISE[rawV] || rawV;
+      const key = `${normV}||${String(row.race_num)}`;
+      if (!g[key]) g[key] = { venue: normV, raceNum:row.race_num, runners:[] };
       if (row.finish_pos) g[key].runners.push({ place:row.finish_pos, name:row.horse_name, sp:row.sp||0, margin:row.margin||'' });
     });
     Object.values(g).forEach(x => x.runners.sort((a,b) => a.place - b.place));
@@ -128,20 +144,6 @@ const PACE_ROLES = [
   { label: 'Closer',     color: '#ff8000' },
   { label: 'Backmarker', color: '#dc3545' },
 ];
-
-const VENUE_NORMALISE = {
-  'SANDOWN-HILLSIDE':              'SANDOWN',
-  'SANDOWN HILLSIDE':              'SANDOWN',
-  'ROSEHILL GARDENS':              'ROSEHILL GARDENS',
-  'ROSEHILL GARDENS RACECOURSE':   'ROSEHILL GARDENS',
-  'AQUIS PARK GOLD COAST':         'GOLD COAST',
-  'AQUIS PARK GOLD COAST POLY':    'GOLD COAST POLY',
-  'THOMAS FARMS RC MURRAY BRIDGE': 'MURRAY BRIDGE',
-  'THOMAS FARMS MURRAY BRIDGE':    'MURRAY BRIDGE',
-  'RC MURRAY BRIDGE':              'MURRAY BRIDGE',
-  'SPORTSBET SANDOWN HILLSIDE':    'SANDOWN',
-  'BELMONT PARK':                  'BELMONT',
-};
 
 const VENUE_STATE_MAP = {
   // NSW
