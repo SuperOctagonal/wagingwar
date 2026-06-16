@@ -361,9 +361,14 @@ export default function ResultsPage() {
                               ? { bg:'#d1fae5', color:'#065f46' }
                               : { bg:'#f1f5f9', color:'#9ca3af' };
                             return (
-                              <div key={r.raceNum} style={{ display:'flex', alignItems:'center', gap:4, padding:'3px 7px', borderRadius:5, margin:2, fontSize:10, fontWeight:600, background:cls.bg, color:cls.color }}>
+                              <button
+                                key={r.raceNum}
+                                type="button"
+                                onClick={(e) => { e.stopPropagation(); setSelectedMeeting(venue); setSelectedRace(Number(r.raceNum)); }}
+                                style={{ display:'flex', alignItems:'center', gap:4, padding:'3px 7px', borderRadius:5, margin:2, fontSize:10, fontWeight:600, background:cls.bg, color:cls.color, border:'none', cursor: r.results ? 'pointer' : 'default', fontFamily:'inherit' }}
+                              >
                                 R{r.raceNum}{r.results ? ' ✓' : ''}
-                              </div>
+                              </button>
                             );
                           })}
                         </div>
