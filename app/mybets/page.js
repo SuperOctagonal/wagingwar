@@ -188,13 +188,13 @@ function periodFilter(period, todayISO) {
 }
 
 function calcRow(bets) {
-  const settled = bets.filter(b => b.status && b.status !== 'pending');
-  const wins = bets.filter(b => b.status === 'win').length;
+  const settled = bets.filter(b => b.status && b.status !== 'pending' && b.status !== 'scratched');
+  const wins = settled.filter(b => b.status === 'win').length;
   const totalStaked = settled.reduce((s, b) => s + (b.stake || 0), 0);
   const totalRet = settled.reduce((s, b) => s + (b.return_amt || 0), 0);
   const pnl = totalRet - totalStaked;
   return {
-    bets: bets.length, wins,
+    bets: settled.length, wins,
     strike: bets.length > 0 ? (wins / bets.length * 100).toFixed(0) + '%' : '—',
     staked: totalStaked > 0 ? `$${totalStaked.toFixed(0)}` : '—',
     ret:    totalRet    > 0 ? `$${totalRet.toFixed(0)}`    : '—',
@@ -530,7 +530,7 @@ export default function MybetsPage() {
     ['Today', 'This week', 'This month', 'All time'].map(p => ({ label: p, ...calcRow(bets.filter(periodFilter(p, todayISO))) }))
   ), [bets, todayISO]);
 
-  const resultedBets     = useMemo(() => bets.filter(b => b.status && b.status !== 'pending'), [bets]);
+  const resultedBets     = useMemo(() => bets.filter(b => b.status && b.status !== 'pending' && b.status !== 'scratched'), [bets]);
   const filteredResulted = useMemo(() => {
     if (activeTab === 'all') return resultedBets;
     if (activeTab === 'win') return resultedBets.filter(b => b.status === 'win');
@@ -868,14 +868,14 @@ export default function MybetsPage() {
               {/* ── Analysis rows ── */}
               {showAnalysis && (() => {
                 const calcGroup = arr => {
-                  const settled = arr.filter(b => b.status && b.status !== 'pending');
+                  const settled = arr.filter(b => b.status && b.status !== 'pending' && b.status !== 'scratched');
                   const wins = settled.filter(b => b.status === 'win').length;
                   const staked = settled.reduce((s, b) => s + (b.stake || 0), 0);
                   const ret = settled.reduce((s, b) => s + (b.return_amt || 0), 0);
                   const pnl = ret - staked;
                   const roi = staked > 0 ? (pnl / staked * 100).toFixed(0) + '%' : '—';
                   const strike = settled.length > 0 ? (wins / settled.length * 100).toFixed(0) + '%' : '—';
-                  return { bets: arr.length, wins, strike, roi, pnl, staked };
+                  return { bets: settled.length, wins, strike, roi, pnl, staked };
                 };
                 const colStyle = (_span, last) => ({ padding: '4px 8px', verticalAlign: 'top', borderRight: last ? 'none' : '1px solid #e5e7eb', fontSize: 10, lineHeight: 1.8 });
                 const roiColor = roi => parseFloat(roi) > 0 ? '#15803d' : parseFloat(roi) < 0 ? '#dc2626' : '#6b7280';
