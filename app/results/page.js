@@ -73,7 +73,7 @@ function ResultsDetail({ meeting, venue, allRaces, allVenues, weights }) {
   const hasSysRank = Object.keys(sysRankMap).length > 0;
 
   return (
-    <div style={{ display:'inline-block', minWidth:320, width:'100%' }}>
+    <div style={{ display:'inline-block', minWidth:320, width:'fit-content' }}>
       <div style={{ background:'#1e2936', padding:'7px 12px', borderRadius:'8px 8px 0 0', display:'flex', alignItems:'center', justifyContent:'space-between', flexWrap:'wrap', gap:4 }}>
         <span style={{ fontSize:11, fontWeight:700, color:'#fff', textTransform:'uppercase' }}>
           {venue} R{meeting.raceNum} — Results
@@ -86,7 +86,7 @@ function ResultsDetail({ meeting, venue, allRaces, allVenues, weights }) {
         </div>
       </div>
 
-      <table style={{ width:'100%', borderCollapse:'collapse', tableLayout:'auto', border:'0.5px solid #e5e7eb', borderTop:'none', borderRadius:'0 0 8px 8px', overflow:'hidden' }}>
+      <table style={{ width:'auto', maxWidth:'520px', borderCollapse:'collapse', tableLayout:'auto', border:'0.5px solid #e5e7eb', borderTop:'none', borderRadius:'0 0 8px 8px', overflow:'hidden' }}>
         <thead>
           <tr style={{ background:'#f1f5f9', borderBottom:'1px solid #e5e7eb' }}>
             <th style={{ padding:'4px 8px', fontSize:9, fontWeight:700, color:'#374151', textAlign:'center', width:28 }}>POS</th>
