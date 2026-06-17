@@ -342,6 +342,7 @@ export default function MybetsPage() {
   const [matchingResults,  setMatchingResults]  = useState(false);
   const [resultSpMap,      setResultSpMap]      = useState({});
   const [showAnalysis,     setShowAnalysis]     = useState(true);
+  const [betView,          setBetView]          = useState('table');
   const [refreshing,       setRefreshing]       = useState(false);
   const [racePopup,        setRacePopup]        = useState(null);
   const [racePopupData,    setRacePopupData]    = useState([]);
@@ -567,6 +568,23 @@ export default function MybetsPage() {
 
   const pendingBets = useMemo(() => bets.filter(b => !b.status || b.status === 'pending'), [bets]);
 
+  const filteredBets = useMemo(() => {
+    const base = bets.filter(b => b.status !== 'scratched');
+    if (activeTab === 'all') return base;
+    if (activeTab === 'win') return base.filter(b => b.status === 'win');
+    if (activeTab === 'place') return base.filter(b => b.status === 'place');
+    if (activeTab === 'loss') return base.filter(b => b.status === 'loss');
+    if (activeTab === 'today') return base.filter(b => b.date === todayISO);
+    if (activeTab === 'this week') {
+      const today = new Date(todayISO + 'T00:00:00');
+      const dow = today.getDay();
+      const ws = new Date(today);
+      ws.setDate(today.getDate() - (dow === 0 ? 6 : dow - 1));
+      return base.filter(b => b.date >= isoDate(ws));
+    }
+    return base;
+  }, [bets, activeTab, todayISO]);
+
   const pendingBetsSorted = useMemo(() => {
     return [...pendingBets].sort((a, b) => {
       const mins = bet => {
@@ -729,7 +747,19 @@ export default function MybetsPage() {
           );
         })()}
 
+        {/* View toggle */}
+        <div style={{ display:'flex', gap:6, padding:'8px 12px', background:'#fff', borderBottom:'1px solid #e5e7eb', flexShrink:0 }}>
+          {[['table','Table'],['terminal','Terminal'],['sessions','Sessions'],['kanban','Kanban']].map(([v,l]) => (
+            <button key={v} onClick={() => setBetView(v)}
+              style={{ padding:'4px 12px', borderRadius:5, fontSize:11, fontWeight:700, cursor:'pointer', border:'none',
+                background: betView===v ? '#00471b' : '#f3f4f6', color: betView===v ? '#fff' : '#374151' }}>
+              {l}
+            </button>
+          ))}
+        </div>
+
         {/* Single scrollable table */}
+        {betView === 'table' && (
         <div style={{ flex: 1, overflowY: 'auto', overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
             <thead>
@@ -938,6 +968,129 @@ export default function MybetsPage() {
             </tbody>
           </table>
         </div>
+        )}
+
+        {betView === 'terminal' && (
+          <div style={{ flex:1, overflowY:'auto', background:'#0f1117', padding:12 }}>
+            <table style={{ width:'100%', borderCollapse:'collapse', fontSize:11 }}>
+              <thead>
+                <tr style={{ borderBottom:'1px solid rgba(255,255,255,0.08)' }}>
+                  {['Date','Horse','Venue · R#','Rank','Odds','Stake','P&L','Result'].map(h => (
+                    <th key={h} style={{ padding:'4px 8px', fontSize:9, fontWeight:700, color:'#475569', textAlign: h==='P&L'||h==='Odds'||h==='Stake' ? 'right' : h==='Rank'||h==='Result' ? 'center' : 'left', textTransform:'uppercase' }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {filteredBets.map(b => {
+                  const pnl = b.status==='win' ? +(b.stake||0)*(+(b.odds||0)-1) : b.status==='place' ? +(b.stake||0)*(+(b.odds||0)-1) : -(+(b.stake||0));
+                  const isWin = b.status==='win'||b.status==='place';
+                  return (
+                    <tr key={b.id} style={{ borderBottom:'1px solid rgba(255,255,255,0.04)', borderLeft:`3px solid ${isWin?'#22c55e':'#ef4444'}` }}>
+                      <td style={{ padding:'3px 8px', color:'#475569', fontSize:10 }}>{b.date?.slice(5).replace('-','/')}</td>
+                      <td style={{ padding:'3px 8px', color:'#f1f5f9', fontWeight:600, fontSize:11 }}>{b.horse_name}</td>
+                      <td style={{ padding:'3px 8px', color:'#64748b', fontSize:10 }}>{(b.track||b.venue||'').toUpperCase()} · R{b.race_number||b.race_num}</td>
+                      <td style={{ padding:'3px 8px', textAlign:'center' }}>
+                        {b.rank ? <span style={{ background: b.rank===1?'#fbbf24':b.rank===2?'#d1d5db':b.rank===3?'#cd7f32':'#374151', color: b.rank<=3?'#78350f':'#fff', width:18, height:18, borderRadius:'50%', display:'inline-flex', alignItems:'center', justifyContent:'center', fontSize:8, fontWeight:700 }}>R{b.rank}</span> : <span style={{ color:'#475569' }}>—</span>}
+                      </td>
+                      <td style={{ padding:'3px 8px', textAlign:'right', color:'#94a3b8', fontFamily:'monospace', fontSize:10 }}>${(+(b.odds||0)).toFixed(2)}</td>
+                      <td style={{ padding:'3px 8px', textAlign:'right', color:'#64748b', fontSize:10 }}>${b.stake}</td>
+                      <td style={{ padding:'3px 8px', textAlign:'right', fontWeight:700, fontSize:11, color: isWin?'#4ade80':'#f87171' }}>{pnl>=0?'+$':'-$'}{Math.abs(pnl).toFixed(2)}</td>
+                      <td style={{ padding:'3px 8px', textAlign:'center' }}>
+                        <span style={{ fontSize:9, fontWeight:700, padding:'1px 5px', borderRadius:3, background: b.status==='win'?'#166534':b.status==='place'?'#1e40af':b.status==='pending'?'#92400e':'#991b1b', color:'#fff' }}>{(b.status||'PENDING').toUpperCase()}</span>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {betView === 'sessions' && (
+          <div style={{ flex:1, overflowY:'auto', padding:12, background:'#f3f4f6' }}>
+            {(() => {
+              const byDate = {};
+              filteredBets.forEach(b => { if (!byDate[b.date]) byDate[b.date] = []; byDate[b.date].push(b); });
+              return Object.entries(byDate).sort(([a],[b]) => b.localeCompare(a)).map(([date, betsOnDay]) => {
+                const dayPnl = betsOnDay.reduce((sum,b) => {
+                  if (b.status==='win'||b.status==='place') return sum + +(b.stake||0)*(+(b.odds||0)-1);
+                  if (b.status==='loss') return sum - +(b.stake||0);
+                  return sum;
+                }, 0);
+                const wins = betsOnDay.filter(b=>b.status==='win'||b.status==='place').length;
+                return (
+                  <div key={date} style={{ marginBottom:8, background:'#fff', borderRadius:8, overflow:'hidden', border:'0.5px solid #e5e7eb' }}>
+                    <div style={{ padding:'6px 12px', background: dayPnl>=0?'#f0fdf4':'#fef2f2', display:'flex', alignItems:'center', gap:12 }}>
+                      <span style={{ fontWeight:700, fontSize:11, color:'#111827' }}>{new Date(date + 'T00:00:00').toLocaleDateString('en-AU',{weekday:'short',day:'numeric',month:'short'})}</span>
+                      <span style={{ fontSize:10, color:'#6b7280' }}>{betsOnDay.length} bets · {wins} wins</span>
+                      <span style={{ marginLeft:'auto', fontWeight:700, fontSize:12, color: dayPnl>=0?'#15803d':'#dc2626' }}>{dayPnl>=0?'+$':'-$'}{Math.abs(dayPnl).toFixed(2)}</span>
+                    </div>
+                    <table style={{ width:'100%', borderCollapse:'collapse' }}>
+                      <tbody>
+                        {betsOnDay.map(b => {
+                          const pnl = b.status==='win'||b.status==='place' ? +(b.stake||0)*(+(b.odds||0)-1) : -(+(b.stake||0));
+                          const isWin = b.status==='win'||b.status==='place';
+                          return (
+                            <tr key={b.id} style={{ borderTop:'0.5px solid #f3f4f6', borderLeft:`3px solid ${isWin?'#22c55e':b.status==='pending'?'#f59e0b':'#ef4444'}` }}>
+                              <td style={{ padding:'4px 10px', fontSize:11, fontWeight:600, color:'#111827', width:'35%' }}>{b.horse_name}</td>
+                              <td style={{ padding:'4px 6px', fontSize:10, color:'#6b7280' }}>{(b.track||b.venue||'').toUpperCase()} R{b.race_number||b.race_num}</td>
+                              <td style={{ padding:'4px 6px', textAlign:'center' }}>
+                                {b.rank ? <span style={{ background: b.rank===1?'#fbbf24':'#d1d5db', color: b.rank===1?'#78350f':'#374151', width:16, height:16, borderRadius:'50%', display:'inline-flex', alignItems:'center', justifyContent:'center', fontSize:7, fontWeight:700 }}>R{b.rank}</span> : null}
+                              </td>
+                              <td style={{ padding:'4px 6px', textAlign:'right', fontSize:10, color:'#374151', fontFamily:'monospace' }}>${(+(b.odds||0)).toFixed(2)}</td>
+                              <td style={{ padding:'4px 6px', textAlign:'right', fontSize:10, color:'#6b7280' }}>${b.stake}</td>
+                              <td style={{ padding:'4px 10px', textAlign:'right', fontWeight:700, fontSize:11, color: isWin?'#15803d':'#dc2626' }}>{pnl>=0?'+$':'-$'}{Math.abs(pnl).toFixed(2)}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                );
+              });
+            })()}
+          </div>
+        )}
+
+        {betView === 'kanban' && (
+          <div style={{ flex:1, overflowY:'auto', padding:12, background:'#f3f4f6' }}>
+            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:10 }}>
+              {[
+                { label:'Wins',    statuses:['win','place'], bg:'#f0fdf4', border:'#86efac', headerBg:'#dcfce7', textColor:'#166534' },
+                { label:'Losses',  statuses:['loss'],        bg:'#fff',    border:'#fca5a5', headerBg:'#fee2e2', textColor:'#991b1b' },
+                { label:'Pending', statuses:['pending'],     bg:'#fffbeb', border:'#fde047', headerBg:'#fef9c3', textColor:'#854d0e' },
+              ].map(col => {
+                const colBets = col.label === 'Pending'
+                  ? pendingBets
+                  : filteredBets.filter(b => col.statuses.includes(b.status));
+                const colPnl = colBets.reduce((sum,b) => {
+                  if (b.status==='win'||b.status==='place') return sum + +(b.stake||0)*(+(b.odds||0)-1);
+                  if (b.status==='loss') return sum - +(b.stake||0);
+                  return sum;
+                }, 0);
+                return (
+                  <div key={col.label} style={{ background:col.bg, border:`1px solid ${col.border}`, borderRadius:8, overflow:'hidden' }}>
+                    <div style={{ padding:'6px 12px', background:col.headerBg, display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+                      <span style={{ fontWeight:700, fontSize:11, color:col.textColor }}>{col.label}</span>
+                      <span style={{ fontSize:10, color:col.textColor }}>{colBets.length} · {colPnl>=0?'+$':'-$'}{Math.abs(colPnl).toFixed(2)}</span>
+                    </div>
+                    <div style={{ padding:6, display:'flex', flexDirection:'column', gap:4, maxHeight:600, overflowY:'auto' }}>
+                      {colBets.length===0 && <div style={{ padding:'12px', textAlign:'center', color:'#9ca3af', fontSize:10 }}>None</div>}
+                      {colBets.map(b => (
+                        <div key={b.id} style={{ background:'#fff', border:`0.5px solid ${col.border}`, borderRadius:5, padding:'5px 8px' }}>
+                          <div style={{ fontWeight:600, fontSize:11, color:'#111827' }}>{b.horse_name}</div>
+                          <div style={{ fontSize:9, color:'#6b7280', marginTop:1 }}>
+                            {(b.track||b.venue||'').toUpperCase()} R{b.race_number||b.race_num} · ${b.stake} @ ${(+(b.odds||0)).toFixed(2)}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
       </main>
       {upgradeOpen && <UpgradeModal onClose={() => setUpgradeOpen(false)} />}
