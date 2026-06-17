@@ -1225,7 +1225,7 @@ function FieldView({ results, scratched, rc, trackCond, onLogBet, onShowPopup, o
   const scrKey = h => `${(rc.venue||'').toUpperCase()}||${rc.num}||${h.name.toUpperCase()}`;
   const activeResults = results.filter(h => !scratchingsSet.has(scrKey(h)));
   const dbScratched   = results.filter(h =>  scratchingsSet.has(scrKey(h)));
-  const th = { background: '#f8fafc', color: '#374151', letterSpacing: '0.5px', position: 'sticky', top: 0, zIndex: 1, padding: '4px 4px', fontSize: 7, fontWeight: 700, textTransform: 'uppercase', lineHeight: '1.3', borderBottom: '1px solid #e5e7eb' };
+  const th = { background: '#f8fafc', color: '#374151', letterSpacing: '0.5px', position: 'sticky', top: 0, zIndex: 1, padding: '3px 4px', fontSize: 7, fontWeight: 700, textTransform: 'uppercase', lineHeight: '1.3', borderBottom: '1px solid #e5e7eb' };
   return (
     <>
       {/* Desktop table */}
@@ -1246,7 +1246,7 @@ function FieldView({ results, scratched, rc, trackCond, onLogBet, onShowPopup, o
               <th style={{ ...th, textAlign:'right', width:52 }}>Live $</th>
               <th style={{ ...th, textAlign:'right', width:52 }}>Value</th>
               <th style={{ ...th, width:52 }} />
-              <th style={{ ...th, textAlign:'left', minWidth:160 }}>
+              <th style={{ ...th, textAlign:'left', minWidth:120 }}>
                 <span style={{marginRight:6}}>Pace</span>
                 {PACE_ROLES.map(r => (
                   <span key={r.label} style={{display:'inline-flex',alignItems:'center',gap:2,fontSize:7,color:'#6b7280',marginRight:5}}>
