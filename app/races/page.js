@@ -288,7 +288,7 @@ function RightRail({ allRaces, allVenues, selectedRaceKey, onSelect }) {
     return na - nb;
   }).slice(0, 12);
   return (
-    <aside className="w-[162px] flex-shrink-0 bg-white border-l border-gray-100 overflow-y-auto">
+    <aside className="w-[190px] flex-shrink-0 bg-white border-l border-gray-100 overflow-y-auto">
       <div className="px-3 pt-3 pb-1 text-[9px] font-bold text-gray-600 uppercase tracking-[0.8px]">Up Next</div>
       {keys.map(rk => {
         const rc = allRaces[rk];
@@ -297,7 +297,7 @@ function RightRail({ allRaces, allVenues, selectedRaceKey, onSelect }) {
             className="w-full text-left px-3 py-2 hover:bg-slate-50 transition-colors border-b border-gray-50">
             <div className="flex items-baseline gap-1">
               <span className="text-[8px] font-bold text-blue-800 bg-blue-50 px-1 rounded leading-tight">R{rc.num}</span>
-              <span className="text-[10px] font-bold text-gray-900 truncate">{rc.venue}</span>
+              <span className="text-[9px] font-bold text-gray-900" style={{ overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', maxWidth:'130px' }}>{rc.venue}</span>
             </div>
             <div className="mt-0.5 flex items-center gap-1 text-[9px] text-gray-600">
               <span>{rc.dist}m</span>
@@ -1133,7 +1133,7 @@ function RunnerRow({ runner, rank, rc, trackCond, onLogBet, onShowPopup, onHideP
   const wt   = runner['Weight'] ? `${runner['Weight']}kg` : '';
   const rankColor = rank===1?'#d97706':rank===2?'#6b7280':rank===3?'#b45309':'#9ca3af';
 
-  const td = 'px-[6px] py-[5px]';
+  const td = 'px-[6px] py-[3px]';
   return (
     <tr className="border-b border-gray-100 text-[11px]" style={{ background: isDbScratched ? '#fafafa' : (rank===1 ? '#fffbeb' : 'white'), opacity: isDbScratched ? 0.45 : 1 }}>
       <td className={`${td} text-center font-bold w-7`} style={{ color: rankColor }}>
@@ -1225,7 +1225,7 @@ function FieldView({ results, scratched, rc, trackCond, onLogBet, onShowPopup, o
   const scrKey = h => `${(rc.venue||'').toUpperCase()}||${rc.num}||${h.name.toUpperCase()}`;
   const activeResults = results.filter(h => !scratchingsSet.has(scrKey(h)));
   const dbScratched   = results.filter(h =>  scratchingsSet.has(scrKey(h)));
-  const th = { background: '#f8fafc', color: '#374151', letterSpacing: '0.5px', position: 'sticky', top: 0, zIndex: 1, padding: '2px 4px', fontSize: 7, fontWeight: 700, textTransform: 'uppercase', whiteSpace: 'nowrap', borderBottom: '1px solid #e5e7eb' };
+  const th = { background: '#f8fafc', color: '#374151', letterSpacing: '0.5px', position: 'sticky', top: 0, zIndex: 1, padding: '1px 4px', fontSize: 7, fontWeight: 700, textTransform: 'uppercase', whiteSpace: 'nowrap', borderBottom: '1px solid #e5e7eb' };
   return (
     <>
       {/* Desktop table */}
