@@ -713,40 +713,6 @@ export default function MybetsPage() {
       {/* ── Main content ── */}
       <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: '#f3f4f6' }}>
 
-        {/* Stats strip */}
-        {(() => {
-          const at = statsRows.find(r => r.label === 'All time') || {};
-          const pnl = at.pnl;
-          return (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '6px 12px', background: '#fff', borderBottom: '1px solid #e5e7eb', fontSize: 11, color: '#6b7280', flexShrink: 0 }}>
-              <span style={{ fontWeight: 600, color: '#111827' }}>{bets.filter(b => b.status && b.status !== 'pending').length} resulted</span>
-              <span>P&L <b style={{ color: pnl === null ? '#d97706' : pnl >= 0 ? '#15803d' : '#dc2626' }}>{pnl === null ? '—' : (pnl >= 0 ? '+$' : '-$') + Math.abs(pnl).toFixed(2)}</b></span>
-              <span>Strike <b style={{ color: '#111827' }}>{at.strike || '—'}</b></span>
-              <span>ROI <b style={{ color: parseFloat(at.roi) > 0 ? '#15803d' : parseFloat(at.roi) < 0 ? '#dc2626' : '#6b7280' }}>{at.roi || '—'}</b></span>
-              <span>Staked <b style={{ color: '#111827' }}>{at.staked || '—'}</b></span>
-              <span>Pending <b style={{ color: '#111827' }}>{pendingBets.length}</b></span>
-              {matchingResults && <span style={{ color: '#d97706', fontWeight: 600 }}>Checking results…</span>}
-              <button
-                disabled={refreshing}
-                onClick={async () => {
-                  setRefreshing(true);
-                  const pending = bets.filter(b => !b.status || b.status === 'pending');
-                  const { spMap, anyUpdated } = await matchAndUpdateBets(pending);
-                  if (Object.keys(spMap).length > 0) setResultSpMap(spMap);
-                  if (anyUpdated) {
-                    const fresh = await loadBets(user.id);
-                    setBets(fresh);
-                  }
-                  setRefreshing(false);
-                }}
-                style={{ marginLeft: 'auto', fontSize: 11, padding: '3px 10px', background: '#f3f4f6', border: '1px solid #e5e7eb', borderRadius: 4, cursor: 'pointer', fontWeight: 600, color: '#374151', opacity: refreshing ? 0.6 : 1 }}
-              >
-                {refreshing ? 'Checking…' : '🔄 Refresh Results'}
-              </button>
-            </div>
-          );
-        })()}
-
         {/* View toggle */}
         <div style={{ display:'flex', gap:6, padding:'8px 12px', background:'#fff', borderBottom:'1px solid #e5e7eb', flexShrink:0 }}>
           {[['table','Table'],['terminal','Terminal'],['sessions','Sessions'],['kanban','Kanban']].map(([v,l]) => (
@@ -761,11 +727,11 @@ export default function MybetsPage() {
         {/* Single scrollable table */}
         {betView === 'table' && (
         <div style={{ flex: 1, overflowY: 'auto', overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 10 }}>
             <thead>
               <tr style={{ background: '#f9fafb', position: 'sticky', top: 0, zIndex: 2 }}>
-                {['Date','Horse','Venue','R#','Type','Stake','Odds','SP','CLV','Rank','Cond','ETA / Pos','P&L','Result'].map((h, i) => (
-                  <th key={h} style={{ padding: '4px 8px', textAlign: 'left', fontSize: 9, fontWeight: 600, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '.04em', whiteSpace: 'nowrap', borderRight: i < 13 ? '1px solid #e5e7eb' : 'none', borderBottom: '2px solid #e5e7eb' }}>{h}</th>
+                {['Date','Horse','Venue','R#','Type','Stake','Odds','Rank','ETA / Pos','P&L','Result'].map((h, i) => (
+                  <th key={h} style={{ padding: '3px 6px', textAlign: 'left', fontSize: 9, fontWeight: 600, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '.04em', whiteSpace: 'nowrap', borderRight: i < 10 ? '1px solid #e5e7eb' : 'none', borderBottom: '2px solid #e5e7eb' }}>{h}</th>
                 ))}
               </tr>
             </thead>
@@ -783,7 +749,7 @@ export default function MybetsPage() {
                 const totalStaked = pendingBetsSorted.reduce((s, b) => s + +(b.stake || 0), 0);
                 return (
                   <tr style={{ background: '#fff7ed', borderTop: '1px solid #fed7aa', borderBottom: '1px solid #fed7aa' }}>
-                    <td colSpan={14} style={{ padding: '4px 10px', fontSize: 10, fontWeight: 700, color: '#c2410c', borderRight: 'none' }}>
+                    <td colSpan={11} style={{ padding: '4px 10px', fontSize: 10, fontWeight: 700, color: '#c2410c', borderRight: 'none' }}>
                       ⚔️ BATTLE ORDERS — {pendingBetsSorted.length} pending · ${totalStaked.toFixed(0)} staked · if all win: +${ifAllWin.toFixed(2)}
                     </td>
                   </tr>
@@ -792,32 +758,29 @@ export default function MybetsPage() {
 
               {/* ── Pending bet rows ── */}
               {pendingBetsSorted.length === 0 ? (
-                <tr><td colSpan={14} style={{ padding: '10px', textAlign: 'center', color: '#9ca3af', fontSize: 11 }}>No pending bets</td></tr>
+                <tr><td colSpan={11} style={{ padding: '10px', textAlign: 'center', color: '#111827', fontSize: 10 }}>No pending bets</td></tr>
               ) : pendingBetsSorted.map((b, idx) => {
                 const rn = b.race_number ?? b.race_num;
                 const vn = b.track || b.venue;
                 const pill = typePillCfg(b.bet_type);
                 const rank = b.rank;
                 const rankBg = rank === 1 ? '#15803d' : rank === 2 ? '#16a34a' : rank === 3 ? '#ca8a04' : rank ? '#6b7280' : null;
-                const td = i => ({ padding: '3px 8px', borderBottom: '1px solid #f3f4f6', borderRight: i < 13 ? '1px solid #f3f4f6' : 'none', whiteSpace: 'nowrap', verticalAlign: 'middle' });
+                const td = i => ({ padding: '2px 6px', borderBottom: '1px solid #f3f4f6', borderRight: i < 10 ? '1px solid #f3f4f6' : 'none', whiteSpace: 'nowrap', verticalAlign: 'middle' });
                 return (
                   <tr key={b.id} style={{ background: '#fff', borderLeft: '3px solid #f97316' }}
                     onMouseEnter={e => { e.currentTarget.style.background = '#fffbeb'; }}
                     onMouseLeave={e => { e.currentTarget.style.background = '#fff'; }}>
-                    <td style={{ ...td(0), color: '#9ca3af' }}>{fmtDate(b.date)}</td>
+                    <td style={{ ...td(0), color: '#111827' }}>{fmtDate(b.date)}</td>
                     <td style={{ ...td(1), fontWeight: 600, color: '#111827', maxWidth: 150, overflow: 'hidden', textOverflow: 'ellipsis' }}>{b.horse_name || '—'}</td>
-                    <td style={{ ...td(2), fontSize: 10, color: '#6b7280', textTransform: 'uppercase' }}>{vn || '—'}</td>
+                    <td style={{ ...td(2), fontSize: 10, color: '#111827', textTransform: 'uppercase' }}>{vn || '—'}</td>
                     <td style={{ ...td(3), fontSize: 10 }}>{rn ? `R${rn}` : '—'}</td>
                     <td style={td(4)}><span style={{ fontSize: 9, fontWeight: 700, padding: '1px 6px', borderRadius: 3, background: pill.bg, color: '#fff' }}>{pill.label}</span></td>
                     <td style={{ ...td(5), fontFamily: 'monospace' }}>${(b.stake || 0).toFixed(0)}</td>
                     <td style={{ ...td(6), fontFamily: 'monospace' }}>${Number(b.odds || 0).toFixed(2)}</td>
-                    <td style={{ ...td(7), color: '#9ca3af' }}>—</td>
-                    <td style={{ ...td(8), color: '#9ca3af' }}>—</td>
-                    <td style={td(9)}>{rankBg ? <span style={{ fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 3, background: rankBg, color: '#fff' }}>R{rank}</span> : <span style={{ color: '#9ca3af' }}>—</span>}</td>
-                    <td style={{ ...td(10), color: '#9ca3af' }}>—</td>
-                    <td style={td(11)}><BetCountdown bet={b} isFirst={idx === 0} /></td>
-                    <td style={{ ...td(12), color: '#9ca3af' }}>—</td>
-                    <td style={{ ...td(13), display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <td style={td(7)}>{rankBg ? <span style={{ fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 3, background: rankBg, color: '#fff' }}>R{rank}</span> : <span style={{ color: '#111827' }}>—</span>}</td>
+                    <td style={td(8)}><BetCountdown bet={b} isFirst={idx === 0} /></td>
+                    <td style={{ ...td(9), color: '#111827' }}>—</td>
+                    <td style={{ ...td(10), display: 'flex', alignItems: 'center', gap: 4 }}>
                       <span style={{ fontSize: 9, fontWeight: 700, padding: '2px 6px', borderRadius: 3, background: '#f3f4f6', color: '#6b7280' }}>Pending</span>
                       <button onClick={() => handleDeleteBet(b.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', fontSize: 11, padding: '0 2px', lineHeight: 1, flexShrink: 0 }}>✕</button>
                     </td>
@@ -827,7 +790,7 @@ export default function MybetsPage() {
 
               {/* ── WAR RECORD filter tabs row ── */}
               <tr style={{ background: '#f9fafb', borderTop: '1px solid #e5e7eb', borderBottom: '1px solid #e5e7eb' }}>
-                <td colSpan={14} style={{ padding: '4px 8px', borderRight: 'none' }}>
+                <td colSpan={11} style={{ padding: '4px 8px', borderRight: 'none' }}>
                   <div style={{ display: 'flex', gap: 4 }}>
                     {['All','Win','Place','Loss','Today','This Week'].map(t => {
                       const key = t.toLowerCase();
@@ -847,7 +810,7 @@ export default function MybetsPage() {
                 const at = statsRows.find(r => r.label === 'All time') || {};
                 return (
                   <tr style={{ background: '#f0fdf4', borderTop: '1px solid #bbf7d0', borderBottom: '1px solid #bbf7d0' }}>
-                    <td colSpan={14} style={{ padding: '4px 10px', fontSize: 10, fontWeight: 700, color: '#15803d', borderRight: 'none' }}>
+                    <td colSpan={11} style={{ padding: '4px 10px', fontSize: 10, fontWeight: 700, color: '#15803d', borderRight: 'none' }}>
                       📊 WAR RECORD — {resultedBets.length} resulted · P&L {at.pnl !== null && at.pnl !== undefined ? (at.pnl >= 0 ? '+$' : '-$') + Math.abs(at.pnl).toFixed(2) : '—'} · Strike {at.strike || '—'} · ROI {at.roi || '—'}
                     </td>
                   </tr>
@@ -856,9 +819,9 @@ export default function MybetsPage() {
 
               {/* ── Resulted bet rows ── */}
               {loading ? (
-                <tr><td colSpan={14} style={{ padding: 20, textAlign: 'center', color: '#9ca3af' }}>Loading…</td></tr>
+                <tr><td colSpan={11} style={{ padding: 20, textAlign: 'center', color: '#111827' }}>Loading…</td></tr>
               ) : filteredResulted.length === 0 ? (
-                <tr><td colSpan={14} style={{ padding: 24, textAlign: 'center', color: '#9ca3af', fontSize: 11 }}>No resulted bets yet</td></tr>
+                <tr><td colSpan={11} style={{ padding: 24, textAlign: 'center', color: '#111827', fontSize: 10 }}>No resulted bets yet</td></tr>
               ) : filteredResulted.map(b => {
                 const stake = b.stake || 0;
                 const isEW = (b.bet_type || '').toLowerCase().includes('each');
@@ -877,25 +840,22 @@ export default function MybetsPage() {
                 const leftBorder = status === 'win' ? '#22c55e' : status === 'loss' ? '#ef4444' : status === 'place' ? '#3b82f6' : '#e5e7eb';
                 const badge = { win: { bg: '#16a34a', label: 'WIN' }, place: { bg: '#2563eb', label: 'PLACE' }, loss: { bg: '#dc2626', label: 'LOSS' }, scratched: { bg: '#6b7280', label: 'SCRATCHED' } }[status] || { bg: '#9ca3af', label: 'PENDING' };
                 const posBadge = pos === 1 ? { bg: '#fef9c3', color: '#854d0e' } : pos === 2 ? { bg: '#f3f4f6', color: '#374151' } : pos === 3 ? { bg: '#fef3c7', color: '#92400e' } : { bg: 'transparent', color: '#9ca3af' };
-                const tdS = i => ({ padding: '3px 8px', borderBottom: '1px solid #f3f4f6', borderRight: i < 13 ? '1px solid #f3f4f6' : 'none', whiteSpace: 'nowrap', verticalAlign: 'middle' });
+                const tdS = i => ({ padding: '2px 6px', borderBottom: '1px solid #f3f4f6', borderRight: i < 10 ? '1px solid #f3f4f6' : 'none', whiteSpace: 'nowrap', verticalAlign: 'middle' });
                 return (
                   <tr key={b.id} style={{ background: rowBg, borderLeft: `3px solid ${leftBorder}` }}
                     onMouseEnter={e => { e.currentTarget.style.background = hoverBg; }}
                     onMouseLeave={e => { e.currentTarget.style.background = rowBg; }}>
-                    <td style={{ ...tdS(0), color: '#9ca3af' }}>{fmtDate(b.date)}</td>
+                    <td style={{ ...tdS(0), color: '#111827' }}>{fmtDate(b.date)}</td>
                     <td style={{ ...tdS(1), fontWeight: 600, color: '#111827', maxWidth: 150, overflow: 'hidden', textOverflow: 'ellipsis' }}>{b.horse_name || '—'}</td>
-                    <td style={{ ...tdS(2), fontSize: 10, color: '#6b7280', textTransform: 'uppercase' }}>{venue || '—'}</td>
+                    <td style={{ ...tdS(2), fontSize: 10, color: '#111827', textTransform: 'uppercase' }}>{venue || '—'}</td>
                     <td style={{ ...tdS(3), fontSize: 10, cursor: raceNum ? 'pointer' : 'default', textDecoration: raceNum ? 'underline' : 'none' }} onClick={() => raceNum && setRacePopup({ venue: venue, race_num: raceNum, date: b.date })}>{raceNum ? `R${raceNum}` : '—'}</td>
                     <td style={tdS(4)}><span style={{ fontSize: 9, fontWeight: 700, padding: '1px 6px', borderRadius: 3, background: pill.bg, color: '#fff' }}>{pill.label}</span></td>
                     <td style={{ ...tdS(5), fontFamily: 'monospace' }}>${stake.toFixed(0)}</td>
                     <td style={{ ...tdS(6), fontFamily: 'monospace' }}>${Number(b.odds || 0).toFixed(2)}</td>
-                    <td style={{ ...tdS(7), fontFamily: 'monospace', color: '#6b7280' }}>{sp ? `$${Number(sp).toFixed(2)}` : '—'}</td>
-                    <td style={{ ...tdS(8), color: '#9ca3af' }}>—</td>
-                    <td style={tdS(9)}>{rankBg ? <span style={{ fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 3, background: rankBg, color: '#fff' }}>R{rank}</span> : <span style={{ color: '#9ca3af' }}>—</span>}</td>
-                    <td style={{ ...tdS(10), color: '#6b7280' }}>{b.condition || '—'}</td>
-                    <td style={tdS(11)}>{pos ? <span style={{ fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 3, background: posBadge.bg, color: posBadge.color }}>{ordinal(pos)}</span> : '—'}</td>
-                    <td style={{ ...tdS(12), fontFamily: 'monospace', fontWeight: 700, color: hasPnl ? (pnl >= 0 ? '#15803d' : '#dc2626') : '#9ca3af' }}>{hasPnl ? (pnl >= 0 ? '+$' : '-$') + Math.abs(pnl).toFixed(2) : '—'}</td>
-                    <td style={{ ...tdS(13), display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <td style={tdS(7)}>{rankBg ? <span style={{ fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 3, background: rankBg, color: '#fff' }}>R{rank}</span> : <span style={{ color: '#111827' }}>—</span>}</td>
+                    <td style={tdS(8)}>{pos ? <span style={{ fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 3, background: posBadge.bg, color: posBadge.color }}>{ordinal(pos)}</span> : '—'}</td>
+                    <td style={{ ...tdS(9), fontFamily: 'monospace', fontWeight: 700, color: hasPnl ? (pnl >= 0 ? '#15803d' : '#dc2626') : '#111827' }}>{hasPnl ? (pnl >= 0 ? '+$' : '-$') + Math.abs(pnl).toFixed(2) : '—'}</td>
+                    <td style={{ ...tdS(10), display: 'flex', alignItems: 'center', gap: 4 }}>
                       <span style={{ fontSize: 9, fontWeight: 700, padding: '2px 6px', borderRadius: 3, background: badge.bg, color: '#fff' }}>{badge.label}</span>
                       {status === 'scratched' && <button onClick={() => handleDeleteBet(b.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', fontSize: 11, padding: '0 2px', lineHeight: 1, flexShrink: 0 }}>✕</button>}
                     </td>
@@ -905,7 +865,7 @@ export default function MybetsPage() {
 
               {/* ── ANALYSIS divider — collapsible ── */}
               <tr style={{ background: '#f3f4f6', borderTop: '1px solid #e5e7eb', borderBottom: '1px solid #e5e7eb', cursor: 'pointer' }} onClick={() => setShowAnalysis(v => !v)}>
-                <td colSpan={14} style={{ padding: '4px 10px', fontSize: 10, fontWeight: 600, color: '#6b7280', borderRight: 'none' }}>
+                <td colSpan={11} style={{ padding: '4px 10px', fontSize: 10, fontWeight: 600, color: '#6b7280', borderRight: 'none' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                     <span>📈 ANALYSIS — by venue / odds range / track condition / rank</span>
                     <span>{showAnalysis ? '▾ hide' : '▸ show'}</span>
@@ -942,8 +902,8 @@ export default function MybetsPage() {
                     <tr style={{ background: '#fafafa', borderBottom: '1px solid #f3f4f6' }}>
                       <td colSpan={4} style={{ ...colStyle(4, false), fontWeight: 600, fontSize: 9, textTransform: 'uppercase', letterSpacing: '.04em', color: '#6b7280', background: '#f9fafb' }}>By Venue</td>
                       <td colSpan={3} style={{ ...colStyle(3, false), fontWeight: 600, fontSize: 9, textTransform: 'uppercase', letterSpacing: '.04em', color: '#6b7280', background: '#f9fafb' }}>By Odds Range</td>
-                      <td colSpan={4} style={{ ...colStyle(4, false), fontWeight: 600, fontSize: 9, textTransform: 'uppercase', letterSpacing: '.04em', color: '#6b7280', background: '#f9fafb' }}>By Track Condition</td>
-                      <td colSpan={3} style={{ ...colStyle(3, true), fontWeight: 600, fontSize: 9, textTransform: 'uppercase', letterSpacing: '.04em', color: '#6b7280', background: '#f9fafb' }}>By Rank</td>
+                      <td colSpan={2} style={{ ...colStyle(2, false), fontWeight: 600, fontSize: 9, textTransform: 'uppercase', letterSpacing: '.04em', color: '#6b7280', background: '#f9fafb' }}>By Track Cond</td>
+                      <td colSpan={2} style={{ ...colStyle(2, true), fontWeight: 600, fontSize: 9, textTransform: 'uppercase', letterSpacing: '.04em', color: '#6b7280', background: '#f9fafb' }}>By Rank</td>
                     </tr>
                     <tr style={{ background: '#fff', borderBottom: '2px solid #e5e7eb' }}>
                       <td colSpan={4} style={colStyle(4, false)}>
@@ -953,11 +913,11 @@ export default function MybetsPage() {
                       <td colSpan={3} style={colStyle(3, false)}>
                         {Object.entries(oddsGroups).map(([range, arr]) => { const c = calcGroup(arr); return arr.length > 0 ? <div key={range}><b>{range}</b>: {arr.length} · {c.strike} · <span style={{ color: roiColor(c.roi), fontWeight: 600 }}>ROI {c.roi}</span></div> : null; })}
                       </td>
-                      <td colSpan={4} style={colStyle(4, false)}>
+                      <td colSpan={2} style={colStyle(2, false)}>
                         {Object.keys(condGroups).length === 0 ? <span style={{ color: '#9ca3af' }}>—</span> :
                           Object.entries(condGroups).map(([cond, arr]) => { const c = calcGroup(arr); return <div key={cond}><b>{cond}</b>: {arr.length} · {c.strike} · <span style={{ color: roiColor(c.roi), fontWeight: 600 }}>ROI {c.roi}</span></div>; })}
                       </td>
-                      <td colSpan={3} style={colStyle(3, true)}>
+                      <td colSpan={2} style={colStyle(2, true)}>
                         {Object.entries(rankGroups).map(([r, arr]) => { const c = calcGroup(arr); return arr.length > 0 ? <div key={r}><b>{r}</b>: {arr.length} · {c.strike} · <span style={{ color: roiColor(c.roi), fontWeight: 600 }}>ROI {c.roi}</span></div> : null; })}
                       </td>
                     </tr>
@@ -1093,6 +1053,50 @@ export default function MybetsPage() {
         )}
 
       </main>
+
+      {/* Stats right rail */}
+      {(() => {
+        const at = statsRows.find(r => r.label === 'All time') || {};
+        const pnl = at.pnl;
+        return (
+          <div style={{ width: 160, flexShrink: 0, background: '#fff', borderLeft: '1px solid #e5e7eb', padding: '10px 8px', fontSize: 10, display: 'flex', flexDirection: 'column', gap: 8, overflowY: 'auto' }}>
+            {[
+              { label: 'Resulted', value: bets.filter(b => b.status && b.status !== 'pending').length, color: '#111827' },
+              { label: 'P&L', value: pnl === null ? '—' : (pnl >= 0 ? '+$' : '-$') + Math.abs(pnl).toFixed(2), color: pnl === null ? '#d97706' : pnl >= 0 ? '#15803d' : '#dc2626' },
+              { label: 'Strike', value: at.strike || '—', color: '#111827' },
+              { label: 'ROI', value: at.roi || '—', color: parseFloat(at.roi) > 0 ? '#15803d' : parseFloat(at.roi) < 0 ? '#dc2626' : '#6b7280' },
+              { label: 'Staked', value: at.staked || '—', color: '#111827' },
+              { label: 'Pending', value: pendingBets.length, color: '#111827' },
+            ].map(({ label, value, color }) => (
+              <div key={label}>
+                <div style={{ color: '#9ca3af', fontSize: 9, textTransform: 'uppercase', letterSpacing: '.04em', marginBottom: 1 }}>{label}</div>
+                <div style={{ color, fontWeight: 700, fontSize: 12 }}>{value}</div>
+              </div>
+            ))}
+            {matchingResults && <div style={{ color: '#d97706', fontWeight: 600, fontSize: 9 }}>Checking results…</div>}
+            <div style={{ marginTop: 'auto' }}>
+              <button
+                disabled={refreshing}
+                onClick={async () => {
+                  setRefreshing(true);
+                  const pending = bets.filter(b => !b.status || b.status === 'pending');
+                  const { spMap, anyUpdated } = await matchAndUpdateBets(pending);
+                  if (Object.keys(spMap).length > 0) setResultSpMap(spMap);
+                  if (anyUpdated) {
+                    const fresh = await loadBets(user.id);
+                    setBets(fresh);
+                  }
+                  setRefreshing(false);
+                }}
+                style={{ width: '100%', fontSize: 10, padding: '5px 8px', background: '#f3f4f6', border: '1px solid #e5e7eb', borderRadius: 4, cursor: 'pointer', fontWeight: 600, color: '#374151', opacity: refreshing ? 0.6 : 1 }}
+              >
+                {refreshing ? 'Checking…' : '🔄 Refresh'}
+              </button>
+            </div>
+          </div>
+        );
+      })()}
+
       {upgradeOpen && <UpgradeModal onClose={() => setUpgradeOpen(false)} />}
 
       {racePopup && (
