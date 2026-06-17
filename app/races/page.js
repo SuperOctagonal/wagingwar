@@ -585,13 +585,13 @@ function buildPopupHTML(h) {
     const rowBg = ri%2===0?'#ffffff':'#f9fafb';
     const n = +pos;
     runRowsHTML += `<tr style="background:${rowBg}">
-      <td style="padding:3px 6px;font-size:10px;color:#6b7280;white-space:nowrap">${fmtDate(dtl.date)}</td>
+      <td style="padding:3px 6px;font-size:10px;color:#111827;white-space:nowrap">${fmtDate(dtl.date)}</td>
       <td style="padding:3px 4px;text-align:center"><span style="display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%;font-size:9px;font-weight:700;${pipSty(n)}">${n>9?'0':pos}</span></td>
       <td style="padding:3px 6px;font-size:10px;color:#1f2937;white-space:nowrap">${dtl.crse||'—'}</td>
       <td style="padding:3px 4px"><span style="font-size:9px;padding:1px 4px;border-radius:4px;background:#eff6ff;color:#1d4ed8;white-space:nowrap">${dtl.cls||'—'}</span></td>
       <td style="padding:3px 6px;font-size:10px;color:#1f2937;white-space:nowrap">${dtl.dist?`${dtl.dist}m`:'—'}</td>
-      <td style="padding:3px 6px;font-size:10px;color:#6b7280;white-space:nowrap">${dtl.wt?`${dtl.wt}kg`:'—'}</td>
-      <td style="padding:3px 6px;font-size:10px;color:#6b7280;white-space:nowrap">${spTxt}</td>
+      <td style="padding:3px 6px;font-size:10px;color:#111827;white-space:nowrap">${dtl.wt?`${dtl.wt}kg`:'—'}</td>
+      <td style="padding:3px 6px;font-size:10px;color:#111827;white-space:nowrap">${spTxt}</td>
       <td style="padding:3px 6px;font-size:10px;font-weight:${n===1?'600':'400'};color:${mgColor};white-space:nowrap">${mgTxt}</td>
     </tr>`;
   }
@@ -610,9 +610,9 @@ function buildPopupHTML(h) {
 
   const statsHTML = stats.map((st, i) =>
     `<div style="padding:8px 10px;${i%3!==0?'border-left:1px solid #f3f4f6;':''}${i>=3?'border-top:1px solid #f3f4f6;':''}">
-      <div style="font-size:8px;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:2px">${st.label}</div>
+      <div style="font-size:8px;font-weight:700;color:#374151;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:2px">${st.label}</div>
       <div style="font-size:11px;font-weight:600;color:${stColor(st.w,st.s)}">${st.s?`${st.s}S ${st.w}W ${st.p}P`:'—'}</div>
-      <div style="font-size:9px;color:#9ca3af;margin-top:1px">${pct2(st.w,st.s)} win · ${pct2(st.p,st.s)} plc</div>
+      <div style="font-size:9px;color:#374151;margin-top:1px">${pct2(st.w,st.s)} win · ${pct2(st.p,st.s)} plc</div>
     </div>`
   ).join('');
 
@@ -628,33 +628,33 @@ function buildPopupHTML(h) {
           <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
             ${bp?`<span style="background:rgba(29,78,216,0.7);color:white;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px">B${bp}</span>`:''}
             <span style="color:white;font-weight:700;font-size:14px">${h.name}</span>
-            ${wt?`<span style="color:rgba(255,255,255,0.7);font-size:11px">${wt}${allow}</span>`:''}
+            ${wt?`<span style="color:rgba(255,255,255,0.9);font-size:11px">${wt}${allow}</span>`:''}
           </div>
-          ${jt?`<div style="color:rgba(255,255,255,0.65);font-size:10px;margin-top:2px">${jt}</div>`:''}
+          ${jt?`<div style="color:rgba(255,255,255,0.9);font-size:10px;margin-top:2px">${jt}</div>`:''}
         </div>
       </div>
     </div>
     <div style="display:flex;border-bottom:1px solid #f3f4f6;background:#f9fafb">
       <div style="flex:1;padding:8px 12px;text-align:center;border-right:1px solid #f3f4f6">
-        <div style="font-size:8px;color:#9ca3af;font-weight:700;text-transform:uppercase;letter-spacing:0.05em">Career</div>
+        <div style="font-size:8px;color:#374151;font-weight:700;text-transform:uppercase;letter-spacing:0.05em">Career</div>
         <div style="font-size:12px;font-weight:600;color:#1f2937;margin-top:1px">${starts}-${wins}-${secs}-${thirds}</div>
       </div>
       <div style="flex:1;padding:8px 12px;text-align:center;border-right:1px solid #f3f4f6">
-        <div style="font-size:8px;color:#9ca3af;font-weight:700;text-transform:uppercase;letter-spacing:0.05em">Win %</div>
+        <div style="font-size:8px;color:#374151;font-weight:700;text-transform:uppercase;letter-spacing:0.05em">Win %</div>
         <div style="font-size:12px;font-weight:700;color:${winColor};margin-top:1px">${winPct}%</div>
       </div>
       <div style="flex:1;padding:8px 12px;text-align:center;border-right:1px solid #f3f4f6">
-        <div style="font-size:8px;color:#9ca3af;font-weight:700;text-transform:uppercase;letter-spacing:0.05em">Place %</div>
+        <div style="font-size:8px;color:#374151;font-weight:700;text-transform:uppercase;letter-spacing:0.05em">Place %</div>
         <div style="font-size:12px;font-weight:700;color:${plcColor};margin-top:1px">${plcPct}%</div>
       </div>
       <div style="padding:8px 12px">
-        <div style="font-size:8px;color:#9ca3af;font-weight:700;text-transform:uppercase;letter-spacing:0.05em">Last ${pips.length} runs</div>
+        <div style="font-size:8px;color:#374151;font-weight:700;text-transform:uppercase;letter-spacing:0.05em">Last ${pips.length} runs</div>
         <div style="display:flex;align-items:center;gap:2px;margin-top:3px">${pipsHTML}</div>
       </div>
     </div>
     ${runRowsHTML ? `<div style="overflow-x:auto;border-bottom:1px solid #f3f4f6">
       <table style="width:100%;border-collapse:collapse">
-        <thead><tr style="background:#f9fafb">${['Date','Pos','Track','Class','Dist','Wgt','SP','Margin'].map(l=>`<th style="padding:3px 6px;text-align:left;font-size:8px;font-weight:700;color:#9ca3af;text-transform:uppercase;border-bottom:1px solid #f3f4f6;white-space:nowrap">${l}</th>`).join('')}</tr></thead>
+        <thead><tr style="background:#f9fafb">${['Date','Pos','Track','Class','Dist','Wgt','SP','Margin'].map(l=>`<th style="padding:3px 6px;text-align:left;font-size:8px;font-weight:700;color:#374151;text-transform:uppercase;border-bottom:1px solid #f3f4f6;white-space:nowrap">${l}</th>`).join('')}</tr></thead>
         <tbody>${runRowsHTML}</tbody>
       </table>
     </div>` : ''}
@@ -1954,7 +1954,7 @@ function RacesPageInner() {
     clearTimeout(hideTimerRef.current);
     const el = popupRef.current;
     el.innerHTML = buildPopupHTML(horse);
-    const cardW = 440;
+    const cardW = 280;
     let left = x + 14, top = y - 80;
     if (typeof window !== 'undefined') {
       if (left + cardW > window.innerWidth - 8) left = x - cardW - 14;
@@ -2059,7 +2059,7 @@ function RacesPageInner() {
       )}
 
       {/* Horse hover popup — innerHTML injected imperatively */}
-      <div id="horse-popup" ref={popupRef} style={{ display:'none', position:'fixed', zIndex:99999, width:440, maxHeight:'85vh', overflow:'auto', borderRadius:12, boxShadow:'0 20px 60px rgba(0,0,0,0.3)', border:'1px solid #e5e7eb', background:'white', fontFamily:'system-ui,-apple-system,sans-serif' }} />
+      <div id="horse-popup" ref={popupRef} style={{ display:'none', position:'fixed', zIndex:99999, width:280, maxHeight:'85vh', overflow:'auto', borderRadius:8, boxShadow:'0 8px 30px rgba(0,0,0,0.2)', border:'1px solid #e5e7eb', background:'white', fontFamily:'system-ui,-apple-system,sans-serif' }} />
 
       {/* Upgrade modal */}
       {upgradeOpen && <UpgradeModal onClose={() => setUpgradeOpen(false)} />}
