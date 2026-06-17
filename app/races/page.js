@@ -246,7 +246,7 @@ function LeftRail({ allVenues, allRaces, selectedRaceKey, onSelect, trackConds, 
             >
               <div style={{ flex: 1, minWidth: 0, textAlign: 'left' }}>
                 <div style={{ fontSize: 10, fontWeight: 700, color: '#fff', textTransform: 'uppercase', letterSpacing: '0.8px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{venue}</div>
-                <div style={{ fontSize: 8, color: 'rgba(255,255,255,0.4)', marginTop: 1 }}>{raceCount} race{raceCount !== 1 ? 's' : ''}{venueTrackConds[venue] ? ` · ${venueTrackConds[venue]}` : ''}</div>
+                <div style={{ fontSize: 8, color: 'rgba(255,255,255,0.85)', marginTop: 1 }}>{raceCount} race{raceCount !== 1 ? 's' : ''}{venueTrackConds[venue] ? ` · ${venueTrackConds[venue]}` : ''}</div>
               </div>
               {(() => { const p = TC_PILL[trackConds[venue] || 'good']; return p ? <span style={{ fontSize: 7, fontWeight: 700, padding: '1px 4px', borderRadius: 3, background: p.bg, color: '#fff', flexShrink: 0 }}>{p.label}</span> : null; })()}
               <span style={{ fontSize: 9, color: 'rgba(255,255,255,0.3)', flexShrink: 0 }}>›</span>
@@ -262,11 +262,11 @@ function LeftRail({ allVenues, allRaces, selectedRaceKey, onSelect, trackConds, 
                   style={{
                     padding: '3px 6px 3px 14px',
                     background: active ? '#00471b' : 'transparent',
-                    color: active ? 'white' : 'rgba(255,255,255,0.6)',
+                    color: active ? 'white' : 'rgba(255,255,255,0.9)',
                   }}
                 >
                   <span style={{ fontSize: 9, fontWeight: 700 }}>R{rc.num}</span>
-                  {rc.time && <span style={{ fontSize: 9, color: 'rgba(255,255,255,0.4)' }}>{rc.time}</span>}
+                  {rc.time && <span style={{ fontSize: 9, color: 'rgba(255,255,255,0.85)' }}>{rc.time}</span>}
                 </button>
               );
             })}
@@ -1133,7 +1133,7 @@ function RunnerRow({ runner, rank, rc, trackCond, onLogBet, onShowPopup, onHideP
   const wt   = runner['Weight'] ? `${runner['Weight']}kg` : '';
   const rankColor = rank===1?'#d97706':rank===2?'#6b7280':rank===3?'#b45309':'#9ca3af';
 
-  const td = 'px-[6px] py-[3px]';
+  const td = 'px-[6px] py-[1px]';
   return (
     <tr className="border-b border-gray-100 text-[11px]" style={{ background: isDbScratched ? '#fafafa' : (rank===1 ? '#fffbeb' : 'white'), opacity: isDbScratched ? 0.45 : 1 }}>
       <td className={`${td} text-center font-bold w-7`} style={{ color: rankColor }}>
@@ -1246,16 +1246,14 @@ function FieldView({ results, scratched, rc, trackCond, onLogBet, onShowPopup, o
               <th style={{ ...th, textAlign:'right', width:52 }}>Live $</th>
               <th style={{ ...th, textAlign:'right', width:52 }}>Value</th>
               <th style={{ ...th, width:52 }} />
-              <th style={{ ...th, textAlign:'left', minWidth:100 }}>
-                <div style={{fontSize:9,fontWeight:700,color:'#9ca3af',textTransform:'uppercase',marginBottom:2}}>Pace</div>
-                <div style={{display:'flex',flexWrap:'wrap',gap:'4px 8px'}}>
-                  {PACE_ROLES.map(r => (
-                    <span key={r.label} style={{display:'flex',alignItems:'center',gap:2,fontSize:8,color:'#6b7280'}}>
-                      <span style={{width:6,height:6,borderRadius:2,background:r.color,flexShrink:0}} />
-                      {r.label}
-                    </span>
-                  ))}
-                </div>
+              <th style={{ ...th, textAlign:'left', minWidth:160 }}>
+                <span style={{marginRight:6}}>Pace</span>
+                {PACE_ROLES.map(r => (
+                  <span key={r.label} style={{display:'inline-flex',alignItems:'center',gap:2,fontSize:7,color:'#6b7280',marginRight:5}}>
+                    <span style={{width:5,height:5,borderRadius:1,background:r.color,flexShrink:0,display:'inline-block'}} />
+                    {r.label}
+                  </span>
+                ))}
               </th>
             </tr>
           </thead>
