@@ -1133,7 +1133,7 @@ function RunnerRow({ runner, rank, rc, trackCond, onLogBet, onShowPopup, onHideP
   const wt   = runner['Weight'] ? `${runner['Weight']}kg` : '';
   const rankColor = rank===1?'#d97706':rank===2?'#6b7280':rank===3?'#b45309':'#9ca3af';
 
-  const td = 'px-[6px] py-[1px]';
+  const td = 'px-[6px] py-[2px]';
   return (
     <tr className="border-b border-gray-100 text-[11px]" style={{ background: isDbScratched ? '#fafafa' : (rank===1 ? '#fffbeb' : 'white'), opacity: isDbScratched ? 0.45 : 1 }}>
       <td className={`${td} text-center font-bold w-7`} style={{ color: rankColor }}>
@@ -1225,7 +1225,7 @@ function FieldView({ results, scratched, rc, trackCond, onLogBet, onShowPopup, o
   const scrKey = h => `${(rc.venue||'').toUpperCase()}||${rc.num}||${h.name.toUpperCase()}`;
   const activeResults = results.filter(h => !scratchingsSet.has(scrKey(h)));
   const dbScratched   = results.filter(h =>  scratchingsSet.has(scrKey(h)));
-  const th = { background: '#f8fafc', color: '#374151', letterSpacing: '0.5px', position: 'sticky', top: 0, zIndex: 1, padding: '1px 4px', fontSize: 7, fontWeight: 700, textTransform: 'uppercase', whiteSpace: 'nowrap', borderBottom: '1px solid #e5e7eb' };
+  const th = { background: '#f8fafc', color: '#374151', letterSpacing: '0.5px', position: 'sticky', top: 0, zIndex: 1, padding: '4px 4px', fontSize: 7, fontWeight: 700, textTransform: 'uppercase', lineHeight: '1.3', borderBottom: '1px solid #e5e7eb' };
   return (
     <>
       {/* Desktop table */}
