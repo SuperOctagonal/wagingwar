@@ -622,46 +622,39 @@ function buildPopupHTML(h) {
   const bbPayload = encodeURIComponent(JSON.stringify({ name: h.name, venue: h._venue || '', raceNumber: h._raceNum || '', distance: h._dist || '', cls: h._cls || '' }));
 
   return `
-    <div style="background:#00471b;padding:10px 12px">
-      <div style="display:flex;align-items:flex-start;gap:8px">
-        <div style="flex:1;min-width:0">
-          <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
-            ${bp?`<span style="background:rgba(29,78,216,0.7);color:white;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px">B${bp}</span>`:''}
-            <span style="color:white;font-weight:700;font-size:14px">${h.name}</span>
-            ${wt?`<span style="color:rgba(255,255,255,0.9);font-size:11px">${wt}${allow}</span>`:''}
-          </div>
-          ${jt?`<div style="color:rgba(255,255,255,0.9);font-size:10px;margin-top:2px">${jt}</div>`:''}
-        </div>
-      </div>
+  <div style="background:#00471b;padding:5px 10px;display:flex;align-items:center;justify-content:space-between">
+    <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+      ${bp?`<span style="background:rgba(29,78,216,0.7);color:white;font-size:8px;font-weight:700;padding:1px 4px;border-radius:3px">B${bp}</span>`:''}
+      <span style="color:white;font-weight:700;font-size:12px">${h.name}</span>
+      ${wt?`<span style="color:rgba(255,255,255,0.85);font-size:9px">${wt}${allow}</span>`:''}
+      ${jt?`<span style="color:rgba(255,255,255,0.85);font-size:9px">· ${jt}</span>`:''}
     </div>
-    <div style="display:flex;border-bottom:1px solid #f3f4f6;background:#f9fafb">
-      <div style="flex:1;padding:8px 12px;text-align:center;border-right:1px solid #f3f4f6">
-        <div style="font-size:8px;color:#374151;font-weight:700;text-transform:uppercase;letter-spacing:0.05em">Career</div>
-        <div style="font-size:12px;font-weight:600;color:#1f2937;margin-top:1px">${starts}-${wins}-${secs}-${thirds}</div>
-      </div>
-      <div style="flex:1;padding:8px 12px;text-align:center;border-right:1px solid #f3f4f6">
-        <div style="font-size:8px;color:#374151;font-weight:700;text-transform:uppercase;letter-spacing:0.05em">Win %</div>
-        <div style="font-size:12px;font-weight:700;color:${winColor};margin-top:1px">${winPct}%</div>
-      </div>
-      <div style="flex:1;padding:8px 12px;text-align:center;border-right:1px solid #f3f4f6">
-        <div style="font-size:8px;color:#374151;font-weight:700;text-transform:uppercase;letter-spacing:0.05em">Place %</div>
-        <div style="font-size:12px;font-weight:700;color:${plcColor};margin-top:1px">${plcPct}%</div>
-      </div>
-      <div style="padding:8px 12px">
-        <div style="font-size:8px;color:#374151;font-weight:700;text-transform:uppercase;letter-spacing:0.05em">Last ${pips.length} runs</div>
-        <div style="display:flex;align-items:center;gap:2px;margin-top:3px">${pipsHTML}</div>
-      </div>
+    <div style="display:flex;gap:10px;flex-shrink:0">
+      <span style="font-size:9px;color:rgba(255,255,255,0.85)">Career <strong style="color:white">${starts}-${wins}-${secs}-${thirds}</strong></span>
+      <span style="font-size:9px;font-weight:700;color:${winColor}">${winPct}% win</span>
+      <span style="font-size:9px;font-weight:700;color:${plcColor}">${plcPct}% plc</span>
     </div>
-    ${runRowsHTML ? `<div style="overflow-x:auto;border-bottom:1px solid #f3f4f6">
-      <table style="width:100%;border-collapse:collapse">
-        <thead><tr style="background:#f9fafb">${['Date','Pos','Track','Class','Dist','Wgt','SP','Margin'].map(l=>`<th style="padding:3px 6px;text-align:left;font-size:8px;font-weight:700;color:#374151;text-transform:uppercase;border-bottom:1px solid #f3f4f6;white-space:nowrap">${l}</th>`).join('')}</tr></thead>
-        <tbody>${runRowsHTML}</tbody>
-      </table>
-    </div>` : ''}
-    <div style="display:grid;grid-template-columns:repeat(3,1fr)">${statsHTML}</div>
-    <div style="padding:10px 12px;border-top:1px solid #f3f4f6">
-      <button onclick="window.__addToBlackbook&&window.__addToBlackbook(JSON.parse(decodeURIComponent('${bbPayload}')))" style="width:100%;padding:7px 0;background:#00471b;color:#fff;border:none;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer">🔖 Add to blackbook</button>
-    </div>`;
+  </div>
+  <table border="0" cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse">
+    <tr style="background:#f9fafb">
+      <td style="padding:1px 5px;font-size:8px;color:#9ca3af;font-weight:700;text-transform:uppercase">Date</td>
+      <td style="padding:1px 4px;font-size:8px;color:#9ca3af;font-weight:700;text-transform:uppercase">Pos</td>
+      <td style="padding:1px 5px;font-size:8px;color:#9ca3af;font-weight:700;text-transform:uppercase">Track</td>
+      <td style="padding:1px 5px;font-size:8px;color:#9ca3af;font-weight:700;text-transform:uppercase">Class</td>
+      <td style="padding:1px 5px;font-size:8px;color:#9ca3af;font-weight:700;text-transform:uppercase">Dist</td>
+      <td style="padding:1px 5px;font-size:8px;color:#9ca3af;font-weight:700;text-transform:uppercase">Wgt</td>
+      <td style="padding:1px 5px;font-size:8px;color:#9ca3af;font-weight:700;text-transform:uppercase">SP</td>
+      <td style="padding:1px 5px;font-size:8px;color:#9ca3af;font-weight:700;text-transform:uppercase">Margin</td>
+    </tr>
+    ${runRowsHTML}
+  </table>
+  <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr 1fr 1fr;border-top:1px solid #f3f4f6;background:#f9fafb">
+    ${statsHTML}
+  </div>
+  <div style="padding:5px 10px;border-top:1px solid #f3f4f6;display:flex;gap:6px">
+    <button onclick="window.__logBet&&window.__logBet(JSON.parse(decodeURIComponent('${bbPayload}')))" style="flex:1;padding:5px;background:#00471b;color:#fff;border:none;border-radius:4px;font-size:10px;font-weight:600;cursor:pointer">+ Log Bet</button>
+    <button onclick="window.__addToBlackbook&&window.__addToBlackbook(JSON.parse(decodeURIComponent('${bbPayload}')))" style="flex:1;padding:5px;background:#fff;color:#00471b;border:1px solid #00471b;border-radius:4px;font-size:10px;font-weight:600;cursor:pointer">🔖 Blackbook</button>
+  </div>`;
 }
 
 // ─── race result modal ────────────────────────────────────────────────────────
@@ -1801,8 +1794,23 @@ function RacesPageInner() {
       if (popup) popup.style.display = 'none';
       setBbTarget(typeof data === 'string' ? { name: data } : data);
     };
-    return () => { delete window.__addToBlackbook; };
-  }, []);
+    window.__logBet = (data) => {
+      if (!isPro) { setUpgradeOpen(true); return; }
+      const popup = document.getElementById('horse-popup');
+      if (popup) popup.style.display = 'none';
+      const rc = allRaces[selectedKey];
+      setBetTarget({
+        ...data,
+        _venue: data._venue || rc?.venue,
+        _raceNum: data._raceNum || rc?.num,
+        _raceName: rc?.name || null,
+        _meetingDate: rc?.date || null,
+        _trackCond: trackCond,
+        _myOdds: data.rawOdds
+      });
+    };
+    return () => { delete window.__addToBlackbook; delete window.__logBet; };
+  }, [allRaces, selectedKey, trackCond, isPro]);
 
   const loadCSV = useCallback((text, name, selectKey) => {
     try {
@@ -1954,8 +1962,8 @@ function RacesPageInner() {
     clearTimeout(hideTimerRef.current);
     const el = popupRef.current;
     el.innerHTML = buildPopupHTML(horse);
-    const cardW = 280;
-    let left = x + 14, top = y - 80;
+    const cardW = 480;
+    let left = x + 14, top = Math.max(8, y - 260);
     if (typeof window !== 'undefined') {
       if (left + cardW > window.innerWidth - 8) left = x - cardW - 14;
       if (left < 8) left = 8;
@@ -2059,7 +2067,7 @@ function RacesPageInner() {
       )}
 
       {/* Horse hover popup — innerHTML injected imperatively */}
-      <div id="horse-popup" ref={popupRef} style={{ display:'none', position:'fixed', zIndex:99999, width:280, maxHeight:'85vh', overflow:'auto', borderRadius:8, boxShadow:'0 8px 30px rgba(0,0,0,0.2)', border:'1px solid #e5e7eb', background:'white', fontFamily:'system-ui,-apple-system,sans-serif' }} />
+      <div id="horse-popup" ref={popupRef} style={{ display:'none', position:'fixed', zIndex:99999, width:480, maxHeight:'85vh', overflow:'auto', borderRadius:8, boxShadow:'0 8px 30px rgba(0,0,0,0.2)', border:'1px solid #e5e7eb', background:'white', fontFamily:'system-ui,-apple-system,sans-serif' }} />
 
       {/* Upgrade modal */}
       {upgradeOpen && <UpgradeModal onClose={() => setUpgradeOpen(false)} />}
