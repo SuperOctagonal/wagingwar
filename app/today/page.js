@@ -87,7 +87,7 @@ function ResultPopup({ result, onClose }) {
       onClick={onClose}
     >
       <div style={{ background:'#fff', borderRadius:12, overflow:'hidden', width:340, maxWidth:'95vw' }} onClick={e => e.stopPropagation()}>
-        <div style={{ background:'#1e2936', padding:'7px 12px', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+        <div style={{ background:'#1e2936', padding:'6px 10px', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
           <span style={{ fontSize:11, fontWeight:700, color:'#fff', textTransform:'uppercase' }}>{result.venue} R{result.raceNum}</span>
           <button onClick={onClose} style={{ background:'none', border:'none', color:'rgba(255,255,255,0.5)', cursor:'pointer', fontSize:16, lineHeight:1 }}>✕</button>
         </div>
@@ -225,13 +225,13 @@ export default function TodayPage() {
         {/* Header */}
         <div style={{ display:'flex', alignItems:'baseline', gap:12, marginBottom:14 }}>
           <div style={{ fontSize:20, fontWeight:700, color:'#111827' }}>Today</div>
-          <div style={{ fontSize:12, color:'#9ca3af' }}>{dateStr}</div>
+          <div style={{ fontSize:10, color:'#9ca3af' }}>{dateStr}</div>
         </div>
 
         {!hasCSV ? (
           <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:200, gap:10, color:'#9ca3af' }}>
             <i className="ti ti-calendar" style={{ fontSize:36 }} />
-            <p style={{ fontSize:12 }}>Load a CSV to see today&apos;s meetings</p>
+            <p style={{ fontSize:11 }}>Load a CSV to see today&apos;s meetings</p>
           </div>
         ) : (
           <>
@@ -242,8 +242,8 @@ export default function TodayPage() {
                   onClick={() => setPicksOpen(v => !v)}
                   style={{ display:'flex', alignItems:'center', gap:7, padding:'7px 12px', cursor:'pointer', userSelect:'none' }}
                 >
-                  <span style={{ fontSize:12 }}>🏆</span>
-                  <span style={{ fontSize:12, fontWeight:600, color:'#111827' }}>Today&apos;s top picks</span>
+                  <span style={{ fontSize:11 }}>🏆</span>
+                  <span style={{ fontSize:13, fontWeight:600, color:'#111827' }}>Today&apos;s top picks</span>
                   <span style={{ background:'#fbbf24', color:'#78350f', fontSize:9, fontWeight:700, padding:'1px 6px', borderRadius:8 }}>{picks.length}</span>
                   <i className={`ti ti-chevron-${picksOpen ? 'up' : 'down'}`} style={{ fontSize:13, color:'#9ca3af', transition:'transform .2s', marginLeft:4 }} />
                 </div>
@@ -257,7 +257,7 @@ export default function TodayPage() {
                           <div key={p.name} style={{ background:'#fff', border:'0.5px solid #e5e7eb', borderRadius:8, padding:'8px 10px', display:'flex', alignItems:'center', gap:8 }}>
                             <span style={{ width:22, height:22, borderRadius:'50%', display:'inline-flex', alignItems:'center', justifyContent:'center', fontSize:10, fontWeight:700, flexShrink:0, background:rkBg, color:rkTxt }}>{i+1}</span>
                             <div style={{ flex:1, minWidth:0 }}>
-                              <div style={{ fontSize:12, fontWeight:600, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis', color:'#111827' }}>{p.name}</div>
+                              <div style={{ fontSize:13, fontWeight:600, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis', color:'#111827' }}>{p.name}</div>
                               <div style={{ fontSize:10, color:'#9ca3af' }}>{p.venue} R{p.num}</div>
                             </div>
                             <div style={{ textAlign:'right', flexShrink:0 }}>
@@ -284,11 +284,11 @@ export default function TodayPage() {
                 const keys = allVenues[venue] || [];
                 return (
                   <div key={venue} style={{ background:'#fff', border:'0.5px solid #e5e7eb', borderRadius:8, overflow:'hidden' }}>
-                    <div style={{ background:'#1e2936', padding:'5px 10px', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+                    <div style={{ background:'#1e2936', padding:'6px 10px', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
                       <span style={{ fontSize:11, fontWeight:700, color:'#fff', letterSpacing:'.4px', textTransform:'uppercase' }}>{venue}</span>
                       <span style={{ background:tcC.bg, color:tcC.text, fontSize:9, fontWeight:700, padding:'1px 7px', borderRadius:5 }}>{tcL}</span>
                     </div>
-                    <div style={{ display:'flex', flexWrap:'wrap', padding:'3px 4px 1px' }}>
+                    <div style={{ display:'flex', flexWrap:'wrap', padding:'3px 4px' }}>
                       {keys.map(k => {
                         const rc = allRaces[k];
                         if (!rc) return null;
@@ -299,7 +299,7 @@ export default function TodayPage() {
                           <div
                             key={k}
                             onClick={() => resulted ? setPopup(res) : router.push(`/races?select=${encodeURIComponent(k)}`)}
-                            style={{ display:'flex', alignItems:'center', gap:4, padding:'3px 7px', cursor:'pointer', borderRadius:5, transition:'background .1s', background:resulted ? '#d1fae5' : undefined, margin:2 }}
+                            style={{ display:'flex', alignItems:'center', gap:4, padding:'3px 6px', cursor:'pointer', borderRadius:5, transition:'background .1s', background:resulted ? '#d1fae5' : undefined, margin:2 }}
                             onMouseEnter={e => { if (!resulted) e.currentTarget.style.background = '#f0fdf4'; }}
                             onMouseLeave={e => { if (!resulted) e.currentTarget.style.background = ''; }}
                           >

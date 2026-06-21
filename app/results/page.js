@@ -64,7 +64,7 @@ function ResultsDetail({ meeting, venue, allRaces, allVenues, weights }) {
     return (
       <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:160, gap:10, color:'#9ca3af' }}>
         <i className="ti ti-flag-check" style={{ fontSize:32 }} />
-        <p style={{ fontSize:12 }}>No results yet for this race</p>
+        <p style={{ fontSize:11 }}>No results yet for this race</p>
       </div>
     );
   }
@@ -74,10 +74,10 @@ function ResultsDetail({ meeting, venue, allRaces, allVenues, weights }) {
 
   return (
     <div style={{ display:'inline-block', minWidth:320, width:'fit-content', maxWidth:'520px' }}>
-      <div style={{ background:'#1e2936', padding:'7px 12px', borderRadius:'8px 8px 0 0', display:'flex', alignItems:'center', justifyContent:'space-between', flexWrap:'wrap', gap:4 }}>
+      <div style={{ background:'#1e2936', padding:'6px 10px', borderRadius:'8px 8px 0 0', display:'flex', alignItems:'center', justifyContent:'space-between', flexWrap:'wrap', gap:4 }}>
         <span style={{ fontSize:11, fontWeight:700, color:'#fff', textTransform:'uppercase' }}>
           {venue} R{meeting.raceNum} — Results
-          <span style={{ background:'#22c55e', fontSize:7, padding:'1px 5px', borderRadius:3, marginLeft:6, verticalAlign:'middle' }}>OFFICIAL</span>
+          <span style={{ background:'#22c55e', fontSize:9, padding:'1px 5px', borderRadius:3, marginLeft:6, verticalAlign:'middle' }}>OFFICIAL</span>
         </span>
         <div style={{ fontSize:9, color:'rgba(255,255,255,.55)', display:'flex', gap:8 }}>
           {meeting.raceTime && <span>{meeting.raceTime}</span>}
@@ -89,11 +89,11 @@ function ResultsDetail({ meeting, venue, allRaces, allVenues, weights }) {
       <table style={{ width:'100%', borderCollapse:'collapse', tableLayout:'auto', border:'0.5px solid #e5e7eb', borderTop:'none', borderRadius:'0 0 8px 8px', overflow:'hidden' }}>
         <thead>
           <tr style={{ background:'#f1f5f9', borderBottom:'1px solid #e5e7eb' }}>
-            <th style={{ padding:'4px 8px', fontSize:9, fontWeight:700, color:'#374151', textAlign:'center', width:28 }}>POS</th>
-            <th style={{ padding:'4px 8px', fontSize:9, fontWeight:700, color:'#374151', textAlign:'left', minWidth:160 }}>HORSE</th>
-            {hasSysRank && <th style={{ padding:'4px 8px', fontSize:9, fontWeight:700, color:'#374151', textAlign:'center', width:44 }}>RANK</th>}
-            <th style={{ padding:'4px 8px', fontSize:9, fontWeight:700, color:'#374151', textAlign:'right', width:56 }}>SP</th>
-            <th style={{ padding:'4px 8px', fontSize:9, fontWeight:700, color:'#374151', textAlign:'right', width:56 }}>MARGIN</th>
+            <th style={{ padding:'4px 6px', fontSize:9, fontWeight:700, color:'#374151', textAlign:'center', width:28 }}>POS</th>
+            <th style={{ padding:'4px 6px', fontSize:9, fontWeight:700, color:'#374151', textAlign:'left', minWidth:160 }}>HORSE</th>
+            {hasSysRank && <th style={{ padding:'4px 6px', fontSize:9, fontWeight:700, color:'#374151', textAlign:'center', width:44 }}>RANK</th>}
+            <th style={{ padding:'4px 6px', fontSize:9, fontWeight:700, color:'#374151', textAlign:'right', width:56 }}>SP</th>
+            <th style={{ padding:'4px 6px', fontSize:9, fontWeight:700, color:'#374151', textAlign:'right', width:56 }}>MARGIN</th>
           </tr>
         </thead>
         <tbody>
@@ -104,27 +104,27 @@ function ResultsDetail({ meeting, venue, allRaces, allVenues, weights }) {
             const rowBg = p===1?'#fffbeb':p===2?'#f8fafc':p===3?'#fdf4ff':'#fff';
             const sysRank = sysRankMap[normName(r.name)] || null;
             const rs = sysRank ? rankStyle(sysRank) : null;
-            const pad = '4px 8px';
+            const pad = '4px 6px';
             return (
               <tr key={`${p}-${r.name}`} style={{ background:rowBg, borderBottom:'0.5px solid #f3f4f6' }}>
                 <td style={{ padding:pad, textAlign:'center' }}>
                   <span style={{ width:18, height:18, borderRadius:4, display:'inline-flex', alignItems:'center', justifyContent:'center', fontSize:9, fontWeight:700, background:ps.bg, color:ps.color }}>{p}</span>
                 </td>
                 <td style={{ padding:pad, whiteSpace:'nowrap' }}>
-                  <span style={{ fontSize:12, fontWeight:isTop3?600:400, color:'#111827' }}>{r.name}</span>
+                  <span style={{ fontSize:13, fontWeight:isTop3?600:400, color:'#111827' }}>{r.name}</span>
                 </td>
                 {hasSysRank && (
                   <td style={{ padding:pad, textAlign:'center' }}>
                     {rs
-                      ? <span style={{ width:18, height:18, borderRadius:'50%', display:'inline-flex', alignItems:'center', justifyContent:'center', fontSize:8, fontWeight:700, background:rs.bg, color:rs.color }}>{sysRank}</span>
+                      ? <span style={{ width:18, height:18, borderRadius:'50%', display:'inline-flex', alignItems:'center', justifyContent:'center', fontSize:9, fontWeight:700, background:rs.bg, color:rs.color }}>{sysRank}</span>
                       : <span style={{ fontSize:9, color:'#d1d5db' }}>—</span>
                     }
                   </td>
                 )}
-                <td style={{ padding:pad, textAlign:'right', fontFamily:'JetBrains Mono, monospace', fontSize:12, fontWeight:700, color:'#111827' }}>
+                <td style={{ padding:pad, textAlign:'right', fontFamily:'JetBrains Mono, monospace', fontSize:11, fontWeight:500, color:'#111827' }}>
                   ${Number(r.sp || 0).toFixed(2)}
                 </td>
-                <td style={{ padding:pad, textAlign:'right', fontSize:12, color:'#374151' }}>{r.margin || '—'}</td>
+                <td style={{ padding:pad, textAlign:'right', fontSize:11, color:'#374151' }}>{r.margin || '—'}</td>
               </tr>
             );
           })}
@@ -253,7 +253,7 @@ export default function ResultsPage() {
               setDbRows(rows || []);
               setRefreshing(false);
             }}
-            style={{ fontSize:11, padding:'3px 10px', background:'#f3f4f6', border:'1px solid #e5e7eb', borderRadius:4, cursor:'pointer', fontWeight:600, color:'#374151', opacity: refreshing ? 0.6 : 1 }}
+            style={{ fontSize:11, padding:'4px 8px', background:'#f3f4f6', border:'1px solid #e5e7eb', borderRadius:4, cursor:'pointer', fontWeight:600, color:'#374151', opacity: refreshing ? 0.6 : 1 }}
           >
             {refreshing ? 'Checking…' : '🔄 Refresh'}
           </button>
@@ -261,7 +261,7 @@ export default function ResultsPage() {
 
         {/* Loading */}
         {loading && (
-          <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:200, gap:8, color:'#9ca3af', fontSize:12 }}>
+          <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:200, gap:8, color:'#9ca3af', fontSize:11 }}>
             <i className="ti ti-loader-2 animate-spin" style={{ fontSize:18 }} />
             Loading results…
           </div>
@@ -274,11 +274,11 @@ export default function ResultsPage() {
             <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:12 }}>
               <button
                 onClick={() => { setSelectedMeeting(null); setSelectedRace(null); }}
-                style={{ display:'flex', alignItems:'center', gap:4, padding:'5px 10px', borderRadius:6, border:'0.5px solid #e5e7eb', background:'#fff', color:'#374151', fontSize:10, fontWeight:600, cursor:'pointer', fontFamily:'inherit' }}
+                style={{ display:'flex', alignItems:'center', gap:4, padding:'4px 8px', borderRadius:6, border:'0.5px solid #e5e7eb', background:'#fff', color:'#374151', fontSize:10, fontWeight:600, cursor:'pointer', fontFamily:'inherit' }}
               >
-                <i className="ti ti-arrow-left" style={{ fontSize:12 }} /> All meetings
+                <i className="ti ti-arrow-left" style={{ fontSize:11 }} /> All meetings
               </button>
-              <span style={{ fontSize:14, fontWeight:700, color:'#111827' }}>{selectedMeeting}</span>
+              <span style={{ fontSize:13, fontWeight:700, color:'#111827' }}>{selectedMeeting}</span>
             </div>
 
             {/* Race tab pills */}
@@ -294,7 +294,7 @@ export default function ResultsPage() {
                     key={r.raceNum}
                     type="button"
                     onClick={(e) => { e.stopPropagation(); e.preventDefault(); setSelectedRace(Number(r.raceNum)); }}
-                    style={{ padding:'4px 10px', borderRadius:5, fontSize:10, fontWeight:700, cursor:'pointer', background:bg, color, border:`0.5px solid ${border}`, fontFamily:'inherit' }}
+                    style={{ padding:'3px 6px', borderRadius:5, fontSize:10, fontWeight:700, cursor:'pointer', background:bg, color, border:`0.5px solid ${border}`, fontFamily:'inherit' }}
                   >
                     R{r.raceNum}{resulted ? ' ✓' : ''}
                   </button>
@@ -317,14 +317,14 @@ export default function ResultsPage() {
             {venueNames.length === 0 ? (
               <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:200, gap:10, color:'#9ca3af' }}>
                 <i className="ti ti-flag-check" style={{ fontSize:36 }} />
-                <p style={{ fontSize:12 }}>Load a CSV or results will appear here automatically</p>
+                <p style={{ fontSize:11 }}>Load a CSV or results will appear here automatically</p>
               </div>
             ) : (
               <>
                 <div style={{ fontSize:10, fontWeight:600, color:'#9ca3af', textTransform:'uppercase', letterSpacing:'.5px', marginBottom:8 }}>
                   {venueNames.length} meetings
                 </div>
-                <div style={{ display:'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fill, minmax(280px, 1fr))', gap:8, marginBottom:16, maxWidth:1000 }}>
+                <div style={{ display:'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fill, minmax(280px, 1fr))', gap:6, marginBottom:16, maxWidth:1000 }}>
                   {venueNames.map(venue => {
                     const races = meetings[venue];
                     const resultedCount = races.filter(r => r.results).length;
@@ -343,13 +343,13 @@ export default function ResultsPage() {
                         onMouseEnter={e => { e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,.08)'; }}
                         onMouseLeave={e => { e.currentTarget.style.boxShadow = ''; }}
                       >
-                        <div style={{ background:'#1e2936', padding:'7px 12px', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+                        <div style={{ background:'#1e2936', padding:'6px 10px', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
                           <span style={{ fontSize:11, fontWeight:700, color:'#fff', textTransform:'uppercase', letterSpacing:'.4px' }}>{venue}</span>
                           <span style={{ background:badgeBg, color:badgeColor, fontSize:9, fontWeight:600, padding:'1px 7px', borderRadius:5 }}>
                             {resultedCount}/{races.length} resulted
                           </span>
                         </div>
-                        <div style={{ display:'flex', flexWrap:'wrap', padding:'4px 6px 2px' }}>
+                        <div style={{ display:'flex', flexWrap:'wrap', padding:'3px 4px' }}>
                           {races.map(r => {
                             const cls = r.results
                               ? { bg:'#d1fae5', color:'#065f46' }
@@ -359,7 +359,7 @@ export default function ResultsPage() {
                                 key={r.raceNum}
                                 type="button"
                                 onClick={(e) => { e.stopPropagation(); setSelectedMeeting(venue); setSelectedRace(Number(r.raceNum)); }}
-                                style={{ display:'flex', alignItems:'center', gap:4, padding:'3px 7px', borderRadius:5, margin:2, fontSize:10, fontWeight:600, background:cls.bg, color:cls.color, border:'none', cursor: r.results ? 'pointer' : 'default', fontFamily:'inherit' }}
+                                style={{ display:'flex', alignItems:'center', gap:4, padding:'3px 6px', borderRadius:5, margin:2, fontSize:10, fontWeight:600, background:cls.bg, color:cls.color, border:'none', cursor: r.results ? 'pointer' : 'default', fontFamily:'inherit' }}
                               >
                                 R{r.raceNum}{r.results ? ' ✓' : ''}
                               </button>

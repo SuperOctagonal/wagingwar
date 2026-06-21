@@ -246,9 +246,9 @@ function LeftRail({ allVenues, allRaces, selectedRaceKey, onSelect, trackConds, 
             >
               <div style={{ flex: 1, minWidth: 0, textAlign: 'left' }}>
                 <div style={{ fontSize: 10, fontWeight: 700, color: '#fff', textTransform: 'uppercase', letterSpacing: '0.8px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{venue}</div>
-                <div style={{ fontSize: 8, color: 'rgba(255,255,255,0.85)', marginTop: 1 }}>{raceCount} race{raceCount !== 1 ? 's' : ''}{venueTrackConds[venue] ? ` · ${venueTrackConds[venue]}` : ''}</div>
+                <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.85)', marginTop: 1 }}>{raceCount} race{raceCount !== 1 ? 's' : ''}{venueTrackConds[venue] ? ` · ${venueTrackConds[venue]}` : ''}</div>
               </div>
-              {(() => { const p = TC_PILL[trackConds[venue] || 'good']; return p ? <span style={{ fontSize: 7, fontWeight: 700, padding: '1px 4px', borderRadius: 3, background: p.bg, color: '#fff', flexShrink: 0 }}>{p.label}</span> : null; })()}
+              {(() => { const p = TC_PILL[trackConds[venue] || 'good']; return p ? <span style={{ fontSize: 9, fontWeight: 700, padding: '3px 6px', borderRadius: 3, background: p.bg, color: '#fff', flexShrink: 0 }}>{p.label}</span> : null; })()}
               <span style={{ fontSize: 9, color: 'rgba(255,255,255,0.3)', flexShrink: 0 }}>›</span>
             </button>
             {isOpen && allVenues[venue].map(rk => {
@@ -672,15 +672,15 @@ function RaceResultModal({ result, results, onClose }) {
   return (
     <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.55)', zIndex:500, display:'flex', alignItems:'center', justifyContent:'center', padding:16 }} onClick={onClose}>
       <div style={{ background:'#fff', borderRadius:10, overflow:'hidden', width:420, maxWidth:'95vw', maxHeight:'90vh', overflowY:'auto' }} onClick={e => e.stopPropagation()}>
-        <div style={{ background:'#1e2936', padding:'8px 14px', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
-          <span style={{ fontSize:12, fontWeight:700, color:'#fff', textTransform:'uppercase' }}>{result.venue} R{result.raceNum} — Results</span>
+        <div style={{ background:'#1e2936', padding:'6px 10px', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+          <span style={{ fontSize:13, fontWeight:700, color:'#fff', textTransform:'uppercase' }}>{result.venue} R{result.raceNum} — Results</span>
           <button onClick={onClose} style={{ background:'none', border:'none', color:'rgba(255,255,255,0.5)', cursor:'pointer', fontSize:16, lineHeight:1 }}>✕</button>
         </div>
         <table style={{ width:'100%', borderCollapse:'collapse' }}>
           <thead>
             <tr style={{ background:'#f1f5f9' }}>
               {['Pos','Horse','Rank','SP','Margin'].map(h => (
-                <th key={h} style={{ padding:'5px 10px', fontSize:9, fontWeight:700, color:'#374151', textAlign:h==='Pos'||h==='Rank'?'center':'left', textTransform:'uppercase', borderBottom:'1px solid #e5e7eb' }}>{h}</th>
+                <th key={h} style={{ padding:'4px 6px', fontSize:9, fontWeight:700, color:'#374151', textAlign:h==='Pos'||h==='Rank'?'center':'left', textTransform:'uppercase', borderBottom:'1px solid #e5e7eb' }}>{h}</th>
               ))}
             </tr>
           </thead>
@@ -691,18 +691,18 @@ function RaceResultModal({ result, results, onClose }) {
               const rowBg = r.place===1?'#fffbeb':r.place===2?'#f8fafc':r.place===3?'#fdf4ff':'#fff';
               return (
                 <tr key={r.place} style={{ background:rowBg, borderBottom:'0.5px solid #f3f4f6' }}>
-                  <td style={{ padding:'6px 10px', textAlign:'center' }}>
+                  <td style={{ padding:'4px 6px', textAlign:'center' }}>
                     <span style={{ width:22, height:22, borderRadius:'50%', display:'inline-flex', alignItems:'center', justifyContent:'center', fontSize:10, fontWeight:700, ...ps }}>{r.place}</span>
                   </td>
-                  <td style={{ padding:'6px 10px', fontSize:12, fontWeight:600, color:'#111827' }}>{r.name}</td>
-                  <td style={{ padding:'6px 10px', textAlign:'center' }}>
+                  <td style={{ padding:'4px 6px', fontSize:13, fontWeight:600, color:'#111827' }}>{r.name}</td>
+                  <td style={{ padding:'4px 6px', textAlign:'center' }}>
                     {sr
-                      ? <span style={{ width:18, height:18, borderRadius:'50%', display:'inline-flex', alignItems:'center', justifyContent:'center', fontSize:8, fontWeight:700, background:sr===1?'#fbbf24':sr===2?'#d1d5db':sr===3?'#cd7f32':'#f3f4f6', color:sr<=3?'#78350f':'#9ca3af' }}>{sr}</span>
+                      ? <span style={{ width:18, height:18, borderRadius:'50%', display:'inline-flex', alignItems:'center', justifyContent:'center', fontSize:9, fontWeight:700, background:sr===1?'#fbbf24':sr===2?'#d1d5db':sr===3?'#cd7f32':'#f3f4f6', color:sr<=3?'#78350f':'#9ca3af' }}>{sr}</span>
                       : <span style={{ fontSize:9, color:'#d1d5db' }}>—</span>
                     }
                   </td>
-                  <td style={{ padding:'6px 10px', fontSize:11, fontWeight:600, color:'#374151', fontFamily:'monospace' }}>{r.sp>0?`$${Number(r.sp).toFixed(2)}`:'—'}</td>
-                  <td style={{ padding:'6px 10px', fontSize:10, color:'#111827' }}>{r.margin||'—'}</td>
+                  <td style={{ padding:'4px 6px', fontSize:11, fontWeight:500, color:'#374151', fontFamily:'monospace' }}>{r.sp>0?`$${Number(r.sp).toFixed(2)}`:'—'}</td>
+                  <td style={{ padding:'4px 6px', fontSize:10, color:'#111827' }}>{r.margin||'—'}</td>
                 </tr>
               );
             })}
@@ -1044,7 +1044,7 @@ function MobileRunnerCard({ runner, rank, rc, trackCond, onLogBet, isResulted, i
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
             <span style={{ flexShrink: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 24, height: 24, borderRadius: 4, background: '#1e3a8a', color: '#fff', fontSize: 9, fontWeight: 700, fontFamily: 'monospace' }}>{runner.tab}</span>
             <span style={{ fontWeight: 500, fontSize: 13, color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textDecoration: isDbScratched ? 'line-through' : 'none' }}>{runner.name}</span>
-            {isDbScratched && <span style={{ fontSize: 8, fontWeight: 700, padding: '1px 4px', borderRadius: 3, background: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca', flexShrink: 0 }}>SCR</span>}
+            {isDbScratched && <span style={{ fontSize: 9, fontWeight: 700, padding: '3px 6px', borderRadius: 3, background: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca', flexShrink: 0 }}>SCR</span>}
             {wt && <span style={{ fontSize: 11, color: '#6b7280', flexShrink: 0 }}>{wt}</span>}
           </div>
           {/* Row 2: jockey + trainer */}
@@ -1054,7 +1054,7 @@ function MobileRunnerCard({ runner, rank, rc, trackCond, onLogBet, isResulted, i
         </div>
         {/* Right: Score / Live$ / Value% — always visible */}
         <div style={{ flexShrink: 0, textAlign: 'right' }}>
-          <div style={{ fontSize: 14, fontWeight: 500, color: rankColor }}>
+          <div style={{ fontSize: 13, fontWeight: 500, color: rankColor }}>
             {!isPro ? <LockBtn onClick={onUpgrade} /> : runner.totalFromGroups.toFixed(1)}
           </div>
           <div style={{ fontSize: 11, fontWeight: 500, color: '#111827' }}>{mktO ? `$${mktO.toFixed(2)}` : '—'}</div>
@@ -1095,7 +1095,7 @@ function MobileRunnerCard({ runner, rank, rc, trackCond, onLogBet, isResulted, i
             <div style={{ position: 'absolute', top: '50%', left: `${pm.pct}%`, transform: 'translate(-50%, -50%)', width: 9, height: 9, borderRadius: '50%', background: '#fff', border: '1.5px solid rgba(0,0,0,0.25)', zIndex: 1 }} />
           </div>
           <span style={{ fontSize: 9, fontWeight: 700, color: pm.color, flexShrink: 0 }}>{pm.role}</span>
-          <span style={{ fontSize: 8, color: '#d97706', flexShrink: 0 }}>Est.</span>
+          <span style={{ fontSize: 9, color: '#d97706', flexShrink: 0 }}>Est.</span>
         </div>
       )}
 
@@ -1169,7 +1169,7 @@ function RunnerRow({ runner, rank, rc, trackCond, onLogBet, onShowPopup, onHideP
           >
             {runner.name}
           </span>
-          {isDbScratched && <span style={{ fontSize: 8, fontWeight: 700, padding: '1px 4px', borderRadius: 3, background: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca' }}>SCR</span>}
+          {isDbScratched && <span style={{ fontSize: 9, fontWeight: 700, padding: '3px 6px', borderRadius: 3, background: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca' }}>SCR</span>}
           {bp && <span className="text-[9px] text-gray-400 font-mono">({bp})</span>}
           {runner.allowance > 0 && <span className="text-[8px] font-bold bg-amber-100 text-amber-800 rounded px-1">-{runner.allowance}kg</span>}
           {classChangeEl(runner.classChange)}
@@ -1245,7 +1245,7 @@ function FieldView({ results, scratched, rc, trackCond, onLogBet, onShowPopup, o
   const activeResults = results.filter(h => !scratchingsSet.has(scrKey(h)));
   const dbScratched   = results.filter(h =>  scratchingsSet.has(scrKey(h)));
   const [layers, setLayers] = useState({ form: false, pace: false, scores: false, picks: false });
-  const th = { background: '#f8fafc', color: '#374151', letterSpacing: '0.5px', position: 'sticky', top: 0, zIndex: 1, padding: '3px 4px', fontSize: 7, fontWeight: 700, textTransform: 'uppercase', lineHeight: '1.3', borderBottom: '1px solid #e5e7eb' };
+  const th = { background: '#f8fafc', color: '#374151', letterSpacing: '0.5px', position: 'sticky', top: 0, zIndex: 1, padding: '4px 6px', fontSize: 9, fontWeight: 700, textTransform: 'uppercase', lineHeight: '1.3', borderBottom: '1px solid #e5e7eb' };
   return (
     <>
       {/* Desktop table */}
@@ -1269,7 +1269,7 @@ function FieldView({ results, scratched, rc, trackCond, onLogBet, onShowPopup, o
               <th style={{ ...th, textAlign:'left', minWidth:120 }}>
                 <span style={{marginRight:6}}>Pace</span>
                 {PACE_ROLES.map(r => (
-                  <span key={r.label} style={{display:'inline-flex',alignItems:'center',gap:2,fontSize:7,color:'#6b7280',marginRight:5}}>
+                  <span key={r.label} style={{display:'inline-flex',alignItems:'center',gap:2,fontSize:9,color:'#6b7280',marginRight:5}}>
                     <span style={{width:5,height:5,borderRadius:1,background:r.color,flexShrink:0,display:'inline-block'}} />
                     {r.label}
                   </span>
@@ -1303,7 +1303,7 @@ function FieldView({ results, scratched, rc, trackCond, onLogBet, onShowPopup, o
         <div style={{ flexShrink: 0, display: 'flex', gap: 6, overflowX: 'auto', padding: '7px 10px', background: '#fff', borderBottom: '1px solid #e5e7eb' }}>
           {[['form','Form'],['pace','Pace map'],['scores','Score breakdown'],['picks','Top picks']].map(([key, label]) => (
             <button key={key} onClick={() => setLayers(l => ({ ...l, [key]: !l[key] }))}
-              style={{ flexShrink: 0, borderRadius: 14, fontSize: 12, padding: '6px 12px', cursor: 'pointer', fontWeight: 500,
+              style={{ flexShrink: 0, borderRadius: 14, fontSize: 13, padding: '6px 12px', cursor: 'pointer', fontWeight: 500,
                 background: layers[key] ? '#00471b' : '#fff',
                 color: layers[key] ? '#fff' : '#111827',
                 border: layers[key] ? '1px solid #00471b' : '1px solid #e5e7eb' }}>
@@ -1455,7 +1455,7 @@ function FormCard({ runner: r, rank, onLogBet, isResulted, rc, isPro, onUpgrade,
           <span style={{ fontSize:13, fontWeight:500, color:'white', flexShrink:0, textDecoration: isDbScratched ? 'line-through' : 'none' }}>{r.name}</span>
           {isDbScratched && <span style={{ fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 3, background: '#dc2626', color: '#fff', flexShrink: 0 }}>SCR</span>}
           {bp && <span style={{ fontSize:11, color:'rgba(255,255,255,0.65)', flexShrink:0 }}>({bp})</span>}
-          {r.winJockBack && <span style={{ background:'rgba(251,191,36,0.25)', color:'#fcd34d', fontSize:8, fontWeight:700, padding:'1px 5px', borderRadius:3, flexShrink:0 }}>WJ BACK</span>}
+          {r.winJockBack && <span style={{ background:'rgba(251,191,36,0.25)', color:'#fcd34d', fontSize:9, fontWeight:700, padding:'3px 6px', borderRadius:3, flexShrink:0 }}>WJ BACK</span>}
           {(wt||allow) && <span style={{ fontSize:11, color:'rgba(255,255,255,0.75)', flexShrink:0 }}>{wt}{allow}</span>}
           {r.jname && <span style={{ fontSize:11, color:'rgba(255,255,255,0.75)', flexShrink:0 }}>· {jShort(r.jname)}</span>}
           {r.trainer && <span style={{ fontSize:11, color:'rgba(255,255,255,0.75)', flexShrink:0, overflow:'hidden', textOverflow:'ellipsis', maxWidth:140 }}>· {r.trainer}</span>}
@@ -1570,8 +1570,8 @@ function PaceMapView({ results, scratched, rc, trackCond, isPro, onUpgrade }) {
         <div style={{ position: 'absolute', inset: 0, zIndex: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(4px)', background: 'rgba(255,255,255,0.4)' }}>
           <div style={{ textAlign: 'center', padding: 24 }}>
             <i className="ti ti-lock" style={{ fontSize: 36, color: '#9ca3af', display: 'block', marginBottom: 12 }} />
-            <div style={{ fontSize: 14, fontWeight: 700, color: '#111827', marginBottom: 6 }}>Pace maps are a Pro feature</div>
-            <div style={{ fontSize: 12, color: '#6b7280', marginBottom: 16 }}>Upgrade to see the full pace analysis</div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: '#111827', marginBottom: 6 }}>Pace maps are a Pro feature</div>
+            <div style={{ fontSize: 11, color: '#6b7280', marginBottom: 16 }}>Upgrade to see the full pace analysis</div>
             <button onClick={onUpgrade} style={{ padding: '9px 22px', background: '#00471b', color: '#fff', border: 'none', borderRadius: 7, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
               Unlock with Pro
             </button>
@@ -1745,7 +1745,7 @@ function BlackbookModal({ target, onClose, userId }) {
   // Shared form body
   const bbBody = (
     <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 14 }}>
-      <div style={{ fontSize:14, fontWeight:600, color:'#111827', background:'#f9fafb', border:'1px solid #e5e7eb', borderRadius:6, padding:'7px 10px' }}>
+      <div style={{ fontSize:13, fontWeight:600, color:'#111827', background:'#f9fafb', border:'1px solid #e5e7eb', borderRadius:6, padding:'6px 10px' }}>
         {horseName}
         {(venue || raceNumber || distance || cls) && (
           <div style={{ fontSize:10, fontWeight:400, color:'#6b7280', marginTop:2 }}>
@@ -1756,7 +1756,7 @@ function BlackbookModal({ target, onClose, userId }) {
       <div>
         <label style={{ fontSize:10, fontWeight:600, color:'#9ca3af', textTransform:'uppercase', letterSpacing:'0.5px', display:'block', marginBottom:4 }}>Note</label>
         <textarea value={note} onChange={e => setNote(e.target.value)} rows={2} placeholder="Add a note…"
-          style={{ width:'100%', border:'1px solid #e5e7eb', borderRadius:6, padding:'6px 10px', fontSize:12, resize:'none', fontFamily:'inherit', boxSizing:'border-box' }} />
+          style={{ width:'100%', border:'1px solid #e5e7eb', borderRadius:6, padding:'5px 8px', fontSize:11, resize:'none', fontFamily:'inherit', boxSizing:'border-box' }} />
       </div>
       <div>
         <label style={{ fontSize:10, fontWeight:600, color:'#9ca3af', textTransform:'uppercase', letterSpacing:'0.5px', display:'block', marginBottom:6 }}>Tags</label>
@@ -1783,7 +1783,7 @@ function BlackbookModal({ target, onClose, userId }) {
       </div>
       <div style={{ display:'flex', gap:8, justifyContent: isMobile ? 'stretch' : 'flex-end' }}>
         {!isMobile && (
-          <button onClick={onClose} style={{ padding:'7px 16px', border:'1px solid #e5e7eb', borderRadius:6, background:'#fff', cursor:'pointer', fontSize:12, fontWeight:600, color:'#374151' }}>Cancel</button>
+          <button onClick={onClose} style={{ padding:'6px 12px', border:'1px solid #e5e7eb', borderRadius:6, background:'#fff', cursor:'pointer', fontSize:11, fontWeight:600, color:'#374151' }}>Cancel</button>
         )}
         <button onClick={handleSave} disabled={saving||saved}
           style={{ flex: isMobile ? 1 : undefined, padding:'11px 16px', border:'none', borderRadius:6, background:saved?'#059669':'#00471b', color:'#fff', cursor:saving||saved?'default':'pointer', fontSize:13, fontWeight:700 }}>
@@ -2099,7 +2099,7 @@ function RacesPageInner() {
                 <ViewTabBar view={view} setView={setView} runnerCount={results.length} />
                 {currentRaceResult && (
                   <div style={{ background:'#f0fdf4', borderBottom:'1px solid #86efac', padding:'5px 12px', display:'flex', alignItems:'center', gap:8 }}>
-                    <i className="ti ti-flag-check" style={{ color:'#16a34a', fontSize:14 }} />
+                    <i className="ti ti-flag-check" style={{ color:'#16a34a', fontSize:13 }} />
                     <span style={{ fontSize:11, fontWeight:600, color:'#065f46' }}>Race resulted</span>
                     <button onClick={() => setResultPopup(currentRaceResult)}
                       style={{ marginLeft:8, padding:'3px 10px', background:'#059669', color:'#fff', border:'none', borderRadius:5, fontSize:11, fontWeight:600, cursor:'pointer' }}>

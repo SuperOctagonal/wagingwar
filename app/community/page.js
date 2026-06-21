@@ -227,8 +227,8 @@ function ThreadView({ post, replies, onBack, onUpvotePost, onUpvoteReply, onAddR
         <div style={{ display: 'flex', borderBottom: '0.5px solid #e5e7eb' }}>
           <AuthorSidebar profile={post.author} />
           <div style={{ flex: 1, padding: '12px 14px' }}>
-            <div style={{ fontSize: 15, fontWeight: 700, color: '#111827', marginBottom: 8 }}>{post.title}</div>
-            <div style={{ fontSize: 12, color: '#374151', lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>{post.body}</div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: '#111827', marginBottom: 8 }}>{post.title}</div>
+            <div style={{ fontSize: 11, color: '#374151', lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>{post.body}</div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 10 }}>
               <button onClick={() => isPro ? onUpvotePost(post.id, post.votes, post.user_id) : onUpgrade()}
                 style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 11, fontWeight: 600, color: upvotedPosts?.has(post.id) ? '#fff' : '#374151', background: upvotedPosts?.has(post.id) ? '#00471b' : '#f3f4f6', border: 'none', borderRadius: 20, padding: '3px 10px', cursor: 'pointer' }}>
@@ -250,7 +250,7 @@ function ThreadView({ post, replies, onBack, onUpvotePost, onUpvoteReply, onAddR
           <div key={r.id} style={{ display: 'flex', borderBottom: '0.5px solid #f3f4f6' }}>
             <AuthorSidebar profile={r.author} />
             <div style={{ flex: 1, padding: '10px 14px' }}>
-              <div style={{ fontSize: 12, color: '#374151', lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>{r.content}</div>
+              <div style={{ fontSize: 11, color: '#374151', lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>{r.content}</div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 6 }}>
                 <button onClick={() => isPro ? onUpvoteReply(r.id, r.votes, r.clerk_id) : onUpgrade()}
                   style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 10, fontWeight: 600, color: upvotedReplies?.has(r.id) ? '#fff' : '#374151', background: upvotedReplies?.has(r.id) ? '#00471b' : '#f3f4f6', border: 'none', borderRadius: 20, padding: '2px 8px', cursor: 'pointer' }}>
@@ -274,7 +274,7 @@ function ThreadView({ post, replies, onBack, onUpvotePost, onUpvoteReply, onAddR
             <div style={{ fontSize: 11, color: '#9ca3af' }}>Sign in to reply.</div>
           ) : !isPro ? (
             <div style={{ background: '#f0fdf4', border: '1px solid #86efac', borderRadius: 8, padding: '10px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
-              <span style={{ fontSize: 12, color: '#374151' }}>Upgrade to Pro to join the conversation</span>
+              <span style={{ fontSize: 11, color: '#374151' }}>Upgrade to Pro to join the conversation</span>
               <button onClick={onUpgrade} style={{ fontSize: 11, fontWeight: 700, color: '#065f46', background: 'none', border: 'none', cursor: 'pointer', whiteSpace: 'nowrap', padding: 0, textDecoration: 'underline' }}>
                 Start free trial →
               </button>
@@ -286,10 +286,10 @@ function ThreadView({ post, replies, onBack, onUpvotePost, onUpvoteReply, onAddR
                 onChange={e => setReplyText(e.target.value)}
                 placeholder="Write a reply…"
                 rows={3}
-                style={{ width: '100%', border: '1px solid #e5e7eb', borderRadius: 6, padding: '8px 10px', fontSize: 12, resize: 'vertical', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' }}
+                style={{ width: '100%', border: '1px solid #e5e7eb', borderRadius: 6, padding: '5px 8px', fontSize: 11, resize: 'vertical', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' }}
               />
               <button onClick={handleReply} disabled={submitting || !replyText.trim()}
-                style={{ marginTop: 6, padding: '6px 18px', background: '#00471b', color: '#fff', border: 'none', borderRadius: 6, fontSize: 12, fontWeight: 700, cursor: 'pointer', opacity: submitting || !replyText.trim() ? 0.5 : 1 }}>
+                style={{ marginTop: 6, padding: '6px 12px', background: '#00471b', color: '#fff', border: 'none', borderRadius: 6, fontSize: 11, fontWeight: 700, cursor: 'pointer', opacity: submitting || !replyText.trim() ? 0.5 : 1 }}>
                 {submitting ? 'Posting…' : 'Post Reply'}
               </button>
             </>
@@ -344,7 +344,7 @@ function NewPostModal({ onClose, onPost, userId }) {
             <label style={{ display: 'block', fontSize: 9, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 5 }}>Title</label>
             <input value={title} onChange={e => setTitle(e.target.value)}
               placeholder="Post title…"
-              style={{ width: '100%', border: '1px solid #e5e7eb', borderRadius: 6, padding: '8px 10px', fontSize: 13, outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' }}
+              style={{ width: '100%', border: '1px solid #e5e7eb', borderRadius: 6, padding: '5px 8px', fontSize: 13, outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' }}
             />
           </div>
           <div style={{ marginBottom: 14 }}>
@@ -352,7 +352,7 @@ function NewPostModal({ onClose, onPost, userId }) {
             <textarea value={body} onChange={e => setBody(e.target.value)}
               placeholder="Write your post…"
               rows={5}
-              style={{ width: '100%', border: '1px solid #e5e7eb', borderRadius: 6, padding: '8px 10px', fontSize: 12, resize: 'vertical', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' }}
+              style={{ width: '100%', border: '1px solid #e5e7eb', borderRadius: 6, padding: '5px 8px', fontSize: 11, resize: 'vertical', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' }}
             />
           </div>
           <button onClick={handlePost} disabled={submitting || !title.trim() || !body.trim() || !userId}
@@ -666,7 +666,7 @@ function RanksModal({ onClose }) {
           ))}
           <div style={{ fontSize: 11, fontWeight: 700, color: '#374151', marginTop: 16, marginBottom: 10 }}>Rank Ladder — 262 Tiers</div>
           {ALL_TIERS.map((t, i) => (
-            <div key={t.num} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '3px 8px', borderBottom: i < ALL_TIERS.length - 1 ? '1px solid #f1f5f9' : 'none' }}>
+            <div key={t.num} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 8px', borderBottom: i < ALL_TIERS.length - 1 ? '1px solid #f1f5f9' : 'none' }}>
               <span style={{ fontSize: 9, fontWeight: 700, color: '#9ca3af', width: 22, textAlign: 'right', flexShrink: 0 }}>#{t.num}</span>
               <span style={{ fontSize: 10, color: '#374151', flex: 1 }}>{t.emoji} {t.name}</span>
               <span style={{ fontSize: 9, fontWeight: 700, color: t.color, flexShrink: 0 }}>{t.points.toLocaleString()}pts</span>
@@ -719,7 +719,7 @@ function LadderPage({ profile, onClose }) {
           style={{ background: 'none', border: 'none', color: '#fff', cursor: 'pointer', fontSize: 13, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 4, padding: 0 }}>
           ← Back
         </button>
-        <span style={{ fontSize: 14, fontWeight: 800, color: '#fff' }}>🏆 Race Rank Ladder</span>
+        <span style={{ fontSize: 13, fontWeight: 800, color: '#fff' }}>🏆 Race Rank Ladder</span>
       </div>
 
       <div style={{ maxWidth: 600, margin: '0 auto', padding: '16px 14px' }}>
@@ -729,7 +729,7 @@ function LadderPage({ profile, onClose }) {
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
             <div style={{ fontSize: 32 }}>{currentTier.emoji || '🏇'}</div>
             <div>
-              <div style={{ fontSize: 15, fontWeight: 800 }}>{currentTier.name}</div>
+              <div style={{ fontSize: 13, fontWeight: 800 }}>{currentTier.name}</div>
               <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.7)' }}>
                 Rank #{currentTier.num} of {totalTiers} · {pts.toLocaleString()} pts
               </div>
@@ -748,8 +748,8 @@ function LadderPage({ profile, onClose }) {
               { label: 'To Melbourne Cup',  val: `${Math.max(0, 365000 - pts).toLocaleString()} pts` },
             ].map(s => (
               <div key={s.label} style={{ background: 'rgba(255,255,255,0.12)', borderRadius: 6, padding: '8px 6px', textAlign: 'center' }}>
-                <div style={{ fontSize: 12, fontWeight: 800 }}>{s.val}</div>
-                <div style={{ fontSize: 8, color: 'rgba(255,255,255,0.6)', textTransform: 'uppercase', marginTop: 2 }}>{s.label}</div>
+                <div style={{ fontSize: 11, fontWeight: 800 }}>{s.val}</div>
+                <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.6)', textTransform: 'uppercase', marginTop: 2 }}>{s.label}</div>
               </div>
             ))}
           </div>
@@ -770,9 +770,9 @@ function LadderPage({ profile, onClose }) {
 
         {/* Next 20 ranks */}
         <div style={{ marginBottom: 14 }}>
-          <div style={{ fontSize: 12, fontWeight: 800, color: '#111827', marginBottom: 10 }}>Your Next 20 Ranks</div>
+          <div style={{ fontSize: 13, fontWeight: 800, color: '#111827', marginBottom: 10 }}>Your Next 20 Ranks</div>
           {next20.length === 0 && (
-            <div style={{ fontSize: 12, color: '#059669', fontWeight: 700, padding: 12, background: '#f0fdf4', borderRadius: 8 }}>
+            <div style={{ fontSize: 11, color: '#059669', fontWeight: 700, padding: 12, background: '#f0fdf4', borderRadius: 8 }}>
               🏆 You&apos;ve reached the top! Melbourne Cup achieved.
             </div>
           )}
@@ -801,7 +801,7 @@ function LadderPage({ profile, onClose }) {
 
         {/* Full ladder toggle */}
         <button onClick={() => setShowFull(f => !f)}
-          style={{ width: '100%', padding: '10px 0', background: '#f0fdf4', border: '1px solid #86efac', borderRadius: 8, fontSize: 12, fontWeight: 700, color: '#065f46', cursor: 'pointer', marginBottom: 14 }}>
+          style={{ width: '100%', padding: '10px 0', background: '#f0fdf4', border: '1px solid #86efac', borderRadius: 8, fontSize: 11, fontWeight: 700, color: '#065f46', cursor: 'pointer', marginBottom: 14 }}>
           {showFull ? '▲ Hide Full Ladder' : '▼ View Full 262-Race Ladder'}
         </button>
 
@@ -812,7 +812,7 @@ function LadderPage({ profile, onClose }) {
             <div key={t.num} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 10px', borderBottom: '0.5px solid #f1f5f9', background: isYou ? '#f0fdf4' : 'transparent' }}>
               <span style={{ fontSize: 9, fontWeight: 700, color: '#9ca3af', width: 24, textAlign: 'right', flexShrink: 0 }}>#{t.num}</span>
               <span style={{ fontSize: 10, color: '#374151', flex: 1 }}>{t.emoji} {t.name}</span>
-              {isYou && <span style={{ fontSize: 8, fontWeight: 800, color: '#fff', background: '#00471b', borderRadius: 3, padding: '1px 5px', flexShrink: 0 }}>YOU</span>}
+              {isYou && <span style={{ fontSize: 9, fontWeight: 800, color: '#fff', background: '#00471b', borderRadius: 3, padding: '1px 5px', flexShrink: 0 }}>YOU</span>}
               {!isYou && reached && <span style={{ fontSize: 11, flexShrink: 0 }}>✓</span>}
               {!isYou && !reached && <span style={{ fontSize: 11, flexShrink: 0, color: '#d1d5db' }}>🔒</span>}
               <span style={{ fontSize: 9, fontWeight: 700, color: t.color, flexShrink: 0 }}>{t.points.toLocaleString()}</span>
@@ -843,7 +843,7 @@ function LeftColumn({ profile, userId, section, onSection, missions, badges, onS
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
               <Avatar profile={profile} size={40} />
               <div>
-                <div style={{ fontSize: 12, fontWeight: 700, color: '#111827', marginBottom: 3 }}>{profile.display_name}</div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: '#111827', marginBottom: 3 }}>{profile.display_name}</div>
                 <button onClick={onShowLadder} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
                   <span style={{ fontSize: 9, fontWeight: 700, padding: '2px 6px', borderRadius: 3, background: `${tier.color}22`, color: tier.color }}>{tier.name}</span>
                 </button>
@@ -866,7 +866,7 @@ function LeftColumn({ profile, userId, section, onSection, missions, badges, onS
               ].map(s => (
                 <div key={s.label} style={{ background: '#f9fafb', borderRadius: 4, padding: '4px 6px', textAlign: 'center' }}>
                   <div style={{ fontSize: 11, fontWeight: 700, color: '#111827' }}>{s.val}</div>
-                  <div style={{ fontSize: 8, color: '#9ca3af', fontWeight: 700, textTransform: 'uppercase' }}>{s.label}</div>
+                  <div style={{ fontSize: 9, color: '#9ca3af', fontWeight: 700, textTransform: 'uppercase' }}>{s.label}</div>
                 </div>
               ))}
             </div>
@@ -877,7 +877,7 @@ function LeftColumn({ profile, userId, section, onSection, missions, badges, onS
             )}
             {badges.length > 0 && (
               <div style={{ marginTop: 8 }}>
-                <div style={{ fontSize: 8, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', marginBottom: 4 }}>Badges</div>
+                <div style={{ fontSize: 9, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', marginBottom: 4 }}>Badges</div>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 3 }}>
                   {badges.map(b => (
                     <span key={b.id} title={b.name} style={{ fontSize: 16, cursor: 'default' }}>{b.icon || '🏅'}</span>
@@ -895,7 +895,7 @@ function LeftColumn({ profile, userId, section, onSection, missions, badges, onS
 
       {/* Sections nav */}
       <div style={{ padding: '8px 0', borderBottom: '0.5px solid #e5e7eb' }}>
-        <div style={{ fontSize: 8, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', padding: '0 12px', marginBottom: 4 }}>Sections</div>
+        <div style={{ fontSize: 9, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', padding: '0 12px', marginBottom: 4 }}>Sections</div>
         {SECTIONS.map(s => {
           const active = section === s.id;
           const dot = s.id !== 'all' ? CAT[s.id]?.text : null;
@@ -922,7 +922,7 @@ function LeftColumn({ profile, userId, section, onSection, missions, badges, onS
       {/* Daily missions */}
       {missions.length > 0 && (
         <div style={{ padding: '10px 12px', borderBottom: '0.5px solid #e5e7eb' }}>
-          <div style={{ fontSize: 8, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', marginBottom: 6 }}>Daily Missions</div>
+          <div style={{ fontSize: 9, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', marginBottom: 6 }}>Daily Missions</div>
           {missions.map(m => {
             const pct = m.progress_max > 0 ? Math.min(100, Math.round((m.user_progress || 0) / m.progress_max * 100)) : (m.completed ? 100 : 0);
             return (
@@ -955,7 +955,7 @@ function LeftColumn({ profile, userId, section, onSection, missions, badges, onS
 
 function RightColumn({ leaderboard, contributors, stats }) {
   const Medal = ({ i }) => (
-    <span style={{ width: 16, height: 16, borderRadius: '50%', background: i===0?'#fbbf24':i===1?'#d1d5db':i===2?'#cd7f32':'#f3f4f6', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 8, fontWeight: 700, color: i<3?'#78350f':'#6b7280', flexShrink: 0 }}>
+    <span style={{ width: 16, height: 16, borderRadius: '50%', background: i===0?'#fbbf24':i===1?'#d1d5db':i===2?'#cd7f32':'#f3f4f6', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, fontWeight: 700, color: i<3?'#78350f':'#6b7280', flexShrink: 0 }}>
       {i + 1}
     </span>
   );
@@ -1002,7 +1002,7 @@ function RightColumn({ leaderboard, contributors, stats }) {
 
       {/* Promo */}
       <div style={{ background: 'linear-gradient(135deg, #00471b, #065f46)', borderRadius: 8, padding: 12 }}>
-        <div style={{ fontSize: 12, fontWeight: 700, color: '#fff', marginBottom: 4 }}>Waging War</div>
+        <div style={{ fontSize: 11, fontWeight: 700, color: '#fff', marginBottom: 4 }}>Waging War</div>
         <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.8)', lineHeight: 1.4, marginBottom: 8 }}>
           Australia&apos;s #1 race analysis platform. Beat the market every day.
         </div>
@@ -1258,9 +1258,9 @@ function CommunityPageInner() {
             <div style={{ fontSize: 10, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 10 }}>
               {sectionLabel}
             </div>
-            {loading && <div style={{ fontSize: 12, color: '#9ca3af', textAlign: 'center', padding: 24 }}>Loading…</div>}
+            {loading && <div style={{ fontSize: 11, color: '#9ca3af', textAlign: 'center', padding: 24 }}>Loading…</div>}
             {!loading && posts.length === 0 && (
-              <div style={{ fontSize: 12, color: '#9ca3af', textAlign: 'center', padding: 24 }}>No posts yet — be the first to post!</div>
+              <div style={{ fontSize: 11, color: '#9ca3af', textAlign: 'center', padding: 24 }}>No posts yet — be the first to post!</div>
             )}
             {posts.map((p, i) => {
               if (i === 0) console.log(`[Community] canDelete: userId=${userId} isAdmin=${isAdmin} postUserId=${p.user_id} match=${p.user_id === userId} canDelete=${isAdmin || p.user_id === userId}`);
