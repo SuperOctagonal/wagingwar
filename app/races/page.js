@@ -314,8 +314,6 @@ function RightRail({ allRaces, allVenues, selectedRaceKey, onSelect }) {
 
 const VIEW_TABS = [
   { id: 'field',       label: 'Field',         icon: 'ti-layout-list' },
-  { id: 'form',        label: 'Form',           icon: 'ti-horse-toy' },
-  { id: 'pacemap',     label: 'Pace Map',       icon: 'ti-map', premium: true },
   { id: 'sectionals',  label: 'Sectionals',     icon: 'ti-chart-line', locked: true },
   { id: 'compareodds', label: 'Compare Odds',   icon: 'ti-currency-dollar', locked: true },
 ];
@@ -2096,7 +2094,7 @@ function RacesPageInner() {
                 <RaceHeader rc={currentRace} trackCond={trackCond} setTrackCond={setTrackCond}
                   weights={weights} setWeights={setWeights} runnerCount={results.length}
                   onUpgrade={() => setUpgradeOpen(true)} />
-                <ViewTabBar view={view} setView={setView} runnerCount={results.length} />
+                <div className="hidden md:block"><ViewTabBar view={view} setView={setView} runnerCount={results.length} /></div>
                 {currentRaceResult && (
                   <div style={{ background:'#f0fdf4', borderBottom:'1px solid #86efac', padding:'5px 12px', display:'flex', alignItems:'center', gap:8 }}>
                     <i className="ti ti-flag-check" style={{ color:'#16a34a', fontSize:13 }} />
