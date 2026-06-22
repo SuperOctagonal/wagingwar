@@ -314,6 +314,8 @@ function RightRail({ allRaces, allVenues, selectedRaceKey, onSelect }) {
 
 const VIEW_TABS = [
   { id: 'field',       label: 'Field',         icon: 'ti-layout-list' },
+  { id: 'form',        label: 'Form',           icon: 'ti-horse-toy' },
+  { id: 'pacemap',     label: 'Pace Map',       icon: 'ti-map', premium: true },
   { id: 'sectionals',  label: 'Sectionals',     icon: 'ti-chart-line', locked: true },
   { id: 'compareodds', label: 'Compare Odds',   icon: 'ti-currency-dollar', locked: true },
 ];
