@@ -1027,116 +1027,133 @@ function MobileRunnerCard({ runner, rank, rc, trackCond, onLogBet, isResulted, i
     valColor = p >= 20 ? '#27500A' : p <= -20 ? '#A32D2D' : '#374151';
   }
 
-  return (
-    <div style={{ background: isDbScratched ? '#fafafa' : (rank===1 ? '#FAEEDA' : '#fff'), borderBottom: '1px solid #f1f5f9', padding: '8px 12px', opacity: isDbScratched ? 0.45 : 1 }}>
+  const rfs = runner.rfs || 0;
+  const prepCell1 = rfs >= 2
+    ? { label:'2nd-up', w:runner.prepRuns2W||0, p:runner.prepRuns2P||0, s:runner.prepRuns2S||0 }
+    : { label:'1st-up', w:runner.prepRuns1W||0, p:runner.prepRuns1P||0, s:runner.prepRuns1S||0 };
+  const prepCell2 = rfs >= 2
+    ? { label:'3rd-up', w:runner.prepRuns3W||0, p:runner.prepRuns3P||0, s:runner.prepRuns3S||0 }
+    : { label:'2nd-up', w:runner.prepRuns2W||0, p:runner.prepRuns2P||0, s:runner.prepRuns2S||0 };
 
-      {/* Row 1: tab badge + name + weight  |  right: Score / Live$ / Value% */}
-      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, marginBottom: 2 }}>
+  const statColor = (w, s) => { if (!s) return '#d1d5db'; const rv = w/s; return rv>=0.25?'#059669':rv>=0.12?'#d97706':'#374151'; };
+
+  return (
+    <div style={{ background: isDbScratched ? '#fafafa' : (rank===1 ? '#FAEEDA' : '#fff'), borderBottom: '1px solid #f1f5f9', padding: '6px 10px', opacity: isDbScratched ? 0.45 : 1 }}>
+
+      {/* Row 1: tab badge + name (weight moved down) | right: Score / Live$ / Value% */}
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 6, marginBottom: 3 }}>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
-            <span style={{ flexShrink: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 22, height: 22, borderRadius: 3, background: '#1e3a8a', color: '#fff', fontSize: 9, fontWeight: 700, fontFamily: 'monospace' }}>{runner.tab}</span>
-            <span style={{ fontWeight: 500, fontSize: 13, color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textDecoration: isDbScratched ? 'line-through' : 'none' }}>{runner.name}</span>
-            {isDbScratched && <span style={{ fontSize: 9, fontWeight: 700, padding: '2px 4px', borderRadius: 2, background: '#fef2f2', color: '#dc2626', border: '0.5px solid #fecaca', flexShrink: 0 }}>SCR</span>}
-            {wt && <span style={{ fontSize: 10, color: '#6b7280', flexShrink: 0 }}>{wt}</span>}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 2 }}>
+            <span style={{ flexShrink: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 20, height: 20, borderRadius: 2, background: '#1e3a8a', color: '#fff', fontSize: 8, fontWeight: 700, fontFamily: 'monospace' }}>{runner.tab}</span>
+            <span style={{ fontWeight: 500, fontSize: 12, color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textDecoration: isDbScratched ? 'line-through' : 'none' }}>{runner.name}</span>
+            {isDbScratched && <span style={{ fontSize: 8, fontWeight: 700, padding: '1px 3px', borderRadius: 2, background: '#fef2f2', color: '#dc2626', border: '0.5px solid #fecaca', flexShrink: 0 }}>SCR</span>}
           </div>
-          {/* Row 2: jockey · trainer */}
-          <div style={{ fontSize: 10, color: '#6b7280', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {[jShort(runner.jname), runner.trainer].filter(Boolean).join(' · ')}
+          {/* Row 2: jockey · trainer · weight */}
+          <div style={{ fontSize: 9, color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {[jShort(runner.jname), runner.trainer, wt].filter(Boolean).join(' · ')}
           </div>
         </div>
         {/* Right: Score / Live$ / Value% — always visible */}
-        <div style={{ flexShrink: 0, textAlign: 'right' }}>
-          <div style={{ fontSize: 11, fontWeight: 600, color: rankColor }}>
+        <div style={{ flexShrink: 0, textAlign: 'right', fontSize: 9, fontWeight: 600 }}>
+          <div style={{ color: rankColor, lineHeight: 1.3 }}>
             {!isPro ? <LockBtn onClick={onUpgrade} /> : runner.totalFromGroups.toFixed(1)}
           </div>
-          <div style={{ fontSize: 10, fontWeight: 500, color: '#111827' }}>{mktO ? `$${mktO.toFixed(2)}` : '—'}</div>
-          <div style={{ fontSize: 10, fontWeight: 500, color: valColor }}>{isPro ? valStr : '—'}</div>
+          <div style={{ color: '#111827', lineHeight: 1.3 }}>{mktO ? `$${mktO.toFixed(2)}` : '—'}</div>
+          <div style={{ color: valColor, lineHeight: 1.3 }}>{isPro ? valStr : '—'}</div>
         </div>
       </div>
 
-      {/* Form data — layers.form */}
-      {layers?.form && (
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, marginTop: 6, marginBottom: 6, fontSize: 9, color: '#6b7280' }}>
-          <div>
-            <div style={{ fontWeight: 700, color: '#111827', marginBottom: 1 }}>Career</div>
-            <div style={{ fontFamily: 'monospace', fontSize: 10 }}>{runner.starts}-{runner.wins}-{runner.seconds||0}-{runner.thirds||0}</div>
-            <div style={{ fontSize: 8, marginTop: 2, color: '#9ca3af' }}>W {Math.round((runner.wins||0)/(runner.starts||1)*100)}%</div>
-          </div>
-          <div>
-            <div style={{ fontWeight: 700, color: '#111827', marginBottom: 1 }}>Course/Dist</div>
-            <div style={{ fontFamily: 'monospace', fontSize: 10 }}>{(runner.courseStarts||0)}-{(runner.courseWins||0)}-{(runner.coursePlaces||0)}</div>
-            <div style={{ fontSize: 8, marginTop: 2, color: '#9ca3af' }}>W {runner.courseStarts ? Math.round((runner.courseWins||0)/(runner.courseStarts||1)*100) : '—'}%</div>
-          </div>
-          {pips.length > 0 && (
-            <div style={{ gridColumn: '1/-1', display: 'flex', gap: 2, alignItems: 'center' }}>
-              <span style={{ fontWeight: 700, color: '#111827', minWidth: 40 }}>Last 4</span>
-              {pips.map((v, i) => {
-                const n = +v;
-                const ps = n <= 3
-                  ? { background: '#639922', color: '#fff' }
-                  : n <= 6
-                    ? { background: '#FAC775', color: '#412402' }
-                    : { background: '#E24B4A', color: '#fff' };
-                return (
-                  <span key={i} style={{ width: 16, height: 16, borderRadius: '50%', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 8, fontWeight: 700, flexShrink: 0, ...ps }}>
-                    {n > 9 ? '0' : v}
-                  </span>
-                );
-              })}
-            </div>
-          )}
+      {/* Form blocks — Career, Course/Dist, Jockey/Trainer/Prep (always visible, not behind toggle) */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 5, marginBottom: 4, fontSize: 8, color: '#6b7280' }}>
+        <div>
+          <div style={{ fontWeight: 700, color: '#9ca3af', marginBottom: 1 }}>Career</div>
+          <div style={{ fontFamily: 'monospace', fontSize: 9, color: '#111827', fontWeight: 600 }}>{runner.starts}-{runner.wins}-{(runner.seconds||0)}-{(runner.thirds||0)}</div>
+          <div style={{ fontSize: 7, marginTop: 1, color: statColor((runner.wins||0), (runner.starts||0)) }}>W {Math.round((runner.wins||0)/(runner.starts||1)*100)}%</div>
         </div>
-      )}
+        <div>
+          <div style={{ fontWeight: 700, color: '#9ca3af', marginBottom: 1 }}>Course/Dist</div>
+          <div style={{ fontFamily: 'monospace', fontSize: 9, color: '#111827', fontWeight: 600 }}>{(runner.courseStarts||0)}-{(runner.courseWins||0)}-{(runner.coursePlaces||0)}</div>
+          <div style={{ fontSize: 7, marginTop: 1, color: statColor((runner.courseWins||0), (runner.courseStarts||0)) }}>W {runner.courseStarts ? Math.round((runner.courseWins||0)/(runner.courseStarts||1)*100) : '—'}%</div>
+        </div>
+        <div>
+          <div style={{ fontWeight: 700, color: '#9ca3af', marginBottom: 1 }}>Joc 12m</div>
+          <div style={{ fontFamily: 'monospace', fontSize: 9, color: '#111827', fontWeight: 600 }}>{(runner.jocLoc12mS||0)}-{(runner.jocLoc12mW||0)}-{(runner.jocLoc12mP||0)}</div>
+          <div style={{ fontSize: 7, marginTop: 1, color: statColor((runner.jocLoc12mW||0), (runner.jocLoc12mS||0)) }}>W {runner.jocLoc12mS ? Math.round((runner.jocLoc12mW||0)/(runner.jocLoc12mS)*100) : '—'}%</div>
+        </div>
+        <div>
+          <div style={{ fontWeight: 700, color: '#9ca3af', marginBottom: 1 }}>Trn 12m</div>
+          <div style={{ fontFamily: 'monospace', fontSize: 9, color: '#111827', fontWeight: 600 }}>{(runner.trnLoc12mS||0)}-{(runner.trnLoc12mW||0)}-{(runner.trnLoc12mP||0)}</div>
+          <div style={{ fontSize: 7, marginTop: 1, color: statColor((runner.trnLoc12mW||0), (runner.trnLoc12mS||0)) }}>W {runner.trnLoc12mS ? Math.round((runner.trnLoc12mW||0)/(runner.trnLoc12mS)*100) : '—'}%</div>
+        </div>
+        {pips.length > 0 && (
+          <div style={{ gridColumn: '1/-1', display: 'flex', gap: 2, alignItems: 'center', marginTop: 2 }}>
+            <span style={{ fontWeight: 700, color: '#9ca3af', minWidth: 32, fontSize: 8 }}>Last 4</span>
+            {pips.map((v, i) => {
+              const n = +v;
+              const ps = n <= 3
+                ? { background: '#639922', color: '#fff' }
+                : n <= 6
+                  ? { background: '#FAC775', color: '#412402' }
+                  : { background: '#E24B4A', color: '#fff' };
+              return (
+                <span key={i} style={{ width: 15, height: 15, borderRadius: '50%', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 7, fontWeight: 700, flexShrink: 0, ...ps }}>
+                  {n > 9 ? '0' : v}
+                </span>
+              );
+            })}
+          </div>
+        )}
+      </div>
 
       {/* Score breakdown — layers.scores */}
       {layers?.scores && isPro && runner.grpScores && (
-        <div style={{ fontSize: 9, color: '#6b7280', marginTop: 6, marginBottom: 6, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 4 }}>
-          <div><strong style={{ color: '#111827' }}>Form</strong> {runner.grpScores.form?.total?.toFixed(1) ?? '—'}</div>
-          <div><strong style={{ color: '#111827' }}>Speed</strong> {runner.grpScores.speed?.total?.toFixed(1) ?? '—'}</div>
-          <div><strong style={{ color: '#111827' }}>Cond</strong> {runner.grpScores.cond?.total?.toFixed(1) ?? '—'}</div>
-          <div><strong style={{ color: '#111827' }}>Conn</strong> {runner.grpScores.conn?.total?.toFixed(1) ?? '—'}</div>
+        <div style={{ fontSize: 8, color: '#6b7280', marginBottom: 4, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 4 }}>
+          <div><strong style={{ color: '#9ca3af' }}>Form</strong> <span style={{ color: '#111827', fontWeight: 600 }}>{runner.grpScores.form?.total?.toFixed(1) ?? '—'}</span></div>
+          <div><strong style={{ color: '#9ca3af' }}>Speed</strong> <span style={{ color: '#111827', fontWeight: 600 }}>{runner.grpScores.speed?.total?.toFixed(1) ?? '—'}</span></div>
+          <div><strong style={{ color: '#9ca3af' }}>Cond</strong> <span style={{ color: '#111827', fontWeight: 600 }}>{runner.grpScores.cond?.total?.toFixed(1) ?? '—'}</span></div>
+          <div><strong style={{ color: '#9ca3af' }}>Conn</strong> <span style={{ color: '#111827', fontWeight: 600 }}>{runner.grpScores.conn?.total?.toFixed(1) ?? '—'}</span></div>
         </div>
       )}
 
       {/* Pace colored segments — layers.pace */}
       {layers?.pace && pm && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 6, marginBottom: 6 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-            <div style={{ flex: 1, height: 8, borderRadius: 4, background: '#f3f4f6', overflow: 'hidden', position: 'relative' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 3, marginBottom: 4 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+            <div style={{ flex: 1, height: 12, borderRadius: 3, background: '#f3f4f6', overflow: 'hidden', position: 'relative' }}>
               <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: '20%', background: '#00b050' }} />
               <div style={{ position: 'absolute', left: '20%', top: 0, bottom: 0, width: '20%', background: '#7ec820' }} />
               <div style={{ position: 'absolute', left: '40%', top: 0, bottom: 0, width: '20%', background: '#ffc000' }} />
               <div style={{ position: 'absolute', left: '60%', top: 0, bottom: 0, width: '20%', background: '#ff8000' }} />
               <div style={{ position: 'absolute', left: '80%', top: 0, bottom: 0, width: '20%', background: '#dc3545' }} />
-              <div style={{ position: 'absolute', top: '50%', left: `${pm.pct}%`, transform: 'translate(-50%, -50%)', width: 10, height: 10, borderRadius: '50%', background: '#fff', border: '2px solid #111827', zIndex: 1 }} />
+              <div style={{ position: 'absolute', top: '50%', left: `${pm.pct}%`, transform: 'translate(-50%, -50%)', width: 9, height: 9, borderRadius: '50%', background: '#fff', border: '1.5px solid #111827', zIndex: 1 }} />
             </div>
-            <span style={{ fontSize: 9, fontWeight: 700, color: pm.color, minWidth: 50 }}>{pm.role}</span>
+            <span style={{ fontSize: 8, fontWeight: 700, color: pm.color, minWidth: 45 }}>{pm.role}</span>
           </div>
-          <div style={{ display: 'flex', gap: 4, fontSize: 8, color: '#9ca3af' }}>
+          <div style={{ display: 'flex', gap: 3, fontSize: 7, color: '#9ca3af' }}>
             {[['Lead','#00b050'],['Press','#7ec820'],['Mid','#ffc000'],['Close','#ff8000'],['Back','#dc3545']].map(([l,c]) => (
-              <span key={l} style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                <span style={{ width: 6, height: 6, borderRadius: '50%', background: c, flexShrink: 0 }} /> {l}
+              <span key={l} style={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                <span style={{ width: 5, height: 5, borderRadius: '50%', background: c, flexShrink: 0 }} /> {l}
               </span>
             ))}
           </div>
         </div>
       )}
 
-      {/* Bet + Blackbook */}
-      <div style={{ display: 'flex', gap: 6 }}>
+      {/* Buttons: Log Bet + Blackbook */}
+      <div style={{ display: 'flex', gap: 5 }}>
         <button
           onClick={() => !isResulted && onLogBet(runner, rank)}
           disabled={isResulted}
-          style={{ flex: 1, minHeight: 28, fontSize: 10, fontWeight: 600, border: '1px solid #e5e7eb', borderRadius: 5, background: isResulted ? '#f9fafb' : '#fff', color: isResulted ? '#9ca3af' : '#374151', cursor: isResulted ? 'default' : 'pointer', whiteSpace: 'nowrap' }}
+          style={{ flex: 1, minHeight: 26, fontSize: 9, fontWeight: 600, border: '1px solid #e5e7eb', borderRadius: 4, background: isResulted ? '#f9fafb' : '#fff', color: isResulted ? '#9ca3af' : '#374151', cursor: isResulted ? 'default' : 'pointer', whiteSpace: 'nowrap' }}
         >
-          {isResulted ? 'Resulted' : '+ Bet'}
+          {isResulted ? 'Resulted' : '+ Log'}
         </button>
         <button
           onClick={() => isPro
             ? window.__addToBlackbook?.({ name: runner.name, venue: rc?.venue || '', raceNumber: rc?.num || '', distance: rc?.dist || '', cls: rc?.cls || '' })
             : onUpgrade()
           }
-          style={{ minHeight: 28, padding: '0 8px', fontSize: 12, border: '1px solid #e5e7eb', borderRadius: 5, background: '#fff', color: '#374151', cursor: 'pointer', flexShrink: 0 }}
+          style={{ minHeight: 26, padding: '0 7px', fontSize: 11, border: '1px solid #e5e7eb', borderRadius: 4, background: '#fff', color: '#374151', cursor: 'pointer', flexShrink: 0 }}
           title="Add to Blackbook"
         >
           🔖
@@ -1322,9 +1339,9 @@ function FieldView({ results, scratched, rc, trackCond, onLogBet, onShowPopup, o
 
       {/* Mobile section */}
       <div className="md:hidden flex-1 flex flex-col overflow-hidden">
-        {/* Layer toggle pills */}
+        {/* Layer toggle pills (Form removed — now default) */}
         <div style={{ flexShrink: 0, display: 'flex', gap: 6, overflowX: 'auto', padding: '7px 10px', background: '#fff', borderBottom: '1px solid #e5e7eb' }}>
-          {[['form','Form'],['pace','Pace map'],['scores','Score breakdown'],['picks','Top picks']].map(([key, label]) => (
+          {[['pace','Pace map'],['scores','Score breakdown'],['picks','Top picks']].map(([key, label]) => (
             <button key={key} onClick={() => setLayers(l => ({ ...l, [key]: !l[key] }))}
               style={{ flexShrink: 0, borderRadius: 14, fontSize: 13, padding: '6px 12px', cursor: 'pointer', fontWeight: 500,
                 background: layers[key] ? '#00471b' : '#fff',
@@ -1368,11 +1385,11 @@ function FieldView({ results, scratched, rc, trackCond, onLogBet, onShowPopup, o
         })()}
 
         {/* Column headers */}
-        <div style={{ flexShrink: 0, display: 'flex', gap: 8, padding: '5px 12px', background: '#f9fafb', borderBottom: '1px solid #e5e7eb', fontSize: 9, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.3px' }}>
+        <div style={{ flexShrink: 0, display: 'flex', gap: 6, padding: '4px 10px', background: '#f9fafb', borderBottom: '1px solid #e5e7eb', fontSize: 8, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.3px', alignItems: 'center' }}>
           <div style={{ flex: 1 }}>Horse</div>
-          <div style={{ width: 50, textAlign: 'right' }}>Score</div>
-          <div style={{ width: 48, textAlign: 'right' }}>Live $</div>
-          <div style={{ width: 45, textAlign: 'right' }}>Value</div>
+          <div style={{ width: 45, textAlign: 'right', paddingRight: 2 }}>Score</div>
+          <div style={{ width: 42, textAlign: 'right', paddingRight: 2 }}>Live $</div>
+          <div style={{ width: 40, textAlign: 'right', paddingRight: 2 }}>Value</div>
         </div>
 
         {/* Scrollable runner cards */}
