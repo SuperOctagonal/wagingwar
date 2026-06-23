@@ -1055,7 +1055,7 @@ function MobileRunnerCard({ runner, rank, rc, trackCond, onLogBet, isResulted, i
   const bbPayload = { name: runner.name, venue: rc?.venue||'', raceNumber: rc?.num||'', distance: rc?.dist||'', cls: rc?.cls||'' };
 
   return (
-    <div style={{ background: isDbScratched ? '#fafafa' : (rank===1 ? '#FAEEDA' : '#fff'), borderBottom: '1px solid #f1f5f9', padding: '4px 10px 5px', opacity: isDbScratched ? 0.45 : 1 }}>
+    <div style={{ background: isDbScratched ? '#fafafa' : (rank===1 ? '#FAEEDA' : '#fff'), borderBottom: '1px solid #f1f5f9', padding: '4px 10px 5px', opacity: isDbScratched ? 0.45 : 1, overflow: 'hidden' }}>
 
       {/* Line 1: RNK (16) | NO/badge (16) | name (flex:1) | Score (32) | Live $ (38) | Val (28) — gap:5 mirrors column header */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 1 }}>
@@ -1085,7 +1085,12 @@ function MobileRunnerCard({ runner, rank, rc, trackCond, onLogBet, isResulted, i
         {[wt, jShort(runner.jname)].filter(Boolean).join(' · ')}
       </div>
 
-      {/* ── PILL LAYERS — insert in middle, between weight/jockey above and form/trainer/buttons below ── */}
+      {/* Last-4 runs · trainer — always position 3, never moves */}
+      <div style={{ paddingLeft: 42, fontSize: 9, color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: 1 }}>
+        {last4 && <span>{last4}</span>}{runner.trainer && <span style={{ color: '#6b7280' }}>{last4 ? ' · ' : ''}{runner.trainer}</span>}
+      </div>
+
+      {/* ── PILL LAYERS ── */}
 
       {/* FORM DETAIL (layers.form) */}
       {layers?.form && (() => {
@@ -1161,21 +1166,16 @@ function MobileRunnerCard({ runner, rank, rc, trackCond, onLogBet, isResulted, i
         </div>
       )}
 
-      {/* Bottom: last-4 · trainer | + Log bet + Blackbook */}
-      <div style={{ paddingLeft: 42, display: 'flex', alignItems: 'center', gap: 4 }}>
-        <div style={{ flex: 1, fontSize: 9, color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-          {last4 && <span>{last4}</span>}{runner.trainer && <span style={{ color: '#6b7280' }}>{last4 ? ' · ' : ''}{runner.trainer}</span>}
-        </div>
-        <div style={{ display: 'flex', gap: 3, flexShrink: 0 }}>
-          <button onClick={() => !isResulted && onLogBet(runner, rank)} disabled={isResulted}
-            style={{ fontSize: 7, fontWeight: 600, padding: '1px 5px', borderRadius: 7, border: '1px solid #e5e7eb', background: '#fff', color: isResulted ? '#9ca3af' : '#374151', cursor: isResulted ? 'default' : 'pointer', whiteSpace: 'nowrap' }}>
-            + Log bet
-          </button>
-          <button onClick={() => isPro ? window.__addToBlackbook?.(bbPayload) : onUpgrade()}
-            style={{ fontSize: 7, fontWeight: 600, padding: '1px 5px', borderRadius: 7, border: '1px solid #e5e7eb', background: '#fff', color: '#374151', cursor: 'pointer', whiteSpace: 'nowrap' }}>
-            🔖 Blackbook
-          </button>
-        </div>
+      {/* Buttons — always at very bottom, alone */}
+      <div style={{ paddingLeft: 42, display: 'flex', gap: 3, marginTop: 2 }}>
+        <button onClick={() => !isResulted && onLogBet(runner, rank)} disabled={isResulted}
+          style={{ fontSize: 7, fontWeight: 600, padding: '1px 5px', borderRadius: 7, border: '1px solid #e5e7eb', background: '#fff', color: isResulted ? '#9ca3af' : '#374151', cursor: isResulted ? 'default' : 'pointer', whiteSpace: 'nowrap' }}>
+          + Log bet
+        </button>
+        <button onClick={() => isPro ? window.__addToBlackbook?.(bbPayload) : onUpgrade()}
+          style={{ fontSize: 7, fontWeight: 600, padding: '1px 5px', borderRadius: 7, border: '1px solid #e5e7eb', background: '#fff', color: '#374151', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+          🔖 Blackbook
+        </button>
       </div>
     </div>
   );
@@ -1395,7 +1395,7 @@ function FieldView({ results, scratched, rc, trackCond, onLogBet, onShowPopup, o
         </div>
 
         {/* Scrollable runner cards */}
-        <div className="mob-page" style={{ flex: 1, overflowY: 'auto' }}>
+        <div className="mob-page" style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden' }}>
           {activeResults.map((r, i) => (
             <MobileRunnerCard key={r.tab || r.name} runner={r} rank={i+1} rc={rc} trackCond={trackCond}
               onLogBet={onLogBet} isResulted={isResulted} isPro={isPro} onUpgrade={onUpgrade} layers={layers} />

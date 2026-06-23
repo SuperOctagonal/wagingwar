@@ -18,6 +18,7 @@ export default function RootLayout({ children }) {
     <ClerkProvider>
       <html lang="en" className={`${spaceGrotesk.variable} ${bebasNeue.variable} ${jetbrainsMono.variable}`}>
         <head>
+          <meta name="format-detection" content="telephone=no, address=no, email=no" />
           <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css" />
         </head>
         <body className="font-space text-[13px] bg-slate-100 text-gray-900 h-full flex flex-col overflow-hidden">
