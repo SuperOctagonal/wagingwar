@@ -8,6 +8,10 @@ import useIsMobile from '@/hooks/useIsMobile';
 import UpgradeModal from '@/components/UpgradeModal';
 import { awardPoints } from '@/lib/points';
 import { parseCSV, buildRaces } from '@/lib/csvParser';
+import {
+  LineChart, Line, BarChart, Bar, PieChart, Pie, Cell,
+  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+} from 'recharts';
 
 const SURL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SKEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -343,6 +347,8 @@ export default function MybetsPage() {
   const [resultSpMap,      setResultSpMap]      = useState({});
 
   const [betView,          setBetView]          = useState('table');
+  const [mainTab,          setMainTab]          = useState('ledger');
+  const [chartType,        setChartType]        = useState('outcome');
   const [refreshing,       setRefreshing]       = useState(false);
   const [racePopup,        setRacePopup]        = useState(null);
   const [racePopupData,    setRacePopupData]    = useState([]);
@@ -713,16 +719,31 @@ export default function MybetsPage() {
       {/* ── Main content ── */}
       <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: '#f3f4f6' }}>
 
-        {/* View toggle */}
-        <div style={{ display:'flex', gap:6, padding:'8px 12px', background:'#fff', borderBottom:'1px solid #e5e7eb', flexShrink:0 }}>
-          {[['table','Table'],['terminal','Terminal'],['sessions','Sessions'],['kanban','Kanban']].map(([v,l]) => (
-            <button key={v} onClick={() => setBetView(v)}
-              style={{ padding:'4px 12px', borderRadius:5, fontSize:11, fontWeight:700, cursor:'pointer', border:'none',
-                background: betView===v ? '#00471b' : '#f3f4f6', color: betView===v ? '#fff' : '#374151' }}>
-              {l}
-            </button>
-          ))}
+        {/* Top-level tabs: Ledger | Charts */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', background: '#fff', borderBottom: '1px solid #e5e7eb', flexShrink: 0, gap: 8 }}>
+          <div style={{ display: 'flex', gap: 4 }}>
+            {[['ledger', 'Ledger'], ['charts', 'Charts']].map(([v, l]) => (
+              <button key={v} onClick={() => setMainTab(v)}
+                style={{ padding: '4px 14px', borderRadius: 5, fontSize: 11, fontWeight: 700, cursor: 'pointer', border: 'none',
+                  background: mainTab === v ? '#00471b' : '#f3f4f6', color: mainTab === v ? '#fff' : '#374151' }}>
+                {l}
+              </button>
+            ))}
+          </div>
+          {mainTab === 'ledger' && (
+            <div style={{ display: 'flex', gap: 4 }}>
+              {[['table', 'Table'], ['terminal', 'Terminal'], ['sessions', 'Sessions'], ['kanban', 'Kanban']].map(([v, l]) => (
+                <button key={v} onClick={() => setBetView(v)}
+                  style={{ padding: '3px 10px', borderRadius: 5, fontSize: 10, fontWeight: 600, cursor: 'pointer', border: 'none',
+                    background: betView === v ? '#374151' : '#f3f4f6', color: betView === v ? '#fff' : '#6b7280' }}>
+                  {l}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
+
+        {mainTab === 'ledger' && (<>
 
         {/* ── Hybrid table view ── */}
         {betView === 'table' && (
@@ -735,7 +756,7 @@ export default function MybetsPage() {
             {(() => {
               const at = statsRows.find(r => r.label === 'All time') || {};
               const pnl = at.pnl;
-              const pnlColor = pnl === null ? '#9ca3af' : pnl >= 0 ? '#4ade80' : '#f87171';
+              const pnlColor = pnl === null ? '#9ca3af' : pnl >= 0 ? '#059669' : '#dc2626';
               const sorted = [...resultedBets].sort((a, b) => (a.date < b.date ? -1 : 1));
               let cum = 0;
               const pts = sorted.map(b => { cum += (b.profit_loss || 0); return cum; });
@@ -747,21 +768,21 @@ export default function MybetsPage() {
                 polyline = pts.map((v, i) => `${(i / (pts.length - 1)) * W},${H - ((v - minV) / range) * H}`).join(' ');
               }
               return (
-                <div style={{ flexShrink: 0, background: '#0B1F14', padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 14, borderBottom: '1px solid #1a3a25' }}>
+                <div style={{ flexShrink: 0, background: '#fff', padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 14, borderBottom: '1px solid #e5e7eb' }}>
                   <div>
-                    <div style={{ fontSize: 8, fontWeight: 700, color: '#4ade80', textTransform: 'uppercase', letterSpacing: '.08em', marginBottom: 2 }}>All-Time P&L</div>
+                    <div style={{ fontSize: 8, fontWeight: 700, color: '#059669', textTransform: 'uppercase', letterSpacing: '.08em', marginBottom: 2 }}>All-Time P&L</div>
                     <div style={{ fontSize: 26, fontWeight: 800, fontFamily: 'monospace', color: pnlColor, lineHeight: 1 }}>
                       {pnl === null ? '—' : (pnl >= 0 ? '+$' : '-$') + Math.abs(pnl).toFixed(2)}
                     </div>
                   </div>
                   <div style={{ display: 'flex', gap: 10 }}>
                     {[
-                      { label: 'ROI', value: at.roi || '—', color: parseFloat(at.roi) > 0 ? '#4ade80' : parseFloat(at.roi) < 0 ? '#f87171' : '#6b7280' },
-                      { label: 'Strike', value: at.strike || '—', color: '#e5e7eb' },
-                      { label: 'Bets', value: resultedBets.length || 0, color: '#e5e7eb' },
+                      { label: 'ROI', value: at.roi || '—', color: parseFloat(at.roi) > 0 ? '#059669' : parseFloat(at.roi) < 0 ? '#dc2626' : '#6b7280' },
+                      { label: 'Strike', value: at.strike || '—', color: '#374151' },
+                      { label: 'Bets', value: resultedBets.length || 0, color: '#374151' },
                     ].map(({ label, value, color }) => (
                       <div key={label} style={{ textAlign: 'center' }}>
-                        <div style={{ fontSize: 8, color: '#4b6858', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 2 }}>{label}</div>
+                        <div style={{ fontSize: 8, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 2 }}>{label}</div>
                         <div style={{ fontSize: 12, fontWeight: 700, fontFamily: 'monospace', color }}>{value}</div>
                       </div>
                     ))}
@@ -769,7 +790,7 @@ export default function MybetsPage() {
                   {pts.length > 1 && (
                     <div style={{ marginLeft: 'auto' }}>
                       <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} style={{ display: 'block' }}>
-                        <polyline points={polyline} fill="none" stroke={pnl >= 0 ? '#4ade80' : '#f87171'} strokeWidth={1.5} strokeLinejoin="round" strokeLinecap="round" />
+                        <polyline points={polyline} fill="none" stroke={pnl >= 0 ? '#059669' : '#dc2626'} strokeWidth={1.5} strokeLinejoin="round" strokeLinecap="round" />
                       </svg>
                     </div>
                   )}
@@ -899,80 +920,6 @@ export default function MybetsPage() {
 
           {/* ── RIGHT: Insights panel ── */}
           <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden', background: '#f9fafb' }}>
-
-            {/* 30-day heatmap */}
-            {(() => {
-              const days = Array.from({ length: 30 }, (_, i) => {
-                const d = new Date(todayISO + 'T00:00:00');
-                d.setDate(d.getDate() - (29 - i));
-                return d.toISOString().slice(0, 10);
-              });
-              const byDay = {};
-              resultedBets.forEach(b => { if (!byDay[b.date]) byDay[b.date] = 0; byDay[b.date] += (b.profit_loss || 0); });
-              return (
-                <div style={{ flexShrink: 0, background: '#fff', borderBottom: '1px solid #e5e7eb', padding: '10px 12px' }}>
-                  <div style={{ fontSize: 9, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 6 }}>30-Day Form</div>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(10, 1fr)', gap: 2 }}>
-                    {days.map(iso => {
-                      const pnl = byDay[iso];
-                      const hasBets = pnl !== undefined;
-                      const bg = !hasBets ? '#f3f4f6' : pnl > 0 ? '#bbf7d0' : pnl < 0 ? '#fecaca' : '#e5e7eb';
-                      return <div key={iso} title={hasBets ? `${iso}: ${pnl >= 0 ? '+' : ''}$${pnl.toFixed(2)}` : iso} style={{ height: 14, borderRadius: 2, background: bg }} />;
-                    })}
-                  </div>
-                  <div style={{ display: 'flex', gap: 8, marginTop: 5, fontSize: 8, color: '#9ca3af', alignItems: 'center' }}>
-                    {[['#bbf7d0','Profit'],['#fecaca','Loss'],['#f3f4f6','No bets']].map(([bg, label]) => (
-                      <span key={label} style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>
-                        <span style={{ width: 8, height: 8, background: bg, borderRadius: 1, display: 'inline-block' }} />{label}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              );
-            })()}
-
-            {/* Today's story */}
-            {(() => {
-              const todayBets = bets.filter(b => b.date === todayISO);
-              const todayResulted = todayBets.filter(b => b.status && b.status !== 'pending');
-              const todayPnl = todayResulted.reduce((s, b) => s + (b.profit_loss || 0), 0);
-              return (
-                <div style={{ flexShrink: 0, background: '#fff', borderBottom: '1px solid #e5e7eb', padding: '10px 12px', maxHeight: 160, overflowY: 'auto' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-                    <div style={{ fontSize: 9, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '.06em' }}>Today</div>
-                    {todayResulted.length > 0 && (
-                      <span style={{ fontSize: 10, fontWeight: 700, color: todayPnl >= 0 ? '#15803d' : '#dc2626' }}>
-                        {todayPnl >= 0 ? '+$' : '-$'}{Math.abs(todayPnl).toFixed(2)}
-                      </span>
-                    )}
-                  </div>
-                  {todayBets.length === 0 ? (
-                    <div style={{ fontSize: 10, color: '#9ca3af', textAlign: 'center', padding: '6px 0' }}>No bets today</div>
-                  ) : (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                      {todayBets.map(b => {
-                        const status = b.status || 'pending';
-                        const isPending = !b.status || b.status === 'pending';
-                        const hasPnl = b.profit_loss !== null && b.profit_loss !== undefined;
-                        const pnl = hasPnl ? b.profit_loss : null;
-                        const dotColor = status === 'win' ? '#22c55e' : status === 'loss' ? '#ef4444' : status === 'place' ? '#3b82f6' : '#f97316';
-                        return (
-                          <div key={b.id} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 10 }}>
-                            <div style={{ width: 6, height: 6, borderRadius: '50%', background: dotColor, flexShrink: 0 }} />
-                            <span style={{ fontWeight: 600, color: '#111827', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b.horse_name}</span>
-                            <span style={{ color: '#9ca3af', fontSize: 9 }}>{(b.track || b.venue || '').toUpperCase()} R{b.race_number ?? b.race_num}</span>
-                            {isPending
-                              ? <span style={{ fontSize: 9, color: '#f97316' }}>Pending</span>
-                              : <span style={{ fontSize: 10, fontWeight: 700, color: pnl !== null && pnl >= 0 ? '#15803d' : '#dc2626' }}>{pnl !== null ? (pnl >= 0 ? '+$' : '-$') + Math.abs(pnl).toFixed(2) : status.toUpperCase()}</span>
-                            }
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              );
-            })()}
 
             {/* Edge zone */}
             <div style={{ flex: 1, overflowY: 'auto', background: '#fff', padding: '10px 12px' }}>
@@ -1151,6 +1098,247 @@ export default function MybetsPage() {
                   </div>
                 );
               })}
+            </div>
+          </div>
+        )}
+
+        </>)}
+
+        {mainTab === 'charts' && (
+          <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+            {/* Chart type pills */}
+            <div style={{ flexShrink: 0, padding: '8px 12px', background: '#fff', borderBottom: '1px solid #e5e7eb', display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+              {[
+                ['outcome',    'Outcome Split'],
+                ['cumulative', 'Cumulative P&L'],
+                ['odds',       'By Odds Range'],
+                ['venue',      'By Venue'],
+                ['condition',  'By Condition'],
+                ['rank',       'By Model Rank'],
+                ['streak',     'Form Streak'],
+              ].map(([v, l]) => (
+                <button key={v} onClick={() => setChartType(v)}
+                  style={{ padding: '3px 10px', borderRadius: 4, fontSize: 10, fontWeight: 600, cursor: 'pointer', border: 'none',
+                    background: chartType === v ? '#00471b' : '#f3f4f6', color: chartType === v ? '#fff' : '#6b7280' }}>
+                  {l}
+                </button>
+              ))}
+            </div>
+
+            {/* Chart card */}
+            <div style={{ flex: 1, overflowY: 'auto', padding: 16, background: '#f9fafb', display: 'flex', justifyContent: 'center', alignItems: 'flex-start' }}>
+              <div style={{ background: '#fff', borderRadius: 10, border: '1px solid #e5e7eb', padding: '16px 20px', width: '100%', maxWidth: 720 }}>
+                {(() => {
+                  const CG = '#1D9E75', CR = '#E24B4A', CB = '#3b82f6';
+                  const MIN_SAMPLE = 5;
+
+                  if (resultedBets.length === 0) {
+                    return <div style={{ padding: 40, textAlign: 'center', color: '#9ca3af', fontSize: 12 }}>No resulted bets to chart yet</div>;
+                  }
+
+                  const calcGroupData = arr => {
+                    const settled = arr.filter(b => b.status && b.status !== 'pending' && b.status !== 'scratched');
+                    const wins = settled.filter(b => b.status === 'win').length;
+                    const staked = settled.reduce((s, b) => s + (b.stake || 0), 0);
+                    const ret = settled.reduce((s, b) => s + (b.return_amt || 0), 0);
+                    const pnl = ret - staked;
+                    const roi = staked > 0 ? Math.round((pnl / staked * 100) * 10) / 10 : 0;
+                    return { bets: settled.length, wins, pnl: Math.round(pnl * 100) / 100, roi, staked, smallSample: settled.length < MIN_SAMPLE };
+                  };
+
+                  /* ── 1. Outcome split (doughnut) ── */
+                  if (chartType === 'outcome') {
+                    const wins = resultedBets.filter(b => b.status === 'win').length;
+                    const places = resultedBets.filter(b => b.status === 'place').length;
+                    const losses = resultedBets.filter(b => b.status === 'loss').length;
+                    const data = [{ name: 'Win', value: wins, color: CG }, { name: 'Place', value: places, color: CB }, { name: 'Loss', value: losses, color: CR }].filter(d => d.value > 0);
+                    return (
+                      <>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: '#374151', marginBottom: 12 }}>Outcome Split</div>
+                        <ResponsiveContainer width="100%" height={220}>
+                          <PieChart role="img" aria-label="Bet outcome split: win, place, loss">
+                            <Pie data={data} innerRadius={60} outerRadius={90} paddingAngle={3} dataKey="value">
+                              {data.map((d, i) => <Cell key={i} fill={d.color} />)}
+                            </Pie>
+                            <Tooltip formatter={(v, n) => [v, n]} />
+                          </PieChart>
+                        </ResponsiveContainer>
+                        <div style={{ display: 'flex', gap: 16, justifyContent: 'center', marginTop: 8 }}>
+                          {data.map(d => (
+                            <span key={d.name} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11 }}>
+                              <span style={{ width: 10, height: 10, borderRadius: 2, background: d.color, display: 'inline-block' }} />
+                              <span style={{ color: '#374151' }}>{d.name}</span>
+                              <span style={{ fontWeight: 700, color: '#111827' }}>{d.value}</span>
+                            </span>
+                          ))}
+                        </div>
+                      </>
+                    );
+                  }
+
+                  /* ── 2. Cumulative P&L (line) ── */
+                  if (chartType === 'cumulative') {
+                    const sorted = [...resultedBets].sort((a, b) => a.date < b.date ? -1 : 1);
+                    let cum = 0;
+                    const data = sorted.map((b, i) => { cum += (b.profit_loss || 0); return { i: i + 1, pnl: Math.round(cum * 100) / 100, label: b.date?.slice(5).replace('-', '/') }; });
+                    const finalPnl = data.length ? data[data.length - 1].pnl : 0;
+                    return (
+                      <>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: '#374151', marginBottom: 12 }}>Cumulative P&L</div>
+                        <ResponsiveContainer width="100%" height={220} role="img" aria-label="Cumulative profit and loss over time">
+                          <LineChart data={data} margin={{ top: 4, right: 8, bottom: 0, left: 0 }}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
+                            <XAxis dataKey="label" tick={{ fontSize: 9, fill: '#9ca3af' }} interval="preserveStartEnd" />
+                            <YAxis tick={{ fontSize: 9, fill: '#9ca3af' }} tickFormatter={v => `$${v}`} />
+                            <Tooltip formatter={v => [`$${v}`, 'P&L']} />
+                            <Line type="monotone" dataKey="pnl" stroke={finalPnl >= 0 ? CG : CR} strokeWidth={2} dot={false} />
+                          </LineChart>
+                        </ResponsiveContainer>
+                      </>
+                    );
+                  }
+
+                  /* ── 3. By odds range (bar ROI%) ── */
+                  if (chartType === 'odds') {
+                    const bands = [['$1–$2', 1, 2], ['$2–$4', 2, 4], ['$4–$8', 4, 8], ['$8+', 8, Infinity]];
+                    const data = bands.map(([label, lo, hi]) => { const arr = resultedBets.filter(b => { const o = +(b.odds || 0); return o >= lo && o < hi; }); return { label, ...calcGroupData(arr) }; });
+                    return (
+                      <>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: '#374151', marginBottom: 12 }}>ROI by Odds Range</div>
+                        <ResponsiveContainer width="100%" height={220} role="img" aria-label="ROI percentage by odds range">
+                          <BarChart data={data} margin={{ top: 4, right: 8, bottom: 0, left: 0 }}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
+                            <XAxis dataKey="label" tick={{ fontSize: 10, fill: '#6b7280' }} />
+                            <YAxis tick={{ fontSize: 9, fill: '#9ca3af' }} tickFormatter={v => `${v}%`} />
+                            <Tooltip formatter={(v, n, p) => p.payload.smallSample ? ['< 5 bets', 'Small sample'] : [`${v}%`, 'ROI']} />
+                            <Bar dataKey="roi" radius={[3, 3, 0, 0]}>
+                              {data.map((d, i) => <Cell key={i} fill={d.smallSample ? '#d1d5db' : d.roi >= 0 ? CG : CR} />)}
+                            </Bar>
+                          </BarChart>
+                        </ResponsiveContainer>
+                        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 8, fontSize: 10, color: '#6b7280' }}>
+                          {data.filter(d => d.bets > 0).map(d => (
+                            <span key={d.label}><b>{d.label}</b> {d.bets}b · {d.smallSample ? <span style={{ color: '#9ca3af' }}>small sample</span> : <span style={{ color: d.roi >= 0 ? CG : CR, fontWeight: 700 }}>{d.roi >= 0 ? '+' : ''}{d.roi}%</span>}</span>
+                          ))}
+                        </div>
+                      </>
+                    );
+                  }
+
+                  /* ── 4. By venue (bar total P&L) ── */
+                  if (chartType === 'venue') {
+                    const venueMap = {};
+                    resultedBets.forEach(b => { const v = b.track || b.venue || 'Unknown'; if (!venueMap[v]) venueMap[v] = []; venueMap[v].push(b); });
+                    const data = Object.entries(venueMap).map(([label, arr]) => ({ label, ...calcGroupData(arr) })).sort((a, b) => b.bets - a.bets);
+                    return (
+                      <>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: '#374151', marginBottom: 12 }}>P&L by Venue</div>
+                        <ResponsiveContainer width="100%" height={220} role="img" aria-label="Total profit and loss by venue">
+                          <BarChart data={data} margin={{ top: 4, right: 8, bottom: 24, left: 0 }}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
+                            <XAxis dataKey="label" tick={{ fontSize: 9, fill: '#6b7280' }} angle={-30} textAnchor="end" interval={0} />
+                            <YAxis tick={{ fontSize: 9, fill: '#9ca3af' }} tickFormatter={v => `$${v}`} />
+                            <Tooltip formatter={(v, n, p) => p.payload.smallSample ? ['< 5 bets', 'P&L'] : [`$${v}`, 'P&L']} />
+                            <Bar dataKey="pnl" radius={[3, 3, 0, 0]}>
+                              {data.map((d, i) => <Cell key={i} fill={d.smallSample ? '#d1d5db' : d.pnl >= 0 ? CG : CR} />)}
+                            </Bar>
+                          </BarChart>
+                        </ResponsiveContainer>
+                        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 8, fontSize: 10, color: '#6b7280' }}>
+                          {data.filter(d => d.bets > 0).map(d => (
+                            <span key={d.label}><b>{d.label}</b> {d.bets}b · {d.smallSample ? <span style={{ color: '#9ca3af' }}>small sample</span> : <span style={{ color: d.pnl >= 0 ? CG : CR, fontWeight: 700 }}>{d.pnl >= 0 ? '+$' : '-$'}{Math.abs(d.pnl).toFixed(0)}</span>}</span>
+                          ))}
+                        </div>
+                      </>
+                    );
+                  }
+
+                  /* ── 5. By condition (bar ROI%) ── */
+                  if (chartType === 'condition') {
+                    const condMap = {};
+                    resultedBets.forEach(b => { const c = b.condition || 'Unknown'; if (!condMap[c]) condMap[c] = []; condMap[c].push(b); });
+                    const data = Object.entries(condMap).map(([label, arr]) => ({ label, ...calcGroupData(arr) })).sort((a, b) => b.bets - a.bets);
+                    return (
+                      <>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: '#374151', marginBottom: 12 }}>ROI by Track Condition</div>
+                        <ResponsiveContainer width="100%" height={220} role="img" aria-label="ROI by track condition">
+                          <BarChart data={data} margin={{ top: 4, right: 8, bottom: 0, left: 0 }}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
+                            <XAxis dataKey="label" tick={{ fontSize: 10, fill: '#6b7280' }} />
+                            <YAxis tick={{ fontSize: 9, fill: '#9ca3af' }} tickFormatter={v => `${v}%`} />
+                            <Tooltip formatter={(v, n, p) => p.payload.smallSample ? ['< 5 bets', 'Small sample'] : [`${v}%`, 'ROI']} />
+                            <Bar dataKey="roi" radius={[3, 3, 0, 0]}>
+                              {data.map((d, i) => <Cell key={i} fill={d.smallSample ? '#d1d5db' : d.roi >= 0 ? CG : CR} />)}
+                            </Bar>
+                          </BarChart>
+                        </ResponsiveContainer>
+                        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 8, fontSize: 10, color: '#6b7280' }}>
+                          {data.filter(d => d.bets > 0).map(d => (
+                            <span key={d.label}><b>{d.label}</b> {d.bets}b · {d.smallSample ? <span style={{ color: '#9ca3af' }}>small sample</span> : <span style={{ color: d.roi >= 0 ? CG : CR, fontWeight: 700 }}>{d.roi >= 0 ? '+' : ''}{d.roi}%</span>}</span>
+                          ))}
+                        </div>
+                      </>
+                    );
+                  }
+
+                  /* ── 6. By model rank (bar ROI%) ── */
+                  if (chartType === 'rank') {
+                    const bands = [['R1', 1, 1], ['R2', 2, 2], ['R3', 3, 3], ['R4+', 4, 9999]];
+                    const data = bands.map(([label, lo, hi]) => { const arr = resultedBets.filter(b => b.rank >= lo && b.rank <= hi); return { label, ...calcGroupData(arr) }; });
+                    return (
+                      <>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: '#374151', marginBottom: 12 }}>ROI by Model Rank</div>
+                        <ResponsiveContainer width="100%" height={220} role="img" aria-label="ROI by model rank">
+                          <BarChart data={data} margin={{ top: 4, right: 8, bottom: 0, left: 0 }}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
+                            <XAxis dataKey="label" tick={{ fontSize: 10, fill: '#6b7280' }} />
+                            <YAxis tick={{ fontSize: 9, fill: '#9ca3af' }} tickFormatter={v => `${v}%`} />
+                            <Tooltip formatter={(v, n, p) => p.payload.smallSample ? ['< 5 bets', 'Small sample'] : [`${v}%`, 'ROI']} />
+                            <Bar dataKey="roi" radius={[3, 3, 0, 0]}>
+                              {data.map((d, i) => <Cell key={i} fill={d.smallSample ? '#d1d5db' : d.roi >= 0 ? CG : CR} />)}
+                            </Bar>
+                          </BarChart>
+                        </ResponsiveContainer>
+                        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 8, fontSize: 10, color: '#6b7280' }}>
+                          {data.filter(d => d.bets > 0).map(d => (
+                            <span key={d.label}><b>{d.label}</b> {d.bets}b · {d.smallSample ? <span style={{ color: '#9ca3af' }}>small sample</span> : <span style={{ color: d.roi >= 0 ? CG : CR, fontWeight: 700 }}>{d.roi >= 0 ? '+' : ''}{d.roi}%</span>}</span>
+                          ))}
+                        </div>
+                      </>
+                    );
+                  }
+
+                  /* ── 7. Form streak (bar, most recent 40) ── */
+                  if (chartType === 'streak') {
+                    const recent = [...resultedBets].sort((a, b) => b.date < a.date ? -1 : 1).slice(0, 40).reverse();
+                    const data = recent.map((b, i) => ({ i: i + 1, val: b.status === 'win' ? 1 : b.status === 'place' ? 0.5 : -1, status: b.status, horse: b.horse_name }));
+                    return (
+                      <>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: '#374151', marginBottom: 12 }}>Form Streak (recent {data.length} bets, oldest → newest)</div>
+                        <ResponsiveContainer width="100%" height={180} role="img" aria-label="Recent form streak">
+                          <BarChart data={data} margin={{ top: 4, right: 8, bottom: 0, left: 0 }}>
+                            <XAxis hide />
+                            <YAxis domain={[-1.1, 1.1]} tick={{ fontSize: 9, fill: '#9ca3af' }} tickFormatter={v => v === 1 ? 'W' : v === 0.5 ? 'P' : v === -1 ? 'L' : ''} ticks={[-1, 0, 0.5, 1]} />
+                            <Tooltip formatter={(v, n, p) => [p.payload.horse, (p.payload.status || '').toUpperCase()]} />
+                            <Bar dataKey="val" radius={[2, 2, 0, 0]}>
+                              {data.map((d, i) => <Cell key={i} fill={d.val === 1 ? CG : d.val === 0.5 ? CB : CR} />)}
+                            </Bar>
+                          </BarChart>
+                        </ResponsiveContainer>
+                        <div style={{ display: 'flex', gap: 12, justifyContent: 'center', marginTop: 6, fontSize: 10, color: '#6b7280' }}>
+                          {[['Win', CG], ['Place', CB], ['Loss', CR]].map(([l, c]) => (
+                            <span key={l} style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                              <span style={{ width: 8, height: 8, background: c, borderRadius: 1, display: 'inline-block' }} />{l}
+                            </span>
+                          ))}
+                        </div>
+                      </>
+                    );
+                  }
+
+                  return null;
+                })()}
+              </div>
             </div>
           </div>
         )}
