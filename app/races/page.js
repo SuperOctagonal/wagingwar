@@ -1055,7 +1055,7 @@ function MobileRunnerCard({ runner, rank, rc, trackCond, onLogBet, isResulted, i
   const bbPayload = { name: runner.name, venue: rc?.venue||'', raceNumber: rc?.num||'', distance: rc?.dist||'', cls: rc?.cls||'' };
 
   return (
-    <div style={{ background: isDbScratched ? '#fafafa' : (rank===1 ? '#FAEEDA' : '#fff'), borderBottom: '1px solid #f1f5f9', padding: '4px 10px 5px', opacity: isDbScratched ? 0.45 : 1, overflow: 'hidden' }}>
+    <div style={{ background: isDbScratched ? '#fafafa' : (rank===1 ? '#FAEEDA' : '#fff'), borderBottom: '1px solid #f1f5f9', padding: '4px 6px 5px 10px', opacity: isDbScratched ? 0.45 : 1, overflow: 'hidden' }}>
 
       {/* Line 1: RNK (16) | NO/badge (16) | name (flex:1) | Score (32) | Live $ (38) | Val (28) — gap:5 mirrors column header */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 1 }}>
@@ -1066,11 +1066,11 @@ function MobileRunnerCard({ runner, rank, rc, trackCond, onLogBet, isResulted, i
         <span style={{ flex: 1, fontWeight: 500, fontSize: 11, color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textDecoration: isDbScratched ? 'line-through' : 'none' }}>
           {runner.name}{isDbScratched && <span style={{ marginLeft: 4, fontSize: 8, fontWeight: 700, background: '#fef2f2', color: '#dc2626', padding: '0 3px', borderRadius: 2 }}>SCR</span>}
         </span>
-        <div style={{ flexShrink: 0, width: 32, textAlign: 'right', fontSize: 12, fontWeight: 600, color: '#111827' }}>
+        <div style={{ flexShrink: 0, width: 36, textAlign: 'right', fontSize: 13, fontWeight: 600, color: '#111827' }}>
           {!isPro ? <LockBtn onClick={onUpgrade} /> : runner.totalFromGroups.toFixed(1)}
         </div>
-        <div style={{ flexShrink: 0, width: 38, textAlign: 'right', fontSize: 11, fontWeight: 600, color: '#111827' }}>{mktO ? `$${mktO.toFixed(2)}` : '—'}</div>
-        <div style={{ flexShrink: 0, width: 28, textAlign: 'right', fontSize: 10, fontWeight: 500, color: valColor }}>{isPro ? valStr : '—'}</div>
+        <div style={{ flexShrink: 0, width: 42, textAlign: 'right', fontSize: 12, fontWeight: 600, color: '#111827' }}>{mktO ? `$${mktO.toFixed(2)}` : '—'}</div>
+        <div style={{ flexShrink: 0, width: 32, textAlign: 'right', fontSize: 11, fontWeight: 500, color: valColor }}>{isPro ? valStr : '—'}</div>
       </div>
 
       {/* Career record — 42px indent = 16(RNK)+5(gap)+16(NO)+5(gap) */}
@@ -1083,6 +1083,23 @@ function MobileRunnerCard({ runner, rank, rc, trackCond, onLogBet, isResulted, i
       {/* Weight · jockey */}
       <div style={{ paddingLeft: 42, fontSize: 9, color: '#111827', marginBottom: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
         {[wt, jShort(runner.jname)].filter(Boolean).join(' · ')}
+      </div>
+
+      {/* Last-4 · trainer + buttons — same line, buttons right-aligned */}
+      <div style={{ paddingLeft: 42, display: 'flex', alignItems: 'center', gap: 4, marginTop: 2 }}>
+        <div style={{ flex: 1, fontSize: 9, color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {last4 && <span>{last4}</span>}{runner.trainer && <span style={{ color: '#6b7280' }}>{last4 ? ' · ' : ''}{runner.trainer}</span>}
+        </div>
+        <div style={{ display: 'flex', gap: 3, flexShrink: 0 }}>
+          <button onClick={() => !isResulted && onLogBet(runner, rank)} disabled={isResulted}
+            style={{ fontSize: 8, fontWeight: 600, padding: '2px 6px', borderRadius: 7, border: '1px solid #e5e7eb', background: '#fff', color: isResulted ? '#9ca3af' : '#374151', cursor: isResulted ? 'default' : 'pointer', whiteSpace: 'nowrap' }}>
+            + Log bet
+          </button>
+          <button onClick={() => isPro ? window.__addToBlackbook?.(bbPayload) : onUpgrade()}
+            style={{ fontSize: 8, fontWeight: 600, padding: '2px 6px', borderRadius: 7, border: '1px solid #e5e7eb', background: '#fff', color: '#374151', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+            🔖 Blackbook
+          </button>
+        </div>
       </div>
 
       {/* ── PILL LAYERS ── */}
@@ -1161,22 +1178,6 @@ function MobileRunnerCard({ runner, rank, rc, trackCond, onLogBet, isResulted, i
         </div>
       )}
 
-      {/* Last-4 · trainer + buttons — same line, buttons right-aligned */}
-      <div style={{ paddingLeft: 42, display: 'flex', alignItems: 'center', gap: 4, marginTop: 2 }}>
-        <div style={{ flex: 1, fontSize: 9, color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-          {last4 && <span>{last4}</span>}{runner.trainer && <span style={{ color: '#6b7280' }}>{last4 ? ' · ' : ''}{runner.trainer}</span>}
-        </div>
-        <div style={{ display: 'flex', gap: 3, flexShrink: 0 }}>
-          <button onClick={() => !isResulted && onLogBet(runner, rank)} disabled={isResulted}
-            style={{ fontSize: 8, fontWeight: 600, padding: '2px 6px', borderRadius: 7, border: '1px solid #e5e7eb', background: '#fff', color: isResulted ? '#9ca3af' : '#374151', cursor: isResulted ? 'default' : 'pointer', whiteSpace: 'nowrap' }}>
-            + Log bet
-          </button>
-          <button onClick={() => isPro ? window.__addToBlackbook?.(bbPayload) : onUpgrade()}
-            style={{ fontSize: 8, fontWeight: 600, padding: '2px 6px', borderRadius: 7, border: '1px solid #e5e7eb', background: '#fff', color: '#374151', cursor: 'pointer', whiteSpace: 'nowrap' }}>
-            🔖 Blackbook
-          </button>
-        </div>
-      </div>
     </div>
   );
 }
@@ -1384,14 +1385,14 @@ function FieldView({ results, scratched, rc, trackCond, onLogBet, onShowPopup, o
           </div>
         )}
 
-        {/* Column headers — gap:5, pad:10px — mirrors card line 1 exactly */}
-        <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 5, padding: '4px 10px', background: '#f9fafb', borderBottom: '1px solid #e5e7eb', fontSize: 8, fontWeight: 500, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.3px' }}>
+        {/* Column headers — gap:5, pad:10px left/6px right — mirrors card line 1 exactly */}
+        <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 5, padding: '4px 6px 4px 10px', background: '#f9fafb', borderBottom: '1px solid #e5e7eb', fontSize: 8, fontWeight: 500, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.3px' }}>
           <div style={{ flexShrink: 0, width: 16, textAlign: 'center' }}>RNK</div>
           <div style={{ flexShrink: 0, width: 16, textAlign: 'center' }}>NO</div>
           <div style={{ flex: 1 }}>Horse</div>
-          <div style={{ flexShrink: 0, width: 32, textAlign: 'right' }}>Score</div>
-          <div style={{ flexShrink: 0, width: 38, textAlign: 'right' }}>Live $</div>
-          <div style={{ flexShrink: 0, width: 28, textAlign: 'right' }}>Val</div>
+          <div style={{ flexShrink: 0, width: 36, textAlign: 'right' }}>Score</div>
+          <div style={{ flexShrink: 0, width: 42, textAlign: 'right' }}>Live $</div>
+          <div style={{ flexShrink: 0, width: 32, textAlign: 'right' }}>Val</div>
         </div>
 
         {/* Scrollable runner cards */}
