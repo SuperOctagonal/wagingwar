@@ -1085,11 +1085,6 @@ function MobileRunnerCard({ runner, rank, rc, trackCond, onLogBet, isResulted, i
         {[wt, jShort(runner.jname)].filter(Boolean).join(' · ')}
       </div>
 
-      {/* Last-4 runs · trainer — always position 3, never moves */}
-      <div style={{ paddingLeft: 42, fontSize: 9, color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: 1 }}>
-        {last4 && <span>{last4}</span>}{runner.trainer && <span style={{ color: '#6b7280' }}>{last4 ? ' · ' : ''}{runner.trainer}</span>}
-      </div>
-
       {/* ── PILL LAYERS ── */}
 
       {/* FORM DETAIL (layers.form) */}
@@ -1166,16 +1161,21 @@ function MobileRunnerCard({ runner, rank, rc, trackCond, onLogBet, isResulted, i
         </div>
       )}
 
-      {/* Buttons — always at very bottom, right-aligned */}
-      <div style={{ paddingLeft: 42, display: 'flex', justifyContent: 'flex-end', gap: 3, marginTop: 2 }}>
-        <button onClick={() => !isResulted && onLogBet(runner, rank)} disabled={isResulted}
-          style={{ fontSize: 8, fontWeight: 600, padding: '2px 6px', borderRadius: 7, border: '1px solid #e5e7eb', background: '#fff', color: isResulted ? '#9ca3af' : '#374151', cursor: isResulted ? 'default' : 'pointer', whiteSpace: 'nowrap' }}>
-          + Log bet
-        </button>
-        <button onClick={() => isPro ? window.__addToBlackbook?.(bbPayload) : onUpgrade()}
-          style={{ fontSize: 8, fontWeight: 600, padding: '2px 6px', borderRadius: 7, border: '1px solid #e5e7eb', background: '#fff', color: '#374151', cursor: 'pointer', whiteSpace: 'nowrap' }}>
-          🔖 Blackbook
-        </button>
+      {/* Last-4 · trainer + buttons — same line, buttons right-aligned */}
+      <div style={{ paddingLeft: 42, display: 'flex', alignItems: 'center', gap: 4, marginTop: 2 }}>
+        <div style={{ flex: 1, fontSize: 9, color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {last4 && <span>{last4}</span>}{runner.trainer && <span style={{ color: '#6b7280' }}>{last4 ? ' · ' : ''}{runner.trainer}</span>}
+        </div>
+        <div style={{ display: 'flex', gap: 3, flexShrink: 0 }}>
+          <button onClick={() => !isResulted && onLogBet(runner, rank)} disabled={isResulted}
+            style={{ fontSize: 8, fontWeight: 600, padding: '2px 6px', borderRadius: 7, border: '1px solid #e5e7eb', background: '#fff', color: isResulted ? '#9ca3af' : '#374151', cursor: isResulted ? 'default' : 'pointer', whiteSpace: 'nowrap' }}>
+            + Log bet
+          </button>
+          <button onClick={() => isPro ? window.__addToBlackbook?.(bbPayload) : onUpgrade()}
+            style={{ fontSize: 8, fontWeight: 600, padding: '2px 6px', borderRadius: 7, border: '1px solid #e5e7eb', background: '#fff', color: '#374151', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+            🔖 Blackbook
+          </button>
+        </div>
       </div>
     </div>
   );
