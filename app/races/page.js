@@ -975,7 +975,7 @@ function MobileRacePicker({ allVenues, allRaces, selectedRaceKey, onSelect }) {
   return (
     <div className="md:hidden" style={{ background: '#fff', flexShrink: 0, position: 'relative', borderBottom: '1px solid #e5e7eb' }}>
       {/* Track switcher header */}
-      <div style={{ fontSize: 8, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.3px', padding: '4px 12px 0' }}>Select Meeting</div>
+      <div style={{ fontSize: 8, fontWeight: 700, color: '#111827', textTransform: 'uppercase', letterSpacing: '0.3px', padding: '4px 12px 0' }}>Select Meeting</div>
       <div style={{ display: 'flex', alignItems: 'center', overflow: 'hidden' }}>
         <button
           onClick={() => setTrackOpen(o => !o)}
@@ -1166,14 +1166,14 @@ function MobileRunnerCard({ runner, rank, rc, trackCond, onLogBet, isResulted, i
         </div>
       )}
 
-      {/* Buttons — always at very bottom, alone */}
-      <div style={{ paddingLeft: 42, display: 'flex', gap: 3, marginTop: 2 }}>
+      {/* Buttons — always at very bottom, right-aligned */}
+      <div style={{ paddingLeft: 42, display: 'flex', justifyContent: 'flex-end', gap: 3, marginTop: 2 }}>
         <button onClick={() => !isResulted && onLogBet(runner, rank)} disabled={isResulted}
-          style={{ fontSize: 7, fontWeight: 600, padding: '1px 5px', borderRadius: 7, border: '1px solid #e5e7eb', background: '#fff', color: isResulted ? '#9ca3af' : '#374151', cursor: isResulted ? 'default' : 'pointer', whiteSpace: 'nowrap' }}>
+          style={{ fontSize: 8, fontWeight: 600, padding: '2px 6px', borderRadius: 7, border: '1px solid #e5e7eb', background: '#fff', color: isResulted ? '#9ca3af' : '#374151', cursor: isResulted ? 'default' : 'pointer', whiteSpace: 'nowrap' }}>
           + Log bet
         </button>
         <button onClick={() => isPro ? window.__addToBlackbook?.(bbPayload) : onUpgrade()}
-          style={{ fontSize: 7, fontWeight: 600, padding: '1px 5px', borderRadius: 7, border: '1px solid #e5e7eb', background: '#fff', color: '#374151', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+          style={{ fontSize: 8, fontWeight: 600, padding: '2px 6px', borderRadius: 7, border: '1px solid #e5e7eb', background: '#fff', color: '#374151', cursor: 'pointer', whiteSpace: 'nowrap' }}>
           🔖 Blackbook
         </button>
       </div>
