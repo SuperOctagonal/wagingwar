@@ -474,7 +474,7 @@ function WeightsPanel({ weights, setWeights, onUpgrade }) {
           <button
             onClick={() => setOpenGrp(openGrp === grp.key ? null : grp.key)}
             className="w-full flex items-center justify-between text-[10px] font-semibold py-1 px-1.5 rounded hover:bg-gray-50 transition-colors"
-            style={{ color: grp.color }}
+            style={{ color: '#111827' }}
           >
             <div className="flex items-center gap-1.5">
               <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: grp.color }} />
