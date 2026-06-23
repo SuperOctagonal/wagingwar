@@ -355,7 +355,6 @@ function RaceCountdown({ rc }) {
   useEffect(() => {
     function compute() {
       const raceAt = parseRaceTime(rc.time, rc.date);
-      console.log('[RaceCountdown]', rc.venue, 'R' + rc.num, '| time:', rc.time, '| date:', rc.date, '| raceAt:', raceAt?.toLocaleTimeString(), '| secsLeft:', raceAt ? Math.floor((raceAt.getTime() - Date.now()) / 1000) : null);
       if (!raceAt) { setSecsLeft(null); return; }
       setSecsLeft(Math.floor((raceAt.getTime() - Date.now()) / 1000));
     }
@@ -364,11 +363,18 @@ function RaceCountdown({ rc }) {
     return () => clearInterval(id);
   }, [rc.time, rc.date, rc.venue, rc.num]);
 
-  if (secsLeft === null) return null;
-
-  if (secsLeft < 0) {
+  if (secsLeft === null) {
     return (
-      <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded bg-gray-200 text-gray-700">
+      <>
+        {rc.time && <span style={{ fontSize: 10, color: '#111827' }}>{rc.time}</span>}
+        {rc.date && <span style={{ fontSize: 10, color: '#111827' }}>{rc.date}</span>}
+      </>
+    );
+  }
+
+  if (secsLeft <= 0) {
+    return (
+      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 10, fontWeight: 700, color: '#A32D2D' }}>
         <i className="ti ti-clock" style={{ fontSize: 9 }} />
         Passed
       </span>
@@ -378,11 +384,10 @@ function RaceCountdown({ rc }) {
   const h = Math.floor(secsLeft / 3600);
   const mins = Math.floor((secsLeft % 3600) / 60);
   const s = secsLeft % 60;
-  const isUrgent = secsLeft < 300;
-  const label = h > 0 ? `${h}h ${mins}m` : isUrgent ? `${mins}m ${s}s` : `${mins}m`;
+  const label = h > 0 ? `${h}h ${mins}m` : secsLeft < 300 ? `${mins}m ${s}s` : `${mins}m`;
 
   return (
-    <span className={`inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded${isUrgent ? ' bg-red-50 text-red-600 animate-pulse' : ' bg-sky-50 text-sky-700'}`}>
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 10, fontWeight: 700, color: '#00471b' }}>
       <i className="ti ti-clock" style={{ fontSize: 9 }} />
       {label}
     </span>
@@ -406,8 +411,6 @@ function RaceHeader({ rc, trackCond, setTrackCond, weights, setWeights, runnerCo
           {rc.dist && <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700">{rc.dist}m</span>}
           {rc.cls  && <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-gray-100 text-gray-600">{rc.cls}</span>}
           {rc.prize && <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-gray-100 text-gray-500">${rc.prize}</span>}
-          {rc.time  && <span style={{ fontSize: 10, color: '#111827' }}>{rc.time}</span>}
-          {rc.date  && <span style={{ fontSize: 10, color: '#111827' }}>{rc.date}</span>}
           <RaceCountdown rc={rc} />
         </div>
       </div>
@@ -458,6 +461,57 @@ function WeightsPanel({ weights, setWeights, onUpgrade }) {
   const [openGrp, setOpenGrp] = useState(null);
   const ref = useRef(null);
   const isPro = useIsPro();
+  const isMobile = useIsMobile();
+
+  const panelInner = (
+    <>
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-[10px] font-bold text-gray-700">Factor Weights</span>
+        <button onClick={() => setOpen(false)} className="text-gray-400 hover:text-gray-600"><i className="ti ti-x text-xs" /></button>
+      </div>
+      {FACTOR_GROUPS_DEF.map(grp => (
+        <div key={grp.key} className="mb-1.5">
+          <button
+            onClick={() => setOpenGrp(openGrp === grp.key ? null : grp.key)}
+            className="w-full flex items-center justify-between text-[10px] font-semibold py-1 px-1.5 rounded hover:bg-gray-50 transition-colors"
+            style={{ color: grp.color }}
+          >
+            <div className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: grp.color }} />
+              {grp.label}
+              <span className="text-gray-400 font-normal ml-1">
+                ({grp.factors.reduce((s,f) => s + (weights[f.key] ?? 10), 0)})
+              </span>
+            </div>
+            <i className={`ti ti-chevron-${openGrp === grp.key ? 'up' : 'down'} text-xs text-gray-400`} />
+          </button>
+          {openGrp === grp.key && (
+            <div className="pl-3 pr-1 pb-1 space-y-1.5 mt-1">
+              {grp.factors.map(fd => (
+                <div key={fd.key}>
+                  <div className="flex justify-between text-[9px] text-gray-500 mb-0.5">
+                    <span>{fd.label}</span>
+                    <span className="font-semibold" style={{ color: grp.color }}>{weights[fd.key] ?? 10}</span>
+                  </div>
+                  <input type="range" min={0} max={10} step={1}
+                    value={weights[fd.key] ?? 10}
+                    onChange={e => setWeights(w => ({ ...w, [fd.key]: +e.target.value }))}
+                    className="w-full h-1 rounded-full appearance-none cursor-pointer accent-brand"
+                  />
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      ))}
+      <div className="mt-2 pt-2 border-t border-gray-100 flex justify-between text-[9px] text-gray-400">
+        <span>Total weight</span>
+        <span className="font-semibold text-gray-600">
+          {FACTORS.filter(f => !f.scoreZero).reduce((s,f) => s + (weights[f.key]??10), 0)} / {FACTORS.filter(f=>!f.scoreZero).length * 10}
+        </span>
+      </div>
+    </>
+  );
 
   return (
     <div className="relative" ref={ref}>
@@ -466,53 +520,17 @@ function WeightsPanel({ weights, setWeights, onUpgrade }) {
         <i className="ti ti-adjustments text-sm" />
         Weights
       </button>
-      {open && (
+      {open && isMobile && (
+        <>
+          <div style={{ position: 'fixed', inset: 0, zIndex: 39, background: 'rgba(0,0,0,0.3)' }} onClick={() => setOpen(false)} />
+          <div style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', zIndex: 40, background: '#fff', border: '1px solid #e5e7eb', borderRadius: 12, boxShadow: '0 4px 24px rgba(0,0,0,0.18)', width: 280, padding: 12, maxHeight: '80vh', overflowY: 'auto' }}>
+            {panelInner}
+          </div>
+        </>
+      )}
+      {open && !isMobile && (
         <div className="absolute top-full right-0 mt-1 z-40 bg-white border border-gray-200 rounded-xl shadow-xl w-64 p-3">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-[10px] font-bold text-gray-700">Factor Weights</span>
-            <button onClick={() => setOpen(false)} className="text-gray-400 hover:text-gray-600"><i className="ti ti-x text-xs" /></button>
-          </div>
-          {FACTOR_GROUPS_DEF.map(grp => (
-            <div key={grp.key} className="mb-1.5">
-              <button
-                onClick={() => setOpenGrp(openGrp === grp.key ? null : grp.key)}
-                className="w-full flex items-center justify-between text-[10px] font-semibold py-1 px-1.5 rounded hover:bg-gray-50 transition-colors"
-                style={{ color: grp.color }}
-              >
-                <div className="flex items-center gap-1.5">
-                  <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: grp.color }} />
-                  {grp.label}
-                  <span className="text-gray-400 font-normal ml-1">
-                    ({grp.factors.reduce((s,f) => s + (weights[f.key] ?? 10), 0)})
-                  </span>
-                </div>
-                <i className={`ti ti-chevron-${openGrp === grp.key ? 'up' : 'down'} text-xs text-gray-400`} />
-              </button>
-              {openGrp === grp.key && (
-                <div className="pl-3 pr-1 pb-1 space-y-1.5 mt-1">
-                  {grp.factors.map(fd => (
-                    <div key={fd.key}>
-                      <div className="flex justify-between text-[9px] text-gray-500 mb-0.5">
-                        <span>{fd.label}</span>
-                        <span className="font-semibold" style={{ color: grp.color }}>{weights[fd.key] ?? 10}</span>
-                      </div>
-                      <input type="range" min={0} max={10} step={1}
-                        value={weights[fd.key] ?? 10}
-                        onChange={e => setWeights(w => ({ ...w, [fd.key]: +e.target.value }))}
-                        className="w-full h-1 rounded-full appearance-none cursor-pointer accent-brand"
-                      />
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          ))}
-          <div className="mt-2 pt-2 border-t border-gray-100 flex justify-between text-[9px] text-gray-400">
-            <span>Total weight</span>
-            <span className="font-semibold text-gray-600">
-              {FACTORS.filter(f => !f.scoreZero).reduce((s,f) => s + (weights[f.key]??10), 0)} / {FACTORS.filter(f=>!f.scoreZero).length * 10}
-            </span>
-          </div>
+          {panelInner}
         </div>
       )}
     </div>
