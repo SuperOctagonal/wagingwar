@@ -496,7 +496,8 @@ function WeightsPanel({ weights, setWeights, onUpgrade }) {
                   <input type="range" min={0} max={10} step={1}
                     value={weights[fd.key] ?? 10}
                     onChange={e => setWeights(w => ({ ...w, [fd.key]: +e.target.value }))}
-                    className="w-full h-1 rounded-full appearance-none cursor-pointer accent-brand"
+                    className="w-full ww-slider appearance-none cursor-pointer"
+                    style={{ background: `linear-gradient(to right, #00471b 0%, #00471b ${(weights[fd.key] ?? 10) * 10}%, #e5e7eb ${(weights[fd.key] ?? 10) * 10}%, #e5e7eb 100%)` }}
                   />
                 </div>
               ))}
