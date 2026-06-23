@@ -1083,7 +1083,7 @@ function MobileRunnerCard({ runner, rank, rc, trackCond, onLogBet, isResulted, i
         </div>
         <span style={{ flexShrink: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 16, height: 16, borderRadius: 4, background: '#1e3a8a', color: '#fff', fontSize: 9, fontWeight: 700, fontFamily: 'monospace', lineHeight: 1 }}>{runner.tab}</span>
         <span style={{ flex: 1, fontWeight: 500, fontSize: 11, color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textDecoration: isDbScratched ? 'line-through' : 'none' }}>
-          {runner.name}{isDbScratched && <span style={{ marginLeft: 4, fontSize: 8, fontWeight: 700, background: '#fef2f2', color: '#dc2626', padding: '0 3px', borderRadius: 2 }}>SCR</span>}
+          {runner.name}{runner['BP'] ? <span style={{ color: '#6b7280', fontSize: 9, fontWeight: 400 }}> ({runner['BP']})</span> : null}{isDbScratched && <span style={{ marginLeft: 4, fontSize: 8, fontWeight: 700, background: '#fef2f2', color: '#dc2626', padding: '0 3px', borderRadius: 2 }}>SCR</span>}
         </span>
         <div style={{ flexShrink: 0, width: 36, textAlign: 'right', fontSize: 13, fontWeight: 600, color: '#111827' }}>
           {!isPro ? <LockBtn onClick={onUpgrade} /> : runner.totalFromGroups.toFixed(1)}
@@ -1323,6 +1323,10 @@ function FieldView({ results, scratched, rc, trackCond, onLogBet, onShowPopup, o
   const activeResults = results.filter(h => !scratchingsSet.has(scrKey(h)));
   const dbScratched   = results.filter(h =>  scratchingsSet.has(scrKey(h)));
   const [layers, setLayers] = useState({ form: false, pace: false, scores: false, picks: false });
+  const mobRankMap = new Map(activeResults.map((r, i) => [r.tab || r.name, i + 1]));
+  const mobDisplayResults = layers.pace
+    ? [...activeResults].sort((a, b) => (+a['BP'] || +a.tab || 99) - (+b['BP'] || +b.tab || 99))
+    : activeResults;
   const th = { background: '#f8fafc', color: '#374151', letterSpacing: '0.5px', position: 'sticky', top: 0, zIndex: 1, padding: '4px 6px', fontSize: 9, fontWeight: 700, textTransform: 'uppercase', lineHeight: '1.3', borderBottom: '1px solid #e5e7eb' };
   return (
     <>
@@ -1408,7 +1412,10 @@ function FieldView({ results, scratched, rc, trackCond, onLogBet, onShowPopup, o
         <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 5, padding: '4px 6px 4px 10px', background: '#f9fafb', borderBottom: '1px solid #e5e7eb', fontSize: 8, fontWeight: 500, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.3px' }}>
           <div style={{ flexShrink: 0, width: 16, textAlign: 'center' }}>RNK</div>
           <div style={{ flexShrink: 0, width: 16, textAlign: 'center' }}>NO</div>
-          <div style={{ flex: 1 }}>Horse</div>
+          <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 4 }}>
+            <span>Horse</span>
+            {layers.pace && <span style={{ fontSize: 10, fontWeight: 400, color: '#6b7280', textTransform: 'none', letterSpacing: 0 }}>· Sorted by barrier</span>}
+          </div>
           <div style={{ flexShrink: 0, width: 36, textAlign: 'right' }}>Score</div>
           <div style={{ flexShrink: 0, width: 42, textAlign: 'right' }}>Live $</div>
           <div style={{ flexShrink: 0, width: 32, textAlign: 'right' }}>Val</div>
@@ -1416,8 +1423,8 @@ function FieldView({ results, scratched, rc, trackCond, onLogBet, onShowPopup, o
 
         {/* Scrollable runner cards */}
         <div className="mob-page" style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden' }}>
-          {activeResults.map((r, i) => (
-            <MobileRunnerCard key={r.tab || r.name} runner={r} rank={i+1} rc={rc} trackCond={trackCond}
+          {mobDisplayResults.map(r => (
+            <MobileRunnerCard key={r.tab || r.name} runner={r} rank={mobRankMap.get(r.tab || r.name)} rc={rc} trackCond={trackCond}
               onLogBet={onLogBet} isResulted={isResulted} isPro={isPro} onUpgrade={onUpgrade} layers={layers} />
           ))}
           {dbScratched.map(r => (
