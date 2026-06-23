@@ -341,7 +341,7 @@ export default function MybetsPage() {
   const [activeTab,        setActiveTab]        = useState('all');
   const [matchingResults,  setMatchingResults]  = useState(false);
   const [resultSpMap,      setResultSpMap]      = useState({});
-  const [showAnalysis,     setShowAnalysis]     = useState(true);
+
   const [betView,          setBetView]          = useState('table');
   const [refreshing,       setRefreshing]       = useState(false);
   const [racePopup,        setRacePopup]        = useState(null);
@@ -724,157 +724,260 @@ export default function MybetsPage() {
           ))}
         </div>
 
-        {/* Single scrollable table */}
+        {/* ── Hybrid table view ── */}
         {betView === 'table' && (
-        <div style={{ flex: 1, overflowY: 'auto', overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 10 }}>
-            <thead>
-              <tr style={{ background: '#f9fafb', position: 'sticky', top: 0, zIndex: 2 }}>
-                {['Date','Horse','Venue','R#','Type','Stake','Odds','Rank','ETA / Pos','P&L','Result'].map((h, i) => (
-                  <th key={h} style={{ padding: '4px 6px', textAlign: 'left', fontSize: 9, fontWeight: 600, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '.04em', whiteSpace: 'nowrap', borderRight: i < 10 ? '1px solid #e5e7eb' : 'none', borderBottom: '2px solid #e5e7eb' }}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
+        <div style={{ flex: 1, overflow: 'hidden', display: 'grid', gridTemplateColumns: '1.5fr 1fr' }}>
 
-              {/* ── BATTLE ORDERS divider ── */}
-              {(() => {
-                const ifAllWin = pendingBetsSorted.reduce((sum, b) => {
-                  const s = +(b.stake || 0), o = +(b.odds || 0);
-                  const t = (b.bet_type || '').toLowerCase();
-                  if (t.includes('each')) return sum + (s * o - s) + (s * o / 4 - s);
-                  if (t === 'place') return sum + (s * o / 4 - s);
-                  return sum + (s * o - s);
-                }, 0);
-                const totalStaked = pendingBetsSorted.reduce((s, b) => s + +(b.stake || 0), 0);
-                return (
-                  <tr style={{ background: '#fff7ed', borderTop: '1px solid #fed7aa', borderBottom: '1px solid #fed7aa' }}>
-                    <td colSpan={11} style={{ padding: '4px 10px', fontSize: 10, fontWeight: 700, color: '#c2410c', borderRight: 'none' }}>
-                      ⚔️ BATTLE ORDERS — {pendingBetsSorted.length} pending · ${totalStaked.toFixed(0)} staked · if all win: +${ifAllWin.toFixed(2)}
-                    </td>
-                  </tr>
-                );
-              })()}
+          {/* ── LEFT: Performance Hero + War Ledger ── */}
+          <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden', borderRight: '1px solid #1a3a25' }}>
 
-              {/* ── Pending bet rows ── */}
-              {pendingBetsSorted.length === 0 ? (
-                <tr><td colSpan={11} style={{ padding: '10px', textAlign: 'center', color: '#111827', fontSize: 10 }}>No pending bets</td></tr>
-              ) : pendingBetsSorted.map((b, idx) => {
-                const rn = b.race_number ?? b.race_num;
-                const vn = b.track || b.venue;
-                const pill = typePillCfg(b.bet_type);
-                const rank = b.rank;
-                const rankBg = rank === 1 ? '#15803d' : rank === 2 ? '#16a34a' : rank === 3 ? '#ca8a04' : rank ? '#6b7280' : null;
-                const td = i => ({ padding: '4px 6px', borderBottom: '1px solid #f3f4f6', borderRight: i < 10 ? '1px solid #f3f4f6' : 'none', whiteSpace: 'nowrap', verticalAlign: 'middle' });
-                return (
-                  <tr key={b.id} style={{ background: '#fff', borderLeft: '3px solid #f97316' }}
-                    onMouseEnter={e => { e.currentTarget.style.background = '#fffbeb'; }}
-                    onMouseLeave={e => { e.currentTarget.style.background = '#fff'; }}>
-                    <td style={{ ...td(0), color: '#111827' }}>{fmtDate(b.date)}</td>
-                    <td style={{ ...td(1), fontWeight: 600, color: '#111827', maxWidth: 150, overflow: 'hidden', textOverflow: 'ellipsis' }}>{b.horse_name || '—'}</td>
-                    <td style={{ ...td(2), fontSize: 10, color: '#111827', textTransform: 'uppercase' }}>{vn || '—'}</td>
-                    <td style={{ ...td(3), fontSize: 10 }}>{rn ? `R${rn}` : '—'}</td>
-                    <td style={td(4)}><span style={{ fontSize: 9, fontWeight: 700, padding: '1px 6px', borderRadius: 3, background: pill.bg, color: '#fff' }}>{pill.label}</span></td>
-                    <td style={{ ...td(5), fontFamily: 'monospace' }}>${(b.stake || 0).toFixed(0)}</td>
-                    <td style={{ ...td(6), fontFamily: 'monospace' }}>${Number(b.odds || 0).toFixed(2)}</td>
-                    <td style={td(7)}>{rankBg ? <span style={{ fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 3, background: rankBg, color: '#fff' }}>R{rank}</span> : <span style={{ color: '#111827' }}>—</span>}</td>
-                    <td style={td(8)}><BetCountdown bet={b} isFirst={idx === 0} /></td>
-                    <td style={{ ...td(9), color: '#111827' }}>—</td>
-                    <td style={{ ...td(10), display: 'flex', alignItems: 'center', gap: 4 }}>
-                      <span style={{ fontSize: 9, fontWeight: 700, padding: '2px 6px', borderRadius: 3, background: '#f3f4f6', color: '#6b7280' }}>Pending</span>
-                      <button onClick={() => handleDeleteBet(b.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', fontSize: 11, padding: '0 2px', lineHeight: 1, flexShrink: 0 }}>✕</button>
-                    </td>
-                  </tr>
-                );
-              })}
+            {/* Performance hero */}
+            {(() => {
+              const at = statsRows.find(r => r.label === 'All time') || {};
+              const pnl = at.pnl;
+              const pnlColor = pnl === null ? '#9ca3af' : pnl >= 0 ? '#4ade80' : '#f87171';
+              const sorted = [...resultedBets].sort((a, b) => (a.date < b.date ? -1 : 1));
+              let cum = 0;
+              const pts = sorted.map(b => { cum += (b.profit_loss || 0); return cum; });
+              const W = 110, H = 32;
+              let polyline = '';
+              if (pts.length > 1) {
+                const minV = Math.min(0, ...pts), maxV = Math.max(0, ...pts);
+                const range = maxV - minV || 1;
+                polyline = pts.map((v, i) => `${(i / (pts.length - 1)) * W},${H - ((v - minV) / range) * H}`).join(' ');
+              }
+              return (
+                <div style={{ flexShrink: 0, background: '#0B1F14', padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 14, borderBottom: '1px solid #1a3a25' }}>
+                  <div>
+                    <div style={{ fontSize: 8, fontWeight: 700, color: '#4ade80', textTransform: 'uppercase', letterSpacing: '.08em', marginBottom: 2 }}>All-Time P&L</div>
+                    <div style={{ fontSize: 26, fontWeight: 800, fontFamily: 'monospace', color: pnlColor, lineHeight: 1 }}>
+                      {pnl === null ? '—' : (pnl >= 0 ? '+$' : '-$') + Math.abs(pnl).toFixed(2)}
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', gap: 10 }}>
+                    {[
+                      { label: 'ROI', value: at.roi || '—', color: parseFloat(at.roi) > 0 ? '#4ade80' : parseFloat(at.roi) < 0 ? '#f87171' : '#6b7280' },
+                      { label: 'Strike', value: at.strike || '—', color: '#e5e7eb' },
+                      { label: 'Bets', value: resultedBets.length || 0, color: '#e5e7eb' },
+                    ].map(({ label, value, color }) => (
+                      <div key={label} style={{ textAlign: 'center' }}>
+                        <div style={{ fontSize: 8, color: '#4b6858', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 2 }}>{label}</div>
+                        <div style={{ fontSize: 12, fontWeight: 700, fontFamily: 'monospace', color }}>{value}</div>
+                      </div>
+                    ))}
+                  </div>
+                  {pts.length > 1 && (
+                    <div style={{ marginLeft: 'auto' }}>
+                      <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} style={{ display: 'block' }}>
+                        <polyline points={polyline} fill="none" stroke={pnl >= 0 ? '#4ade80' : '#f87171'} strokeWidth={1.5} strokeLinejoin="round" strokeLinecap="round" />
+                      </svg>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
 
-              {/* ── WAR RECORD filter tabs row ── */}
-              <tr style={{ background: '#f9fafb', borderTop: '1px solid #e5e7eb', borderBottom: '1px solid #e5e7eb' }}>
-                <td colSpan={11} style={{ padding: '4px 8px', borderRight: 'none' }}>
-                  <div style={{ display: 'flex', gap: 4 }}>
-                    {['All','Win','Place','Loss','Today','This Week'].map(t => {
-                      const key = t.toLowerCase();
-                      return (
-                        <button key={t} onClick={() => setActiveTab(key)}
-                          style={{ padding: '2px 8px', fontSize: 10, fontWeight: activeTab === key ? 700 : 400, color: activeTab === key ? '#fff' : '#6b7280', background: activeTab === key ? '#00471b' : '#e5e7eb', border: 'none', borderRadius: 3, cursor: 'pointer' }}>
-                          {t}
-                        </button>
-                      );
+            {/* War Ledger */}
+            <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column', background: '#0B1F14' }}>
+
+              {/* Filter tabs */}
+              <div style={{ flexShrink: 0, padding: '5px 10px', borderBottom: '1px solid #1a3a25', display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                {['All','Win','Place','Loss','Today','This Week'].map(t => {
+                  const key = t.toLowerCase();
+                  return (
+                    <button key={t} onClick={() => setActiveTab(key)}
+                      style={{ padding: '2px 7px', fontSize: 9, fontWeight: activeTab === key ? 700 : 400, color: activeTab === key ? '#0B1F14' : '#4b6858', background: activeTab === key ? '#4ade80' : 'transparent', border: activeTab === key ? 'none' : '1px solid #1a3a25', borderRadius: 3, cursor: 'pointer' }}>
+                      {t}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Scrollable ledger rows */}
+              <div style={{ flex: 1, overflowY: 'auto' }}>
+
+                {/* Battle Orders header */}
+                {pendingBetsSorted.length > 0 && (() => {
+                  const ifAllWin = pendingBetsSorted.reduce((sum, b) => {
+                    const s = +(b.stake || 0), o = +(b.odds || 0);
+                    const t = (b.bet_type || '').toLowerCase();
+                    if (t.includes('each')) return sum + (s * o - s) + (s * o / 4 - s);
+                    if (t === 'place') return sum + (s * o / 4 - s);
+                    return sum + (s * o - s);
+                  }, 0);
+                  const totalStaked = pendingBetsSorted.reduce((s, b) => s + +(b.stake || 0), 0);
+                  return (
+                    <div style={{ padding: '4px 10px', fontSize: 9, fontWeight: 700, color: '#fb923c', borderBottom: '1px solid #1a3a25', fontFamily: 'monospace', letterSpacing: '.03em' }}>
+                      ⚔ BATTLE ORDERS — {pendingBetsSorted.length} pending · ${totalStaked.toFixed(0)} staked · if all win: +${ifAllWin.toFixed(2)}
+                    </div>
+                  );
+                })()}
+
+                {/* Pending rows */}
+                {pendingBetsSorted.length === 0 && (
+                  <div style={{ padding: '8px 10px', fontSize: 9, color: '#4b6858', fontFamily: 'monospace' }}>No pending bets</div>
+                )}
+                {pendingBetsSorted.map((b, idx) => {
+                  const rn = b.race_number ?? b.race_num;
+                  const vn = b.track || b.venue;
+                  const pill = typePillCfg(b.bet_type);
+                  const rank = b.rank;
+                  return (
+                    <div key={b.id}
+                      style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 10px', borderBottom: '1px solid #0f2918', borderLeft: '2px solid #f97316', fontFamily: 'monospace', background: 'transparent', cursor: 'default' }}
+                      onMouseEnter={e => e.currentTarget.style.background = '#1a3a25'}
+                      onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 11, fontWeight: 600, color: '#f1f5f9', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {b.horse_name || '—'}{rank ? <span style={{ marginLeft: 5, fontSize: 8, color: rank === 1 ? '#fbbf24' : '#4b6858' }}>R{rank}</span> : null}
+                        </div>
+                        <div style={{ fontSize: 9, color: '#4b6858', marginTop: 1 }}>
+                          {[vn, rn ? `R${rn}` : null, b.date?.slice(5).replace('-', '/')].filter(Boolean).join(' · ')}
+                        </div>
+                      </div>
+                      <span style={{ fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 3, background: pill.bg, color: '#fff', flexShrink: 0 }}>{pill.label}</span>
+                      <span style={{ fontSize: 9, color: '#94a3b8', flexShrink: 0 }}>${(b.stake || 0).toFixed(0)} @ ${Number(b.odds || 0).toFixed(2)}</span>
+                      <BetCountdown bet={b} isFirst={idx === 0} />
+                      <button onClick={() => handleDeleteBet(b.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#4b6858', fontSize: 11, padding: '0 2px', lineHeight: 1, flexShrink: 0 }}>✕</button>
+                    </div>
+                  );
+                })}
+
+                {/* War Record header */}
+                {(() => {
+                  const at = statsRows.find(r => r.label === 'All time') || {};
+                  return (
+                    <div style={{ padding: '4px 10px', fontSize: 9, fontWeight: 700, color: '#4ade80', borderBottom: '1px solid #1a3a25', borderTop: pendingBetsSorted.length > 0 ? '1px solid #1a3a25' : 'none', fontFamily: 'monospace', letterSpacing: '.03em' }}>
+                      ◆ WAR RECORD — {resultedBets.length} resulted · {at.pnl !== null && at.pnl !== undefined ? (at.pnl >= 0 ? '+$' : '-$') + Math.abs(at.pnl).toFixed(2) : '—'} · {at.strike || '—'} strike · ROI {at.roi || '—'}
+                    </div>
+                  );
+                })()}
+
+                {/* Resulted rows */}
+                {loading ? (
+                  <div style={{ padding: 16, textAlign: 'center', color: '#4b6858', fontSize: 10 }}>Loading…</div>
+                ) : filteredResulted.length === 0 ? (
+                  <div style={{ padding: 20, textAlign: 'center', color: '#4b6858', fontSize: 10 }}>No resulted bets yet</div>
+                ) : filteredResulted.map(b => {
+                  const stake = b.stake || 0;
+                  const isEW = (b.bet_type || '').toLowerCase().includes('each');
+                  const hasPnl = b.profit_loss !== null && b.profit_loss !== undefined;
+                  const pnl = hasPnl ? b.profit_loss : (b.return_amt || 0) - (isEW ? stake * 2 : stake);
+                  const status = b.status || '';
+                  const pos = b.position;
+                  const raceNum = b.race_number ?? b.race_num;
+                  const venue = b.track || b.venue;
+                  const pill = typePillCfg(b.bet_type);
+                  const rank = b.rank;
+                  const leftBorder = status === 'win' ? '#22c55e' : status === 'loss' ? '#ef4444' : status === 'place' ? '#3b82f6' : '#475569';
+                  const pnlColor = !hasPnl ? '#6b7280' : pnl >= 0 ? '#4ade80' : '#f87171';
+                  return (
+                    <div key={b.id}
+                      style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 10px', borderBottom: '1px solid #0f2918', borderLeft: `2px solid ${leftBorder}`, fontFamily: 'monospace', background: 'transparent' }}
+                      onMouseEnter={e => e.currentTarget.style.background = '#1a3a25'}
+                      onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 11, fontWeight: 600, color: '#f1f5f9', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {b.horse_name || '—'}{rank ? <span style={{ marginLeft: 5, fontSize: 8, color: rank === 1 ? '#fbbf24' : '#4b6858' }}>R{rank}</span> : null}
+                        </div>
+                        <div style={{ fontSize: 9, color: '#4b6858', marginTop: 1 }}>
+                          {[venue, raceNum ? `R${raceNum}` : null, b.date?.slice(5).replace('-', '/')].filter(Boolean).join(' · ')}
+                          {pos ? <span style={{ marginLeft: 4, color: pos === 1 ? '#fbbf24' : '#6b7280' }}>{ordinal(pos)}</span> : null}
+                        </div>
+                      </div>
+                      <span style={{ fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 3, background: pill.bg, color: '#fff', flexShrink: 0 }}>{pill.label}</span>
+                      <span style={{ fontSize: 9, color: '#94a3b8', flexShrink: 0 }}>${stake.toFixed(0)} @ ${Number(b.odds || 0).toFixed(2)}</span>
+                      <span style={{ fontSize: 11, fontWeight: 800, color: pnlColor, width: 60, textAlign: 'right', flexShrink: 0 }}>
+                        {hasPnl ? (pnl >= 0 ? '+$' : '-$') + Math.abs(pnl).toFixed(2) : '—'}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+
+          {/* ── RIGHT: Insights panel ── */}
+          <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden', background: '#f9fafb' }}>
+
+            {/* 30-day heatmap */}
+            {(() => {
+              const days = Array.from({ length: 30 }, (_, i) => {
+                const d = new Date(todayISO + 'T00:00:00');
+                d.setDate(d.getDate() - (29 - i));
+                return d.toISOString().slice(0, 10);
+              });
+              const byDay = {};
+              resultedBets.forEach(b => { if (!byDay[b.date]) byDay[b.date] = 0; byDay[b.date] += (b.profit_loss || 0); });
+              return (
+                <div style={{ flexShrink: 0, background: '#fff', borderBottom: '1px solid #e5e7eb', padding: '10px 12px' }}>
+                  <div style={{ fontSize: 9, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 6 }}>30-Day Form</div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(10, 1fr)', gap: 2 }}>
+                    {days.map(iso => {
+                      const pnl = byDay[iso];
+                      const hasBets = pnl !== undefined;
+                      const bg = !hasBets ? '#f3f4f6' : pnl > 0 ? '#bbf7d0' : pnl < 0 ? '#fecaca' : '#e5e7eb';
+                      return <div key={iso} title={hasBets ? `${iso}: ${pnl >= 0 ? '+' : ''}$${pnl.toFixed(2)}` : iso} style={{ height: 14, borderRadius: 2, background: bg }} />;
                     })}
                   </div>
-                </td>
-              </tr>
-
-              {/* ── WAR RECORD divider ── */}
-              {(() => {
-                const at = statsRows.find(r => r.label === 'All time') || {};
-                return (
-                  <tr style={{ background: '#f0fdf4', borderTop: '1px solid #bbf7d0', borderBottom: '1px solid #bbf7d0' }}>
-                    <td colSpan={11} style={{ padding: '4px 10px', fontSize: 10, fontWeight: 700, color: '#15803d', borderRight: 'none' }}>
-                      📊 WAR RECORD — {resultedBets.length} resulted · P&L {at.pnl !== null && at.pnl !== undefined ? (at.pnl >= 0 ? '+$' : '-$') + Math.abs(at.pnl).toFixed(2) : '—'} · Strike {at.strike || '—'} · ROI {at.roi || '—'}
-                    </td>
-                  </tr>
-                );
-              })()}
-
-              {/* ── Resulted bet rows ── */}
-              {loading ? (
-                <tr><td colSpan={11} style={{ padding: 20, textAlign: 'center', color: '#111827' }}>Loading…</td></tr>
-              ) : filteredResulted.length === 0 ? (
-                <tr><td colSpan={11} style={{ padding: 24, textAlign: 'center', color: '#111827', fontSize: 10 }}>No resulted bets yet</td></tr>
-              ) : filteredResulted.map(b => {
-                const stake = b.stake || 0;
-                const isEW = (b.bet_type || '').toLowerCase().includes('each');
-                const hasPnl = b.profit_loss !== null && b.profit_loss !== undefined;
-                const pnl = hasPnl ? b.profit_loss : (b.return_amt || 0) - (isEW ? stake * 2 : stake);
-                const status = b.status || '';
-                const pos = b.position;
-                const raceNum = b.race_number ?? b.race_num;
-                const venue = b.track || b.venue;
-                const sp = resultSpMap[b.id];
-                const pill = typePillCfg(b.bet_type);
-                const rank = b.rank;
-                const rankBg = rank === 1 ? '#15803d' : rank === 2 ? '#16a34a' : rank === 3 ? '#ca8a04' : rank ? '#6b7280' : null;
-                const rowBg = status === 'win' ? '#f0fdf4' : status === 'loss' ? '#fef2f2' : status === 'place' ? '#eff6ff' : '#fff';
-                const hoverBg = status === 'win' ? '#dcfce7' : status === 'loss' ? '#fee2e2' : status === 'place' ? '#dbeafe' : '#f9fafb';
-                const leftBorder = status === 'win' ? '#22c55e' : status === 'loss' ? '#ef4444' : status === 'place' ? '#3b82f6' : '#e5e7eb';
-                const badge = { win: { bg: '#16a34a', label: 'WIN' }, place: { bg: '#2563eb', label: 'PLACE' }, loss: { bg: '#dc2626', label: 'LOSS' }, scratched: { bg: '#6b7280', label: 'SCRATCHED' } }[status] || { bg: '#9ca3af', label: 'PENDING' };
-                const posBadge = pos === 1 ? { bg: '#fef9c3', color: '#854d0e' } : pos === 2 ? { bg: '#f3f4f6', color: '#374151' } : pos === 3 ? { bg: '#fef3c7', color: '#92400e' } : { bg: 'transparent', color: '#9ca3af' };
-                const tdS = i => ({ padding: '4px 6px', borderBottom: '1px solid #f3f4f6', borderRight: i < 10 ? '1px solid #f3f4f6' : 'none', whiteSpace: 'nowrap', verticalAlign: 'middle' });
-                return (
-                  <tr key={b.id} style={{ background: rowBg, borderLeft: `3px solid ${leftBorder}` }}
-                    onMouseEnter={e => { e.currentTarget.style.background = hoverBg; }}
-                    onMouseLeave={e => { e.currentTarget.style.background = rowBg; }}>
-                    <td style={{ ...tdS(0), color: '#111827' }}>{fmtDate(b.date)}</td>
-                    <td style={{ ...tdS(1), fontWeight: 600, color: '#111827', maxWidth: 150, overflow: 'hidden', textOverflow: 'ellipsis' }}>{b.horse_name || '—'}</td>
-                    <td style={{ ...tdS(2), fontSize: 10, color: '#111827', textTransform: 'uppercase' }}>{venue || '—'}</td>
-                    <td style={{ ...tdS(3), fontSize: 10, cursor: raceNum ? 'pointer' : 'default', textDecoration: raceNum ? 'underline' : 'none' }} onClick={() => raceNum && setRacePopup({ venue: venue, race_num: raceNum, date: b.date })}>{raceNum ? `R${raceNum}` : '—'}</td>
-                    <td style={tdS(4)}><span style={{ fontSize: 9, fontWeight: 700, padding: '1px 6px', borderRadius: 3, background: pill.bg, color: '#fff' }}>{pill.label}</span></td>
-                    <td style={{ ...tdS(5), fontFamily: 'monospace' }}>${stake.toFixed(0)}</td>
-                    <td style={{ ...tdS(6), fontFamily: 'monospace' }}>${Number(b.odds || 0).toFixed(2)}</td>
-                    <td style={tdS(7)}>{rankBg ? <span style={{ fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 3, background: rankBg, color: '#fff' }}>R{rank}</span> : <span style={{ color: '#111827' }}>—</span>}</td>
-                    <td style={tdS(8)}>{pos ? <span style={{ fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 3, background: posBadge.bg, color: posBadge.color }}>{ordinal(pos)}</span> : '—'}</td>
-                    <td style={{ ...tdS(9), fontFamily: 'monospace', fontWeight: 700, color: hasPnl ? (pnl >= 0 ? '#15803d' : '#dc2626') : '#111827' }}>{hasPnl ? (pnl >= 0 ? '+$' : '-$') + Math.abs(pnl).toFixed(2) : '—'}</td>
-                    <td style={{ ...tdS(10), display: 'flex', alignItems: 'center', gap: 4 }}>
-                      <span style={{ fontSize: 9, fontWeight: 700, padding: '2px 6px', borderRadius: 3, background: badge.bg, color: '#fff' }}>{badge.label}</span>
-                      {status === 'scratched' && <button onClick={() => handleDeleteBet(b.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', fontSize: 11, padding: '0 2px', lineHeight: 1, flexShrink: 0 }}>✕</button>}
-                    </td>
-                  </tr>
-                );
-              })}
-
-              {/* ── ANALYSIS divider — collapsible ── */}
-              <tr style={{ background: '#f3f4f6', borderTop: '1px solid #e5e7eb', borderBottom: '1px solid #e5e7eb', cursor: 'pointer' }} onClick={() => setShowAnalysis(v => !v)}>
-                <td colSpan={11} style={{ padding: '4px 10px', fontSize: 10, fontWeight: 600, color: '#6b7280', borderRight: 'none' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span>📈 ANALYSIS — by venue / odds range / track condition / rank</span>
-                    <span>{showAnalysis ? '▾ hide' : '▸ show'}</span>
+                  <div style={{ display: 'flex', gap: 8, marginTop: 5, fontSize: 8, color: '#9ca3af', alignItems: 'center' }}>
+                    {[['#bbf7d0','Profit'],['#fecaca','Loss'],['#f3f4f6','No bets']].map(([bg, label]) => (
+                      <span key={label} style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+                        <span style={{ width: 8, height: 8, background: bg, borderRadius: 1, display: 'inline-block' }} />{label}
+                      </span>
+                    ))}
                   </div>
-                </td>
-              </tr>
+                </div>
+              );
+            })()}
 
-              {/* ── Analysis rows ── */}
-              {showAnalysis && (() => {
+            {/* Today's story */}
+            {(() => {
+              const todayBets = bets.filter(b => b.date === todayISO);
+              const todayResulted = todayBets.filter(b => b.status && b.status !== 'pending');
+              const todayPnl = todayResulted.reduce((s, b) => s + (b.profit_loss || 0), 0);
+              return (
+                <div style={{ flexShrink: 0, background: '#fff', borderBottom: '1px solid #e5e7eb', padding: '10px 12px', maxHeight: 160, overflowY: 'auto' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                    <div style={{ fontSize: 9, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '.06em' }}>Today</div>
+                    {todayResulted.length > 0 && (
+                      <span style={{ fontSize: 10, fontWeight: 700, color: todayPnl >= 0 ? '#15803d' : '#dc2626' }}>
+                        {todayPnl >= 0 ? '+$' : '-$'}{Math.abs(todayPnl).toFixed(2)}
+                      </span>
+                    )}
+                  </div>
+                  {todayBets.length === 0 ? (
+                    <div style={{ fontSize: 10, color: '#9ca3af', textAlign: 'center', padding: '6px 0' }}>No bets today</div>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                      {todayBets.map(b => {
+                        const status = b.status || 'pending';
+                        const isPending = !b.status || b.status === 'pending';
+                        const hasPnl = b.profit_loss !== null && b.profit_loss !== undefined;
+                        const pnl = hasPnl ? b.profit_loss : null;
+                        const dotColor = status === 'win' ? '#22c55e' : status === 'loss' ? '#ef4444' : status === 'place' ? '#3b82f6' : '#f97316';
+                        return (
+                          <div key={b.id} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 10 }}>
+                            <div style={{ width: 6, height: 6, borderRadius: '50%', background: dotColor, flexShrink: 0 }} />
+                            <span style={{ fontWeight: 600, color: '#111827', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b.horse_name}</span>
+                            <span style={{ color: '#9ca3af', fontSize: 9 }}>{(b.track || b.venue || '').toUpperCase()} R{b.race_number ?? b.race_num}</span>
+                            {isPending
+                              ? <span style={{ fontSize: 9, color: '#f97316' }}>Pending</span>
+                              : <span style={{ fontSize: 10, fontWeight: 700, color: pnl !== null && pnl >= 0 ? '#15803d' : '#dc2626' }}>{pnl !== null ? (pnl >= 0 ? '+$' : '-$') + Math.abs(pnl).toFixed(2) : status.toUpperCase()}</span>
+                            }
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+
+            {/* Edge zone */}
+            <div style={{ flex: 1, overflowY: 'auto', background: '#fff', padding: '10px 12px' }}>
+              <div style={{ fontSize: 9, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 8 }}>Edge Zone</div>
+              {(() => {
                 const calcGroup = arr => {
                   const settled = arr.filter(b => b.status && b.status !== 'pending' && b.status !== 'scratched');
                   const wins = settled.filter(b => b.status === 'win').length;
@@ -885,48 +988,48 @@ export default function MybetsPage() {
                   const strike = settled.length > 0 ? (wins / settled.length * 100).toFixed(0) + '%' : '—';
                   return { bets: settled.length, wins, strike, roi, pnl, staked };
                 };
-                const colStyle = (_span, last) => ({ padding: '4px 6px', verticalAlign: 'top', borderRight: last ? 'none' : '1px solid #e5e7eb', fontSize: 10, lineHeight: 1.8 });
                 const roiColor = roi => parseFloat(roi) > 0 ? '#15803d' : parseFloat(roi) < 0 ? '#dc2626' : '#6b7280';
-
-                const venueGroups = {};
-                resultedBets.forEach(b => { const v = b.track || b.venue || 'Unknown'; if (!venueGroups[v]) venueGroups[v] = []; venueGroups[v].push(b); });
                 const oddsGroups = { '$1–$2': [], '$2–$4': [], '$4–$8': [], '$8+': [] };
                 resultedBets.forEach(b => { const o = +(b.odds || 0); if (o < 2) oddsGroups['$1–$2'].push(b); else if (o < 4) oddsGroups['$2–$4'].push(b); else if (o < 8) oddsGroups['$4–$8'].push(b); else oddsGroups['$8+'].push(b); });
-                const condGroups = {};
-                resultedBets.forEach(b => { const c = b.condition || 'Unknown'; if (!condGroups[c]) condGroups[c] = []; condGroups[c].push(b); });
                 const rankGroups = { R1: [], R2: [], R3: [], 'R4+': [] };
                 resultedBets.forEach(b => { const r = b.rank; if (r === 1) rankGroups.R1.push(b); else if (r === 2) rankGroups.R2.push(b); else if (r === 3) rankGroups.R3.push(b); else if (r) rankGroups['R4+'].push(b); });
+                const condGroups = {};
+                resultedBets.forEach(b => { const c = b.condition || 'Unknown'; if (!condGroups[c]) condGroups[c] = []; condGroups[c].push(b); });
+                const venueGroups = {};
+                resultedBets.forEach(b => { const v = b.track || b.venue || 'Unknown'; if (!venueGroups[v]) venueGroups[v] = []; venueGroups[v].push(b); });
 
+                if (resultedBets.length === 0) {
+                  return <div style={{ fontSize: 10, color: '#9ca3af', textAlign: 'center', padding: '16px 0' }}>No resulted bets to analyse</div>;
+                }
                 return (
-                  <>
-                    <tr style={{ background: '#fafafa', borderBottom: '1px solid #f3f4f6' }}>
-                      <td colSpan={4} style={{ ...colStyle(4, false), fontWeight: 600, fontSize: 9, textTransform: 'uppercase', letterSpacing: '.04em', color: '#6b7280', background: '#f9fafb' }}>By Venue</td>
-                      <td colSpan={3} style={{ ...colStyle(3, false), fontWeight: 600, fontSize: 9, textTransform: 'uppercase', letterSpacing: '.04em', color: '#6b7280', background: '#f9fafb' }}>By Odds Range</td>
-                      <td colSpan={2} style={{ ...colStyle(2, false), fontWeight: 600, fontSize: 9, textTransform: 'uppercase', letterSpacing: '.04em', color: '#6b7280', background: '#f9fafb' }}>By Track Cond</td>
-                      <td colSpan={2} style={{ ...colStyle(2, true), fontWeight: 600, fontSize: 9, textTransform: 'uppercase', letterSpacing: '.04em', color: '#6b7280', background: '#f9fafb' }}>By Rank</td>
-                    </tr>
-                    <tr style={{ background: '#fff', borderBottom: '2px solid #e5e7eb' }}>
-                      <td colSpan={4} style={colStyle(4, false)}>
-                        {Object.keys(venueGroups).length === 0 ? <span style={{ color: '#9ca3af' }}>—</span> :
-                          Object.entries(venueGroups).map(([v, arr]) => { const c = calcGroup(arr); return <div key={v}><b>{v}</b>: {arr.length} · {c.strike} · <span style={{ color: roiColor(c.roi), fontWeight: 600 }}>ROI {c.roi}</span></div>; })}
-                      </td>
-                      <td colSpan={3} style={colStyle(3, false)}>
-                        {Object.entries(oddsGroups).map(([range, arr]) => { const c = calcGroup(arr); return arr.length > 0 ? <div key={range}><b>{range}</b>: {arr.length} · {c.strike} · <span style={{ color: roiColor(c.roi), fontWeight: 600 }}>ROI {c.roi}</span></div> : null; })}
-                      </td>
-                      <td colSpan={2} style={colStyle(2, false)}>
-                        {Object.keys(condGroups).length === 0 ? <span style={{ color: '#9ca3af' }}>—</span> :
-                          Object.entries(condGroups).map(([cond, arr]) => { const c = calcGroup(arr); return <div key={cond}><b>{cond}</b>: {arr.length} · {c.strike} · <span style={{ color: roiColor(c.roi), fontWeight: 600 }}>ROI {c.roi}</span></div>; })}
-                      </td>
-                      <td colSpan={2} style={colStyle(2, true)}>
-                        {Object.entries(rankGroups).map(([r, arr]) => { const c = calcGroup(arr); return arr.length > 0 ? <div key={r}><b>{r}</b>: {arr.length} · {c.strike} · <span style={{ color: roiColor(c.roi), fontWeight: 600 }}>ROI {c.roi}</span></div> : null; })}
-                      </td>
-                    </tr>
-                  </>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                    {[
+                      { label: 'By Odds Range', groups: oddsGroups },
+                      { label: 'By Model Rank', groups: rankGroups },
+                      { label: 'By Track Condition', groups: condGroups },
+                      { label: 'By Venue', groups: venueGroups },
+                    ].map(({ label, groups }) => (
+                      <div key={label}>
+                        <div style={{ fontSize: 8, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 4 }}>{label}</div>
+                        {Object.entries(groups).map(([grp, arr]) => {
+                          const c = calcGroup(arr);
+                          if (c.bets === 0) return null;
+                          return (
+                            <div key={grp} style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3 }}>
+                              <span style={{ fontSize: 10, color: '#374151', width: 72, flexShrink: 0 }}>{grp}</span>
+                              <span style={{ fontSize: 9, color: '#9ca3af', width: 24, flexShrink: 0 }}>{c.bets}b</span>
+                              <span style={{ fontSize: 9, color: '#9ca3af', width: 34, flexShrink: 0 }}>{c.strike}</span>
+                              <span style={{ fontSize: 10, fontWeight: 700, color: roiColor(c.roi) }}>ROI {c.roi}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ))}
+                  </div>
                 );
               })()}
-
-            </tbody>
-          </table>
+            </div>
+          </div>
         </div>
         )}
 
