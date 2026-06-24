@@ -745,6 +745,11 @@ export default function MybetsPage() {
     const c = payload?.status === 'win' ? '#1D9E75' : payload?.status === 'loss' ? '#E24B4A' : '#6366f1';
     return <circle key={`hd-${cx}-${cy}`} cx={cx} cy={cy} r={3.5} fill={c} stroke="#fff" strokeWidth={1.5} />;
   };
+  const renderMobileSparkDot = ({ cx, cy, payload }) => {
+    if (cx == null || cy == null) return null;
+    const c = payload?.status === 'win' ? '#1D9E75' : payload?.status === 'loss' ? '#E24B4A' : '#6366f1';
+    return <circle key={`msd-${cx}-${cy}`} cx={cx} cy={cy} r={2.5} fill={c} stroke="#fff" strokeWidth={1} />;
+  };
 
   return (
     <div className="mob-page" style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
@@ -847,6 +852,50 @@ export default function MybetsPage() {
           const periodPnlLabel = { today: "Today's P&L", yesterday: "Yesterday's P&L", this_week: "This Week's P&L", this_month: "This Month's P&L", all_time: "All-Time P&L", custom: "Period P&L" }[dateRange] || "P&L";
           const streakLabel = heroStreak ? `${heroStreak.type}${heroStreak.count}` : '—';
           const streakColor = heroStreak?.type === 'W' ? '#059669' : heroStreak?.type === 'L' ? '#dc2626' : '#9ca3af';
+          if (isMobile) return (
+            <div style={{ padding: '8px 8px 0', flexShrink: 0 }}>
+              <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, overflow: 'hidden' }}>
+                <div style={{ display: 'flex', alignItems: 'center', padding: '10px 12px' }}>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 24, fontWeight: 800, fontFamily: 'monospace', color: pnlColor, lineHeight: 1 }}>
+                      {pnl === null ? '—' : (pnlPos ? '+$' : '-$') + Math.abs(pnl).toFixed(2)}
+                    </div>
+                    <div style={{ fontSize: 11, fontFamily: 'monospace', color: '#374151', marginTop: 3, letterSpacing: '.04em' }}>{heroRecord}</div>
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4, alignItems: 'flex-end' }}>
+                    <div style={{ textAlign: 'right' }}>
+                      <div style={{ fontSize: 9, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '.06em' }}>Strike</div>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: '#374151' }}>{dateStats.strike}</div>
+                    </div>
+                    <div style={{ textAlign: 'right' }}>
+                      <div style={{ fontSize: 9, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '.06em' }}>ROI</div>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: parseFloat(dateStats.roi) > 0 ? '#059669' : parseFloat(dateStats.roi) < 0 ? '#dc2626' : '#6b7280' }}>{dateStats.roi}</div>
+                    </div>
+                    <div style={{ textAlign: 'right' }}>
+                      <div style={{ fontSize: 9, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '.06em' }}>Streak</div>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: streakColor }}>{streakLabel}</div>
+                    </div>
+                  </div>
+                </div>
+                {heroChartData.length > 1 && (
+                  <div style={{ height: 52 }}>
+                    <ResponsiveContainer width="100%" height="100%">
+                      <AreaChart data={heroChartData} margin={{ top: 4, right: 8, bottom: 0, left: 0 }}>
+                        <defs>
+                          <linearGradient id="mobHeroFill" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#1D9E75" stopOpacity={0.18} />
+                            <stop offset="95%" stopColor="#1D9E75" stopOpacity={0} />
+                          </linearGradient>
+                        </defs>
+                        <ReferenceLine y={0} stroke="#e5e7eb" />
+                        <Area type="monotone" dataKey="pnl" stroke={finalPnl >= 0 ? '#1D9E75' : '#E24B4A'} fill="url(#mobHeroFill)" strokeWidth={1.5} dot={renderMobileSparkDot} activeDot={{ r: 4, stroke: '#fff', strokeWidth: 1.5 }} />
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  </div>
+                )}
+              </div>
+            </div>
+          );
           return (
             <div style={{ display: 'flex', gap: 8, padding: '8px 8px 0', flexShrink: 0 }}>
 
@@ -957,10 +1006,10 @@ export default function MybetsPage() {
         })()}
 
         {/* DATE RANGE SWITCHER */}
-        <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 4, padding: '5px 10px', background: '#fff', border: '1px solid #e5e7eb', borderRadius: 6, margin: '6px 8px 0', flexWrap: 'wrap' }}>
+        <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 4, padding: '5px 10px', background: '#fff', border: '1px solid #e5e7eb', borderRadius: 6, margin: '6px 8px 0', ...(isMobile ? { overflowX: 'auto', flexWrap: 'nowrap', scrollbarWidth: 'none' } : { flexWrap: 'wrap' }) }}>
           {[['today','Today'],['yesterday','Yesterday'],['this_week','This Week'],['this_month','This Month'],['all_time','All Time'],['custom','Custom']].map(([v,l]) => (
             <button key={v} onClick={() => setDateRange(v)}
-              style={{ padding: '3px 10px', borderRadius: 4, fontSize: 10, fontWeight: 600, cursor: 'pointer', border: 'none',
+              style={{ padding: '3px 10px', borderRadius: 4, fontSize: 10, fontWeight: 600, cursor: 'pointer', border: 'none', flexShrink: 0,
                 background: dateRange === v ? '#00471b' : '#f3f4f6', color: dateRange === v ? '#fff' : '#374151' }}>
               {l}
             </button>
@@ -974,16 +1023,17 @@ export default function MybetsPage() {
 
         {/* TAB BAR */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '5px 10px', background: '#fff', border: '1px solid #e5e7eb', borderRadius: 6, flexShrink: 0, gap: 8, margin: '4px 8px 6px' }}>
-          <div style={{ display: 'flex', gap: 4 }}>
+          <div style={{ display: 'flex', gap: 4, ...(isMobile && { flex: 1 }) }}>
             {[['ledger', 'Ledger'], ['charts', 'Charts']].map(([v, l]) => (
               <button key={v} onClick={() => setMainTab(v)}
                 style={{ padding: '4px 14px', borderRadius: 5, fontSize: 11, fontWeight: 700, cursor: 'pointer', border: 'none',
-                  background: mainTab === v ? '#00471b' : '#f3f4f6', color: mainTab === v ? '#fff' : '#111827' }}>
+                  background: mainTab === v ? '#00471b' : '#f3f4f6', color: mainTab === v ? '#fff' : '#111827',
+                  ...(isMobile && { flex: 1, textAlign: 'center' }) }}>
                 {l}
               </button>
             ))}
           </div>
-          {mainTab === 'ledger' && (
+          {mainTab === 'ledger' && !isMobile && (
             <div style={{ display: 'flex', gap: 4 }}>
               {[['table', 'Table'], ['terminal', 'Terminal'], ['sessions', 'Sessions'], ['kanban', 'Kanban']].map(([v, l]) => (
                 <button key={v} onClick={() => setBetView(v)}
@@ -999,7 +1049,7 @@ export default function MybetsPage() {
         {mainTab === 'ledger' && (<>
 
         {/* ── TABLE VIEW ── */}
-        {betView === 'table' && (
+        {(betView === 'table' || isMobile) && (
         <div style={{ display: 'flex', flexDirection: 'column' }}>
           <div style={{ flexShrink: 0, display: 'flex', gap: 4, padding: '6px 10px', background: '#0D1C13', borderBottom: '1px solid #1a3a25' }}>
             {['All','Win','Place','Loss'].map(t => {
@@ -1016,6 +1066,41 @@ export default function MybetsPage() {
               );
             })}
           </div>
+          {isMobile ? (
+            <div style={{ display: 'flex', flexDirection: 'column', background: '#11241A' }}>
+              {loading ? (
+                <div style={{ padding: 20, textAlign: 'center', color: '#4b6858', fontSize: 11 }}>Loading…</div>
+              ) : ledgerFilteredBets.length === 0 ? (
+                <div style={{ padding: 20, textAlign: 'center', color: '#4b6858', fontSize: 11 }}>No bets for this period</div>
+              ) : ledgerFilteredBets.map(b => {
+                const hasPnl = b.profit_loss !== null && b.profit_loss !== undefined;
+                const isEW = (b.bet_type || '').toLowerCase().includes('each');
+                const pnl = hasPnl ? b.profit_loss : (b.return_amt || 0) - (isEW ? (b.stake || 0) * 2 : (b.stake || 0));
+                const isPending = !b.status || b.status === 'pending';
+                const accentColor = b.status === 'win' ? '#1D9E75' : b.status === 'place' ? '#3b82f6' : b.status === 'loss' ? '#E24B4A' : '#f59e0b';
+                const pnlColor = isPending ? '#6b7280' : pnl >= 0 ? '#4ade80' : '#f87171';
+                const raceNum = b.race_number ?? b.race_num;
+                const venue = b.track || b.venue || '—';
+                return (
+                  <div key={b.id} style={{ borderLeft: `3px solid ${accentColor}`, padding: '7px 10px', borderBottom: '1px solid #1a3a25' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                      <span style={{ fontSize: 12, fontWeight: 700, color: '#f1f5f9' }}>{b.horse_name || '—'}</span>
+                      <span style={{ fontSize: 12, fontWeight: 700, fontFamily: 'monospace', color: pnlColor }}>
+                        {isPending ? '—' : (pnl >= 0 ? '+$' : '-$') + Math.abs(pnl).toFixed(2)}
+                      </span>
+                    </div>
+                    <div style={{ fontSize: 10, color: '#64748b', marginTop: 2 }}>
+                      {venue} · R{raceNum || '—'} · No.{b.horse_number || b.tab_no || '—'}
+                    </div>
+                    <div style={{ fontSize: 10, color: '#64748b', marginTop: 1 }}>
+                      ${(+(b.stake || 0)).toFixed(0)} @ ${Number(b.odds || 0).toFixed(2)}
+                      {!isPending && <span style={{ marginLeft: 6, color: '#94a3b8' }}>Pos {b.position || '—'}</span>}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
           <div style={{ background: '#11241A' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
               <thead style={{ position: 'sticky', top: 0, zIndex: 1 }}>
@@ -1064,11 +1149,12 @@ export default function MybetsPage() {
               </tbody>
             </table>
           </div>
+          )}
         </div>
         )}
 
 
-        {betView === 'terminal' && (
+        {betView === 'terminal' && !isMobile && (
           <div style={{ display:'flex', flexDirection:'column' }}>
             <div style={{ flexShrink:0, display:'flex', gap:4, padding:'6px 10px', background:'#0f1117', borderBottom:'1px solid rgba(255,255,255,0.08)' }}>
               {['All','Win','Place','Loss'].map(t => { const key = t.toLowerCase(); return (
@@ -1114,7 +1200,7 @@ export default function MybetsPage() {
           </div>
         )}
 
-        {betView === 'sessions' && (
+        {betView === 'sessions' && !isMobile && (
           <div style={{ display:'flex', flexDirection:'column' }}>
             <div style={{ flexShrink:0, display:'flex', gap:4, padding:'6px 10px', background:'#fff', borderBottom:'1px solid #e5e7eb' }}>
               {['All','Win','Place','Loss'].map(t => { const key = t.toLowerCase(); return (
@@ -1171,7 +1257,7 @@ export default function MybetsPage() {
           </div>
         )}
 
-        {betView === 'kanban' && (
+        {betView === 'kanban' && !isMobile && (
           <div style={{ padding:12, background:'#f3f4f6' }}>
             <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:10 }}>
               {[
@@ -1215,7 +1301,7 @@ export default function MybetsPage() {
         {mainTab === 'charts' && (
           <div style={{ display: 'flex', flexDirection: 'column' }}>
             {/* Chart type pills */}
-            <div style={{ flexShrink: 0, padding: '6px 10px', background: '#fff', borderBottom: '1px solid #e5e7eb', display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+            <div style={{ flexShrink: 0, padding: '6px 10px', background: '#fff', borderBottom: '1px solid #e5e7eb', display: 'flex', gap: 4, ...(isMobile ? { overflowX: 'auto', flexWrap: 'nowrap', scrollbarWidth: 'none' } : { flexWrap: 'wrap' }) }}>
               {[
                 ['outcome',    'Outcome Split'],
                 ['cumulative', 'Cumulative P&L'],
@@ -1226,7 +1312,7 @@ export default function MybetsPage() {
                 ['streak',     'Form Streak'],
               ].map(([v, l]) => (
                 <button key={v} onClick={() => setChartType(v)}
-                  style={{ padding: '3px 10px', borderRadius: 4, fontSize: 10, fontWeight: 600, cursor: 'pointer', border: 'none',
+                  style={{ padding: '3px 10px', borderRadius: 4, fontSize: 10, fontWeight: 600, cursor: 'pointer', border: 'none', flexShrink: 0,
                     background: chartType === v ? '#00471b' : '#f3f4f6', color: chartType === v ? '#fff' : '#374151' }}>
                   {l}
                 </button>
@@ -1482,10 +1568,10 @@ export default function MybetsPage() {
                   <div style={{ background: '#fff', borderRadius: 10, border: '1px solid #e5e7eb', padding: '8px 12px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
                       <span style={{ fontSize: 11, fontWeight: 700, color: '#111827' }}>Edge Zone</span>
-                      <div style={{ display: 'flex', gap: 4 }}>
+                      <div style={{ display: 'flex', gap: 4, ...(isMobile && { overflowX: 'auto', scrollbarWidth: 'none' }) }}>
                         {[['odds','By Odds'],['rank','By Rank'],['condition','By Condition'],['venue','By Venue']].map(([v,l]) => (
                           <button key={v} onClick={() => setEdgeZoneTab(v)}
-                            style={{ padding: '2px 8px', borderRadius: 4, fontSize: 10, fontWeight: 600, cursor: 'pointer', border: 'none',
+                            style={{ padding: '2px 8px', borderRadius: 4, fontSize: 10, fontWeight: 600, cursor: 'pointer', border: 'none', flexShrink: 0,
                               background: edgeZoneTab === v ? '#374151' : '#f3f4f6', color: edgeZoneTab === v ? '#fff' : '#374151' }}>
                             {l}
                           </button>
@@ -1494,6 +1580,22 @@ export default function MybetsPage() {
                     </div>
                     {vis.length === 0 ? (
                       <div style={{ padding: '12px 0', textAlign: 'center', color: '#9ca3af', fontSize: 11 }}>No data for this period</div>
+                    ) : isMobile ? (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                        {vis.map(r => (
+                          <div key={r.label} style={{ background: '#f9fafb', borderRadius: 6, padding: '7px 10px', border: '1px solid #e5e7eb' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <span style={{ fontSize: 12, fontWeight: 700, color: '#111827' }}>{r.label}</span>
+                              <span style={{ fontSize: 12, fontWeight: 700, color: r.smallSample ? '#9ca3af' : r.roi >= 0 ? '#059669' : '#dc2626' }}>
+                                {r.smallSample ? 'low data' : r.roi !== null ? `${r.roi >= 0 ? '+' : ''}${r.roi}%` : '—'}
+                              </span>
+                            </div>
+                            <div style={{ fontSize: 10, color: '#6b7280', marginTop: 3 }}>
+                              {r.bets} bets · {r.wins}W · Strike {r.strike !== null ? `${r.strike}%` : '—'}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
                     ) : (
                       <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
                         <thead>
@@ -1524,7 +1626,7 @@ export default function MybetsPage() {
                 );
               })()}
               </div>
-              <div style={{ flex: 1, minWidth: 0, background: '#fff', border: '1px solid #e5e7eb', borderRadius: 10 }} />
+              {!isMobile && <div style={{ flex: 1, minWidth: 0, background: '#fff', border: '1px solid #e5e7eb', borderRadius: 10 }} />}
             </div>
           </div>
         )}
