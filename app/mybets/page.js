@@ -848,10 +848,10 @@ export default function MybetsPage() {
           const streakLabel = heroStreak ? `${heroStreak.type}${heroStreak.count}` : '—';
           const streakColor = heroStreak?.type === 'W' ? '#059669' : heroStreak?.type === 'L' ? '#dc2626' : '#9ca3af';
           return (
-            <div style={{ flexShrink: 0, background: '#fff', borderBottom: '1px solid #e5e7eb', display: 'flex' }}>
+            <div style={{ display: 'flex', gap: 8, padding: '8px 8px 0', flexShrink: 0 }}>
 
               {/* LEFT: stats + chart */}
-              <div style={{ flex: 1, minWidth: 0, borderRight: '1px solid #e5e7eb' }}>
+              <div style={{ flex: 1, minWidth: 0, background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, overflow: 'hidden' }}>
                 <div style={{ display: 'flex', alignItems: 'center', padding: '10px 16px', gap: 16, borderBottom: '1px solid #f3f4f6' }}>
                   <div style={{ minWidth: 72, display: 'flex', flexDirection: 'column', gap: 6 }}>
                     {[
@@ -865,11 +865,11 @@ export default function MybetsPage() {
                     ))}
                   </div>
                   <div style={{ flex: 1, textAlign: 'center' }}>
-                    <div style={{ fontSize: 11, fontWeight: 600, color: '#6b7280', marginBottom: 2 }}>{periodPnlLabel}</div>
+                    <div style={{ fontSize: 11, fontWeight: 600, color: '#374151', marginBottom: 2 }}>{periodPnlLabel}</div>
                     <div style={{ fontSize: 42, fontWeight: 800, fontFamily: 'monospace', color: pnlColor, lineHeight: 1 }}>
                       {pnl === null ? '—' : (pnlPos ? '+$' : '-$') + Math.abs(pnl).toFixed(2)}
                     </div>
-                    <div style={{ fontSize: 12, fontFamily: 'monospace', color: '#9ca3af', marginTop: 4, letterSpacing: '.05em' }}>{heroRecord}</div>
+                    <div style={{ fontSize: 12, fontFamily: 'monospace', color: '#374151', marginTop: 4, letterSpacing: '.05em' }}>{heroRecord}</div>
                   </div>
                   <div style={{ minWidth: 72, display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'flex-end' }}>
                     {[
@@ -915,16 +915,16 @@ export default function MybetsPage() {
               </div>
 
               {/* RIGHT: next races + leak finder */}
-              <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', padding: '10px 12px', gap: 8, overflow: 'hidden' }}>
+              <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', padding: '10px 12px', gap: 8, background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, overflow: 'hidden' }}>
 
                 {/* Next races · top pick */}
                 <div>
-                  <div style={{ fontSize: 9, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 4 }}>Next races · top pick</div>
+                  <div style={{ fontSize: 9, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 4 }}>Next races · top pick</div>
                   {nextRaces.length === 0 ? (
-                    <div style={{ fontSize: 10, color: '#d1d5db' }}>Load a CSV on Races to see upcoming top picks</div>
+                    <div style={{ fontSize: 10, color: '#9ca3af' }}>Load a CSV on Races to see upcoming top picks</div>
                   ) : nextRaces.map(r => (
-                    <div key={`${r.meeting}-${r.raceNum}`} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '3px 0', borderBottom: '1px solid #f9fafb' }}>
-                      <span style={{ fontSize: 9, color: '#9ca3af', flexShrink: 0, width: 68, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.meeting} R{r.raceNum}</span>
+                    <div key={`${r.meeting}-${r.raceNum}`} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '3px 0', borderBottom: '1px solid #f3f4f6' }}>
+                      <span style={{ fontSize: 9, color: '#6b7280', flexShrink: 0, width: 68, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.meeting} R{r.raceNum}</span>
                       <span style={{ fontSize: 10, fontWeight: 600, color: '#111827', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.top?.name || '—'}</span>
                       {r.top?.rawOdds != null && <span style={{ fontSize: 10, fontFamily: 'monospace', color: '#374151', flexShrink: 0 }}>${r.top.rawOdds.toFixed(1)}</span>}
                       <span style={{ fontSize: 9, color: '#6b7280', flexShrink: 0 }}>
@@ -936,13 +936,13 @@ export default function MybetsPage() {
 
                 {/* Leak finder */}
                 <div>
-                  <div style={{ fontSize: 9, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 4 }}>Leak finder</div>
+                  <div style={{ fontSize: 9, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 4 }}>Leak finder</div>
                   {leakFinderCards.length === 0 ? (
-                    <div style={{ fontSize: 10, color: '#d1d5db' }}>Not enough data yet — need 5+ bets in a band</div>
+                    <div style={{ fontSize: 10, color: '#9ca3af' }}>Not enough data yet — need 5+ bets in a band</div>
                   ) : leakFinderCards.map((card, i) => (
                     <div key={i} style={{ borderLeft: `3px solid ${card.leak ? '#E24B4A' : '#1D9E75'}`, paddingLeft: 7, marginBottom: 3 }}>
                       <div style={{ fontSize: 11, fontWeight: 700, color: '#111827' }}>{card.insight}</div>
-                      <div style={{ fontSize: 9, color: '#6b7280' }}>{card.stat}</div>
+                      <div style={{ fontSize: 9, color: '#374151' }}>{card.stat}</div>
                     </div>
                   ))}
                 </div>
@@ -953,11 +953,11 @@ export default function MybetsPage() {
         })()}
 
         {/* DATE RANGE SWITCHER */}
-        <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 4, padding: '6px 12px', background: '#fff', borderBottom: '1px solid #e5e7eb', flexWrap: 'wrap' }}>
+        <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 4, padding: '6px 12px', background: '#fff', border: '1px solid #e5e7eb', borderRadius: 6, margin: '8px 8px 0', flexWrap: 'wrap' }}>
           {[['today','Today'],['yesterday','Yesterday'],['this_week','This Week'],['this_month','This Month'],['all_time','All Time'],['custom','Custom']].map(([v,l]) => (
             <button key={v} onClick={() => setDateRange(v)}
               style={{ padding: '3px 10px', borderRadius: 4, fontSize: 10, fontWeight: 600, cursor: 'pointer', border: 'none',
-                background: dateRange === v ? '#00471b' : '#f3f4f6', color: dateRange === v ? '#fff' : '#6b7280' }}>
+                background: dateRange === v ? '#00471b' : '#f3f4f6', color: dateRange === v ? '#fff' : '#374151' }}>
               {l}
             </button>
           ))}
@@ -969,12 +969,12 @@ export default function MybetsPage() {
         </div>
 
         {/* TAB BAR */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 12px', background: '#fff', borderBottom: '1px solid #e5e7eb', flexShrink: 0, gap: 8 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 12px', background: '#fff', border: '1px solid #e5e7eb', borderRadius: 6, flexShrink: 0, gap: 8, margin: '4px 8px 8px' }}>
           <div style={{ display: 'flex', gap: 4 }}>
             {[['ledger', 'Ledger'], ['charts', 'Charts']].map(([v, l]) => (
               <button key={v} onClick={() => setMainTab(v)}
                 style={{ padding: '4px 14px', borderRadius: 5, fontSize: 11, fontWeight: 700, cursor: 'pointer', border: 'none',
-                  background: mainTab === v ? '#00471b' : '#f3f4f6', color: mainTab === v ? '#fff' : '#374151' }}>
+                  background: mainTab === v ? '#00471b' : '#f3f4f6', color: mainTab === v ? '#fff' : '#111827' }}>
                 {l}
               </button>
             ))}
@@ -984,7 +984,7 @@ export default function MybetsPage() {
               {[['table', 'Table'], ['terminal', 'Terminal'], ['sessions', 'Sessions'], ['kanban', 'Kanban']].map(([v, l]) => (
                 <button key={v} onClick={() => setBetView(v)}
                   style={{ padding: '3px 10px', borderRadius: 4, fontSize: 10, fontWeight: 600, cursor: 'pointer', border: 'none',
-                    background: betView === v ? '#374151' : '#f3f4f6', color: betView === v ? '#fff' : '#6b7280' }}>
+                    background: betView === v ? '#374151' : '#f3f4f6', color: betView === v ? '#fff' : '#374151' }}>
                   {l}
                 </button>
               ))}
@@ -1203,7 +1203,7 @@ export default function MybetsPage() {
               ].map(([v, l]) => (
                 <button key={v} onClick={() => setChartType(v)}
                   style={{ padding: '3px 10px', borderRadius: 4, fontSize: 10, fontWeight: 600, cursor: 'pointer', border: 'none',
-                    background: chartType === v ? '#00471b' : '#f3f4f6', color: chartType === v ? '#fff' : '#6b7280' }}>
+                    background: chartType === v ? '#00471b' : '#f3f4f6', color: chartType === v ? '#fff' : '#374151' }}>
                   {l}
                 </button>
               ))}
@@ -1238,7 +1238,7 @@ export default function MybetsPage() {
                     const data = [{ name: 'Win', value: wins, color: CG }, { name: 'Place', value: places, color: CB }, { name: 'Loss', value: losses, color: CR }].filter(d => d.value > 0);
                     return (
                       <>
-                        <div style={{ fontSize: 11, fontWeight: 700, color: '#374151', marginBottom: 12 }}>Outcome Split</div>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: '#111827', marginBottom: 12 }}>Outcome Split</div>
                         <ResponsiveContainer width="100%" height={340}>
                           <PieChart role="img" aria-label="Bet outcome split: win, place, loss">
                             <Pie data={data} innerRadius={60} outerRadius={90} paddingAngle={3} dataKey="value">
@@ -1251,7 +1251,7 @@ export default function MybetsPage() {
                           {data.map(d => (
                             <span key={d.name} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11 }}>
                               <span style={{ width: 10, height: 10, borderRadius: 2, background: d.color, display: 'inline-block' }} />
-                              <span style={{ color: '#374151' }}>{d.name}</span>
+                              <span style={{ color: '#111827' }}>{d.name}</span>
                               <span style={{ fontWeight: 700, color: '#111827' }}>{d.value}</span>
                             </span>
                           ))}
@@ -1268,7 +1268,7 @@ export default function MybetsPage() {
                     const finalPnl = data.length ? data[data.length - 1].pnl : 0;
                     return (
                       <>
-                        <div style={{ fontSize: 11, fontWeight: 700, color: '#374151', marginBottom: 12 }}>Cumulative P&L</div>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: '#111827', marginBottom: 12 }}>Cumulative P&L</div>
                         <ResponsiveContainer width="100%" height={340} role="img" aria-label="Cumulative profit and loss over time">
                           <LineChart data={data} margin={{ top: 4, right: 8, bottom: 0, left: 0 }}>
                             <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
@@ -1288,11 +1288,11 @@ export default function MybetsPage() {
                     const data = bands.map(([label, lo, hi]) => { const arr = dateResulted.filter(b => { const o = +(b.odds || 0); return o >= lo && o < hi; }); return { label, ...calcGroupData(arr) }; });
                     return (
                       <>
-                        <div style={{ fontSize: 11, fontWeight: 700, color: '#374151', marginBottom: 12 }}>ROI by Odds Range</div>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: '#111827', marginBottom: 12 }}>ROI by Odds Range</div>
                         <ResponsiveContainer width="100%" height={340} role="img" aria-label="ROI percentage by odds range">
                           <BarChart data={data} margin={{ top: 4, right: 8, bottom: 0, left: 0 }}>
                             <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
-                            <XAxis dataKey="label" tick={{ fontSize: 10, fill: '#6b7280' }} />
+                            <XAxis dataKey="label" tick={{ fontSize: 10, fill: '#374151' }} />
                             <YAxis tick={{ fontSize: 9, fill: '#9ca3af' }} tickFormatter={v => `${v}%`} />
                             <Tooltip formatter={(v, n, p) => p.payload.smallSample ? ['< 5 bets', 'Small sample'] : [`${v}%`, 'ROI']} />
                             <Bar dataKey="roi" radius={[3, 3, 0, 0]}>
@@ -1300,7 +1300,7 @@ export default function MybetsPage() {
                             </Bar>
                           </BarChart>
                         </ResponsiveContainer>
-                        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 8, fontSize: 10, color: '#6b7280' }}>
+                        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 8, fontSize: 10, color: '#374151' }}>
                           {data.filter(d => d.bets > 0).map(d => (
                             <span key={d.label}><b>{d.label}</b> {d.bets}b · {d.smallSample ? <span style={{ color: '#9ca3af' }}>small sample</span> : <span style={{ color: d.roi >= 0 ? CG : CR, fontWeight: 700 }}>{d.roi >= 0 ? '+' : ''}{d.roi}%</span>}</span>
                           ))}
@@ -1316,11 +1316,11 @@ export default function MybetsPage() {
                     const data = Object.entries(venueMap).map(([label, arr]) => ({ label, ...calcGroupData(arr) })).sort((a, b) => b.bets - a.bets);
                     return (
                       <>
-                        <div style={{ fontSize: 11, fontWeight: 700, color: '#374151', marginBottom: 12 }}>P&L by Venue</div>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: '#111827', marginBottom: 12 }}>P&L by Venue</div>
                         <ResponsiveContainer width="100%" height={340} role="img" aria-label="Total profit and loss by venue">
                           <BarChart data={data} margin={{ top: 4, right: 8, bottom: 24, left: 0 }}>
                             <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
-                            <XAxis dataKey="label" tick={{ fontSize: 9, fill: '#6b7280' }} angle={-30} textAnchor="end" interval={0} />
+                            <XAxis dataKey="label" tick={{ fontSize: 9, fill: '#374151' }} angle={-30} textAnchor="end" interval={0} />
                             <YAxis tick={{ fontSize: 9, fill: '#9ca3af' }} tickFormatter={v => `$${v}`} />
                             <Tooltip formatter={(v, n, p) => p.payload.smallSample ? ['< 5 bets', 'P&L'] : [`$${v}`, 'P&L']} />
                             <Bar dataKey="pnl" radius={[3, 3, 0, 0]}>
@@ -1328,7 +1328,7 @@ export default function MybetsPage() {
                             </Bar>
                           </BarChart>
                         </ResponsiveContainer>
-                        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 8, fontSize: 10, color: '#6b7280' }}>
+                        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 8, fontSize: 10, color: '#374151' }}>
                           {data.filter(d => d.bets > 0).map(d => (
                             <span key={d.label}><b>{d.label}</b> {d.bets}b · {d.smallSample ? <span style={{ color: '#9ca3af' }}>small sample</span> : <span style={{ color: d.pnl >= 0 ? CG : CR, fontWeight: 700 }}>{d.pnl >= 0 ? '+$' : '-$'}{Math.abs(d.pnl).toFixed(0)}</span>}</span>
                           ))}
@@ -1344,11 +1344,11 @@ export default function MybetsPage() {
                     const data = Object.entries(condMap).map(([label, arr]) => ({ label, ...calcGroupData(arr) })).sort((a, b) => b.bets - a.bets);
                     return (
                       <>
-                        <div style={{ fontSize: 11, fontWeight: 700, color: '#374151', marginBottom: 12 }}>ROI by Track Condition</div>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: '#111827', marginBottom: 12 }}>ROI by Track Condition</div>
                         <ResponsiveContainer width="100%" height={340} role="img" aria-label="ROI by track condition">
                           <BarChart data={data} margin={{ top: 4, right: 8, bottom: 0, left: 0 }}>
                             <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
-                            <XAxis dataKey="label" tick={{ fontSize: 10, fill: '#6b7280' }} />
+                            <XAxis dataKey="label" tick={{ fontSize: 10, fill: '#374151' }} />
                             <YAxis tick={{ fontSize: 9, fill: '#9ca3af' }} tickFormatter={v => `${v}%`} />
                             <Tooltip formatter={(v, n, p) => p.payload.smallSample ? ['< 5 bets', 'Small sample'] : [`${v}%`, 'ROI']} />
                             <Bar dataKey="roi" radius={[3, 3, 0, 0]}>
@@ -1356,7 +1356,7 @@ export default function MybetsPage() {
                             </Bar>
                           </BarChart>
                         </ResponsiveContainer>
-                        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 8, fontSize: 10, color: '#6b7280' }}>
+                        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 8, fontSize: 10, color: '#374151' }}>
                           {data.filter(d => d.bets > 0).map(d => (
                             <span key={d.label}><b>{d.label}</b> {d.bets}b · {d.smallSample ? <span style={{ color: '#9ca3af' }}>small sample</span> : <span style={{ color: d.roi >= 0 ? CG : CR, fontWeight: 700 }}>{d.roi >= 0 ? '+' : ''}{d.roi}%</span>}</span>
                           ))}
@@ -1371,11 +1371,11 @@ export default function MybetsPage() {
                     const data = bands.map(([label, lo, hi]) => { const arr = dateResulted.filter(b => b.rank >= lo && b.rank <= hi); return { label, ...calcGroupData(arr) }; });
                     return (
                       <>
-                        <div style={{ fontSize: 11, fontWeight: 700, color: '#374151', marginBottom: 12 }}>ROI by Model Rank</div>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: '#111827', marginBottom: 12 }}>ROI by Model Rank</div>
                         <ResponsiveContainer width="100%" height={340} role="img" aria-label="ROI by model rank">
                           <BarChart data={data} margin={{ top: 4, right: 8, bottom: 0, left: 0 }}>
                             <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
-                            <XAxis dataKey="label" tick={{ fontSize: 10, fill: '#6b7280' }} />
+                            <XAxis dataKey="label" tick={{ fontSize: 10, fill: '#374151' }} />
                             <YAxis tick={{ fontSize: 9, fill: '#9ca3af' }} tickFormatter={v => `${v}%`} />
                             <Tooltip formatter={(v, n, p) => p.payload.smallSample ? ['< 5 bets', 'Small sample'] : [`${v}%`, 'ROI']} />
                             <Bar dataKey="roi" radius={[3, 3, 0, 0]}>
@@ -1383,7 +1383,7 @@ export default function MybetsPage() {
                             </Bar>
                           </BarChart>
                         </ResponsiveContainer>
-                        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 8, fontSize: 10, color: '#6b7280' }}>
+                        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 8, fontSize: 10, color: '#374151' }}>
                           {data.filter(d => d.bets > 0).map(d => (
                             <span key={d.label}><b>{d.label}</b> {d.bets}b · {d.smallSample ? <span style={{ color: '#9ca3af' }}>small sample</span> : <span style={{ color: d.roi >= 0 ? CG : CR, fontWeight: 700 }}>{d.roi >= 0 ? '+' : ''}{d.roi}%</span>}</span>
                           ))}
@@ -1398,7 +1398,7 @@ export default function MybetsPage() {
                     const data = recent.map((b, i) => ({ i: i + 1, val: b.status === 'win' ? 1 : b.status === 'place' ? 0.5 : -1, status: b.status, horse: b.horse_name }));
                     return (
                       <>
-                        <div style={{ fontSize: 11, fontWeight: 700, color: '#374151', marginBottom: 12 }}>Form Streak (recent {data.length} bets, oldest → newest)</div>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: '#111827', marginBottom: 12 }}>Form Streak (recent {data.length} bets, oldest → newest)</div>
                         <ResponsiveContainer width="100%" height={260} role="img" aria-label="Recent form streak">
                           <BarChart data={data} margin={{ top: 4, right: 8, bottom: 0, left: 0 }}>
                             <XAxis hide />
@@ -1409,7 +1409,7 @@ export default function MybetsPage() {
                             </Bar>
                           </BarChart>
                         </ResponsiveContainer>
-                        <div style={{ display: 'flex', gap: 12, justifyContent: 'center', marginTop: 6, fontSize: 10, color: '#6b7280' }}>
+                        <div style={{ display: 'flex', gap: 12, justifyContent: 'center', marginTop: 6, fontSize: 10, color: '#374151' }}>
                           {[['Win', CG], ['Place', CB], ['Loss', CR]].map(([l, c]) => (
                             <span key={l} style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                               <span style={{ width: 8, height: 8, background: c, borderRadius: 1, display: 'inline-block' }} />{l}
@@ -1456,12 +1456,12 @@ export default function MybetsPage() {
                 return (
                   <div style={{ background: '#fff', borderRadius: 10, border: '1px solid #e5e7eb', padding: '14px 20px', width: '100%', maxWidth: 720 }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-                      <span style={{ fontSize: 11, fontWeight: 700, color: '#374151' }}>Edge Zone</span>
+                      <span style={{ fontSize: 11, fontWeight: 700, color: '#111827' }}>Edge Zone</span>
                       <div style={{ display: 'flex', gap: 4 }}>
                         {[['odds','By Odds'],['rank','By Rank'],['condition','By Condition'],['venue','By Venue']].map(([v,l]) => (
                           <button key={v} onClick={() => setEdgeZoneTab(v)}
                             style={{ padding: '2px 8px', borderRadius: 4, fontSize: 10, fontWeight: 600, cursor: 'pointer', border: 'none',
-                              background: edgeZoneTab === v ? '#374151' : '#f3f4f6', color: edgeZoneTab === v ? '#fff' : '#6b7280' }}>
+                              background: edgeZoneTab === v ? '#374151' : '#f3f4f6', color: edgeZoneTab === v ? '#fff' : '#374151' }}>
                             {l}
                           </button>
                         ))}
@@ -1474,19 +1474,19 @@ export default function MybetsPage() {
                         <thead>
                           <tr style={{ background: '#f9fafb' }}>
                             {['Category','Bets','Wins','2nd','3rd','Strike','ROI'].map(h => (
-                              <th key={h} style={{ padding: '5px 8px', fontSize: 9, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', textAlign: h==='Category'?'left':'right', borderBottom: '1px solid #e5e7eb', whiteSpace: 'nowrap' }}>{h}</th>
+                              <th key={h} style={{ padding: '5px 8px', fontSize: 9, fontWeight: 700, color: '#374151', textTransform: 'uppercase', textAlign: h==='Category'?'left':'right', borderBottom: '1px solid #e5e7eb', whiteSpace: 'nowrap' }}>{h}</th>
                             ))}
                           </tr>
                         </thead>
                         <tbody>
                           {vis.map((r,i) => (
                             <tr key={r.label} style={{ borderBottom: '1px solid #f3f4f6', background: i%2===0?'#fff':'#fafafa' }}>
-                              <td style={{ padding: '5px 8px', color: '#374151', fontWeight: 600 }}>{r.label}</td>
-                              <td style={{ padding: '5px 8px', textAlign: 'right', color: '#374151' }}>{r.bets}</td>
-                              <td style={{ padding: '5px 8px', textAlign: 'right', color: '#374151' }}>{r.wins}</td>
-                              <td style={{ padding: '5px 8px', textAlign: 'right', color: '#374151' }}>{r.second}</td>
-                              <td style={{ padding: '5px 8px', textAlign: 'right', color: '#374151' }}>{r.third}</td>
-                              <td style={{ padding: '5px 8px', textAlign: 'right', color: '#374151' }}>{r.strike !== null ? `${r.strike}%` : '—'}</td>
+                              <td style={{ padding: '5px 8px', color: '#111827', fontWeight: 600 }}>{r.label}</td>
+                              <td style={{ padding: '5px 8px', textAlign: 'right', color: '#111827' }}>{r.bets}</td>
+                              <td style={{ padding: '5px 8px', textAlign: 'right', color: '#111827' }}>{r.wins}</td>
+                              <td style={{ padding: '5px 8px', textAlign: 'right', color: '#111827' }}>{r.second}</td>
+                              <td style={{ padding: '5px 8px', textAlign: 'right', color: '#111827' }}>{r.third}</td>
+                              <td style={{ padding: '5px 8px', textAlign: 'right', color: '#111827' }}>{r.strike !== null ? `${r.strike}%` : '—'}</td>
                               <td style={{ padding: '5px 8px', textAlign: 'right', fontWeight: 700, color: r.smallSample ? '#9ca3af' : r.roi >= 0 ? '#059669' : '#dc2626' }}>
                                 {r.smallSample ? 'small sample' : r.roi !== null ? `${r.roi >= 0 ? '+' : ''}${r.roi}%` : '—'}
                               </td>
