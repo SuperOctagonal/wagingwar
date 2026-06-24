@@ -852,7 +852,7 @@ export default function MybetsPage() {
 
               {/* LEFT: stats + chart */}
               <div style={{ flex: 1, minWidth: 0, background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, overflow: 'hidden' }}>
-                <div style={{ display: 'flex', alignItems: 'center', padding: '10px 16px', gap: 16, borderBottom: '1px solid #f3f4f6' }}>
+                <div style={{ display: 'flex', alignItems: 'center', padding: '8px 12px', gap: 16, borderBottom: '1px solid #f3f4f6' }}>
                   <div style={{ minWidth: 72, display: 'flex', flexDirection: 'column', gap: 6 }}>
                     {[
                       { label: 'Strike', value: dateStats.strike, color: '#374151' },
@@ -915,7 +915,7 @@ export default function MybetsPage() {
               </div>
 
               {/* RIGHT: next races + leak finder */}
-              <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', padding: '10px 12px', gap: 8, background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, overflow: 'hidden' }}>
+              <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', padding: '8px 10px', gap: 6, background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, overflow: 'hidden' }}>
 
                 {/* Next races · top pick */}
                 <div>
@@ -925,11 +925,13 @@ export default function MybetsPage() {
                   ) : nextRaces.map(r => (
                     <div key={`${r.meeting}-${r.raceNum}`} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '3px 0', borderBottom: '1px solid #f3f4f6' }}>
                       <span style={{ fontSize: 9, color: '#6b7280', flexShrink: 0, width: 68, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.meeting} R{r.raceNum}</span>
-                      <span style={{ fontSize: 10, fontWeight: 600, color: '#111827', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.top?.name || '—'}</span>
-                      {r.top?.rawOdds != null && <span style={{ fontSize: 10, fontFamily: 'monospace', color: '#374151', flexShrink: 0 }}>${r.top.rawOdds.toFixed(1)}</span>}
-                      <span style={{ fontSize: 9, color: '#6b7280', flexShrink: 0 }}>
-                        {r.minsToJump < 60 ? `${Math.round(r.minsToJump)}m` : `${Math.floor(r.minsToJump / 60)}h${r.minsToJump % 60 > 0 ? Math.round(r.minsToJump % 60) + 'm' : ''}`}
-                      </span>
+                      <span style={{ fontSize: 10, fontWeight: 600, color: '#111827', flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.top?.name || '—'}</span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
+                        {r.top?.rawOdds != null && <span style={{ fontSize: 10, fontFamily: 'monospace', color: '#374151' }}>${r.top.rawOdds.toFixed(1)}</span>}
+                        <span style={{ fontSize: 9, color: '#6b7280' }}>
+                          {r.minsToJump < 60 ? `${Math.round(r.minsToJump)}m` : `${Math.floor(r.minsToJump / 60)}h${r.minsToJump % 60 > 0 ? Math.round(r.minsToJump % 60) + 'm' : ''}`}
+                        </span>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -953,7 +955,7 @@ export default function MybetsPage() {
         })()}
 
         {/* DATE RANGE SWITCHER */}
-        <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 4, padding: '6px 12px', background: '#fff', border: '1px solid #e5e7eb', borderRadius: 6, margin: '8px 8px 0', flexWrap: 'wrap' }}>
+        <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 4, padding: '5px 10px', background: '#fff', border: '1px solid #e5e7eb', borderRadius: 6, margin: '6px 8px 0', flexWrap: 'wrap' }}>
           {[['today','Today'],['yesterday','Yesterday'],['this_week','This Week'],['this_month','This Month'],['all_time','All Time'],['custom','Custom']].map(([v,l]) => (
             <button key={v} onClick={() => setDateRange(v)}
               style={{ padding: '3px 10px', borderRadius: 4, fontSize: 10, fontWeight: 600, cursor: 'pointer', border: 'none',
@@ -969,7 +971,7 @@ export default function MybetsPage() {
         </div>
 
         {/* TAB BAR */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 12px', background: '#fff', border: '1px solid #e5e7eb', borderRadius: 6, flexShrink: 0, gap: 8, margin: '4px 8px 8px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '5px 10px', background: '#fff', border: '1px solid #e5e7eb', borderRadius: 6, flexShrink: 0, gap: 8, margin: '4px 8px 6px' }}>
           <div style={{ display: 'flex', gap: 4 }}>
             {[['ledger', 'Ledger'], ['charts', 'Charts']].map(([v, l]) => (
               <button key={v} onClick={() => setMainTab(v)}
@@ -1191,7 +1193,7 @@ export default function MybetsPage() {
         {mainTab === 'charts' && (
           <div style={{ display: 'flex', flexDirection: 'column' }}>
             {/* Chart type pills */}
-            <div style={{ flexShrink: 0, padding: '8px 12px', background: '#fff', borderBottom: '1px solid #e5e7eb', display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+            <div style={{ flexShrink: 0, padding: '6px 10px', background: '#fff', borderBottom: '1px solid #e5e7eb', display: 'flex', gap: 4, flexWrap: 'wrap' }}>
               {[
                 ['outcome',    'Outcome Split'],
                 ['cumulative', 'Cumulative P&L'],
@@ -1210,8 +1212,8 @@ export default function MybetsPage() {
             </div>
 
             {/* Chart card + edge zone */}
-            <div style={{ padding: 16, background: '#f9fafb', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
-              <div style={{ background: '#fff', borderRadius: 10, border: '1px solid #e5e7eb', padding: '16px 20px', width: '100%', maxWidth: 720 }}>
+            <div style={{ padding: 12, background: '#f9fafb', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
+              <div style={{ background: '#fff', borderRadius: 10, border: '1px solid #e5e7eb', padding: '12px 16px', width: '100%', maxWidth: 720 }}>
                 {(() => {
                   const CG = '#1D9E75', CR = '#E24B4A', CB = '#3b82f6';
                   const MIN_SAMPLE = 5;
@@ -1239,7 +1241,7 @@ export default function MybetsPage() {
                     return (
                       <>
                         <div style={{ fontSize: 11, fontWeight: 700, color: '#111827', marginBottom: 12 }}>Outcome Split</div>
-                        <ResponsiveContainer width="100%" height={340}>
+                        <ResponsiveContainer width="100%" height={272}>
                           <PieChart role="img" aria-label="Bet outcome split: win, place, loss">
                             <Pie data={data} innerRadius={60} outerRadius={90} paddingAngle={3} dataKey="value">
                               {data.map((d, i) => <Cell key={i} fill={d.color} />)}
@@ -1269,13 +1271,13 @@ export default function MybetsPage() {
                     return (
                       <>
                         <div style={{ fontSize: 11, fontWeight: 700, color: '#111827', marginBottom: 12 }}>Cumulative P&L</div>
-                        <ResponsiveContainer width="100%" height={340} role="img" aria-label="Cumulative profit and loss over time">
+                        <ResponsiveContainer width="100%" height={272} role="img" aria-label="Cumulative profit and loss over time">
                           <LineChart data={data} margin={{ top: 4, right: 8, bottom: 0, left: 0 }}>
                             <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
                             <XAxis dataKey="label" tick={{ fontSize: 9, fill: '#9ca3af' }} interval="preserveStartEnd" />
                             <YAxis tick={{ fontSize: 9, fill: '#9ca3af' }} tickFormatter={v => `$${v}`} />
                             <Tooltip formatter={v => [`$${v}`, 'P&L']} />
-                            <Line type="monotone" dataKey="pnl" stroke={finalPnl >= 0 ? CG : CR} strokeWidth={2} dot={false} />
+                            <Line type="monotone" dataKey="pnl" stroke={finalPnl >= 0 ? CG : CR} strokeWidth={2} dot={renderHeroDot} activeDot={{ r: 5, stroke: '#fff', strokeWidth: 2 }} />
                           </LineChart>
                         </ResponsiveContainer>
                       </>
@@ -1289,7 +1291,7 @@ export default function MybetsPage() {
                     return (
                       <>
                         <div style={{ fontSize: 11, fontWeight: 700, color: '#111827', marginBottom: 12 }}>ROI by Odds Range</div>
-                        <ResponsiveContainer width="100%" height={340} role="img" aria-label="ROI percentage by odds range">
+                        <ResponsiveContainer width="100%" height={272} role="img" aria-label="ROI percentage by odds range">
                           <BarChart data={data} margin={{ top: 4, right: 8, bottom: 0, left: 0 }}>
                             <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
                             <XAxis dataKey="label" tick={{ fontSize: 10, fill: '#374151' }} />
@@ -1317,7 +1319,7 @@ export default function MybetsPage() {
                     return (
                       <>
                         <div style={{ fontSize: 11, fontWeight: 700, color: '#111827', marginBottom: 12 }}>P&L by Venue</div>
-                        <ResponsiveContainer width="100%" height={340} role="img" aria-label="Total profit and loss by venue">
+                        <ResponsiveContainer width="100%" height={272} role="img" aria-label="Total profit and loss by venue">
                           <BarChart data={data} margin={{ top: 4, right: 8, bottom: 24, left: 0 }}>
                             <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
                             <XAxis dataKey="label" tick={{ fontSize: 9, fill: '#374151' }} angle={-30} textAnchor="end" interval={0} />
@@ -1345,7 +1347,7 @@ export default function MybetsPage() {
                     return (
                       <>
                         <div style={{ fontSize: 11, fontWeight: 700, color: '#111827', marginBottom: 12 }}>ROI by Track Condition</div>
-                        <ResponsiveContainer width="100%" height={340} role="img" aria-label="ROI by track condition">
+                        <ResponsiveContainer width="100%" height={272} role="img" aria-label="ROI by track condition">
                           <BarChart data={data} margin={{ top: 4, right: 8, bottom: 0, left: 0 }}>
                             <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
                             <XAxis dataKey="label" tick={{ fontSize: 10, fill: '#374151' }} />
@@ -1372,7 +1374,7 @@ export default function MybetsPage() {
                     return (
                       <>
                         <div style={{ fontSize: 11, fontWeight: 700, color: '#111827', marginBottom: 12 }}>ROI by Model Rank</div>
-                        <ResponsiveContainer width="100%" height={340} role="img" aria-label="ROI by model rank">
+                        <ResponsiveContainer width="100%" height={272} role="img" aria-label="ROI by model rank">
                           <BarChart data={data} margin={{ top: 4, right: 8, bottom: 0, left: 0 }}>
                             <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
                             <XAxis dataKey="label" tick={{ fontSize: 10, fill: '#374151' }} />
@@ -1399,7 +1401,7 @@ export default function MybetsPage() {
                     return (
                       <>
                         <div style={{ fontSize: 11, fontWeight: 700, color: '#111827', marginBottom: 12 }}>Form Streak (recent {data.length} bets, oldest → newest)</div>
-                        <ResponsiveContainer width="100%" height={260} role="img" aria-label="Recent form streak">
+                        <ResponsiveContainer width="100%" height={210} role="img" aria-label="Recent form streak">
                           <BarChart data={data} margin={{ top: 4, right: 8, bottom: 0, left: 0 }}>
                             <XAxis hide />
                             <YAxis domain={[-1.1, 1.1]} tick={{ fontSize: 9, fill: '#9ca3af' }} tickFormatter={v => v === 1 ? 'W' : v === 0.5 ? 'P' : v === -1 ? 'L' : ''} ticks={[-1, 0, 0.5, 1]} />
@@ -1454,7 +1456,7 @@ export default function MybetsPage() {
                 }
                 const vis = ezRows.filter(r => r.bets > 0);
                 return (
-                  <div style={{ background: '#fff', borderRadius: 10, border: '1px solid #e5e7eb', padding: '14px 20px', width: '100%', maxWidth: 720 }}>
+                  <div style={{ background: '#fff', borderRadius: 10, border: '1px solid #e5e7eb', padding: '10px 16px', width: '100%', maxWidth: 720 }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
                       <span style={{ fontSize: 11, fontWeight: 700, color: '#111827' }}>Edge Zone</span>
                       <div style={{ display: 'flex', gap: 4 }}>
