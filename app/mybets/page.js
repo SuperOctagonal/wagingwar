@@ -915,7 +915,7 @@ export default function MybetsPage() {
               </div>
 
               {/* RIGHT: next races + leak finder */}
-              <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', padding: '8px 10px', gap: 12, background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, overflow: 'hidden' }}>
+              <div style={{ flex: '0 1 280px', minWidth: 0, display: 'flex', flexDirection: 'column', padding: '8px 10px', gap: 12, background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, overflow: 'hidden' }}>
 
                 {/* Next races · top pick */}
                 <div>
@@ -923,12 +923,12 @@ export default function MybetsPage() {
                   {nextRaces.length === 0 ? (
                     <div style={{ fontSize: 10, color: '#9ca3af' }}>Load a CSV on Races to see upcoming top picks</div>
                   ) : nextRaces.map(r => (
-                    <div key={`${r.meeting}-${r.raceNum}`} style={{ display: 'flex', alignItems: 'center', padding: '3px 0', borderBottom: '1px solid #f3f4f6' }}>
-                      <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 4, overflow: 'hidden' }}>
+                    <div key={`${r.meeting}-${r.raceNum}`} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '3px 0', borderBottom: '1px solid #f3f4f6' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 4, minWidth: 0, flexShrink: 1, overflow: 'hidden' }}>
                         <span style={{ fontSize: 9, color: '#6b7280', flexShrink: 0, width: 60, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.meeting} R{r.raceNum}</span>
                         <span style={{ fontSize: 10, fontWeight: 600, color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.top?.name || '—'}</span>
                       </div>
-                      <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 4, paddingLeft: 8 }}>
+                      <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 4 }}>
                         {r.top?.rawOdds != null && <span style={{ fontSize: 10, fontFamily: 'monospace', color: '#374151' }}>${r.top.rawOdds.toFixed(1)}</span>}
                         <span style={{ fontSize: 9, color: '#6b7280' }}>
                           {r.minsToJump < 60 ? `${Math.round(r.minsToJump)}m` : `${Math.floor(r.minsToJump / 60)}h${r.minsToJump % 60 > 0 ? Math.round(r.minsToJump % 60) + 'm' : ''}`}
