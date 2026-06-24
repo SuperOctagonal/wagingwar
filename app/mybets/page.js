@@ -851,7 +851,7 @@ export default function MybetsPage() {
             <div style={{ display: 'flex', gap: 8, padding: '8px 8px 0', flexShrink: 0 }}>
 
               {/* LEFT: stats + chart */}
-              <div style={{ flex: 1, minWidth: 0, background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, overflow: 'hidden' }}>
+              <div style={{ flex: '0 0 50%', minWidth: 0, background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, overflow: 'hidden' }}>
                 <div style={{ display: 'flex', alignItems: 'center', padding: '8px 12px', gap: 16, borderBottom: '1px solid #f3f4f6' }}>
                   <div style={{ minWidth: 72, display: 'flex', flexDirection: 'column', gap: 6 }}>
                     {[
@@ -1069,7 +1069,16 @@ export default function MybetsPage() {
 
 
         {betView === 'terminal' && (
-          <div style={{ background:'#0f1117', padding:12 }}>
+          <div style={{ display:'flex', flexDirection:'column' }}>
+            <div style={{ flexShrink:0, display:'flex', gap:4, padding:'6px 10px', background:'#0f1117', borderBottom:'1px solid rgba(255,255,255,0.08)' }}>
+              {['All','Win','Place','Loss'].map(t => { const key = t.toLowerCase(); return (
+                <button key={t} onClick={() => setActiveTab(key)}
+                  style={{ padding:'2px 8px', fontSize:9, fontWeight: activeTab===key?700:400, color: activeTab===key?'#0B1F14':'#4b6858', background: activeTab===key?'#4ade80':'transparent', border: activeTab===key?'none':'1px solid #1a3a25', borderRadius:3, cursor:'pointer' }}>
+                  {t}
+                </button>
+              ); })}
+            </div>
+            <div style={{ background:'#0f1117', padding:12 }}>
             <table style={{ width:'100%', borderCollapse:'collapse', fontSize:11 }}>
               <thead>
                 <tr style={{ borderBottom:'1px solid rgba(255,255,255,0.08)' }}>
@@ -1101,11 +1110,21 @@ export default function MybetsPage() {
                 })}
               </tbody>
             </table>
+            </div>
           </div>
         )}
 
         {betView === 'sessions' && (
-          <div style={{ padding:12, background:'#f3f4f6' }}>
+          <div style={{ display:'flex', flexDirection:'column' }}>
+            <div style={{ flexShrink:0, display:'flex', gap:4, padding:'6px 10px', background:'#fff', borderBottom:'1px solid #e5e7eb' }}>
+              {['All','Win','Place','Loss'].map(t => { const key = t.toLowerCase(); return (
+                <button key={t} onClick={() => setActiveTab(key)}
+                  style={{ padding:'2px 8px', fontSize:9, fontWeight: activeTab===key?700:400, color: activeTab===key?'#fff':'#374151', background: activeTab===key?'#374151':'#f3f4f6', border:'none', borderRadius:3, cursor:'pointer' }}>
+                  {t}
+                </button>
+              ); })}
+            </div>
+            <div style={{ padding:12, background:'#f3f4f6' }}>
             {(() => {
               const byDate = {};
               ledgerFilteredBets.forEach(b => { if (!byDate[b.date]) byDate[b.date] = []; byDate[b.date].push(b); });
@@ -1148,6 +1167,7 @@ export default function MybetsPage() {
                 );
               });
             })()}
+            </div>
           </div>
         )}
 
