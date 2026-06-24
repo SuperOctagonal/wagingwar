@@ -668,6 +668,57 @@ export default function MybetsPage() {
     return base.filter(b => b.status === activeTab);
   }, [dateFilteredBets, activeTab]);
 
+  const nextRaces = useMemo(() => {
+    if (!csvMeetings.length) return [];
+    const now = new Date();
+    const nowMins = now.getHours() * 60 + now.getMinutes();
+    const races = [];
+    for (const meeting of csvMeetings) {
+      for (const key of (csvVenues[meeting] || [])) {
+        const rc = csvRaces[key];
+        if (!rc) continue;
+        const timeMins = parseRaceTimeStr(rc.time);
+        if (timeMins === null || timeMins <= nowMins) continue;
+        const active = rc.horses.filter(h => !h.scratched);
+        if (!active.length) continue;
+        const top = [...active].sort((a, b) => (+a['BP'] || +a.tab || 99) - (+b['BP'] || +b.tab || 99))[0];
+        races.push({ meeting, raceNum: rc.num, timeMins, minsToJump: timeMins - nowMins, top });
+      }
+    }
+    return races.sort((a, b) => a.timeMins - b.timeMins).slice(0, 5);
+  }, [csvMeetings, csvVenues, csvRaces]);
+
+  const leakFinderCards = useMemo(() => {
+    if (resultedBets.length < 5) return [];
+    const calcROI = arr => {
+      const staked = arr.reduce((s, b) => s + (b.stake || 0), 0);
+      const ret = arr.reduce((s, b) => s + (b.return_amt || 0), 0);
+      return staked > 0 ? Math.round((ret - staked) / staked * 1000) / 10 : null;
+    };
+    const cards = [];
+    const bands = [['$1–$2',1,2],['$2–$4',2,4],['$4–$6',4,6],['$6–$8',6,8],['$8+',8,Infinity]];
+    const bandStats = bands.flatMap(([label,lo,hi]) => {
+      const arr = resultedBets.filter(b => { const o=+(b.odds||0); return o>=lo&&o<hi; });
+      if (arr.length < 5) return [];
+      const roi = calcROI(arr);
+      return roi !== null ? [{ label, roi, count: arr.length }] : [];
+    });
+    if (bandStats.length > 0) {
+      const worst = [...bandStats].sort((a,b) => a.roi - b.roi)[0];
+      if (worst.roi < 0) cards.push({ leak: true, insight: `${worst.label} odds are costing you`, stat: `${worst.count} bets · ${worst.roi}% ROI` });
+      const best = [...bandStats].sort((a,b) => b.roi - a.roi)[0];
+      if (best.roi > 0 && best.label !== worst.label) cards.push({ leak: false, insight: `${best.label} odds are your edge`, stat: `${best.count} bets · +${best.roi}% ROI` });
+    }
+    const venueMap = {};
+    resultedBets.forEach(b => { const v=b.track||b.venue; if(v){if(!venueMap[v])venueMap[v]=[]; venueMap[v].push(b);} });
+    const venueStats = Object.entries(venueMap).filter(([,a]) => a.length >= 3).map(([v,a]) => ({ venue: v, roi: calcROI(a), count: a.length })).filter(s => s.roi !== null);
+    if (venueStats.length > 0) {
+      const worst = [...venueStats].sort((a,b) => a.roi - b.roi)[0];
+      if (worst.roi < 0) cards.push({ leak: true, insight: `${worst.venue} is your weakest venue`, stat: `${worst.count} bets · ${worst.roi}% ROI` });
+    }
+    return cards.slice(0, 3);
+  }, [resultedBets]);
+
   if (isPro === false) {
     return (
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
@@ -785,7 +836,7 @@ export default function MybetsPage() {
       </ProfileRail>
 
       {/* ── Main content ── */}
-      <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: '#f3f4f6' }}>
+      <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflowY: 'auto', background: '#f3f4f6' }}>
 
         {/* HERO PANE */}
         {(() => {
@@ -796,77 +847,107 @@ export default function MybetsPage() {
           const periodPnlLabel = { today: "Today's P&L", yesterday: "Yesterday's P&L", this_week: "This Week's P&L", this_month: "This Month's P&L", all_time: "All-Time P&L", custom: "Period P&L" }[dateRange] || "P&L";
           const streakLabel = heroStreak ? `${heroStreak.type}${heroStreak.count}` : '—';
           const streakColor = heroStreak?.type === 'W' ? '#059669' : heroStreak?.type === 'L' ? '#dc2626' : '#9ca3af';
-          const summaryPl = { today: 'today', yesterday: 'yesterday', this_week: 'this week', this_month: 'this month', all_time: 'all time', custom: 'this period' }[dateRange];
-          const summaryText = (() => {
-            if (dateResulted.length === 0) return `No resulted bets ${dateRange === 'all_time' ? 'yet' : 'for this period'}.`;
-            const n = dateResulted.length;
-            const direction = pnl === null ? 'No data' : pnl >= 0 ? `You're up $${pnl.toFixed(2)}` : `You're down $${Math.abs(pnl).toFixed(2)}`;
-            const streakClause = heroStreak && heroStreak.count >= 2 ? ` — currently on a ${heroStreak.count}-bet ${heroStreak.type === 'W' ? 'winning' : 'losing'} streak` : '';
-            return `${direction} ${summaryPl} across ${n} bet${n !== 1 ? 's' : ''}. ROI sits at ${dateStats.roi}${streakClause}.`;
-          })();
           return (
-            <div style={{ flexShrink: 0, background: '#fff', borderBottom: '1px solid #e5e7eb' }}>
-              <div style={{ display: 'flex', alignItems: 'center', padding: '10px 16px', gap: 16, borderBottom: '1px solid #f3f4f6' }}>
-                <div style={{ minWidth: 86, display: 'flex', flexDirection: 'column', gap: 6 }}>
-                  {[
-                    { label: 'Strike', value: dateStats.strike, color: '#374151' },
-                    { label: 'ROI', value: dateStats.roi, color: parseFloat(dateStats.roi) > 0 ? '#059669' : parseFloat(dateStats.roi) < 0 ? '#dc2626' : '#6b7280' },
-                  ].map(({ label, value, color }) => (
-                    <div key={label}>
-                      <div style={{ fontSize: 9, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '.06em' }}>{label}</div>
-                      <div style={{ fontSize: 13, fontWeight: 700, color }}>{value}</div>
-                    </div>
-                  ))}
-                </div>
-                <div style={{ flex: 1, textAlign: 'center' }}>
-                  <div style={{ fontSize: 11, fontWeight: 600, color: '#6b7280', marginBottom: 2 }}>{periodPnlLabel}</div>
-                  <div style={{ fontSize: 42, fontWeight: 800, fontFamily: 'monospace', color: pnlColor, lineHeight: 1 }}>
-                    {pnl === null ? '—' : (pnlPos ? '+$' : '-$') + Math.abs(pnl).toFixed(2)}
+            <div style={{ flexShrink: 0, background: '#fff', borderBottom: '1px solid #e5e7eb', display: 'flex' }}>
+
+              {/* LEFT: stats + chart */}
+              <div style={{ flex: 1, minWidth: 0, borderRight: '1px solid #e5e7eb' }}>
+                <div style={{ display: 'flex', alignItems: 'center', padding: '10px 16px', gap: 16, borderBottom: '1px solid #f3f4f6' }}>
+                  <div style={{ minWidth: 72, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    {[
+                      { label: 'Strike', value: dateStats.strike, color: '#374151' },
+                      { label: 'ROI', value: dateStats.roi, color: parseFloat(dateStats.roi) > 0 ? '#059669' : parseFloat(dateStats.roi) < 0 ? '#dc2626' : '#6b7280' },
+                    ].map(({ label, value, color }) => (
+                      <div key={label}>
+                        <div style={{ fontSize: 9, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '.06em' }}>{label}</div>
+                        <div style={{ fontSize: 13, fontWeight: 700, color }}>{value}</div>
+                      </div>
+                    ))}
                   </div>
-                  <div style={{ fontSize: 12, fontFamily: 'monospace', color: '#9ca3af', marginTop: 4, letterSpacing: '.05em' }}>{heroRecord}</div>
+                  <div style={{ flex: 1, textAlign: 'center' }}>
+                    <div style={{ fontSize: 11, fontWeight: 600, color: '#6b7280', marginBottom: 2 }}>{periodPnlLabel}</div>
+                    <div style={{ fontSize: 42, fontWeight: 800, fontFamily: 'monospace', color: pnlColor, lineHeight: 1 }}>
+                      {pnl === null ? '—' : (pnlPos ? '+$' : '-$') + Math.abs(pnl).toFixed(2)}
+                    </div>
+                    <div style={{ fontSize: 12, fontFamily: 'monospace', color: '#9ca3af', marginTop: 4, letterSpacing: '.05em' }}>{heroRecord}</div>
+                  </div>
+                  <div style={{ minWidth: 72, display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'flex-end' }}>
+                    {[
+                      { label: 'Staked', value: dateStats.staked, color: '#374151' },
+                      { label: 'Streak', value: streakLabel, color: streakColor },
+                    ].map(({ label, value, color }) => (
+                      <div key={label} style={{ textAlign: 'right' }}>
+                        <div style={{ fontSize: 9, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '.06em' }}>{label}</div>
+                        <div style={{ fontSize: 13, fontWeight: 700, color }}>{value}</div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-                <div style={{ minWidth: 86, display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'flex-end' }}>
-                  {[
-                    { label: 'Staked', value: dateStats.staked, color: '#374151' },
-                    { label: 'Streak', value: streakLabel, color: streakColor },
-                  ].map(({ label, value, color }) => (
-                    <div key={label} style={{ textAlign: 'right' }}>
-                      <div style={{ fontSize: 9, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '.06em' }}>{label}</div>
-                      <div style={{ fontSize: 13, fontWeight: 700, color }}>{value}</div>
+                {heroChartData.length > 1 ? (
+                  <div style={{ height: 120 }}>
+                    <ResponsiveContainer width="100%" height="100%">
+                      <AreaChart data={heroChartData} margin={{ top: 8, right: 12, bottom: 4, left: 40 }}>
+                        <defs>
+                          <linearGradient id="heroFill" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#1D9E75" stopOpacity={0.18} />
+                            <stop offset="95%" stopColor="#1D9E75" stopOpacity={0} />
+                          </linearGradient>
+                        </defs>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" vertical={false} />
+                        <ReferenceLine y={0} stroke="#e5e7eb" />
+                        <XAxis dataKey="label" tick={{ fontSize: 9, fill: '#9ca3af' }} interval="preserveStartEnd" tickLine={false} axisLine={false} />
+                        <YAxis tick={{ fontSize: 9, fill: '#9ca3af' }} tickFormatter={v => `$${v}`} axisLine={false} tickLine={false} />
+                        <Tooltip content={({ active, payload }) => {
+                          if (!active || !payload?.length) return null;
+                          const d = payload[0].payload;
+                          return (
+                            <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 6, padding: '6px 10px', fontSize: 11 }}>
+                              <div style={{ color: '#6b7280', marginBottom: 2 }}>{d.horse}</div>
+                              <div style={{ fontWeight: 700, fontFamily: 'monospace', color: d.pnl >= 0 ? '#1D9E75' : '#E24B4A' }}>{d.pnl >= 0 ? '+$' : '-$'}{Math.abs(d.pnl).toFixed(2)}</div>
+                            </div>
+                          );
+                        }} />
+                        <Area type="monotone" dataKey="pnl" stroke={finalPnl >= 0 ? '#1D9E75' : '#E24B4A'} fill="url(#heroFill)" strokeWidth={2} dot={renderHeroDot} activeDot={{ r: 5, stroke: '#fff', strokeWidth: 2 }} />
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  </div>
+                ) : <div style={{ height: 24 }} />}
+              </div>
+
+              {/* RIGHT: next races + leak finder */}
+              <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', padding: '10px 12px', gap: 8, overflow: 'hidden' }}>
+
+                {/* Next races · top pick */}
+                <div>
+                  <div style={{ fontSize: 9, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 4 }}>Next races · top pick</div>
+                  {nextRaces.length === 0 ? (
+                    <div style={{ fontSize: 10, color: '#d1d5db' }}>Load a CSV on Races to see upcoming top picks</div>
+                  ) : nextRaces.map(r => (
+                    <div key={`${r.meeting}-${r.raceNum}`} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '3px 0', borderBottom: '1px solid #f9fafb' }}>
+                      <span style={{ fontSize: 9, color: '#9ca3af', flexShrink: 0, width: 68, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.meeting} R{r.raceNum}</span>
+                      <span style={{ fontSize: 10, fontWeight: 600, color: '#111827', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.top?.name || '—'}</span>
+                      {r.top?.rawOdds != null && <span style={{ fontSize: 10, fontFamily: 'monospace', color: '#374151', flexShrink: 0 }}>${r.top.rawOdds.toFixed(1)}</span>}
+                      <span style={{ fontSize: 9, color: '#6b7280', flexShrink: 0 }}>
+                        {r.minsToJump < 60 ? `${Math.round(r.minsToJump)}m` : `${Math.floor(r.minsToJump / 60)}h${r.minsToJump % 60 > 0 ? Math.round(r.minsToJump % 60) + 'm' : ''}`}
+                      </span>
                     </div>
                   ))}
                 </div>
-              </div>
-              {heroChartData.length > 1 ? (
-                <div style={{ height: 120 }}>
-                  <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={heroChartData} margin={{ top: 8, right: 12, bottom: 4, left: 40 }}>
-                      <defs>
-                        <linearGradient id="heroFill" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#1D9E75" stopOpacity={0.18} />
-                          <stop offset="95%" stopColor="#1D9E75" stopOpacity={0} />
-                        </linearGradient>
-                      </defs>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" vertical={false} />
-                      <ReferenceLine y={0} stroke="#e5e7eb" />
-                      <XAxis dataKey="label" tick={{ fontSize: 9, fill: '#9ca3af' }} interval="preserveStartEnd" tickLine={false} axisLine={false} />
-                      <YAxis tick={{ fontSize: 9, fill: '#9ca3af' }} tickFormatter={v => `$${v}`} axisLine={false} tickLine={false} />
-                      <Tooltip content={({ active, payload, label: lb }) => {
-                        if (!active || !payload?.length) return null;
-                        const d = payload[0].payload;
-                        return (
-                          <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 6, padding: '6px 10px', fontSize: 11 }}>
-                            <div style={{ color: '#6b7280', marginBottom: 2 }}>{d.horse}</div>
-                            <div style={{ fontWeight: 700, fontFamily: 'monospace', color: d.pnl >= 0 ? '#1D9E75' : '#E24B4A' }}>{d.pnl >= 0 ? '+$' : '-$'}{Math.abs(d.pnl).toFixed(2)}</div>
-                          </div>
-                        );
-                      }} />
-                      <Area type="monotone" dataKey="pnl" stroke={finalPnl >= 0 ? '#1D9E75' : '#E24B4A'} fill="url(#heroFill)" strokeWidth={2} dot={renderHeroDot} activeDot={{ r: 5, stroke: '#fff', strokeWidth: 2 }} />
-                    </AreaChart>
-                  </ResponsiveContainer>
+
+                {/* Leak finder */}
+                <div>
+                  <div style={{ fontSize: 9, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 4 }}>Leak finder</div>
+                  {leakFinderCards.length === 0 ? (
+                    <div style={{ fontSize: 10, color: '#d1d5db' }}>Not enough data yet — need 5+ bets in a band</div>
+                  ) : leakFinderCards.map((card, i) => (
+                    <div key={i} style={{ borderLeft: `3px solid ${card.leak ? '#E24B4A' : '#1D9E75'}`, paddingLeft: 7, marginBottom: 3 }}>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: '#111827' }}>{card.insight}</div>
+                      <div style={{ fontSize: 9, color: '#6b7280' }}>{card.stat}</div>
+                    </div>
+                  ))}
                 </div>
-              ) : <div style={{ height: 24 }} />}
-              <div style={{ padding: '5px 16px 8px', borderTop: '1px solid #f3f4f6', fontSize: 11, color: '#9ca3af', fontStyle: 'italic' }}>{summaryText}</div>
+
+              </div>
             </div>
           );
         })()}
@@ -915,7 +996,7 @@ export default function MybetsPage() {
 
         {/* ── TABLE VIEW ── */}
         {betView === 'table' && (
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        <div style={{ display: 'flex', flexDirection: 'column' }}>
           <div style={{ flexShrink: 0, display: 'flex', gap: 4, padding: '6px 10px', background: '#0D1C13', borderBottom: '1px solid #1a3a25' }}>
             {['All','Win','Place','Loss'].map(t => {
               const key = t.toLowerCase();
@@ -931,7 +1012,7 @@ export default function MybetsPage() {
               );
             })}
           </div>
-          <div style={{ flex: 1, overflowY: 'auto', background: '#11241A' }}>
+          <div style={{ background: '#11241A' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
               <thead style={{ position: 'sticky', top: 0, zIndex: 1 }}>
                 <tr style={{ background: '#0D1C13' }}>
@@ -984,7 +1065,7 @@ export default function MybetsPage() {
 
 
         {betView === 'terminal' && (
-          <div style={{ flex:1, overflowY:'auto', background:'#0f1117', padding:12 }}>
+          <div style={{ background:'#0f1117', padding:12 }}>
             <table style={{ width:'100%', borderCollapse:'collapse', fontSize:11 }}>
               <thead>
                 <tr style={{ borderBottom:'1px solid rgba(255,255,255,0.08)' }}>
@@ -1020,7 +1101,7 @@ export default function MybetsPage() {
         )}
 
         {betView === 'sessions' && (
-          <div style={{ flex:1, overflowY:'auto', padding:12, background:'#f3f4f6' }}>
+          <div style={{ padding:12, background:'#f3f4f6' }}>
             {(() => {
               const byDate = {};
               ledgerFilteredBets.forEach(b => { if (!byDate[b.date]) byDate[b.date] = []; byDate[b.date].push(b); });
@@ -1067,7 +1148,7 @@ export default function MybetsPage() {
         )}
 
         {betView === 'kanban' && (
-          <div style={{ flex:1, overflowY:'auto', padding:12, background:'#f3f4f6' }}>
+          <div style={{ padding:12, background:'#f3f4f6' }}>
             <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:10 }}>
               {[
                 { label:'Wins',    statuses:['win','place'], bg:'#f0fdf4', border:'#86efac', headerBg:'#dcfce7', textColor:'#166534' },
@@ -1108,7 +1189,7 @@ export default function MybetsPage() {
         </>)}
 
         {mainTab === 'charts' && (
-          <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+          <div style={{ display: 'flex', flexDirection: 'column' }}>
             {/* Chart type pills */}
             <div style={{ flexShrink: 0, padding: '8px 12px', background: '#fff', borderBottom: '1px solid #e5e7eb', display: 'flex', gap: 4, flexWrap: 'wrap' }}>
               {[
@@ -1128,8 +1209,8 @@ export default function MybetsPage() {
               ))}
             </div>
 
-            {/* Scrollable area: chart card + edge zone */}
-            <div style={{ flex: 1, overflowY: 'auto', padding: 16, background: '#f9fafb', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
+            {/* Chart card + edge zone */}
+            <div style={{ padding: 16, background: '#f9fafb', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
               <div style={{ background: '#fff', borderRadius: 10, border: '1px solid #e5e7eb', padding: '16px 20px', width: '100%', maxWidth: 720 }}>
                 {(() => {
                   const CG = '#1D9E75', CR = '#E24B4A', CB = '#3b82f6';
