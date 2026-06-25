@@ -1067,38 +1067,62 @@ export default function MybetsPage() {
             })}
           </div>
           {isMobile ? (
-            <div style={{ display: 'flex', flexDirection: 'column', background: '#11241A' }}>
+            <div style={{ background: '#11241A' }}>
+              <div style={{ padding: '4px 10px', fontSize: 9, color: '#4b6858', borderBottom: '1px solid #1a3a25' }}>
+                Horse name stays fixed · swipe right for more →
+              </div>
               {loading ? (
                 <div style={{ padding: 20, textAlign: 'center', color: '#4b6858', fontSize: 11 }}>Loading…</div>
               ) : ledgerFilteredBets.length === 0 ? (
                 <div style={{ padding: 20, textAlign: 'center', color: '#4b6858', fontSize: 11 }}>No bets for this period</div>
-              ) : ledgerFilteredBets.map(b => {
-                const hasPnl = b.profit_loss !== null && b.profit_loss !== undefined;
-                const isEW = (b.bet_type || '').toLowerCase().includes('each');
-                const pnl = hasPnl ? b.profit_loss : (b.return_amt || 0) - (isEW ? (b.stake || 0) * 2 : (b.stake || 0));
-                const isPending = !b.status || b.status === 'pending';
-                const accentColor = b.status === 'win' ? '#1D9E75' : b.status === 'place' ? '#3b82f6' : b.status === 'loss' ? '#E24B4A' : '#f59e0b';
-                const pnlColor = isPending ? '#6b7280' : pnl >= 0 ? '#4ade80' : '#f87171';
-                const raceNum = b.race_number ?? b.race_num;
-                const venue = b.track || b.venue || '—';
-                return (
-                  <div key={b.id} style={{ borderLeft: `3px solid ${accentColor}`, padding: '7px 10px', borderBottom: '1px solid #1a3a25' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                      <span style={{ fontSize: 12, fontWeight: 700, color: '#f1f5f9' }}>{b.horse_name || '—'}</span>
-                      <span style={{ fontSize: 12, fontWeight: 700, fontFamily: 'monospace', color: pnlColor }}>
-                        {isPending ? '—' : (pnl >= 0 ? '+$' : '-$') + Math.abs(pnl).toFixed(2)}
-                      </span>
-                    </div>
-                    <div style={{ fontSize: 10, color: '#64748b', marginTop: 2 }}>
-                      {venue} · R{raceNum || '—'} · No.{b.horse_number || b.tab_no || '—'}
-                    </div>
-                    <div style={{ fontSize: 10, color: '#64748b', marginTop: 1 }}>
-                      ${(+(b.stake || 0)).toFixed(0)} @ ${Number(b.odds || 0).toFixed(2)}
-                      {!isPending && <span style={{ marginLeft: 6, color: '#94a3b8' }}>Pos {b.position || '—'}</span>}
-                    </div>
-                  </div>
-                );
-              })}
+              ) : (
+                <div style={{ overflowX: 'auto' }}>
+                  <table style={{ borderCollapse: 'collapse', fontSize: 11 }}>
+                    <thead>
+                      <tr style={{ background: '#0D1C13' }}>
+                        <th style={{ padding: '6px 8px', fontSize: 9, fontWeight: 700, color: '#4b6858', textTransform: 'uppercase', textAlign: 'left', border: '1px solid #1a3a25', position: 'sticky', left: 0, zIndex: 2, background: '#0D1C13' }}>
+                          <div style={{ width: 94, whiteSpace: 'nowrap' }}>Horse</div>
+                        </th>
+                        {[['Venue','left'],['R#','right'],['No','right'],['Stake','right'],['Odds','right'],['P&L','right'],['Result','right']].map(([h, align]) => (
+                          <th key={h} style={{ padding: '6px 8px', fontSize: 9, fontWeight: 700, color: '#4b6858', textTransform: 'uppercase', textAlign: align, border: '1px solid #1a3a25', whiteSpace: 'nowrap' }}>{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {ledgerFilteredBets.map(b => {
+                        const hasPnl = b.profit_loss !== null && b.profit_loss !== undefined;
+                        const isEW = (b.bet_type || '').toLowerCase().includes('each');
+                        const pnl = hasPnl ? b.profit_loss : (b.return_amt || 0) - (isEW ? (b.stake || 0) * 2 : (b.stake || 0));
+                        const pos = b.position;
+                        const isPending = !b.status || b.status === 'pending';
+                        const pnlColor = !hasPnl || isPending ? '#6b7280' : pnl >= 0 ? '#4ade80' : '#f87171';
+                        const resultColor = pos === 1 ? '#4ade80' : (pos === 2 || pos === 3) ? '#60a5fa' : '#f87171';
+                        const raceNum = b.race_number ?? b.race_num;
+                        const venue = b.track || b.venue || '—';
+                        const cs = { border: '1px solid #1a3a25', padding: '5px 8px' };
+                        return (
+                          <tr key={b.id}>
+                            <td style={{ ...cs, position: 'sticky', left: 0, zIndex: 1, background: '#11241A' }}>
+                              <div style={{ width: 94, color: '#fff', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b.horse_name || '—'}</div>
+                            </td>
+                            <td style={{ ...cs, color: '#fff', whiteSpace: 'nowrap' }}>{venue}</td>
+                            <td style={{ ...cs, color: '#fff', textAlign: 'right', whiteSpace: 'nowrap' }}>{raceNum ? `R${raceNum}` : '—'}</td>
+                            <td style={{ ...cs, color: '#fff', textAlign: 'right', whiteSpace: 'nowrap' }}>{b.horse_number || b.tab_no || '—'}</td>
+                            <td style={{ ...cs, color: '#fff', textAlign: 'right', fontFamily: 'monospace', whiteSpace: 'nowrap' }}>${(+(b.stake || 0)).toFixed(0)}</td>
+                            <td style={{ ...cs, color: '#fff', textAlign: 'right', fontFamily: 'monospace', whiteSpace: 'nowrap' }}>${Number(b.odds || 0).toFixed(2)}</td>
+                            <td style={{ ...cs, textAlign: 'right', fontWeight: 700, fontFamily: 'monospace', color: pnlColor, whiteSpace: 'nowrap' }}>
+                              {isPending ? '—' : (pnl >= 0 ? '+$' : '-$') + Math.abs(pnl).toFixed(2)}
+                            </td>
+                            <td style={{ ...cs, textAlign: 'right', fontWeight: 700, color: isPending ? '#f97316' : (pos ? resultColor : '#6b7280'), whiteSpace: 'nowrap' }}>
+                              {isPending ? 'PND' : (pos || '—')}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
           ) : (
           <div style={{ background: '#11241A' }}>
