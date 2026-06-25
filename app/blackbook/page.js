@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, Fragment } from 'react';
 import { useUser } from '@clerk/nextjs';
 import ProfileRail from '@/components/ProfileRail';
 import useIsPro from '@/hooks/useIsPro';
@@ -491,7 +491,7 @@ export default function BlackbookPage() {
           <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 260px', gap: 12 }}>
 
             {/* Horse list */}
-            <div style={{ background: '#fff', borderRadius: 10, border: '0.5px solid #e5e7eb', overflow: 'hidden' }}>
+            <div style={{ background: '#fff', borderRadius: 10, border: '1px solid #D1D5DB', overflow: 'hidden' }}>
               {loading ? (
                 <div style={{ padding: 40, textAlign: 'center', fontSize: 13, color: '#9ca3af' }}>Loading…</div>
               ) : !userId ? (
@@ -502,161 +502,134 @@ export default function BlackbookPage() {
                   <div style={{ fontSize: 14, fontWeight: 600, color: '#374151', marginBottom: 6 }}>No horses yet</div>
                   <div style={{ fontSize: 12, color: '#9ca3af' }}>Add horses from the Races page using the ♥ Blackbook button.</div>
                 </div>
-              ) : displayed.map((h, i) => {
-                const norm = normName(h.horse_name);
-                const isRunning = csvNames.includes(norm);
-                const info = csvRaces[norm];
-                const isLast = i === displayed.length - 1;
-
-                const perf = bbPerf[h.id];
-                const perfRuns = perf?.runs || [];
-                const perfTotal = perfRuns.reduce((sum, r) => sum + r.pnl, 0);
-                const isExpanded = expandedPerf.has(h.id);
-                const togglePerf = () => setExpandedPerf(prev => {
-                  const next = new Set(prev);
-                  if (next.has(h.id)) next.delete(h.id); else next.add(h.id);
-                  return next;
-                });
-                const perfSection = perf?.loaded ? (
-                  <div style={{ marginTop: 8, paddingTop: 8, borderTop: '1px solid #e5e7eb' }}>
-                    {perfRuns.length === 0 ? (
-                      <div style={{ fontSize: 10, color: '#9ca3af' }}>No runs since blackbooked yet</div>
-                    ) : (
-                      <>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                          <span style={{ fontSize: 11, color: '#374151' }}>
-                            Since blackbooked: <strong>{perfRuns.length} run{perfRuns.length !== 1 ? 's' : ''}</strong>
-                            {' · '}
-                            <span style={{ fontWeight: 700, color: perfTotal >= 0 ? '#059669' : '#dc2626' }}>
-                              {perfTotal >= 0 ? '+$' : '-$'}{Math.abs(perfTotal).toFixed(2)} $1 flat
-                            </span>
-                          </span>
-                          <button onClick={togglePerf} style={{ fontSize: 10, fontWeight: 600, color: '#6b7280', background: 'none', border: 'none', cursor: 'pointer', padding: '2px 6px', flexShrink: 0 }}>
-                            Details {isExpanded ? '▴' : '▾'}
-                          </button>
-                        </div>
-                        {isExpanded && (
-                          <table style={{ width: '100%', marginTop: 6, fontSize: 10, fontFamily: 'monospace', borderCollapse: 'collapse', background: '#f9fafb', borderRadius: 4, overflow: 'hidden' }}>
-                            <thead>
-                              <tr style={{ background: '#f3f4f6' }}>
-                                <th style={{ padding: '4px 8px', textAlign: 'left', fontWeight: 600, color: '#6b7280' }}>DATE</th>
-                                <th style={{ padding: '4px 8px', textAlign: 'left', fontWeight: 600, color: '#6b7280' }}>VENUE</th>
-                                <th style={{ padding: '4px 8px', textAlign: 'center', fontWeight: 600, color: '#6b7280' }}>POS</th>
-                                <th style={{ padding: '4px 8px', textAlign: 'right', fontWeight: 600, color: '#6b7280' }}>$1 RESULT</th>
+              ) : (
+                <div style={{ overflowX: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
+                    <thead>
+                      <tr style={{ background: '#173404' }}>
+                        {[['Horse','left',180],['Tags','left',140],['Race Added','left',110],['Rtg','center',72],['Since Added','left',130],['Actions','center',100]].map(([label, align, w]) => (
+                          <th key={label} style={{ padding: '5px 8px', fontSize: 10, fontWeight: 700, color: '#EAF3DE', textTransform: 'uppercase', letterSpacing: '.04em', textAlign: align, whiteSpace: 'nowrap', borderRight: '1px solid #2a5c1a', width: w }}>
+                            {label}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {displayed.map(h => {
+                        const norm = normName(h.horse_name);
+                        const isRunning = csvNames.includes(norm);
+                        const perf = bbPerf[h.id];
+                        const perfRuns = perf?.runs || [];
+                        const perfTotal = perfRuns.reduce((sum, r) => sum + r.pnl, 0);
+                        const isExpanded = expandedPerf.has(h.id);
+                        const togglePerf = () => setExpandedPerf(prev => {
+                          const next = new Set(prev);
+                          if (next.has(h.id)) next.delete(h.id); else next.add(h.id);
+                          return next;
+                        });
+                        const wins    = perfRuns.filter(r => r.pos == 1).length;
+                        const seconds = perfRuns.filter(r => r.pos == 2).length;
+                        const thirds  = perfRuns.filter(r => r.pos == 3).length;
+                        const td = (extra = {}) => ({ padding: '4px 8px', borderBottom: '1px solid #E5E7EB', borderRight: '1px solid #E5E7EB', verticalAlign: 'top', color: '#111827', ...extra });
+                        return (
+                          <Fragment key={h.id}>
+                            <tr style={{ background: isRunning ? '#f0fdf4' : '#fff' }}>
+                              <td style={td()}>
+                                <div style={{ fontWeight: 600, color: '#111827' }}>{h.horse_name}</div>
+                                {isRunning && <span style={{ fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 3, background: '#00471b', color: '#fff', display: 'inline-block', marginTop: 2 }}>RUNNING TODAY</span>}
+                              </td>
+                              <td style={td()}>
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 3 }}>
+                                  {(h.tags || []).map(t => {
+                                    const s = TAG_STYLES[t] || {};
+                                    return <span key={t} style={{ fontSize: 9, fontWeight: 600, padding: '1px 6px', borderRadius: 8, background: s.bg, color: s.color }}>{t}</span>;
+                                  })}
+                                </div>
+                              </td>
+                              <td style={td({ whiteSpace: 'nowrap', fontSize: 10 })}>
+                                <div style={{ color: '#111827' }}>{[h.venue, h.race_number && `R${h.race_number}`, h.distance && `${h.distance}m`].filter(Boolean).join(' · ') || '—'}</div>
+                                <div style={{ color: '#111827', fontSize: 9, marginTop: 1 }}>{fmtDate(h.added_at)}</div>
+                              </td>
+                              <td style={td({ textAlign: 'center' })}>
+                                <Stars value={h.priority || 0} readOnly />
+                              </td>
+                              <td style={td({ whiteSpace: 'nowrap', fontFamily: 'monospace' })}>
+                                {!perf?.loaded ? (
+                                  <span style={{ color: '#9ca3af', fontSize: 10 }}>…</span>
+                                ) : perfRuns.length === 0 ? (
+                                  <span style={{ color: '#9ca3af', fontSize: 10 }}>0 runs</span>
+                                ) : (
+                                  <>
+                                    <div style={{ fontSize: 11, color: '#111827' }}>{perfRuns.length}-{wins}-{seconds}-{thirds}</div>
+                                    <div style={{ fontSize: 10, fontWeight: 700, color: perfTotal >= 0 ? '#059669' : '#dc2626' }}>
+                                      {perfTotal >= 0 ? '+$' : '-$'}{Math.abs(perfTotal).toFixed(2)} $1
+                                    </div>
+                                  </>
+                                )}
+                              </td>
+                              <td style={td({ textAlign: 'center', borderRight: 'none' })}>
+                                <div style={{ display: 'flex', gap: 8, justifyContent: 'center', marginBottom: 3 }}>
+                                  <button onClick={() => setEditHorse(h)} style={{ fontSize: 10, fontWeight: 600, color: '#111827', background: 'none', border: 'none', cursor: 'pointer', padding: 0, textDecoration: 'underline' }}>Edit</button>
+                                  <button onClick={() => handleRemove(h.id)} style={{ fontSize: 10, fontWeight: 600, color: '#dc2626', background: 'none', border: 'none', cursor: 'pointer', padding: 0, textDecoration: 'underline' }}>Remove</button>
+                                </div>
+                                {perf?.loaded && perfRuns.length > 0 && (
+                                  <>
+                                    <div style={{ borderTop: '1px solid #e5e7eb', marginBottom: 4 }} />
+                                    <button onClick={togglePerf} style={{ fontSize: 10, fontWeight: 700, color: '#0F6E56', background: '#DCFCE7', border: 'none', borderRadius: 4, cursor: 'pointer', padding: '2px 10px', display: 'inline-flex', flexDirection: 'column', alignItems: 'center', lineHeight: 1.4 }}>
+                                      <span>Details</span>
+                                      <span style={{ fontSize: 11 }}>{isExpanded ? '▴' : '▾'}</span>
+                                    </button>
+                                  </>
+                                )}
+                              </td>
+                            </tr>
+                            {h.note && (
+                              <tr>
+                                <td colSpan={6} style={{ padding: '3px 10px', background: '#FAFAFA', fontSize: 10, color: '#111827', fontStyle: 'italic', borderBottom: '1px solid #E5E7EB' }}>
+                                  {h.note}
+                                </td>
                               </tr>
-                            </thead>
-                            <tbody>
-                              {perfRuns.map((r, ri) => (
-                                <tr key={ri} style={{ borderTop: '1px solid #e5e7eb' }}>
-                                  <td style={{ padding: '4px 8px', color: '#374151' }}>{r.date}</td>
-                                  <td style={{ padding: '4px 8px', color: '#374151' }}>{r.venue}</td>
-                                  <td style={{ padding: '4px 8px', textAlign: 'center', color: r.pos === 1 || r.pos === '1' ? '#059669' : '#374151' }}>{r.pos}</td>
-                                  <td style={{ padding: '4px 8px', textAlign: 'right', fontWeight: 700, color: r.pnl >= 0 ? '#059669' : '#dc2626' }}>
-                                    {r.pnl >= 0 ? '+$' : '-$'}{Math.abs(r.pnl).toFixed(2)}
-                                  </td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        )}
-                      </>
-                    )}
-                  </div>
-                ) : null;
-
-                if (isMobile) {
-                  // Mobile card: 4-line layout
-                  return (
-                    <div key={h.id} style={{
-                      padding: '12px 14px',
-                      borderBottom: isLast ? 'none' : `0.5px solid ${isRunning ? '#86efac' : '#e5e7eb'}`,
-                      background: isRunning ? '#f0fdf4' : '#fff',
-                    }}>
-                      {/* Line 1: running badge + horse name + tags */}
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginBottom: 4 }}>
-                        {isRunning && (
-                          <span style={{ fontSize: 9, fontWeight: 700, padding: '2px 6px', borderRadius: 3, background: '#00471b', color: '#fff', flexShrink: 0 }}>RUNNING TODAY</span>
-                        )}
-                        <span style={{ fontSize: 14, fontWeight: 700, color: '#111827' }}>{h.horse_name}</span>
-                        {(h.tags || []).map(t => {
-                          const s = TAG_STYLES[t] || {};
-                          return <span key={t} style={{ fontSize: 9, fontWeight: 600, padding: '2px 7px', borderRadius: 10, background: s.bg, color: s.color }}>{t}</span>;
-                        })}
-                      </div>
-
-                      {/* Line 2: note */}
-                      {h.note && (
-                        <div style={{ fontSize: 12, color: '#6b7280', fontStyle: 'italic', marginBottom: 4 }}>{h.note}</div>
-                      )}
-
-                      {/* Line 3: venue/date info */}
-                      <div style={{ fontSize: 10, color: '#9ca3af', marginBottom: 8 }}>
-                        {isRunning && info && (info.venue || info.raceNum)
-                          ? [info.venue, info.raceNum && `R${info.raceNum}`, info.dist && `${info.dist}m`, info.cls, info.time].filter(Boolean).join(' · ')
-                          : [h.venue, h.race_number && `R${h.race_number}`, h.distance && `${h.distance}m`, h['class'], fmtDate(h.added_at)].filter(Boolean).join(' · ')
-                        }
-                      </div>
-
-                      {/* Line 4: stars + Edit + Remove */}
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                        <Stars value={h.priority || 0} readOnly />
-                        <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
-                          <button onClick={() => setEditHorse(h)}
-                            style={{ fontSize: 11, fontWeight: 600, padding: '6px 14px', border: '1px solid #e5e7eb', borderRadius: 6, background: '#fff', cursor: 'pointer', color: '#374151', minHeight: 36 }}>
-                            Edit
-                          </button>
-                          <button onClick={() => handleRemove(h.id)}
-                            style={{ fontSize: 11, fontWeight: 600, padding: '6px 14px', border: '1px solid #fecaca', borderRadius: 6, background: '#fff', cursor: 'pointer', color: '#dc2626', minHeight: 36 }}>
-                            Remove
-                          </button>
-                        </div>
-                      </div>
-                      {perfSection}
-                    </div>
-                  );
-                }
-
-                // Desktop row
-                return (
-                  <div key={h.id} style={{
-                    padding: '10px 16px',
-                    borderBottom: isLast ? 'none' : `0.5px solid ${isRunning ? '#86efac' : '#e5e7eb'}`,
-                    background: isRunning ? '#f0fdf4' : '#fff',
-                  }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                      {isRunning && (
-                        <span style={{ fontSize: 9, fontWeight: 700, padding: '2px 6px', borderRadius: 3, background: '#00471b', color: '#fff', flexShrink: 0 }}>RUNNING TODAY</span>
-                      )}
-                      <span style={{ fontSize: 13, fontWeight: 500, color: '#111827' }}>{h.horse_name}</span>
-                      {(h.tags || []).map(t => {
-                        const s = TAG_STYLES[t] || {};
-                        return <span key={t} style={{ fontSize: 9, fontWeight: 600, padding: '2px 7px', borderRadius: 10, background: s.bg, color: s.color }}>{t}</span>;
+                            )}
+                            <tr>
+                              <td colSpan={6} style={{ padding: 0, height: 2, background: '#0F6E56', lineHeight: 0, fontSize: 0 }} />
+                            </tr>
+                            {isExpanded && perf?.loaded && perfRuns.length > 0 && (
+                              <tr>
+                                <td colSpan={6} style={{ padding: 0 }}>
+                                  <div style={{ background: '#F0FDF4', borderLeft: '3px solid #0F6E56', borderBottom: '1px solid #E5E7EB', padding: '8px 12px' }}>
+                                    <div style={{ fontSize: 9, fontWeight: 700, color: '#111827', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 6 }}>Runs since blackbooked</div>
+                                    <table style={{ fontSize: 10, fontFamily: 'monospace', borderCollapse: 'collapse' }}>
+                                      <thead>
+                                        <tr>
+                                          {['DATE','VENUE','POS','$1 RESULT'].map((col, ci) => (
+                                            <th key={col} style={{ padding: '3px 10px', textAlign: ci === 2 ? 'center' : ci === 3 ? 'right' : 'left', fontWeight: 600, color: '#111827', borderBottom: '1px solid #E5E7EB' }}>{col}</th>
+                                          ))}
+                                        </tr>
+                                      </thead>
+                                      <tbody>
+                                        {perfRuns.map((r, ri) => (
+                                          <tr key={ri}>
+                                            <td style={{ padding: '3px 10px', color: '#111827' }}>{r.date}</td>
+                                            <td style={{ padding: '3px 10px', color: '#111827' }}>{r.venue}</td>
+                                            <td style={{ padding: '3px 10px', textAlign: 'center', color: '#111827' }}>{r.pos}</td>
+                                            <td style={{ padding: '3px 10px', textAlign: 'right', fontWeight: 700, color: r.pnl >= 0 ? '#059669' : '#dc2626' }}>
+                                              {r.pnl >= 0 ? '+$' : '-$'}{Math.abs(r.pnl).toFixed(2)}
+                                            </td>
+                                          </tr>
+                                        ))}
+                                      </tbody>
+                                    </table>
+                                  </div>
+                                </td>
+                              </tr>
+                            )}
+                          </Fragment>
+                        );
                       })}
-                      <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-                        <Stars value={h.priority || 0} readOnly />
-                        <button onClick={() => setEditHorse(h)}
-                          style={{ fontSize: 10, fontWeight: 600, padding: '3px 10px', border: '1px solid #e5e7eb', borderRadius: 5, background: '#fff', cursor: 'pointer', color: '#374151' }}>
-                          Edit
-                        </button>
-                        <button onClick={() => handleRemove(h.id)}
-                          style={{ fontSize: 10, fontWeight: 600, padding: '3px 10px', border: '1px solid #fecaca', borderRadius: 5, background: '#fff', cursor: 'pointer', color: '#dc2626' }}>
-                          Remove
-                        </button>
-                      </div>
-                    </div>
-                    {isRunning && info && (info.venue || info.raceNum) && (
-                      <div style={{ fontSize: 10, color: '#065f46', marginTop: 3 }}>
-                        {[info.venue, info.raceNum && `R${info.raceNum}`, info.dist && `${info.dist}m`, info.cls, info.time].filter(Boolean).join(' · ')}
-                      </div>
-                    )}
-                    {h.note && <div style={{ fontSize: 11, color: '#6b7280', fontStyle: 'italic', marginTop: 3 }}>{h.note}</div>}
-                    <div style={{ fontSize: 10, color: '#9ca3af', marginTop: 3 }}>
-                      {[h.venue, h.race_number && `R${h.race_number}`, h.distance && `${h.distance}m`, h['class'], fmtDate(h.added_at)].filter(Boolean).join(' · ')}
-                    </div>
-                    {perfSection}
-                  </div>
-                );
-              })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
 
             {/* Desktop sidebar — hidden on mobile (handled above as accordions) */}
