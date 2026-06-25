@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, Suspense } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { useUser } from '@clerk/nextjs';
 import useIsPro from '@/hooks/useIsPro';
 import useIsMobile from '@/hooks/useIsMobile';
@@ -147,156 +147,73 @@ function CatBadge({ section }) {
   );
 }
 
-// ─── post card ────────────────────────────────────────────────────────────────
+// ─── post table ──────────────────────────────────────────────────────────────
 
-function PostCard({ post, onSelect, onUpvote, onDelete, canDelete, isPro, onUpgrade }) {
+function PostTable({ posts, section, loading, onNavigate }) {
+  let rows;
+  if (section === 'all') {
+    const map = {};
+    posts.forEach(p => { if (!map[p.section]) map[p.section] = []; map[p.section].push(p); });
+    rows = SECTIONS.filter(s => s.id !== 'all' && map[s.id]).flatMap(s => [
+      { type: 'cat', key: `cat-${s.id}`, label: s.label },
+      ...map[s.id].map(p => ({ type: 'post', key: p.id, post: p })),
+    ]);
+  } else {
+    rows = posts.map(p => ({ type: 'post', key: p.id, post: p }));
+  }
+
   return (
-    <div
-      onClick={() => onSelect(post)}
-      style={{ background: '#fff', borderRadius: 8, border: '0.5px solid #e5e7eb', padding: '10px 14px', cursor: 'pointer', marginBottom: 8 }}
-      className="hover:shadow-sm transition-shadow"
-    >
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-        <CatBadge section={post.section} />
-        {canDelete && (
-          <button onClick={e => { e.stopPropagation(); onDelete(post.id); }}
-            style={{ marginLeft: 'auto', fontSize: 9, fontWeight: 700, color: '#fff', background: '#ef4444', border: 'none', borderRadius: 3, cursor: 'pointer', padding: '2px 6px', display: 'flex', alignItems: 'center', gap: 2 }}>
-            🗑 Del
-          </button>
+    <table style={{ width: '100%', borderCollapse: 'collapse', border: '1px solid #D1D5DB', fontSize: 11 }}>
+      <thead>
+        <tr style={{ background: '#173404' }}>
+          <th style={{ padding: '8px 12px', textAlign: 'left', fontSize: 10, fontWeight: 700, color: '#EAF3DE', textTransform: 'uppercase', letterSpacing: '.05em', borderRight: '1px solid #2d5a1b' }}>Thread</th>
+          <th style={{ padding: '8px 6px', textAlign: 'center', fontSize: 10, fontWeight: 700, color: '#EAF3DE', textTransform: 'uppercase', letterSpacing: '.05em', borderRight: '1px solid #2d5a1b', width: 44 }}>Up</th>
+          <th style={{ padding: '8px 6px', textAlign: 'center', fontSize: 10, fontWeight: 700, color: '#EAF3DE', textTransform: 'uppercase', letterSpacing: '.05em', borderRight: '1px solid #2d5a1b', width: 44 }}>Re</th>
+          <th style={{ padding: '8px 6px', textAlign: 'center', fontSize: 10, fontWeight: 700, color: '#EAF3DE', textTransform: 'uppercase', letterSpacing: '.05em', borderRight: '1px solid #2d5a1b', width: 56 }}>Views</th>
+          <th style={{ padding: '8px 12px', textAlign: 'right', fontSize: 10, fontWeight: 700, color: '#EAF3DE', textTransform: 'uppercase', letterSpacing: '.05em', width: 150, whiteSpace: 'nowrap' }}>Last Activity</th>
+        </tr>
+      </thead>
+      <tbody>
+        {loading && (
+          <tr><td colSpan={5} style={{ padding: 24, textAlign: 'center', color: '#9CA3AF' }}>Loading…</td></tr>
         )}
-      </div>
-      <div style={{ fontSize: 13, fontWeight: 600, color: '#111827', marginBottom: 3 }}>{post.title}</div>
-      <div style={{ fontSize: 11, color: '#6b7280', marginBottom: 8, lineHeight: 1.4 }}>
-        {(post.body || '').slice(0, 120)}{(post.body || '').length > 120 ? '…' : ''}
-      </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-        <Avatar profile={post.author} size={20} />
-        <span style={{ fontSize: 11, fontWeight: 600, color: '#374151' }}>{post.author?.display_name || 'Anonymous'}</span>
-        <TierBadge profile={post.author} />
-        <span style={{ fontSize: 10, color: '#9ca3af' }}>{timeAgo(post.created_at)}</span>
-        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
-          <button onClick={e => { e.stopPropagation(); isPro ? onUpvote(post.id, post.votes, post.user_id) : onUpgrade(); }}
-            style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 11, fontWeight: 600, color: '#374151', background: '#f3f4f6', border: 'none', borderRadius: 20, padding: '2px 8px', cursor: 'pointer' }}>
-            ▲ {post.votes || 0}
-          </button>
-          <span style={{ fontSize: 11, color: '#9ca3af', display: 'flex', alignItems: 'center', gap: 2 }}>
-            💬 {post.reply_count || 0}
-          </span>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ─── thread view ──────────────────────────────────────────────────────────────
-
-function ThreadView({ post, replies, onBack, onUpvotePost, onUpvoteReply, onAddReply, onDeletePost, onDeleteReply, userId, isAdmin, upvotedPosts, upvotedReplies, isPro, onUpgrade }) {
-  const [replyText,  setReplyText]  = useState('');
-  const [submitting, setSubmitting] = useState(false);
-
-  const handleReply = async () => {
-    if (!replyText.trim() || !userId) return;
-    setSubmitting(true);
-    const ok = await onAddReply(post.id, replyText.trim());
-    if (ok) setReplyText('');
-    setSubmitting(false);
-  };
-
-  const AuthorSidebar = ({ profile }) => (
-    <div style={{ width: 88, flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, padding: '10px 6px', background: '#f9fafb', borderRight: '0.5px solid #e5e7eb' }}>
-      <Avatar profile={profile} size={36} />
-      <span style={{ fontSize: 10, fontWeight: 600, color: '#374151', textAlign: 'center', wordBreak: 'break-word', lineHeight: 1.2 }}>
-        {profile?.display_name || 'Anon'}
-      </span>
-      <TierBadge profile={profile} />
-      <span style={{ fontSize: 10, color: '#6b7280', fontWeight: 600 }}>{(profile?.points || 0).toLocaleString()}pts</span>
-    </div>
-  );
-
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
-      <div style={{ padding: '7px 14px', borderBottom: '0.5px solid #e5e7eb', display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-        <button onClick={onBack}
-          style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, fontWeight: 600, color: '#374151', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
-          ← Back
-        </button>
-        <CatBadge section={post.section} />
-      </div>
-      <div style={{ flex: 1, overflowY: 'auto' }}>
-        {/* Post body */}
-        <div style={{ display: 'flex', borderBottom: '0.5px solid #e5e7eb' }}>
-          <AuthorSidebar profile={post.author} />
-          <div style={{ flex: 1, padding: '12px 14px' }}>
-            <div style={{ fontSize: 13, fontWeight: 700, color: '#111827', marginBottom: 8 }}>{post.title}</div>
-            <div style={{ fontSize: 11, color: '#374151', lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>{post.body}</div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 10 }}>
-              <button onClick={() => isPro ? onUpvotePost(post.id, post.votes, post.user_id) : onUpgrade()}
-                style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 11, fontWeight: 600, color: upvotedPosts?.has(post.id) ? '#fff' : '#374151', background: upvotedPosts?.has(post.id) ? '#00471b' : '#f3f4f6', border: 'none', borderRadius: 20, padding: '3px 10px', cursor: 'pointer' }}>
-                ▲ {post.votes || 0}
-              </button>
-              <span style={{ fontSize: 10, color: '#9ca3af' }}>{timeAgo(post.created_at)}</span>
-              {(isAdmin || post.user_id === userId) && (
-                <button onClick={() => onDeletePost(post.id)}
-                  style={{ marginLeft: 'auto', fontSize: 9, fontWeight: 700, color: '#fff', background: '#ef4444', border: 'none', borderRadius: 3, cursor: 'pointer', padding: '2px 6px', display: 'flex', alignItems: 'center', gap: 2 }}>
-                  🗑 Del
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Replies */}
-        {replies.map(r => (
-          <div key={r.id} style={{ display: 'flex', borderBottom: '0.5px solid #f3f4f6' }}>
-            <AuthorSidebar profile={r.author} />
-            <div style={{ flex: 1, padding: '10px 14px' }}>
-              <div style={{ fontSize: 11, color: '#374151', lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>{r.content}</div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 6 }}>
-                <button onClick={() => isPro ? onUpvoteReply(r.id, r.votes, r.clerk_id) : onUpgrade()}
-                  style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 10, fontWeight: 600, color: upvotedReplies?.has(r.id) ? '#fff' : '#374151', background: upvotedReplies?.has(r.id) ? '#00471b' : '#f3f4f6', border: 'none', borderRadius: 20, padding: '2px 8px', cursor: 'pointer' }}>
-                  ▲ {r.votes || 0}
-                </button>
-                <span style={{ fontSize: 10, color: '#9ca3af' }}>{timeAgo(r.created_at)}</span>
-                {(isAdmin || r.user_id === userId) && (
-                  <button onClick={() => onDeleteReply(r.id)}
-                    style={{ marginLeft: 'auto', fontSize: 9, fontWeight: 700, color: '#fff', background: '#ef4444', border: 'none', borderRadius: 3, cursor: 'pointer', padding: '2px 6px', display: 'flex', alignItems: 'center', gap: 2 }}>
-                    🗑 Del
-                  </button>
-                )}
-              </div>
-            </div>
-          </div>
-        ))}
-
-        {/* Reply input */}
-        <div style={{ padding: '12px 14px' }}>
-          {!userId ? (
-            <div style={{ fontSize: 11, color: '#9ca3af' }}>Sign in to reply.</div>
-          ) : !isPro ? (
-            <div style={{ background: '#f0fdf4', border: '1px solid #86efac', borderRadius: 8, padding: '10px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
-              <span style={{ fontSize: 11, color: '#374151' }}>Upgrade to Pro to join the conversation</span>
-              <button onClick={onUpgrade} style={{ fontSize: 11, fontWeight: 700, color: '#065f46', background: 'none', border: 'none', cursor: 'pointer', whiteSpace: 'nowrap', padding: 0, textDecoration: 'underline' }}>
-                Start free trial →
-              </button>
-            </div>
-          ) : (
-            <>
-              <textarea
-                value={replyText}
-                onChange={e => setReplyText(e.target.value)}
-                placeholder="Write a reply…"
-                rows={3}
-                style={{ width: '100%', border: '1px solid #e5e7eb', borderRadius: 6, padding: '5px 8px', fontSize: 11, resize: 'vertical', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' }}
-              />
-              <button onClick={handleReply} disabled={submitting || !replyText.trim()}
-                style={{ marginTop: 6, padding: '6px 12px', background: '#00471b', color: '#fff', border: 'none', borderRadius: 6, fontSize: 11, fontWeight: 700, cursor: 'pointer', opacity: submitting || !replyText.trim() ? 0.5 : 1 }}>
-                {submitting ? 'Posting…' : 'Post Reply'}
-              </button>
-            </>
-          )}
-        </div>
-      </div>
-    </div>
+        {!loading && rows.length === 0 && (
+          <tr><td colSpan={5} style={{ padding: 24, textAlign: 'center', color: '#9CA3AF' }}>No posts yet — be the first to post!</td></tr>
+        )}
+        {!loading && rows.map(row => {
+          if (row.type === 'cat') {
+            return (
+              <tr key={row.key}>
+                <td colSpan={5} style={{ padding: '5px 12px', background: '#FAFAF8', borderTop: '1px solid #E5E7EB', borderBottom: '1px solid #E5E7EB' }}>
+                  <span style={{ fontSize: 9, fontWeight: 700, color: '#374151', textTransform: 'uppercase', letterSpacing: '.07em' }}>{row.label}</span>
+                </td>
+              </tr>
+            );
+          }
+          const p = row.post;
+          return (
+            <tr key={row.key}
+              onClick={() => onNavigate(p.id)}
+              style={{ cursor: 'pointer', borderBottom: '1px solid #E5E7EB', background: '#fff' }}
+              onMouseEnter={e => e.currentTarget.style.background = '#F9FAFB'}
+              onMouseLeave={e => e.currentTarget.style.background = '#fff'}
+            >
+              <td style={{ padding: '9px 12px', borderRight: '1px solid #E5E7EB' }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: '#111827', marginBottom: 2 }}>{p.title}</div>
+                <div style={{ fontSize: 10, color: '#6B7280' }}>Started by <span style={{ fontWeight: 600 }}>{p.author?.display_name || 'Anonymous'}</span></div>
+              </td>
+              <td style={{ padding: '9px 6px', textAlign: 'center', fontWeight: 700, color: '#374151', borderRight: '1px solid #E5E7EB' }}>{p.votes || 0}</td>
+              <td style={{ padding: '9px 6px', textAlign: 'center', fontWeight: 700, color: '#374151', borderRight: '1px solid #E5E7EB' }}>{p.reply_count || 0}</td>
+              <td style={{ padding: '9px 6px', textAlign: 'center', color: '#9CA3AF', borderRight: '1px solid #E5E7EB' }}>—</td>
+              <td style={{ padding: '9px 12px', textAlign: 'right' }}>
+                <div style={{ fontSize: 11, color: '#374151', fontWeight: 600 }}>{timeAgo(p.created_at)}</div>
+                <div style={{ fontSize: 10, color: '#6B7280' }}>by {p.author?.display_name || 'Anonymous'}</div>
+              </td>
+            </tr>
+          );
+        })}
+      </tbody>
+    </table>
   );
 }
 
@@ -1019,6 +936,7 @@ function CommunityPageInner() {
   const userId  = user?.id || null;
   const searchParams = useSearchParams();
   const isAdmin = userId === ADMIN_ID;
+  const router    = useRouter();
   const isPro     = useIsPro();
   const isMobile  = useIsMobile();
   const [upgradeOpen, setUpgradeOpen] = useState(false);
@@ -1026,8 +944,6 @@ function CommunityPageInner() {
   const [section,      setSection]      = useState('all');
   const [posts,        setPosts]        = useState([]);
   const [loading,      setLoading]      = useState(true);
-  const [selectedPost, setSelectedPost] = useState(null);
-  const [replies,      setReplies]      = useState([]);
   const [newPostModal, setNewPostModal] = useState(false);
   const [ranksModal,   setRanksModal]   = useState(false);
   const [showLadder,   setShowLadder]   = useState(false);
@@ -1036,8 +952,6 @@ function CommunityPageInner() {
     if (searchParams.get('ladder') === '1') setShowLadder(true);
   }, [searchParams]);
 
-  const [upvotedPosts,   setUpvotedPosts]   = useState(new Set());
-  const [upvotedReplies, setUpvotedReplies] = useState(new Set());
   const [profile,      setProfile]      = useState(null);
   const [badges,       setBadges]       = useState([]);
   const [missions,     setMissions]     = useState([]);
@@ -1047,7 +961,6 @@ function CommunityPageInner() {
 
   useEffect(() => {
     setLoading(true);
-    setSelectedPost(null);
     loadPosts(section).then(data => { setPosts(data || []); setLoading(false); });
   }, [section]);
 
@@ -1098,64 +1011,6 @@ function CommunityPageInner() {
       setStats({ members, posts: postsCount });
     });
   }, []);
-
-  useEffect(() => {
-    if (!selectedPost) { setReplies([]); return; }
-    loadReplies(selectedPost.id).then(setReplies);
-  }, [selectedPost?.id]); // eslint-disable-line
-
-  const handleUpvotePost = useCallback(async (postId, current, authorId) => {
-    const alreadyVoted = upvotedPosts.has(postId);
-    const v = alreadyVoted ? (current || 0) - 1 : (current || 0) + 1;
-    await sb(`posts?id=eq.${postId}`, { method: 'PATCH', body: { votes: v }, prefer: 'return=minimal' });
-    setPosts(ps => ps.map(p => p.id === postId ? { ...p, votes: v } : p));
-    setSelectedPost(sp => sp?.id === postId ? { ...sp, votes: v } : sp);
-    setUpvotedPosts(prev => { const next = new Set(prev); alreadyVoted ? next.delete(postId) : next.add(postId); return next; });
-    if (!alreadyVoted && authorId && authorId !== userId) {
-      awardPoints(authorId, 'upvote_received').catch(() => {});
-    }
-  }, [upvotedPosts, userId]);
-
-  const handleUpvoteReply = useCallback(async (replyId, current, authorId) => {
-    const alreadyVoted = upvotedReplies.has(replyId);
-    const v = alreadyVoted ? (current || 0) - 1 : (current || 0) + 1;
-    await sb(`replies?id=eq.${replyId}`, { method: 'PATCH', body: { votes: v }, prefer: 'return=minimal' });
-    setReplies(rs => rs.map(r => r.id === replyId ? { ...r, votes: v } : r));
-    setUpvotedReplies(prev => { const next = new Set(prev); alreadyVoted ? next.delete(replyId) : next.add(replyId); return next; });
-    if (!alreadyVoted && authorId && authorId !== userId) {
-      awardPoints(authorId, 'upvote_received').catch(() => {});
-    }
-  }, [upvotedReplies, userId]);
-
-  const handleDeletePost = useCallback(async (postId) => {
-    await sb(`posts?id=eq.${postId}`, { method: 'DELETE' });
-    setPosts(ps => ps.filter(p => p.id !== postId));
-    setSelectedPost(sp => sp?.id === postId ? null : sp);
-  }, []);
-
-  const handleDeleteReply = useCallback(async (replyId) => {
-    await sb(`replies?id=eq.${replyId}`, { method: 'DELETE' });
-    setReplies(rs => rs.filter(r => r.id !== replyId));
-  }, []);
-
-  const handleAddReply = useCallback(async (postId, body) => {
-    if (!userId) return false;
-    const result = await sb('replies?select=*', {
-      method: 'POST',
-      body: { post_id: postId, clerk_id: userId, content: body, votes: 0 },
-      prefer: 'return=representation',
-    });
-    if (result && result.length) {
-      setReplies(rs => [...rs, { ...result[0], author: profile }]);
-      const newCount = (posts.find(p => p.id === postId)?.reply_count || 0) + 1;
-      await sb(`posts?id=eq.${postId}`, { method: 'PATCH', body: { reply_count: newCount }, prefer: 'return=minimal' });
-      setPosts(ps => ps.map(p => p.id === postId ? { ...p, reply_count: newCount } : p));
-      setSelectedPost(sp => sp?.id === postId ? { ...sp, reply_count: newCount } : sp);
-      window.dispatchEvent(new Event('ww:profile:refresh'));
-      awardPoints(userId, 'community_reply', body.slice(0, 100)).catch(() => {});
-    }
-    return !!result;
-  }, [userId, profile, posts]);
 
   const handleNewPost = useCallback(async ({ section: sec, title, body }) => {
     if (!userId) return false;
@@ -1235,50 +1090,15 @@ function CommunityPageInner() {
           <span style={{ marginLeft: 4, fontSize: 11, fontWeight: 600, color: '#6b7280' }}>{sectionLabel}</span>
         </div>
 
-        {/* Feed or thread */}
-        {selectedPost ? (
-          <ThreadView
-            post={selectedPost}
-            replies={replies}
-            onBack={() => setSelectedPost(null)}
-            onUpvotePost={handleUpvotePost}
-            onUpvoteReply={handleUpvoteReply}
-            onAddReply={handleAddReply}
-            onDeletePost={handleDeletePost}
-            onDeleteReply={handleDeleteReply}
-            userId={userId}
-            isAdmin={isAdmin}
-            upvotedPosts={upvotedPosts}
-            upvotedReplies={upvotedReplies}
-            isPro={isPro}
-            onUpgrade={() => setUpgradeOpen(true)}
+        {/* Post list table */}
+        <div style={{ flex: 1, overflowY: 'auto' }}>
+          <PostTable
+            posts={posts}
+            section={section}
+            loading={loading}
+            onNavigate={id => router.push(`/community/post/${id}`)}
           />
-        ) : (
-          <div style={{ flex: 1, overflowY: 'auto', padding: '12px 14px' }}>
-            <div style={{ fontSize: 10, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 10 }}>
-              {sectionLabel}
-            </div>
-            {loading && <div style={{ fontSize: 11, color: '#9ca3af', textAlign: 'center', padding: 24 }}>Loading…</div>}
-            {!loading && posts.length === 0 && (
-              <div style={{ fontSize: 11, color: '#9ca3af', textAlign: 'center', padding: 24 }}>No posts yet — be the first to post!</div>
-            )}
-            {posts.map((p, i) => {
-              if (i === 0) console.log(`[Community] canDelete: userId=${userId} isAdmin=${isAdmin} postUserId=${p.user_id} match=${p.user_id === userId} canDelete=${isAdmin || p.user_id === userId}`);
-              return (
-                <PostCard
-                  key={p.id}
-                  post={p}
-                  onSelect={setSelectedPost}
-                  onUpvote={handleUpvotePost}
-                  onDelete={handleDeletePost}
-                  canDelete={isAdmin || p.user_id === userId}
-                  isPro={isPro}
-                  onUpgrade={() => setUpgradeOpen(true)}
-                />
-              );
-            })}
-          </div>
-        )}
+        </div>
       </div>
 
       <div className="comm-right-sidebar hidden md:block"><RightColumn leaderboard={leaderboard} contributors={contributors} stats={stats} /></div>
