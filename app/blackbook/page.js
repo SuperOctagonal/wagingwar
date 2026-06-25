@@ -230,6 +230,8 @@ export default function BlackbookPage() {
   const [csvRaces,    setCsvRaces]    = useState({});
   const [winBanners,  setWinBanners]  = useState([]);
   const [mostWatched, setMostWatched] = useState([]);
+  const [bbPerf,       setBbPerf]       = useState({});
+  const [expandedPerf, setExpandedPerf] = useState(new Set());
 
   useEffect(() => {
     const csv = localStorage.getItem('ww_csv');
@@ -289,6 +291,25 @@ export default function BlackbookPage() {
       setMostWatched(Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 10));
     });
   }, []);
+
+  useEffect(() => {
+    if (!horses.length) return;
+    horses.forEach(h => {
+      if (!h.added_at) return;
+      const normHorse = normName(h.horse_name);
+      const since = h.added_at.slice(0, 10);
+      sb(`race_results?horse_name=ilike.${encodeURIComponent(normHorse + '%')}&date=gt.${since}&select=horse_name,date,venue,finish_pos,sp&order=date.desc`)
+        .then(rows => {
+          const matched = (rows || []).filter(r => normName(r.horse_name) === normHorse);
+          const runs = matched.map(r => {
+            const sp = parseFloat(r.sp) || 0;
+            const win = r.finish_pos === 1 || r.finish_pos === '1';
+            return { date: r.date, venue: r.venue, pos: r.finish_pos, sp, pnl: win ? sp - 1 : -1 };
+          });
+          setBbPerf(prev => ({ ...prev, [h.id]: { runs, loaded: true } }));
+        });
+    });
+  }, [horses]);
 
   const handleRemove = useCallback(async (id) => {
     if (!confirm('Remove from blackbook?')) return;
@@ -487,6 +508,62 @@ export default function BlackbookPage() {
                 const info = csvRaces[norm];
                 const isLast = i === displayed.length - 1;
 
+                const perf = bbPerf[h.id];
+                const perfRuns = perf?.runs || [];
+                const perfTotal = perfRuns.reduce((sum, r) => sum + r.pnl, 0);
+                const isExpanded = expandedPerf.has(h.id);
+                const togglePerf = () => setExpandedPerf(prev => {
+                  const next = new Set(prev);
+                  if (next.has(h.id)) next.delete(h.id); else next.add(h.id);
+                  return next;
+                });
+                const perfSection = perf?.loaded ? (
+                  <div style={{ marginTop: 8, paddingTop: 8, borderTop: '1px solid #e5e7eb' }}>
+                    {perfRuns.length === 0 ? (
+                      <div style={{ fontSize: 10, color: '#9ca3af' }}>No runs since blackbooked yet</div>
+                    ) : (
+                      <>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                          <span style={{ fontSize: 11, color: '#374151' }}>
+                            Since blackbooked: <strong>{perfRuns.length} run{perfRuns.length !== 1 ? 's' : ''}</strong>
+                            {' · '}
+                            <span style={{ fontWeight: 700, color: perfTotal >= 0 ? '#059669' : '#dc2626' }}>
+                              {perfTotal >= 0 ? '+$' : '-$'}{Math.abs(perfTotal).toFixed(2)} $1 flat
+                            </span>
+                          </span>
+                          <button onClick={togglePerf} style={{ fontSize: 10, fontWeight: 600, color: '#6b7280', background: 'none', border: 'none', cursor: 'pointer', padding: '2px 6px', flexShrink: 0 }}>
+                            Details {isExpanded ? '▴' : '▾'}
+                          </button>
+                        </div>
+                        {isExpanded && (
+                          <table style={{ width: '100%', marginTop: 6, fontSize: 10, fontFamily: 'monospace', borderCollapse: 'collapse', background: '#f9fafb', borderRadius: 4, overflow: 'hidden' }}>
+                            <thead>
+                              <tr style={{ background: '#f3f4f6' }}>
+                                <th style={{ padding: '4px 8px', textAlign: 'left', fontWeight: 600, color: '#6b7280' }}>DATE</th>
+                                <th style={{ padding: '4px 8px', textAlign: 'left', fontWeight: 600, color: '#6b7280' }}>VENUE</th>
+                                <th style={{ padding: '4px 8px', textAlign: 'center', fontWeight: 600, color: '#6b7280' }}>POS</th>
+                                <th style={{ padding: '4px 8px', textAlign: 'right', fontWeight: 600, color: '#6b7280' }}>$1 RESULT</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {perfRuns.map((r, ri) => (
+                                <tr key={ri} style={{ borderTop: '1px solid #e5e7eb' }}>
+                                  <td style={{ padding: '4px 8px', color: '#374151' }}>{r.date}</td>
+                                  <td style={{ padding: '4px 8px', color: '#374151' }}>{r.venue}</td>
+                                  <td style={{ padding: '4px 8px', textAlign: 'center', color: r.pos === 1 || r.pos === '1' ? '#059669' : '#374151' }}>{r.pos}</td>
+                                  <td style={{ padding: '4px 8px', textAlign: 'right', fontWeight: 700, color: r.pnl >= 0 ? '#059669' : '#dc2626' }}>
+                                    {r.pnl >= 0 ? '+$' : '-$'}{Math.abs(r.pnl).toFixed(2)}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        )}
+                      </>
+                    )}
+                  </div>
+                ) : null;
+
                 if (isMobile) {
                   // Mobile card: 4-line layout
                   return (
@@ -534,6 +611,7 @@ export default function BlackbookPage() {
                           </button>
                         </div>
                       </div>
+                      {perfSection}
                     </div>
                   );
                 }
@@ -575,6 +653,7 @@ export default function BlackbookPage() {
                     <div style={{ fontSize: 10, color: '#9ca3af', marginTop: 3 }}>
                       {[h.venue, h.race_number && `R${h.race_number}`, h.distance && `${h.distance}m`, h['class'], fmtDate(h.added_at)].filter(Boolean).join(' · ')}
                     </div>
+                    {perfSection}
                   </div>
                 );
               })}
