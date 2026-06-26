@@ -796,7 +796,7 @@ function BetModal({ horse, onClose }) {
         const raceNumVal = horse._raceNum != null ? (isNaN(+horse._raceNum) ? String(horse._raceNum) : +horse._raceNum) : null;
         const insertBody = {
           clerk_id:        user.id,
-          date:            new Date().toISOString().slice(0, 10),
+          date:            horse._meetingDate || new Date().toISOString().slice(0, 10),
           horse_name:      horse.name,
           track:           horse._venue        || null,
           venue:           horse._venue        || null,

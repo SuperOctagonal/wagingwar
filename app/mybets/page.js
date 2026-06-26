@@ -388,6 +388,7 @@ export default function MybetsPage() {
   const [raceDate,    setRaceDate]    = useState(null);
 
   const todayISO = new Date().toISOString().slice(0, 10);
+  const [now, setNow] = useState(() => Date.now());
 
   useEffect(() => {
     if (!user?.id) { setLoading(false); return; }
@@ -436,6 +437,9 @@ export default function MybetsPage() {
       }
     });
   }, [user?.id]);
+
+  // Keep `now` fresh so countdown timers in the TIME column update
+  useEffect(() => { const id = setInterval(() => setNow(Date.now()), 30000); return () => clearInterval(id); }, []);
 
   // Backfill post times from race_schedule for bets that don't have race_time stored
   useEffect(() => {
@@ -757,7 +761,7 @@ export default function MybetsPage() {
         case 'horse':   va = (a.horse_name || '').toLowerCase(); vb = (b.horse_name || '').toLowerCase(); break;
         case 'venue':   va = (a.track || a.venue || '').toLowerCase(); vb = (b.track || b.venue || '').toLowerCase(); break;
         case 'race':    va = +(a.race_number ?? a.race_num ?? 0); vb = +(b.race_number ?? b.race_num ?? 0); break;
-        case 'time':    va = raceTimeMap[a.id] || a.race_time || ''; vb = raceTimeMap[b.id] || b.race_time || ''; break;
+        case 'time':    va = parseRaceTime(raceTimeMap[a.id] || a.race_time); vb = parseRaceTime(raceTimeMap[b.id] || b.race_time); break;
         case 'no':      va = +(a.tab_no || a.horse_number || 99); vb = +(b.tab_no || b.horse_number || 99); break;
         case 'stake':   va = +(a.stake || 0); vb = +(b.stake || 0); break;
         case 'odds':    va = +(a.odds || 0); vb = +(b.odds || 0); break;
@@ -1216,7 +1220,7 @@ export default function MybetsPage() {
                           </td>
                           <td style={{ ...cs, color: '#fff', whiteSpace: 'nowrap' }}>{venue}</td>
                           <td style={{ ...cs, color: '#fff', textAlign: 'right', whiteSpace: 'nowrap' }}>{raceNum ? `R${raceNum}` : '—'}</td>
-                          <td style={{ ...cs, color: '#fff', textAlign: 'right', whiteSpace: 'nowrap', fontFamily: 'monospace' }}>{raceTimeMap[b.id] || b.race_time || '—'}</td>
+                          <td style={{ ...cs, color: '#fff', textAlign: 'right', whiteSpace: 'nowrap', fontFamily: 'monospace' }}>{(() => { const t = raceTimeMap[b.id] || b.race_time; if (!t) return '—'; if (isPending && b.date === todayISO) { const d = new Date(now); const rem = parseRaceTime(t) - (d.getHours() * 60 + d.getMinutes()); if (rem > 0) { const h = Math.floor(rem / 60); const m = rem % 60; const cd = h > 0 ? `${h}h${m > 0 ? m + 'm' : ''}` : `${m}m`; return <>{t} <span style={{ color: rem < 10 ? '#4ade80' : '#9ca3af', fontWeight: 700, fontSize: 9 }}>({cd})</span></>; } } return t; })()}</td>
                           <td style={{ ...cs, color: '#fff', textAlign: 'right', whiteSpace: 'nowrap' }}>{b.tab_no || b.horse_number || '—'}</td>
                           <td style={{ ...cs, color: '#fff', textAlign: 'right', fontFamily: 'monospace', whiteSpace: 'nowrap' }}>${(+(b.stake || 0)).toFixed(0)}</td>
                           <td style={{ ...cs, color: '#fff', textAlign: 'right', fontFamily: 'monospace', whiteSpace: 'nowrap' }}>${Number(b.odds || 0).toFixed(2)}</td>
@@ -1260,7 +1264,8 @@ export default function MybetsPage() {
                   );
                 })}
               </div>
-              <div style={{ background: '#11241A', overflowX: 'auto', width: 'fit-content', maxWidth: '100%' }}>
+              <div style={{ overflowX: 'auto' }}>
+              <div style={{ background: '#11241A', width: 'fit-content' }}>
                 {(() => {
                   const thBase = { padding: '6px 8px', fontSize: 9, fontWeight: 700, color: '#4b6858', textTransform: 'uppercase', border: '1px solid #1a3a25', whiteSpace: 'nowrap', cursor: 'pointer', userSelect: 'none' };
                   const mkSort = (col) => () => { if (sortCol === col) setSortDir(d => d === 'asc' ? 'desc' : 'asc'); else { setSortCol(col); setSortDir('asc'); } };
@@ -1297,7 +1302,7 @@ export default function MybetsPage() {
                               <td style={{ ...cs, color: '#fff', whiteSpace: 'nowrap' }}>{fmtDate(b.date)}</td>
                               <td style={{ ...cs, color: '#fff', whiteSpace: 'nowrap' }}>{venue}</td>
                               <td style={{ ...cs, color: '#fff', textAlign: 'right' }}>{raceNum ? `R${raceNum}` : '—'}</td>
-                              <td style={{ ...cs, color: '#fff', textAlign: 'right', fontFamily: 'monospace', whiteSpace: 'nowrap' }}>{raceTimeMap[b.id] || b.race_time || '—'}</td>
+                              <td style={{ ...cs, color: '#fff', textAlign: 'right', fontFamily: 'monospace', whiteSpace: 'nowrap' }}>{(() => { const t = raceTimeMap[b.id] || b.race_time; if (!t) return '—'; if (isPending && b.date === todayISO) { const d = new Date(now); const rem = parseRaceTime(t) - (d.getHours() * 60 + d.getMinutes()); if (rem > 0) { const h = Math.floor(rem / 60); const m = rem % 60; const cd = h > 0 ? `${h}h${m > 0 ? m + 'm' : ''}` : `${m}m`; return <>{t} <span style={{ color: rem < 10 ? '#4ade80' : '#9ca3af', fontWeight: 700, fontSize: 9 }}>({cd})</span></>; } } return t; })()}</td>
                               <td style={{ ...cs, color: '#fff', textAlign: 'right' }}>{b.tab_no || b.horse_number || '—'}</td>
                               <td style={{ ...cs, color: '#fff', fontWeight: 600, maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b.horse_name || '—'}</td>
                               <td style={{ ...cs, color: '#fff', textAlign: 'right', fontFamily: 'monospace' }}>${(+(b.stake || 0)).toFixed(0)}</td>
@@ -1315,6 +1320,7 @@ export default function MybetsPage() {
                     </table>
                   );
                 })()}
+              </div>
               </div>
             </>)}
 
