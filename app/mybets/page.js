@@ -352,6 +352,8 @@ export default function MybetsPage() {
   const [refreshing,       setRefreshing]       = useState(false);
   const [racePopup,        setRacePopup]        = useState(null);
   const [racePopupData,    setRacePopupData]    = useState([]);
+  const [sortCol,          setSortCol]          = useState('date');
+  const [sortDir,          setSortDir]          = useState('desc');
   const [dateRange,        setDateRange]        = useState('today');
   const [customStart,      setCustomStart]      = useState('');
   const [customEnd,        setCustomEnd]        = useState('');
@@ -373,6 +375,7 @@ export default function MybetsPage() {
   const [qlSaving,    setQlSaving]    = useState(false);
   const [qlToast,     setQlToast]     = useState(null);
   const [qlRaceTime,  setQlRaceTime]  = useState('');
+  const [qlTab,       setQlTab]       = useState('');
   const [raceDate,    setRaceDate]    = useState(null);
 
   const todayISO = new Date().toISOString().slice(0, 10);
@@ -510,6 +513,7 @@ export default function MybetsPage() {
       odds:        +qlOdds,
       bookmaker:   qlBookmaker || null,
       race_time:   qlRaceTime  || null,
+      tab_no:      qlTab       || null,
       status:      'pending',
       return_amt:  null,
       position:    null,
@@ -547,7 +551,7 @@ export default function MybetsPage() {
     setQlToast(ok ? 'success' : 'error');
     setQlSaving(false);
     setTimeout(() => setQlToast(null), 2500);
-  }, [user?.id, todayISO, raceDate, qlHorse, qlMeeting, qlRace, qlBetType, qlStake, qlOdds, qlRaceTime, qlBookmaker]);
+  }, [user?.id, todayISO, raceDate, qlHorse, qlMeeting, qlRace, qlBetType, qlStake, qlOdds, qlRaceTime, qlBookmaker, qlTab]);
 
   const handleDeleteBet = useCallback(async (id) => {
     if (!confirm('Remove this bet?')) return;
@@ -654,7 +658,13 @@ export default function MybetsPage() {
   }, [dateResulted]);
 
   const heroChartData = useMemo(() => {
-    const sorted = [...dateResulted].sort((a, b) => a.date < b.date ? -1 : 1);
+    const sorted = [...dateResulted].sort((a, b) => {
+      if (a.date < b.date) return -1;
+      if (a.date > b.date) return 1;
+      if (a.id < b.id) return -1;
+      if (a.id > b.id) return 1;
+      return 0;
+    });
     let cum = 0;
     return sorted.map((b, i) => {
       cum += (b.profit_loss || 0);
@@ -667,6 +677,29 @@ export default function MybetsPage() {
     if (activeTab === 'all') return base;
     return base.filter(b => b.status === activeTab);
   }, [dateFilteredBets, activeTab]);
+
+  const sortedLedgerBets = useMemo(() => {
+    const dir = sortDir === 'asc' ? 1 : -1;
+    return [...ledgerFilteredBets].sort((a, b) => {
+      let va, vb;
+      switch (sortCol) {
+        case 'date':    va = a.date || ''; vb = b.date || ''; break;
+        case 'horse':   va = (a.horse_name || '').toLowerCase(); vb = (b.horse_name || '').toLowerCase(); break;
+        case 'venue':   va = (a.track || a.venue || '').toLowerCase(); vb = (b.track || b.venue || '').toLowerCase(); break;
+        case 'race':    va = +(a.race_number ?? a.race_num ?? 0); vb = +(b.race_number ?? b.race_num ?? 0); break;
+        case 'time':    va = a.race_time || ''; vb = b.race_time || ''; break;
+        case 'no':      va = +(a.tab_no || a.horse_number || 99); vb = +(b.tab_no || b.horse_number || 99); break;
+        case 'stake':   va = +(a.stake || 0); vb = +(b.stake || 0); break;
+        case 'odds':    va = +(a.odds || 0); vb = +(b.odds || 0); break;
+        case 'pnl':     va = a.profit_loss ?? -Infinity; vb = b.profit_loss ?? -Infinity; break;
+        case 'result':  va = +(a.position || 99); vb = +(b.position || 99); break;
+        default:        va = a.date || ''; vb = b.date || '';
+      }
+      if (va < vb) return -1 * dir;
+      if (va > vb) return 1 * dir;
+      return 0;
+    });
+  }, [ledgerFilteredBets, sortCol, sortDir]);
 
   const nextRaces = useMemo(() => {
     if (!csvMeetings.length) return [];
@@ -768,7 +801,7 @@ export default function MybetsPage() {
               )}
 
               {csvMeetings.length > 0 ? (
-                <select value={qlMeeting} onChange={e => { setQlMeeting(e.target.value); setQlRace(''); setQlHorse(''); setQlOdds(''); }} style={inp}>
+                <select value={qlMeeting} onChange={e => { setQlMeeting(e.target.value); setQlRace(''); setQlHorse(''); setQlOdds(''); setQlTab(''); }} style={inp}>
                   <option value="">Meeting…</option>
                   {csvMeetings.map(v => <option key={v} value={v}>{v}</option>)}
                 </select>
@@ -776,7 +809,7 @@ export default function MybetsPage() {
                 <input value={qlMeeting} onChange={e => setQlMeeting(e.target.value)} placeholder="Track (e.g. Flemington)" style={inp} />
               )}
 
-              <select value={qlRace} onChange={e => { setQlRace(e.target.value); setQlHorse(''); setQlOdds(''); }} style={inp}>
+              <select value={qlRace} onChange={e => { setQlRace(e.target.value); setQlHorse(''); setQlOdds(''); setQlTab(''); }} style={inp}>
                 <option value="">Race #…</option>
                 {csvRaceOptions.length > 0
                   ? csvRaceOptions.map(o => <option key={o.key} value={o.value}>{o.label}</option>)
@@ -785,7 +818,7 @@ export default function MybetsPage() {
               </select>
 
               {csvHorses.length > 0 ? (
-                <select value={qlHorse} onChange={e => { const h = csvHorses.find(x => x.name === e.target.value); setQlHorse(e.target.value); if (h?.odds) setQlOdds(h.odds.toFixed(2)); }} style={inp}>
+                <select value={qlHorse} onChange={e => { const h = csvHorses.find(x => x.name === e.target.value); setQlHorse(e.target.value); if (h?.odds) setQlOdds(h.odds.toFixed(2)); setQlTab(h?.tab ? String(h.tab) : ''); }} style={inp}>
                   <option value="">Select horse…</option>
                   {csvHorses.map(h => (
                     <option key={h.name} value={h.name}>
@@ -823,7 +856,7 @@ export default function MybetsPage() {
                   {qlSaving ? 'Saving…' : 'Save Bet'}
                 </button>
                 <button
-                  onClick={() => { setQlMeeting(''); setQlRace(''); setQlHorse(''); setQlBetType('win'); setQlStake(''); setQlOdds(''); setQlRaceTime(''); setQlBookmaker('Sportsbet'); setQlToast(null); }}
+                  onClick={() => { setQlMeeting(''); setQlRace(''); setQlHorse(''); setQlBetType('win'); setQlStake(''); setQlOdds(''); setQlRaceTime(''); setQlBookmaker('Sportsbet'); setQlTab(''); setQlToast(null); }}
                   style={{ flex: 1, padding: '7px', background: '#dc2626', color: '#fff', border: 'none', borderRadius: 5, fontSize: 11, fontWeight: 700, cursor: 'pointer' }}
                 >
                   Clear
@@ -1073,23 +1106,30 @@ export default function MybetsPage() {
               </div>
               {loading ? (
                 <div style={{ padding: 20, textAlign: 'center', color: '#4b6858', fontSize: 11 }}>Loading…</div>
-              ) : ledgerFilteredBets.length === 0 ? (
+              ) : sortedLedgerBets.length === 0 ? (
                 <div style={{ padding: 20, textAlign: 'center', color: '#4b6858', fontSize: 11 }}>No bets for this period</div>
               ) : (
                 <div style={{ overflowX: 'auto' }}>
                   <table style={{ borderCollapse: 'collapse', fontSize: 11 }}>
                     <thead>
                       <tr style={{ background: '#0D1C13' }}>
-                        <th style={{ padding: '6px 8px', fontSize: 9, fontWeight: 700, color: '#4b6858', textTransform: 'uppercase', textAlign: 'left', border: '1px solid #1a3a25', position: 'sticky', left: 0, zIndex: 2, background: '#0D1C13' }}>
-                          <div style={{ width: 94, whiteSpace: 'nowrap' }}>Horse</div>
-                        </th>
-                        {[['Venue','left'],['R#','right'],['No','right'],['Stake','right'],['Odds','right'],['P&L','right'],['Result','right']].map(([h, align]) => (
-                          <th key={h} style={{ padding: '6px 8px', fontSize: 9, fontWeight: 700, color: '#4b6858', textTransform: 'uppercase', textAlign: align, border: '1px solid #1a3a25', whiteSpace: 'nowrap' }}>{h}</th>
-                        ))}
+                        {(() => {
+                          const thBase = { padding: '6px 8px', fontSize: 9, fontWeight: 700, color: '#4b6858', textTransform: 'uppercase', border: '1px solid #1a3a25', whiteSpace: 'nowrap', cursor: 'pointer', userSelect: 'none' };
+                          const mkSort = (col) => () => { if (sortCol === col) setSortDir(d => d === 'asc' ? 'desc' : 'asc'); else { setSortCol(col); setSortDir('asc'); } };
+                          const ind = (col) => sortCol === col ? (sortDir === 'asc' ? ' ▲' : ' ▼') : '';
+                          return (<>
+                            <th onClick={mkSort('horse')} style={{ ...thBase, textAlign: 'left', position: 'sticky', left: 0, zIndex: 2, background: '#0D1C13' }}>
+                              <div style={{ width: 94, whiteSpace: 'nowrap' }}>Horse{ind('horse')}</div>
+                            </th>
+                            {[['Venue','left','venue'],['R#','right','race'],['Time','right','time'],['No','right','no'],['Stake','right','stake'],['Odds','right','odds'],['P&L','right','pnl'],['Result','right','result']].map(([h, align, col]) => (
+                              <th key={h} onClick={mkSort(col)} style={{ ...thBase, textAlign: align }}>{h}{ind(col)}</th>
+                            ))}
+                          </>);
+                        })()}
                       </tr>
                     </thead>
                     <tbody>
-                      {ledgerFilteredBets.map(b => {
+                      {sortedLedgerBets.map(b => {
                         const hasPnl = b.profit_loss !== null && b.profit_loss !== undefined;
                         const isEW = (b.bet_type || '').toLowerCase().includes('each');
                         const pnl = hasPnl ? b.profit_loss : (b.return_amt || 0) - (isEW ? (b.stake || 0) * 2 : (b.stake || 0));
@@ -1107,7 +1147,8 @@ export default function MybetsPage() {
                             </td>
                             <td style={{ ...cs, color: '#fff', whiteSpace: 'nowrap' }}>{venue}</td>
                             <td style={{ ...cs, color: '#fff', textAlign: 'right', whiteSpace: 'nowrap' }}>{raceNum ? `R${raceNum}` : '—'}</td>
-                            <td style={{ ...cs, color: '#fff', textAlign: 'right', whiteSpace: 'nowrap' }}>{b.horse_number || b.tab_no || '—'}</td>
+                            <td style={{ ...cs, color: '#fff', textAlign: 'right', whiteSpace: 'nowrap', fontFamily: 'monospace' }}>{b.race_time || '—'}</td>
+                            <td style={{ ...cs, color: '#fff', textAlign: 'right', whiteSpace: 'nowrap' }}>{b.tab_no || b.horse_number || '—'}</td>
                             <td style={{ ...cs, color: '#fff', textAlign: 'right', fontFamily: 'monospace', whiteSpace: 'nowrap' }}>${(+(b.stake || 0)).toFixed(0)}</td>
                             <td style={{ ...cs, color: '#fff', textAlign: 'right', fontFamily: 'monospace', whiteSpace: 'nowrap' }}>${Number(b.odds || 0).toFixed(2)}</td>
                             <td style={{ ...cs, textAlign: 'right', fontWeight: 700, fontFamily: 'monospace', color: pnlColor, whiteSpace: 'nowrap' }}>
@@ -1125,53 +1166,61 @@ export default function MybetsPage() {
               )}
             </div>
           ) : (
-          <div style={{ background: '#11241A' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
-              <thead style={{ position: 'sticky', top: 0, zIndex: 1 }}>
-                <tr style={{ background: '#0D1C13' }}>
-                  {[['Date','left'],['Horse','left'],['Venue','left'],['R#','right'],['No','right'],['Stake','right'],['Odds','right'],['P&L','right'],['Result','right']].map(([h, align]) => (
-                    <th key={h} style={{ padding: '6px 8px', fontSize: 9, fontWeight: 700, color: '#4b6858', textTransform: 'uppercase', textAlign: align, border: '1px solid #1a3a25', whiteSpace: 'nowrap' }}>{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {loading ? (
-                  <tr><td colSpan={9} style={{ padding: 20, textAlign: 'center', color: '#4b6858', fontSize: 11 }}>Loading…</td></tr>
-                ) : ledgerFilteredBets.length === 0 ? (
-                  <tr><td colSpan={9} style={{ padding: 20, textAlign: 'center', color: '#4b6858', fontSize: 11 }}>No bets for this period</td></tr>
-                ) : ledgerFilteredBets.map(b => {
-                  const hasPnl = b.profit_loss !== null && b.profit_loss !== undefined;
-                  const isEW = (b.bet_type || '').toLowerCase().includes('each');
-                  const pnl = hasPnl ? b.profit_loss : (b.return_amt || 0) - (isEW ? (b.stake || 0) * 2 : (b.stake || 0));
-                  const pos = b.position;
-                  const isPending = !b.status || b.status === 'pending';
-                  const pnlColor = !hasPnl || isPending ? '#6b7280' : pnl >= 0 ? '#4ade80' : '#f87171';
-                  const resultColor = pos === 1 ? '#4ade80' : (pos === 2 || pos === 3) ? '#60a5fa' : '#f87171';
-                  const raceNum = b.race_number ?? b.race_num;
-                  const venue = b.track || b.venue || '—';
-                  const cs = { border: '1px solid #1a3a25', padding: '5px 8px' };
-                  return (
-                    <tr key={b.id}
-                      onMouseEnter={e => e.currentTarget.style.background = '#1a3a25'}
-                      onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
-                      <td style={{ ...cs, color: '#fff', whiteSpace: 'nowrap' }}>{fmtDate(b.date)}</td>
-                      <td style={{ ...cs, color: '#fff', fontWeight: 600, maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b.horse_name || '—'}</td>
-                      <td style={{ ...cs, color: '#fff', whiteSpace: 'nowrap' }}>{venue}</td>
-                      <td style={{ ...cs, color: '#fff', textAlign: 'right' }}>{raceNum ? `R${raceNum}` : '—'}</td>
-                      <td style={{ ...cs, color: '#fff', textAlign: 'right' }}>{b.horse_number || b.tab_no || '—'}</td>
-                      <td style={{ ...cs, color: '#fff', textAlign: 'right', fontFamily: 'monospace' }}>${(+(b.stake || 0)).toFixed(0)}</td>
-                      <td style={{ ...cs, color: '#fff', textAlign: 'right', fontFamily: 'monospace' }}>${Number(b.odds || 0).toFixed(2)}</td>
-                      <td style={{ ...cs, textAlign: 'right', fontWeight: 700, fontFamily: 'monospace', color: pnlColor, whiteSpace: 'nowrap' }}>
-                        {isPending ? '—' : (pnl >= 0 ? '+$' : '-$') + Math.abs(pnl).toFixed(2)}
-                      </td>
-                      <td style={{ ...cs, textAlign: 'right', fontWeight: 700, color: isPending ? '#f97316' : (pos ? resultColor : '#6b7280') }}>
-                        {isPending ? 'PND' : (pos || '—')}
-                      </td>
+          <div style={{ background: '#11241A', overflowX: 'auto' }}>
+            {(() => {
+              const thBase = { padding: '6px 8px', fontSize: 9, fontWeight: 700, color: '#4b6858', textTransform: 'uppercase', border: '1px solid #1a3a25', whiteSpace: 'nowrap', cursor: 'pointer', userSelect: 'none' };
+              const mkSort = (col) => () => { if (sortCol === col) setSortDir(d => d === 'asc' ? 'desc' : 'asc'); else { setSortCol(col); setSortDir('asc'); } };
+              const ind = (col) => sortCol === col ? (sortDir === 'asc' ? ' ▲' : ' ▼') : '';
+              return (
+                <table style={{ width: 'fit-content', borderCollapse: 'collapse', fontSize: 11 }}>
+                  <thead style={{ position: 'sticky', top: 0, zIndex: 1 }}>
+                    <tr style={{ background: '#0D1C13' }}>
+                      {[['Date','left','date'],['Venue','left','venue'],['R#','right','race'],['Time','right','time'],['No','right','no'],['Horse','left','horse'],['Stake','right','stake'],['Odds','right','odds'],['P&L','right','pnl'],['Result','right','result']].map(([h, align, col]) => (
+                        <th key={h} onClick={mkSort(col)} style={{ ...thBase, textAlign: align }}>{h}{ind(col)}</th>
+                      ))}
                     </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                  </thead>
+                  <tbody>
+                    {loading ? (
+                      <tr><td colSpan={10} style={{ padding: 20, textAlign: 'center', color: '#4b6858', fontSize: 11 }}>Loading…</td></tr>
+                    ) : sortedLedgerBets.length === 0 ? (
+                      <tr><td colSpan={10} style={{ padding: 20, textAlign: 'center', color: '#4b6858', fontSize: 11 }}>No bets for this period</td></tr>
+                    ) : sortedLedgerBets.map(b => {
+                      const hasPnl = b.profit_loss !== null && b.profit_loss !== undefined;
+                      const isEW = (b.bet_type || '').toLowerCase().includes('each');
+                      const pnl = hasPnl ? b.profit_loss : (b.return_amt || 0) - (isEW ? (b.stake || 0) * 2 : (b.stake || 0));
+                      const pos = b.position;
+                      const isPending = !b.status || b.status === 'pending';
+                      const pnlColor = !hasPnl || isPending ? '#6b7280' : pnl >= 0 ? '#4ade80' : '#f87171';
+                      const resultColor = pos === 1 ? '#4ade80' : (pos === 2 || pos === 3) ? '#60a5fa' : '#f87171';
+                      const raceNum = b.race_number ?? b.race_num;
+                      const venue = b.track || b.venue || '—';
+                      const cs = { border: '1px solid #1a3a25', padding: '5px 8px' };
+                      return (
+                        <tr key={b.id}
+                          onMouseEnter={e => e.currentTarget.style.background = '#1a3a25'}
+                          onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                          <td style={{ ...cs, color: '#fff', whiteSpace: 'nowrap' }}>{fmtDate(b.date)}</td>
+                          <td style={{ ...cs, color: '#fff', whiteSpace: 'nowrap' }}>{venue}</td>
+                          <td style={{ ...cs, color: '#fff', textAlign: 'right' }}>{raceNum ? `R${raceNum}` : '—'}</td>
+                          <td style={{ ...cs, color: '#fff', textAlign: 'right', fontFamily: 'monospace', whiteSpace: 'nowrap' }}>{b.race_time || '—'}</td>
+                          <td style={{ ...cs, color: '#fff', textAlign: 'right' }}>{b.tab_no || b.horse_number || '—'}</td>
+                          <td style={{ ...cs, color: '#fff', fontWeight: 600, maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b.horse_name || '—'}</td>
+                          <td style={{ ...cs, color: '#fff', textAlign: 'right', fontFamily: 'monospace' }}>${(+(b.stake || 0)).toFixed(0)}</td>
+                          <td style={{ ...cs, color: '#fff', textAlign: 'right', fontFamily: 'monospace' }}>${Number(b.odds || 0).toFixed(2)}</td>
+                          <td style={{ ...cs, textAlign: 'right', fontWeight: 700, fontFamily: 'monospace', color: pnlColor, whiteSpace: 'nowrap' }}>
+                            {isPending ? '—' : (pnl >= 0 ? '+$' : '-$') + Math.abs(pnl).toFixed(2)}
+                          </td>
+                          <td style={{ ...cs, textAlign: 'right', fontWeight: 700, color: isPending ? '#f97316' : (pos ? resultColor : '#6b7280') }}>
+                            {isPending ? 'PND' : (pos || '—')}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              );
+            })()}
           </div>
           )}
         </div>

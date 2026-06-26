@@ -811,6 +811,8 @@ function BetModal({ horse, onClose }) {
           track_condition: horse._trackCond    || null,
           race_name:       horse._raceName     || null,
           meeting_date:    horse._meetingDate  || null,
+          race_time:       horse._raceTime     || null,
+          tab_no:          horse.tab != null   ? String(horse.tab) : null,
           return_amt:      null,
           position:        null,
         };
@@ -1935,7 +1937,7 @@ function RacesPageInner() {
 
   const handleLogBet = useCallback((runner, rank) => {
     const rc = allRaces[selectedKey];
-    setBetTarget({ ...runner, _rank: rank, _venue: rc?.venue, _raceNum: rc?.num, _raceName: rc?.name || null, _meetingDate: rc?.date || null, _trackCond: trackCond, _myOdds: runner.rawOdds });
+    setBetTarget({ ...runner, _rank: rank, _venue: rc?.venue, _raceNum: rc?.num, _raceName: rc?.name || null, _meetingDate: rc?.date || null, _trackCond: trackCond, _myOdds: runner.rawOdds, _raceTime: rc?.time || null });
   }, [allRaces, selectedKey, trackCond]);
   const hideTimerRef = useRef(null);
 
