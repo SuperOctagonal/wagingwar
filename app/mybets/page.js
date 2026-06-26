@@ -345,7 +345,6 @@ export default function MybetsPage() {
   const [activeTab,        setActiveTab]        = useState('all');
   const [matchingResults,  setMatchingResults]  = useState(false);
   const [resultSpMap,      setResultSpMap]      = useState({});
-  const [raceTimeMap,      setRaceTimeMap]      = useState({});
 
   const [betView,          setBetView]          = useState('table');
   const [mainTab,          setMainTab]          = useState('ledger');
@@ -428,35 +427,6 @@ export default function MybetsPage() {
       }
     });
   }, [user?.id]);
-
-  // Backfill race_time from race_results for bets that don't have it stored
-  useEffect(() => {
-    if (!bets.length) return;
-    const needsLookup = bets.filter(b => {
-      const venue = b.track || b.venue;
-      const raceNum = +(b.race_number ?? b.race_num ?? 0);
-      return !b.race_time && b.date && venue && raceNum;
-    });
-    if (!needsLookup.length) return;
-    const comboMap = {};
-    for (const b of needsLookup) {
-      const venue = b.track || b.venue;
-      const raceNum = +(b.race_number ?? b.race_num ?? 0);
-      const key = `${b.date}|${venue}|${raceNum}`;
-      if (!comboMap[key]) comboMap[key] = { date: b.date, venue, raceNum, betIds: [] };
-      comboMap[key].betIds.push(b.id);
-    }
-    (async () => {
-      const updates = {};
-      await Promise.all(Object.values(comboMap).map(async ({ date, venue, raceNum, betIds }) => {
-        const rows = await sbFetch(`race_results?date=eq.${date}&venue=eq.${encodeURIComponent(venue)}&race_num=eq.${raceNum}&select=race_time&limit=1`);
-        if (Array.isArray(rows) && rows[0]?.race_time) {
-          for (const id of betIds) updates[id] = rows[0].race_time;
-        }
-      }));
-      if (Object.keys(updates).length) setRaceTimeMap(prev => ({ ...prev, ...updates }));
-    })();
-  }, [bets]);
 
   // Fetch full race result when user clicks R# in War Record
   useEffect(() => {
@@ -1177,7 +1147,7 @@ export default function MybetsPage() {
                             </td>
                             <td style={{ ...cs, color: '#fff', whiteSpace: 'nowrap' }}>{venue}</td>
                             <td style={{ ...cs, color: '#fff', textAlign: 'right', whiteSpace: 'nowrap' }}>{raceNum ? `R${raceNum}` : '—'}</td>
-                            <td style={{ ...cs, color: '#fff', textAlign: 'right', whiteSpace: 'nowrap', fontFamily: 'monospace' }}>{raceTimeMap[b.id] || b.race_time || '—'}</td>
+                            <td style={{ ...cs, color: '#fff', textAlign: 'right', whiteSpace: 'nowrap', fontFamily: 'monospace' }}>{b.race_time || '—'}</td>
                             <td style={{ ...cs, color: '#fff', textAlign: 'right', whiteSpace: 'nowrap' }}>{b.tab_no || b.horse_number || '—'}</td>
                             <td style={{ ...cs, color: '#fff', textAlign: 'right', fontFamily: 'monospace', whiteSpace: 'nowrap' }}>${(+(b.stake || 0)).toFixed(0)}</td>
                             <td style={{ ...cs, color: '#fff', textAlign: 'right', fontFamily: 'monospace', whiteSpace: 'nowrap' }}>${Number(b.odds || 0).toFixed(2)}</td>
@@ -1233,7 +1203,7 @@ export default function MybetsPage() {
                           <td style={{ ...cs, color: '#fff', whiteSpace: 'nowrap' }}>{fmtDate(b.date)}</td>
                           <td style={{ ...cs, color: '#fff', whiteSpace: 'nowrap' }}>{venue}</td>
                           <td style={{ ...cs, color: '#fff', textAlign: 'right' }}>{raceNum ? `R${raceNum}` : '—'}</td>
-                          <td style={{ ...cs, color: '#fff', textAlign: 'right', fontFamily: 'monospace', whiteSpace: 'nowrap' }}>{raceTimeMap[b.id] || b.race_time || '—'}</td>
+                          <td style={{ ...cs, color: '#fff', textAlign: 'right', fontFamily: 'monospace', whiteSpace: 'nowrap' }}>{b.race_time || '—'}</td>
                           <td style={{ ...cs, color: '#fff', textAlign: 'right' }}>{b.tab_no || b.horse_number || '—'}</td>
                           <td style={{ ...cs, color: '#fff', fontWeight: 600, maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b.horse_name || '—'}</td>
                           <td style={{ ...cs, color: '#fff', textAlign: 'right', fontFamily: 'monospace' }}>${(+(b.stake || 0)).toFixed(0)}</td>
