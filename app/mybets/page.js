@@ -80,6 +80,14 @@ function normVenueName(v) {
 function ordinal(n) { if (!n) return ''; const s = ['th','st','nd','rd']; const v = n % 100; return n + (s[(v-20)%10] || s[v] || s[0]); }
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 function fmtDate(iso) { if (!iso) return '—'; const d = new Date(iso + 'T00:00:00'); return `${d.getDate()} ${MONTHS[d.getMonth()]}`; }
+function parseRaceTime(t) {
+  if (!t) return Infinity;
+  const m12 = t.match(/^(\d+):(\d+)\s*(AM|PM)$/i);
+  if (m12) { let h = +m12[1]; const min = +m12[2]; const pm = m12[3].toUpperCase() === 'PM'; if (pm && h !== 12) h += 12; if (!pm && h === 12) h = 0; return h * 60 + min; }
+  const m24 = t.match(/^(\d+):(\d+)$/);
+  if (m24) return +m24[1] * 60 + +m24[2];
+  return Infinity;
+}
 function typePillCfg(betType) {
   const bt = (betType || '').toLowerCase();
   if (bt.includes('each')) return { bg: '#7c3aed', label: 'E/W' };
@@ -696,29 +704,43 @@ export default function MybetsPage() {
   }, [dateResulted]);
 
   const heroStreak = useMemo(() => {
-    const sorted = [...dateResulted].sort((a, b) => a.date < b.date ? 1 : -1);
+    const sorted = [...dateResulted].sort((a, b) => {
+      if (a.date > b.date) return -1;
+      if (a.date < b.date) return 1;
+      const ta = parseRaceTime(raceTimeMap[a.id] || a.race_time);
+      const tb = parseRaceTime(raceTimeMap[b.id] || b.race_time);
+      if (ta !== tb) return tb - ta;
+      const ra = +(a.race_number ?? a.race_num ?? 99);
+      const rb = +(b.race_number ?? b.race_num ?? 99);
+      if (ra !== rb) return rb - ra;
+      return a.id > b.id ? -1 : a.id < b.id ? 1 : 0;
+    });
     if (!sorted.length) return null;
     const isW = s => s === 'win' || s === 'place';
     const firstW = isW(sorted[0].status);
     let count = 0;
     for (const b of sorted) { if (isW(b.status) === firstW) count++; else break; }
     return { type: firstW ? 'W' : 'L', count };
-  }, [dateResulted]);
+  }, [dateResulted, raceTimeMap]);
 
   const heroChartData = useMemo(() => {
     const sorted = [...dateResulted].sort((a, b) => {
       if (a.date < b.date) return -1;
       if (a.date > b.date) return 1;
-      if (a.id < b.id) return -1;
-      if (a.id > b.id) return 1;
-      return 0;
+      const ta = parseRaceTime(raceTimeMap[a.id] || a.race_time);
+      const tb = parseRaceTime(raceTimeMap[b.id] || b.race_time);
+      if (ta !== tb) return ta - tb;
+      const ra = +(a.race_number ?? a.race_num ?? 99);
+      const rb = +(b.race_number ?? b.race_num ?? 99);
+      if (ra !== rb) return ra - rb;
+      return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
     });
     let cum = 0;
     return sorted.map((b, i) => {
       cum += (b.profit_loss || 0);
       return { label: i === sorted.length - 1 ? `${i + 1} (now)` : `${i + 1}`, pnl: Math.round(cum * 100) / 100, status: b.status, horse: b.horse_name };
     });
-  }, [dateResulted]);
+  }, [dateResulted, raceTimeMap]);
 
   const ledgerFilteredBets = useMemo(() => {
     const base = dateFilteredBets.filter(b => b.status !== 'scratched');
@@ -1757,7 +1779,17 @@ export default function MybetsPage() {
 
                   /* ── 7. Form streak (bar, most recent 40) ── */
                   if (chartType === 'streak') {
-                    const recent = [...dateResulted].sort((a, b) => a.date < b.date ? 1 : -1).slice(0, 40).reverse();
+                    const recent = [...dateResulted].sort((a, b) => {
+                      if (a.date < b.date) return -1;
+                      if (a.date > b.date) return 1;
+                      const ta = parseRaceTime(raceTimeMap[a.id] || a.race_time);
+                      const tb = parseRaceTime(raceTimeMap[b.id] || b.race_time);
+                      if (ta !== tb) return ta - tb;
+                      const ra = +(a.race_number ?? a.race_num ?? 99);
+                      const rb = +(b.race_number ?? b.race_num ?? 99);
+                      if (ra !== rb) return ra - rb;
+                      return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
+                    }).slice(-40);
                     const data = recent.map((b, i) => ({ i: i + 1, val: b.status === 'win' ? 1 : b.status === 'place' ? 0.5 : -1, status: b.status, horse: b.horse_name }));
                     return (
                       <>
