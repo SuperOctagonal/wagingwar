@@ -513,6 +513,27 @@ export default function MybetsPage() {
       .map(h => ({ name: h.name, tab: h.tab, odds: h.rawOdds }));
   }, [csvRaces, csvVenues, qlMeeting, qlRace]);
 
+  // Auto-populate race time when meeting + race are selected
+  useEffect(() => {
+    if (!qlMeeting || !qlRace) { setQlRaceTime(''); return; }
+    // 1. In-memory CSV (immediate, no network)
+    const venueKeys = csvVenues[qlMeeting] || [];
+    const raceKey = venueKeys.find(k => csvRaces[k] && String(+csvRaces[k].num) === String(+qlRace));
+    const inMemTime = raceKey ? (csvRaces[raceKey]?.time || '') : '';
+    if (inMemTime) { setQlRaceTime(inMemTime); return; }
+    // 2. race_schedule fallback (for when no CSV is loaded but schedule data exists)
+    const date = raceDate || todayISO;
+    sbFetch(`race_schedule?date=eq.${date}&select=venue,race_num,post_time`)
+      .then(rows => {
+        if (!Array.isArray(rows) || !rows.length) return;
+        const match = rows.find(r =>
+          String(+r.race_num) === String(+qlRace) &&
+          normName(normVenueName(r.venue)) === normName(normVenueName(qlMeeting))
+        );
+        if (match?.post_time) setQlRaceTime(match.post_time);
+      });
+  }, [qlMeeting, qlRace, csvVenues, csvRaces, raceDate, todayISO]);
+
   const handleQuickLog = useCallback(async () => {
     if (!qlHorse.trim() || !qlStake || isNaN(+qlStake) || +qlStake <= 0) return;
     if (!qlOdds || isNaN(+qlOdds) || +qlOdds <= 1) return;
@@ -868,7 +889,7 @@ export default function MybetsPage() {
                 <input value={qlOdds} onChange={e => setQlOdds(e.target.value)} type="number" placeholder="Odds $" min="1.01" step="0.01" style={{ ...inp, flex: 1, minWidth: 0 }} />
               </div>
 
-              <input value={qlRaceTime} onChange={e => setQlRaceTime(e.target.value)} type="time" placeholder="Race Time" style={inp} />
+              <input value={qlRaceTime} onChange={e => setQlRaceTime(e.target.value)} type="text" placeholder="Race Time (auto)" style={inp} />
 
               <select value={qlBookmaker} onChange={e => setQlBookmaker(e.target.value)} style={inp}>
                 {BOOKMAKERS.map(b => <option key={b} value={b}>{b}</option>)}
