@@ -345,6 +345,7 @@ export default function MybetsPage() {
   const [activeTab,        setActiveTab]        = useState('all');
   const [matchingResults,  setMatchingResults]  = useState(false);
   const [resultSpMap,      setResultSpMap]      = useState({});
+  const [raceTimeMap,      setRaceTimeMap]      = useState({});
 
   const [betView,          setBetView]          = useState('table');
   const [mainTab,          setMainTab]          = useState('ledger');
@@ -427,6 +428,32 @@ export default function MybetsPage() {
       }
     });
   }, [user?.id]);
+
+  // Backfill post times from race_schedule for bets that don't have race_time stored
+  useEffect(() => {
+    if (!bets.length) return;
+    const needsTime = bets.filter(b =>
+      !b.race_time && b.date && (b.track || b.venue) && (b.race_number ?? b.race_num)
+    );
+    if (!needsTime.length) return;
+    const dates = [...new Set(needsTime.map(b => b.date))];
+    sbFetch(`race_schedule?date=in.(${dates.join(',')})&select=date,venue,race_num,post_time`)
+      .then(rows => {
+        if (!Array.isArray(rows) || !rows.length) return;
+        const updates = {};
+        for (const b of needsTime) {
+          const betVenue = normName(normVenueName(b.track || b.venue || ''));
+          const betNum   = String(+(b.race_number ?? b.race_num ?? 0));
+          const match = rows.find(r =>
+            r.date === b.date &&
+            normName(normVenueName(r.venue)) === betVenue &&
+            String(+r.race_num) === betNum
+          );
+          if (match) updates[b.id] = match.post_time;
+        }
+        if (Object.keys(updates).length) setRaceTimeMap(prev => ({ ...prev, ...updates }));
+      });
+  }, [bets]);
 
   // Fetch full race result when user clicks R# in War Record
   useEffect(() => {
@@ -687,7 +714,7 @@ export default function MybetsPage() {
         case 'horse':   va = (a.horse_name || '').toLowerCase(); vb = (b.horse_name || '').toLowerCase(); break;
         case 'venue':   va = (a.track || a.venue || '').toLowerCase(); vb = (b.track || b.venue || '').toLowerCase(); break;
         case 'race':    va = +(a.race_number ?? a.race_num ?? 0); vb = +(b.race_number ?? b.race_num ?? 0); break;
-        case 'time':    va = a.race_time || ''; vb = b.race_time || ''; break;
+        case 'time':    va = raceTimeMap[a.id] || a.race_time || ''; vb = raceTimeMap[b.id] || b.race_time || ''; break;
         case 'no':      va = +(a.tab_no || a.horse_number || 99); vb = +(b.tab_no || b.horse_number || 99); break;
         case 'stake':   va = +(a.stake || 0); vb = +(b.stake || 0); break;
         case 'odds':    va = +(a.odds || 0); vb = +(b.odds || 0); break;
@@ -699,7 +726,7 @@ export default function MybetsPage() {
       if (va > vb) return 1 * dir;
       return 0;
     });
-  }, [ledgerFilteredBets, sortCol, sortDir]);
+  }, [ledgerFilteredBets, sortCol, sortDir, raceTimeMap]);
 
   const nextRaces = useMemo(() => {
     if (!csvMeetings.length) return [];
@@ -1147,7 +1174,7 @@ export default function MybetsPage() {
                             </td>
                             <td style={{ ...cs, color: '#fff', whiteSpace: 'nowrap' }}>{venue}</td>
                             <td style={{ ...cs, color: '#fff', textAlign: 'right', whiteSpace: 'nowrap' }}>{raceNum ? `R${raceNum}` : '—'}</td>
-                            <td style={{ ...cs, color: '#fff', textAlign: 'right', whiteSpace: 'nowrap', fontFamily: 'monospace' }}>{b.race_time || '—'}</td>
+                            <td style={{ ...cs, color: '#fff', textAlign: 'right', whiteSpace: 'nowrap', fontFamily: 'monospace' }}>{raceTimeMap[b.id] || b.race_time || '—'}</td>
                             <td style={{ ...cs, color: '#fff', textAlign: 'right', whiteSpace: 'nowrap' }}>{b.tab_no || b.horse_number || '—'}</td>
                             <td style={{ ...cs, color: '#fff', textAlign: 'right', fontFamily: 'monospace', whiteSpace: 'nowrap' }}>${(+(b.stake || 0)).toFixed(0)}</td>
                             <td style={{ ...cs, color: '#fff', textAlign: 'right', fontFamily: 'monospace', whiteSpace: 'nowrap' }}>${Number(b.odds || 0).toFixed(2)}</td>
@@ -1203,7 +1230,7 @@ export default function MybetsPage() {
                           <td style={{ ...cs, color: '#fff', whiteSpace: 'nowrap' }}>{fmtDate(b.date)}</td>
                           <td style={{ ...cs, color: '#fff', whiteSpace: 'nowrap' }}>{venue}</td>
                           <td style={{ ...cs, color: '#fff', textAlign: 'right' }}>{raceNum ? `R${raceNum}` : '—'}</td>
-                          <td style={{ ...cs, color: '#fff', textAlign: 'right', fontFamily: 'monospace', whiteSpace: 'nowrap' }}>{b.race_time || '—'}</td>
+                          <td style={{ ...cs, color: '#fff', textAlign: 'right', fontFamily: 'monospace', whiteSpace: 'nowrap' }}>{raceTimeMap[b.id] || b.race_time || '—'}</td>
                           <td style={{ ...cs, color: '#fff', textAlign: 'right' }}>{b.tab_no || b.horse_number || '—'}</td>
                           <td style={{ ...cs, color: '#fff', fontWeight: 600, maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b.horse_name || '—'}</td>
                           <td style={{ ...cs, color: '#fff', textAlign: 'right', fontFamily: 'monospace' }}>${(+(b.stake || 0)).toFixed(0)}</td>

@@ -2009,6 +2009,31 @@ function RacesPageInner() {
             console.error('[Races] today_meetings sync failed:', res.status, await res.text());
           }
         }
+
+        // Upsert race post times to race_schedule for historical backfill in mybets
+        const scheduleRows = [];
+        for (const k of Object.keys(ar)) {
+          const rc = ar[k];
+          if (!rc.time || !rc.date || !rc.venue) continue;
+          const d = toISO(rc.date);
+          if (!d) continue;
+          scheduleRows.push({ date: d, venue: rc.venue.toUpperCase(), race_num: String(rc.num), post_time: rc.time });
+        }
+        if (scheduleRows.length) {
+          fetch(`${SURL}/rest/v1/race_schedule`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              apikey: SKEY,
+              Authorization: `Bearer ${SKEY}`,
+              Prefer: 'resolution=merge-duplicates,return=minimal',
+            },
+            body: JSON.stringify(scheduleRows),
+          }).then(r => {
+            if (r.ok) console.log(`[Races] race_schedule upserted ${scheduleRows.length} rows`);
+            else r.text().then(t => console.error('[Races] race_schedule upsert failed:', r.status, t));
+          }).catch(err => console.error('[Races] race_schedule upsert error:', err));
+        }
       } catch (err) {
         console.error('[Races] today_meetings sync error:', err);
       }
