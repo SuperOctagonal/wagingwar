@@ -1627,9 +1627,7 @@ export default function MybetsPage() {
 
                   /* ── 2. Cumulative P&L (line) ── */
                   if (chartType === 'cumulative') {
-                    const sorted = [...dateResulted].sort((a, b) => a.date < b.date ? -1 : 1);
-                    let cum = 0;
-                    const data = sorted.map((b, i) => { cum += (b.profit_loss || 0); return { i: i + 1, pnl: Math.round(cum * 100) / 100, label: i === sorted.length - 1 ? `${i + 1} (now)` : `${i + 1}`, status: b.status, horse: b.horse_name }; });
+                    const data = heroChartData;
                     const finalPnl = data.length ? data[data.length - 1].pnl : 0;
                     return (
                       <>
