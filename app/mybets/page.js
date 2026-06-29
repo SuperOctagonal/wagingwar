@@ -82,9 +82,11 @@ const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov
 function fmtDate(iso) { if (!iso) return '—'; const d = new Date(iso + 'T00:00:00'); return `${d.getDate()} ${MONTHS[d.getMonth()]}`; }
 function parseRaceTime(t) {
   if (!t) return Infinity;
-  const m12 = t.match(/^(\d+):(\d+)\s*(AM|PM)$/i);
+  const s = String(t).trim().replace(/\./g, ':');
+  if (!s) return Infinity;
+  const m12 = s.match(/^(\d+):(\d+)\s*(AM|PM)$/i);
   if (m12) { let h = +m12[1]; const min = +m12[2]; const pm = m12[3].toUpperCase() === 'PM'; if (pm && h !== 12) h += 12; if (!pm && h === 12) h = 0; return h * 60 + min; }
-  const m24 = t.match(/^(\d+):(\d+)$/);
+  const m24 = s.match(/^(\d+):(\d+)$/);
   if (m24) return +m24[1] * 60 + +m24[2];
   return Infinity;
 }
@@ -1220,7 +1222,7 @@ export default function MybetsPage() {
                           </td>
                           <td style={{ ...cs, color: '#fff', whiteSpace: 'nowrap' }}>{venue}</td>
                           <td style={{ ...cs, color: '#fff', textAlign: 'right', whiteSpace: 'nowrap' }}>{raceNum ? `R${raceNum}` : '—'}</td>
-                          <td style={{ ...cs, color: '#fff', textAlign: 'right', whiteSpace: 'nowrap', fontFamily: 'monospace' }}>{(() => { const t = raceTimeMap[b.id] || b.race_time; if (!t) return '—'; if (isPending && b.date === todayISO) { const d = new Date(now); const rem = parseRaceTime(t) - (d.getHours() * 60 + d.getMinutes()); if (rem > 0) { const h = Math.floor(rem / 60); const m = rem % 60; const cd = h > 0 ? `${h}h${m > 0 ? m + 'm' : ''}` : `${m}m`; return <>{t} <span style={{ color: rem < 10 ? '#4ade80' : '#9ca3af', fontWeight: 700, fontSize: 9 }}>({cd})</span></>; } } return t; })()}</td>
+                          <td style={{ ...cs, color: '#fff', textAlign: 'right', whiteSpace: 'nowrap', fontFamily: 'monospace' }}>{(() => { const t = raceTimeMap[b.id] || b.race_time; if (!t) return '—'; if (isPending && b.date === todayISO) { const d = new Date(now); const rem = parseRaceTime(t) - (d.getHours() * 60 + d.getMinutes()); if (rem > 0 && isFinite(rem)) { const h = Math.floor(rem / 60); const m = rem % 60; const cd = h > 0 ? `${h}h${m > 0 ? m + 'm' : ''}` : `${m}m`; return <>{t} <span style={{ color: rem < 10 ? '#4ade80' : '#9ca3af', fontWeight: 700, fontSize: 9 }}>({cd})</span></>; } } return t; })()}</td>
                           <td style={{ ...cs, color: '#fff', textAlign: 'right', whiteSpace: 'nowrap' }}>{b.tab_no || b.horse_number || '—'}</td>
                           <td style={{ ...cs, color: '#fff', textAlign: 'right', fontFamily: 'monospace', whiteSpace: 'nowrap' }}>${(+(b.stake || 0)).toFixed(0)}</td>
                           <td style={{ ...cs, color: '#fff', textAlign: 'right', fontFamily: 'monospace', whiteSpace: 'nowrap' }}>${Number(b.odds || 0).toFixed(2)}</td>
@@ -1302,7 +1304,7 @@ export default function MybetsPage() {
                               <td style={{ ...cs, color: '#fff', whiteSpace: 'nowrap' }}>{fmtDate(b.date)}</td>
                               <td style={{ ...cs, color: '#fff', whiteSpace: 'nowrap' }}>{venue}</td>
                               <td style={{ ...cs, color: '#fff', textAlign: 'right' }}>{raceNum ? `R${raceNum}` : '—'}</td>
-                              <td style={{ ...cs, color: '#fff', textAlign: 'right', fontFamily: 'monospace', whiteSpace: 'nowrap' }}>{(() => { const t = raceTimeMap[b.id] || b.race_time; if (!t) return '—'; if (isPending && b.date === todayISO) { const d = new Date(now); const rem = parseRaceTime(t) - (d.getHours() * 60 + d.getMinutes()); if (rem > 0) { const h = Math.floor(rem / 60); const m = rem % 60; const cd = h > 0 ? `${h}h${m > 0 ? m + 'm' : ''}` : `${m}m`; return <>{t} <span style={{ color: rem < 10 ? '#4ade80' : '#9ca3af', fontWeight: 700, fontSize: 9 }}>({cd})</span></>; } } return t; })()}</td>
+                              <td style={{ ...cs, color: '#fff', textAlign: 'right', fontFamily: 'monospace', whiteSpace: 'nowrap' }}>{(() => { const t = raceTimeMap[b.id] || b.race_time; if (!t) return '—'; if (isPending && b.date === todayISO) { const d = new Date(now); const rem = parseRaceTime(t) - (d.getHours() * 60 + d.getMinutes()); if (rem > 0 && isFinite(rem)) { const h = Math.floor(rem / 60); const m = rem % 60; const cd = h > 0 ? `${h}h${m > 0 ? m + 'm' : ''}` : `${m}m`; return <>{t} <span style={{ color: rem < 10 ? '#4ade80' : '#9ca3af', fontWeight: 700, fontSize: 9 }}>({cd})</span></>; } } return t; })()}</td>
                               <td style={{ ...cs, color: '#fff', textAlign: 'right' }}>{b.tab_no || b.horse_number || '—'}</td>
                               <td style={{ ...cs, color: '#fff', fontWeight: 600, maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b.horse_name || '—'}</td>
                               <td style={{ ...cs, color: '#fff', textAlign: 'right', fontFamily: 'monospace' }}>${(+(b.stake || 0)).toFixed(0)}</td>
