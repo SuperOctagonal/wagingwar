@@ -1321,7 +1321,7 @@ function RunnerRow({ runner, rank, rc, trackCond, onLogBet, onShowPopup, onHideP
 
 function FieldView({ results, scratched, rc, trackCond, onLogBet, onShowPopup, onHidePopup, isResulted, isPro, onUpgrade, scratchingsSet = new Set() }) {
   const tcLabel = { good:'Good', soft:'Soft', heavy:'Heavy', synthetic:'Synth' }[trackCond] || 'Good';
-  const scrKey = h => `${(rc.venue||'').toUpperCase()}||${rc.num}||${h.name.toUpperCase()}`;
+  const scrKey = h => { const rv = (rc.venue||'').toUpperCase(); return `${VENUE_NORMALISE[rv]||rv}||${rc.num}||${h.name.toUpperCase()}`; };
   const activeResults = results.filter(h => !scratchingsSet.has(scrKey(h)));
   const dbScratched   = results.filter(h =>  scratchingsSet.has(scrKey(h)));
   const [layers, setLayers] = useState({ form: false, pace: false, scores: false, picks: false });
@@ -1595,7 +1595,7 @@ function FormCard({ runner: r, rank, onLogBet, isResulted, rc, isPro, onUpgrade,
 }
 
 function FormView({ results, scratched, onLogBet, isResulted, rc, isPro, onUpgrade, scratchingsSet = new Set() }) {
-  const scrKey = h => `${(rc.venue||'').toUpperCase()}||${rc.num}||${h.name.toUpperCase()}`;
+  const scrKey = h => { const rv = (rc.venue||'').toUpperCase(); return `${VENUE_NORMALISE[rv]||rv}||${rc.num}||${h.name.toUpperCase()}`; };
   const sorted = [...results].sort((a, b) => (+a.tab || 99) - (+b.tab || 99));
   const activeSorted     = sorted.filter(r => !scratchingsSet.has(scrKey(r)));
   const dbScratchedSorted = sorted.filter(r =>  scratchingsSet.has(scrKey(r)));
@@ -2065,8 +2065,11 @@ function RacesPageInner() {
         .then(rows => {
           const s = new Set();
           rows.forEach(row => {
-            s.add(`${(row.venue||'').toUpperCase()}||${row.race_num}||${(row.horse_name||'').toUpperCase()}`);
+            const rawV = (row.venue || '').toUpperCase();
+            const normV = VENUE_NORMALISE[rawV] || rawV;
+            s.add(`${normV}||${row.race_num}||${(row.horse_name||'').toUpperCase()}`);
           });
+          console.log('[Scratchings]', s.size, 'scratched runners for', dateISO, [...s]);
           setScratchingsSet(s);
         })
         .catch(() => {});
@@ -2102,14 +2105,27 @@ function RacesPageInner() {
   // Compute scored results once per race/trackCond/weights change
   const { results, scratched } = useMemo(() => {
     if (!currentRace) return { results: [], scratched: [] };
-    const active = currentRace.horses.filter(h => !h.scratched);
-    const scr    = currentRace.horses.filter(h => h.scratched);
+
+    // Normalize race venue once for DB scratching lookup
+    const rcRawV = (currentRace.venue || '').toUpperCase();
+    const rcNormV = VENUE_NORMALISE[rcRawV] || rcRawV;
+    const isDbScr = h => scratchingsSet.has(`${rcNormV}||${currentRace.num}||${h.name.toUpperCase()}`);
+
+    // Exclude CSV-scratched AND DB-scratched from the scored field
+    const active = currentRace.horses.filter(h => !h.scratched && !isDbScr(h));
+    const scr    = currentRace.horses.filter(h =>  h.scratched || isDbScr(h));
+
+    // Renumber barriers 1,2,3... in original BP order across the live field
+    const byOrigBP = [...active].sort((a, b) => (+a['BP'] || 99) - (+b['BP'] || 99));
+    const barrierMap = new Map(byOrigBP.map((h, i) => [h.name, i + 1]));
 
     const res = active.map(h => {
+      const liveBarrier = barrierMap.get(h.name) ?? +h['BP'] ?? 99;
+      const hScored = { ...h, 'BP': liveBarrier };
       const grpScores = {};
-      GRP_KEYS.forEach(gk => { grpScores[gk] = scoreGroup(h, gk, weights, trackCond); });
+      GRP_KEYS.forEach(gk => { grpScores[gk] = scoreGroup(hScored, gk, weights, trackCond); });
       const totalFromGroups = GRP_KEYS.reduce((a, gk) => a + grpScores[gk].total, 0);
-      return { ...h, grpScores, totalFromGroups };
+      return { ...hScored, grpScores, totalFromGroups };
     }).sort((a, b) => b.totalFromGroups - a.totalFromGroups);
 
     const oddsArr = calculateMatrixOdds(res);
@@ -2128,7 +2144,7 @@ function RacesPageInner() {
     });
 
     return { results: res, scratched: scr };
-  }, [currentRace, trackCond, weights]);
+  }, [currentRace, trackCond, weights, scratchingsSet]);
 
   const handleSelectRace = useCallback(key => {
     setSelectedKey(key);
@@ -2227,7 +2243,7 @@ function RacesPageInner() {
                     <FormView results={results} scratched={scratched} onLogBet={handleLogBet} isResulted={!!currentRaceResult} rc={currentRace} isPro={isPro} onUpgrade={() => setUpgradeOpen(true)} scratchingsSet={scratchingsSet} />
                   )}
                   {view === 'pacemap' && (
-                    <PaceMapView results={results} scratched={scratched} rc={currentRace} trackCond={trackCond} isPro={isPro} onUpgrade={() => setUpgradeOpen(true)} />
+                    <PaceMapView results={results} scratched={scratched} rc={currentRace} trackCond={trackCond} isPro={isPro} onUpgrade={() => setUpgradeOpen(true)} scratchingsSet={scratchingsSet} />
                   )}
                 </div>
               </div>

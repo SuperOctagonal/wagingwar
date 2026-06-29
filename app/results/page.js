@@ -23,14 +23,18 @@ async function fetchResultsForDate(dateStr) {
 
 function normName(n) { return (n || '').toUpperCase().replace(/[^A-Z0-9]/g, ''); }
 
-function getSysRanks(allRaces, allVenues, venue, raceNum, weights) {
+function getSysRanks(allRaces, allVenues, venue, raceNum, weights, dbScratchings = []) {
+  const dbScrNames = new Set(
+    dbScratchings.filter(r => (r.venue||'').toUpperCase() === (venue||'').toUpperCase() && String(r.race_num) === String(raceNum))
+      .map(r => normName(r.horse_name || ''))
+  );
   for (const keys of Object.values(allVenues)) {
     for (const k of keys) {
       const rc = allRaces[k];
       if (!rc) continue;
       if ((rc.venue || '').toUpperCase() !== (venue || '').toUpperCase()) continue;
       if (String(rc.num) !== String(raceNum)) continue;
-      const active = (rc.horses || []).filter(h => !h.scratched);
+      const active = (rc.horses || []).filter(h => !h.scratched && !dbScrNames.has(normName(h.name || '')));
       const scored = active.map(h => {
         const grpScores = {};
         GRP_KEYS.forEach(gk => { grpScores[gk] = scoreGroup(h, gk, weights, 'good'); });
@@ -59,7 +63,7 @@ function rankStyle(r) {
   return { bg: '#f3f4f6', color: '#9ca3af' };
 }
 
-function ResultsDetail({ meeting, venue, allRaces, allVenues, weights }) {
+function ResultsDetail({ meeting, venue, allRaces, allVenues, weights, dbScratchings }) {
   if (!meeting || !meeting.runners || !meeting.runners.length) {
     return (
       <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:160, gap:10, color:'#9ca3af' }}>
@@ -69,7 +73,7 @@ function ResultsDetail({ meeting, venue, allRaces, allVenues, weights }) {
     );
   }
 
-  const sysRankMap = getSysRanks(allRaces, allVenues, venue, meeting.raceNum, weights) || {};
+  const sysRankMap = getSysRanks(allRaces, allVenues, venue, meeting.raceNum, weights, dbScratchings) || {};
   const hasSysRank = Object.keys(sysRankMap).length > 0;
 
   return (
@@ -147,6 +151,7 @@ export default function ResultsPage() {
   const [allRaces, setAllRaces] = useState({});
   const [allVenues, setAllVenues] = useState({});
   const [dbRows, setDbRows] = useState([]);
+  const [dbScratchings, setDbScratchings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [selectedDate, setSelectedDate] = useState(() => new Date().toLocaleDateString('sv-SE'));
@@ -168,8 +173,12 @@ export default function ResultsPage() {
     setLoading(true);
     setSelectedMeeting(null);
     setSelectedRace(null);
-    fetchResultsForDate(selectedDate).then(rows => {
+    const scrFetch = (SURL && SKEY)
+      ? fetch(`${SURL}/rest/v1/scratchings?date=eq.${selectedDate}&select=venue,race_num,horse_name`, { headers: { apikey: SKEY, Authorization: `Bearer ${SKEY}` } }).then(r => r.ok ? r.json() : [])
+      : Promise.resolve([]);
+    Promise.all([fetchResultsForDate(selectedDate), scrFetch]).then(([rows, scrRows]) => {
       setDbRows(rows || []);
+      setDbScratchings(scrRows || []);
       setLoading(false);
     });
   }, [selectedDate]);
@@ -196,9 +205,14 @@ export default function ResultsPage() {
         margin: row.margin || ''
       });
     });
+    // Populate scratched list from DB scratchings table
+    (dbScratchings || []).forEach(row => {
+      const key = `${(row.venue||'').toUpperCase()}||${row.race_num}`;
+      if (g[key] && row.horse_name) g[key].scratched.push(row.horse_name);
+    });
     Object.values(g).forEach(x => x.runners.sort((a, b) => a.place - b.place));
     return g;
-  }, [dbRows]);
+  }, [dbRows, dbScratchings]);
 
   // Build { VENUE: [{ raceNum, results }] }
   const meetings = useMemo(() => {
@@ -309,6 +323,7 @@ export default function ResultsPage() {
               allRaces={allRaces}
               allVenues={allVenues}
               weights={weights}
+              dbScratchings={dbScratchings}
             />
           </>
         ) : (

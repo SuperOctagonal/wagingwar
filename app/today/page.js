@@ -45,13 +45,16 @@ const TC_COLORS = {
 };
 const TC_LABELS = { good: 'Good', soft: 'Soft', heavy: 'Heavy', synthetic: 'Synth' };
 
-function getTopPicks(allRaces, allVenues, weights) {
+function normName(n) { return (n || '').toUpperCase().replace(/[^A-Z0-9]/g, ''); }
+
+function getTopPicks(allRaces, allVenues, weights, dbScratchings = new Set()) {
   const picks = [];
   Object.values(allVenues).forEach(keys => {
     keys.forEach(k => {
       const rc = allRaces[k];
       if (!rc || !rc.horses) return;
-      const active = rc.horses.filter(h => !h.scratched);
+      const rcVN = normName(rc.venue || '');
+      const active = rc.horses.filter(h => !h.scratched && !dbScratchings.has(`${rcVN}||${rc.num}||${normName(h.name||'')}`) );
       if (!active.length) return;
       const scored = active.map(h => {
         const grpScores = {};
@@ -180,6 +183,7 @@ export default function TodayPage() {
   const [results, setResults] = useState({});
   const [picksOpen, setPicksOpen] = useState(false);
   const [popup, setPopup] = useState(null);
+  const [dbScratchings, setDbScratchings] = useState(new Set());
 
   const weights = useMemo(() => getDefaultWeights(), []);
 
@@ -210,11 +214,20 @@ export default function TodayPage() {
       } catch {}
     }
     fetchTodayResults(todayISO).then(setResults);
+    if (SURL && SKEY) {
+      fetch(`${SURL}/rest/v1/scratchings?date=eq.${todayISO}&select=venue,race_num,horse_name`, {
+        headers: { apikey: SKEY, Authorization: `Bearer ${SKEY}` }
+      }).then(r => r.ok ? r.json() : []).then(rows => {
+        const s = new Set();
+        (rows || []).forEach(row => { s.add(`${normName(row.venue||'')}||${row.race_num}||${normName(row.horse_name||'')}`); });
+        setDbScratchings(s);
+      }).catch(() => {});
+    }
   }, [todayISO]);
 
   const venues = Object.keys(allVenues);
   const hasCSV = raceKeys.length > 0;
-  const picks = useMemo(() => hasCSV ? getTopPicks(allRaces, allVenues, weights) : [], [allRaces, allVenues, weights, hasCSV]);
+  const picks = useMemo(() => hasCSV ? getTopPicks(allRaces, allVenues, weights, dbScratchings) : [], [allRaces, allVenues, weights, hasCSV, dbScratchings]);
 
   return (
     <div style={{ display:'flex', flex:1, overflow:'hidden' }}>

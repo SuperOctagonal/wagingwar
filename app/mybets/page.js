@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useUser } from '@clerk/nextjs';
 import ProfileRail from '@/components/ProfileRail';
 import useIsPro from '@/hooks/useIsPro';
@@ -442,6 +442,35 @@ export default function MybetsPage() {
 
   // Keep `now` fresh so countdown timers in the TIME column update
   useEffect(() => { const id = setInterval(() => setNow(Date.now()), 30000); return () => clearInterval(id); }, []);
+
+  // Auto-flag pending bets as scratched if the horse appears in the scratchings table
+  const scratchCheckRef = useRef(false);
+  useEffect(() => {
+    if (scratchCheckRef.current || !bets.length || !SURL || !SKEY) return;
+    const pending = bets.filter(b => !b.status || b.status === 'pending');
+    if (!pending.length) { scratchCheckRef.current = true; return; }
+    scratchCheckRef.current = true;
+    const dates = [...new Set(pending.map(b => b.date).filter(Boolean))];
+    sbFetch(`scratchings?date=in.(${dates.join(',')})&select=venue,race_num,horse_name`)
+      .then(rows => {
+        if (!Array.isArray(rows) || !rows.length) return;
+        const toScratch = [];
+        for (const bet of pending) {
+          const bv = normName(normVenueName(bet.track || bet.venue || ''));
+          const bh = normName(bet.horse_name || '');
+          const br = String(+(bet.race_number ?? bet.race_num ?? 0));
+          const hit = rows.find(r =>
+            normName(normVenueName(r.venue || '')) === bv &&
+            normName(r.horse_name || '') === bh &&
+            String(+(r.race_num || 0)) === br
+          );
+          if (hit) toScratch.push(bet.id);
+        }
+        if (!toScratch.length) return;
+        setBets(prev => prev.map(b => toScratch.includes(b.id) ? { ...b, status: 'scratched' } : b));
+        toScratch.forEach(id => patchBet(id, { status: 'scratched' }));
+      });
+  }, [bets]);
 
   // Backfill post times from race_schedule for bets that don't have race_time stored
   useEffect(() => {
@@ -1210,6 +1239,7 @@ export default function MybetsPage() {
                       const pnl = hasPnl ? b.profit_loss : (b.return_amt || 0) - (isEW ? (b.stake || 0) * 2 : (b.stake || 0));
                       const pos = b.position;
                       const isPending = !b.status || b.status === 'pending';
+                      const isScratched = b.status === 'scratched';
                       const pnlColor = !hasPnl || isPending ? '#6b7280' : pnl >= 0 ? '#4ade80' : '#f87171';
                       const resultColor = pos === 1 ? '#4ade80' : (pos === 2 || pos === 3) ? '#60a5fa' : '#f87171';
                       const raceNum = b.race_number ?? b.race_num;
@@ -1229,8 +1259,8 @@ export default function MybetsPage() {
                           <td style={{ ...cs, textAlign: 'right', fontWeight: 700, fontFamily: 'monospace', color: pnlColor, whiteSpace: 'nowrap' }}>
                             {isPending ? '—' : (pnl >= 0 ? '+$' : '-$') + Math.abs(pnl).toFixed(2)}
                           </td>
-                          <td style={{ ...cs, textAlign: 'right', fontWeight: 700, color: isPending ? '#f97316' : (pos ? resultColor : '#6b7280'), whiteSpace: 'nowrap' }}>
-                            {isPending ? 'PND' : (pos || '—')}
+                          <td style={{ ...cs, textAlign: 'right', fontWeight: 700, color: isPending ? '#f97316' : isScratched ? '#6b7280' : (pos ? resultColor : '#6b7280'), whiteSpace: 'nowrap' }}>
+                            {isPending ? 'PND' : isScratched ? 'SCR' : (pos || '—')}
                           </td>
                         </tr>
                       );
@@ -1292,6 +1322,7 @@ export default function MybetsPage() {
                           const pnl = hasPnl ? b.profit_loss : (b.return_amt || 0) - (isEW ? (b.stake || 0) * 2 : (b.stake || 0));
                           const pos = b.position;
                           const isPending = !b.status || b.status === 'pending';
+                          const isScratched = b.status === 'scratched';
                           const pnlColor = !hasPnl || isPending ? '#6b7280' : pnl >= 0 ? '#4ade80' : '#f87171';
                           const resultColor = pos === 1 ? '#4ade80' : (pos === 2 || pos === 3) ? '#60a5fa' : '#f87171';
                           const raceNum = b.race_number ?? b.race_num;
@@ -1312,8 +1343,8 @@ export default function MybetsPage() {
                               <td style={{ ...cs, textAlign: 'right', fontWeight: 700, fontFamily: 'monospace', color: pnlColor, whiteSpace: 'nowrap' }}>
                                 {isPending ? '—' : (pnl >= 0 ? '+$' : '-$') + Math.abs(pnl).toFixed(2)}
                               </td>
-                              <td style={{ ...cs, textAlign: 'right', fontWeight: 700, color: isPending ? '#f97316' : (pos ? resultColor : '#6b7280') }}>
-                                {isPending ? 'PND' : (pos || '—')}
+                              <td style={{ ...cs, textAlign: 'right', fontWeight: 700, color: isPending ? '#f97316' : isScratched ? '#6b7280' : (pos ? resultColor : '#6b7280') }}>
+                                {isPending ? 'PND' : isScratched ? 'SCR' : (pos || '—')}
                               </td>
                             </tr>
                           );
