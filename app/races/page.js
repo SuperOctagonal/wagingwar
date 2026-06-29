@@ -80,6 +80,7 @@ const VENUE_NORMALISE = {
   'RC MURRAY BRIDGE':              'MURRAY BRIDGE',
   'SPORTSBET SANDOWN HILLSIDE':    'SANDOWN',
   'BELMONT PARK':                  'BELMONT',
+  'BALLARAT SYN':                  'BALLARAT SYNTHETIC',
 };
 
 async function fetchRaceResultsForDate(dateStr) {
@@ -155,7 +156,7 @@ const VENUE_STATE_MAP = {
   // VIC
   FLEMINGTON:'VIC', CAULFIELD:'VIC', 'MOONEE VALLEY':'VIC', SANDOWN:'VIC',
   'SANDOWN-HILLSIDE':'VIC', 'SANDOWN HILLSIDE':'VIC', 'SANDOWN LAKESIDE':'VIC',
-  BENDIGO:'VIC', BALLARAT:'VIC', GEELONG:'VIC', PAKENHAM:'VIC', CRANBOURNE:'VIC',
+  BENDIGO:'VIC', BALLARAT:'VIC', 'BALLARAT SYN':'VIC', 'BALLARAT SYNTHETIC':'VIC', GEELONG:'VIC', PAKENHAM:'VIC', CRANBOURNE:'VIC',
   MORNINGTON:'VIC', SEYMOUR:'VIC', ECHUCA:'VIC', HAMILTON:'VIC', HORSHAM:'VIC',
   'SWAN HILL':'VIC', WODONGA:'VIC', WANGARATTA:'VIC',
   // QLD
@@ -1988,11 +1989,11 @@ function RacesPageInner() {
         const dateISO = firstKey ? toISO(ar[firstKey]?.date) : null;
         if (dateISO) {
           const venues = Object.keys(av);
-          const rows = venues.map(v => ({
-            venue: v.toUpperCase(),
-            state: VENUE_STATE_MAP[v.toUpperCase()] || null,
-            date:  dateISO,
-          }));
+          const rows = venues.map(v => {
+            const rawV = v.toUpperCase();
+            const normV = VENUE_NORMALISE[rawV] || rawV;
+            return { venue: normV, state: VENUE_STATE_MAP[normV] || null, date: dateISO };
+          });
           await fetch(`${SURL}/rest/v1/today_meetings?date=gte.1900-01-01`, {
             method: 'DELETE',
             headers: { apikey: SKEY, Authorization: `Bearer ${SKEY}`, Prefer: 'return=minimal' },

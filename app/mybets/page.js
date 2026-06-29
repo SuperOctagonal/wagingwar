@@ -71,6 +71,7 @@ const BET_VENUE_NORMALISE = {
   'THOMAS FARMS MURRAY BRIDGE':    'MURRAY BRIDGE',
   'RC MURRAY BRIDGE':              'MURRAY BRIDGE',
   'SPORTSBET SANDOWN HILLSIDE':    'SANDOWN',
+  'BALLARAT SYN':                  'BALLARAT SYNTHETIC',
 };
 function normVenueName(v) {
   const upper = (v || '').toUpperCase().trim();
