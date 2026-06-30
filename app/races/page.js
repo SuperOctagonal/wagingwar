@@ -1282,13 +1282,15 @@ function RunnerRow({ runner, rank, rc, trackCond, onLogBet, onShowPopup, onHideP
       </td>
       {/* Group scores */}
       {GRP_KEYS.map(gk => (
-        !isPro
-          ? <td key={gk} className="px-[6px] py-[5px] text-right min-w-[52px]"><LockBtn onClick={onUpgrade} /></td>
-          : <GrpCell key={gk} grpKey={gk} grpScore={runner.grpScores[gk]} isBest={runner._grpIsBest?.[gk]} isWorst={runner._grpIsWorst?.[gk]} />
+        isDbScratched
+          ? <td key={gk} className="px-[6px] py-[5px] text-right min-w-[52px]" />
+          : !isPro
+            ? <td key={gk} className="px-[6px] py-[5px] text-right min-w-[52px]"><LockBtn onClick={onUpgrade} /></td>
+            : <GrpCell key={gk} grpKey={gk} grpScore={runner.grpScores[gk]} isBest={runner._grpIsBest?.[gk]} isWorst={runner._grpIsWorst?.[gk]} />
       ))}
       {/* Total */}
       <td className={`${td} text-right font-bold text-[12px] tabular-nums`} style={{ color: rankColor }}>
-        {!isPro ? <LockBtn onClick={onUpgrade} /> : runner.totalFromGroups.toFixed(1)}
+        {isDbScratched ? '—' : !isPro ? <LockBtn onClick={onUpgrade} /> : runner.totalFromGroups.toFixed(1)}
       </td>
       {/* Edge $ */}
       <td className={`${td} text-right text-[11px] font-semibold text-emerald-600 tabular-nums whitespace-nowrap`}>
