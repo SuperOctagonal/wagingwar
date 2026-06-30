@@ -2057,10 +2057,18 @@ function RacesPageInner() {
     if (!dateISO) return;
     fetchRaceResultsForDate(dateISO).then(setRaceResults);
     if (SURL && SKEY) {
-      fetch(`${SURL}/rest/v1/scratchings?date=eq.${dateISO}&select=venue,race_num,horse_name`, {
+      const scrUrl = `${SURL}/rest/v1/scratchings?date=eq.${dateISO}&select=venue,race_num,horse_name`;
+      console.log('[Scratchings] querying:', scrUrl);
+      fetch(scrUrl, {
         headers: { apikey: SKEY, Authorization: `Bearer ${SKEY}` }
       })
-        .then(r => { console.log('[Scratchings] fetch status:', r.status); return r.ok ? r.json() : []; })
+        .then(r => {
+          console.log('[Scratchings] fetch status:', r.status);
+          return r.text().then(txt => {
+            console.log('[Scratchings] raw response body:', txt.slice(0, 300));
+            try { return JSON.parse(txt); } catch { return []; }
+          });
+        })
         .then(rows => {
           console.log('[Scratchings] raw rows from DB:', rows.length, rows);
           const s = new Set();
