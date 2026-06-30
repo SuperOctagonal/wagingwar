@@ -285,13 +285,23 @@ function LeftRail({ allVenues, allRaces, selectedRaceKey, onSelect, trackConds, 
 // ─── right rail ───────────────────────────────────────────────────────────────
 
 function RightRail({ allRaces, allVenues, selectedRaceKey, onSelect }) {
-  const keys = Object.values(allVenues).flat().filter(k => k !== selectedRaceKey).sort((a, b) => {
-    const ta = allRaces[a]?.time || '99:99';
-    const tb = allRaces[b]?.time || '99:99';
-    const na = Number(ta.replace('.', '').replace(' am','').replace(' pm','').replace(':',''));
-    const nb = Number(tb.replace('.', '').replace(' am','').replace(' pm','').replace(':',''));
-    return na - nb;
-  }).slice(0, 12);
+  // Parse "HH.MM am/pm" → minutes since midnight for correct 12-hour ordering
+  const parseTimeMins = t => {
+    if (!t) return 9999;
+    const m = t.match(/(\d+)\.(\d+)\s*(am|pm)/i);
+    if (!m) return 9999;
+    let h = parseInt(m[1], 10), min = parseInt(m[2], 10);
+    const pm = m[3].toLowerCase() === 'pm';
+    if (pm && h !== 12) h += 12;
+    if (!pm && h === 12) h = 0;
+    return h * 60 + min;
+  };
+  const aest = new Date(new Date().toLocaleString('en-US', { timeZone: 'Australia/Brisbane' }));
+  const nowMins = aest.getHours() * 60 + aest.getMinutes();
+  const keys = Object.values(allVenues).flat()
+    .filter(k => k !== selectedRaceKey && parseTimeMins(allRaces[k]?.time) >= nowMins)
+    .sort((a, b) => parseTimeMins(allRaces[a]?.time) - parseTimeMins(allRaces[b]?.time))
+    .slice(0, 12);
   return (
     <aside className="w-[190px] flex-shrink-0 bg-white border-l border-gray-100 overflow-y-auto">
       <div className="px-3 pt-3 pb-1 text-[9px] font-bold text-gray-600 uppercase tracking-[0.8px]">Up Next</div>
