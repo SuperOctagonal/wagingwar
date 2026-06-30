@@ -2060,18 +2060,21 @@ function RacesPageInner() {
       fetch(`${SURL}/rest/v1/scratchings?date=eq.${dateISO}&select=venue,race_num,horse_name`, {
         headers: { apikey: SKEY, Authorization: `Bearer ${SKEY}` }
       })
-        .then(r => r.ok ? r.json() : [])
+        .then(r => { console.log('[Scratchings] fetch status:', r.status); return r.ok ? r.json() : []; })
         .then(rows => {
+          console.log('[Scratchings] raw rows from DB:', rows.length, rows);
           const s = new Set();
           rows.forEach(row => {
             const rawV = (row.venue || '').toUpperCase();
             const normV = VENUE_NORMALISE[rawV] || rawV;
-            s.add(`${normV}||${row.race_num}||${(row.horse_name||'').toUpperCase()}`);
+            const key = `${normV}||${row.race_num}||${(row.horse_name||'').toUpperCase()}`;
+            console.log('[Scratchings] adding key:', key, '(raw venue:', rawV, '→ norm:', normV, ')');
+            s.add(key);
           });
-          console.log('[Scratchings]', s.size, 'scratched runners for', dateISO, [...s]);
+          console.log('[Scratchings] final set size:', s.size, [...s]);
           setScratchingsSet(s);
         })
-        .catch(() => {});
+        .catch(e => console.log('[Scratchings] fetch error:', e));
     }
   }, [allRaces]);
 
@@ -2129,7 +2132,12 @@ function RacesPageInner() {
     // Normalize race venue once for DB scratching lookup
     const rcRawV = (currentRace.venue || '').toUpperCase();
     const rcNormV = VENUE_NORMALISE[rcRawV] || rcRawV;
-    const isDbScr = h => scratchingsSet.has(`${rcNormV}||${currentRace.num}||${h.name.toUpperCase()}`);
+    const isDbScr = h => {
+      const checkKey = `${rcNormV}||${currentRace.num}||${h.name.toUpperCase()}`;
+      const hit = scratchingsSet.has(checkKey);
+      console.log('[Scr check]', checkKey, '→', hit ? 'MATCH' : 'no match', '| set size:', scratchingsSet.size);
+      return hit;
+    };
 
     // Exclude CSV-scratched AND DB-scratched from the scored field
     const active = currentRace.horses.filter(h => !h.scratched && !isDbScr(h));
