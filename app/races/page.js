@@ -1927,7 +1927,7 @@ function RacesPageInner() {
   const [bbTarget,      setBbTarget]      = useState(null);
   const [meetingsSynced, setMeetingsSynced] = useState(false);
   const [venueTrackConds, setVenueTrackConds] = useState({});
-  const [scratchingsSet,  setScratchingsSet]  = useState(new Set());
+  const [scratchedRows,   setScratchedRows]   = useState([]);
   const popupRef     = useRef(null);
 
   const currentRace = selectedKey ? allRaces[selectedKey] : null;
@@ -2062,18 +2062,9 @@ function RacesPageInner() {
       fetch(scrUrl, { headers: { apikey: SKEY, Authorization: `Bearer ${SKEY}` } })
         .then(r => { console.log('[Scratchings] status:', r.status); return r.ok ? r.json() : []; })
         .then(rows => {
-          console.log('[Scratchings] rows count:', rows.length, 'isArray:', Array.isArray(rows), 'first row:', rows[0]);
-          const s = new Set();
-          rows.forEach((row, i) => {
-            const rawV = (row.venue || '').toUpperCase();
-            const normV = VENUE_NORMALISE[rawV] || rawV;
-            const key = `${normV}||${String(row.race_num)}||${(row.horse_name || '').toUpperCase()}`;
-            s.add(key);
-            if (i < 3) console.log('[Scr add]', i, key, 's.size:', s.size);
-          });
-          console.log('[Scratchings] set built, size:', s.size);
-          console.log('[Scratchings] set sample:', [...s].slice(0, 5));
-          setScratchingsSet(s);
+          const data = Array.isArray(rows) ? rows : [];
+          console.log('[Scratchings] storing', data.length, 'raw rows');
+          setScratchedRows(data);
         })
         .catch(e => console.log('[Scratchings] error:', e));
     }
@@ -2127,19 +2118,22 @@ function RacesPageInner() {
   })();
 
   // Compute scored results once per race/trackCond/weights change
-  const { results, scratched } = useMemo(() => {
-    if (!currentRace) return { results: [], scratched: [] };
+  const { results, scratched, scratchingsSet } = useMemo(() => {
+    if (!currentRace) return { results: [], scratched: [], scratchingsSet: new Set() };
+
+    // Build scratchings Set synchronously from raw rows — avoids async-overwrite race condition
+    const s = new Set();
+    scratchedRows.forEach(row => {
+      const rawV = (row.venue || '').toUpperCase();
+      const normV = VENUE_NORMALISE[rawV] || rawV;
+      s.add(`${normV}||${String(row.race_num)}||${(row.horse_name || '').toUpperCase()}`);
+    });
+    console.log('[Scratchings] set size:', s.size, 'sample:', [...s].slice(0, 3));
 
     // Normalize race venue once for DB scratching lookup
     const rcRawV = (currentRace.venue || '').toUpperCase();
     const rcNormV = VENUE_NORMALISE[rcRawV] || rcRawV;
-    const isDbScr = h => {
-      const checkKey = `${rcNormV}||${String(currentRace.num)}||${h.name.toUpperCase()}`;
-      const hit = scratchingsSet.has(checkKey);
-      console.log('[Scr check]', checkKey, '→', hit ? 'MATCH' : 'no match', '| set size:', scratchingsSet.size);
-      return hit;
-    };
-    console.log('[Scratchings] set sample (useMemo):', [...scratchingsSet].slice(0, 5));
+    const isDbScr = h => s.has(`${rcNormV}||${String(currentRace.num)}||${h.name.toUpperCase()}`);
 
     // Exclude CSV-scratched AND DB-scratched from the scored field
     const active = currentRace.horses.filter(h => !h.scratched && !isDbScr(h));
@@ -2173,8 +2167,8 @@ function RacesPageInner() {
       });
     });
 
-    return { results: res, scratched: scr };
-  }, [currentRace, trackCond, weights, scratchingsSet]);
+    return { results: res, scratched: scr, scratchingsSet: s };
+  }, [currentRace, trackCond, weights, scratchedRows]);
 
   const handleSelectRace = useCallback(key => {
     setSelectedKey(key);
