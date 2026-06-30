@@ -2058,31 +2058,24 @@ function RacesPageInner() {
     fetchRaceResultsForDate(dateISO).then(setRaceResults);
     if (SURL && SKEY) {
       const scrUrl = `${SURL}/rest/v1/scratchings?date=eq.${dateISO}&select=venue,race_num,horse_name`;
-      console.log('[Scratchings] querying:', scrUrl);
-      fetch(scrUrl, {
-        headers: { apikey: SKEY, Authorization: `Bearer ${SKEY}` }
-      })
-        .then(r => {
-          console.log('[Scratchings] fetch status:', r.status);
-          return r.text().then(txt => {
-            console.log('[Scratchings] raw response body:', txt.slice(0, 300));
-            try { return JSON.parse(txt); } catch { return []; }
-          });
-        })
+      console.log('[Scratchings] querying date:', dateISO);
+      fetch(scrUrl, { headers: { apikey: SKEY, Authorization: `Bearer ${SKEY}` } })
+        .then(r => { console.log('[Scratchings] status:', r.status); return r.ok ? r.json() : []; })
         .then(rows => {
-          console.log('[Scratchings] raw rows from DB:', rows.length, rows);
+          console.log('[Scratchings] rows count:', rows.length, 'isArray:', Array.isArray(rows), 'first row:', rows[0]);
           const s = new Set();
-          rows.forEach(row => {
+          rows.forEach((row, i) => {
             const rawV = (row.venue || '').toUpperCase();
             const normV = VENUE_NORMALISE[rawV] || rawV;
-            const key = `${normV}||${row.race_num}||${(row.horse_name||'').toUpperCase()}`;
-            console.log('[Scratchings] adding key:', key, '(raw venue:', rawV, '→ norm:', normV, ')');
+            const key = `${normV}||${String(row.race_num)}||${(row.horse_name || '').toUpperCase()}`;
             s.add(key);
+            if (i < 3) console.log('[Scr add]', i, key, 's.size:', s.size);
           });
-          console.log('[Scratchings] final set size:', s.size, [...s]);
+          console.log('[Scratchings] set built, size:', s.size);
+          console.log('[Scratchings] set sample:', [...s].slice(0, 5));
           setScratchingsSet(s);
         })
-        .catch(e => console.log('[Scratchings] fetch error:', e));
+        .catch(e => console.log('[Scratchings] error:', e));
     }
   }, [allRaces]);
 
@@ -2141,12 +2134,12 @@ function RacesPageInner() {
     const rcRawV = (currentRace.venue || '').toUpperCase();
     const rcNormV = VENUE_NORMALISE[rcRawV] || rcRawV;
     const isDbScr = h => {
-      const checkKey = `${rcNormV}||${currentRace.num}||${h.name.toUpperCase()}`;
+      const checkKey = `${rcNormV}||${String(currentRace.num)}||${h.name.toUpperCase()}`;
       const hit = scratchingsSet.has(checkKey);
       console.log('[Scr check]', checkKey, '→', hit ? 'MATCH' : 'no match', '| set size:', scratchingsSet.size);
       return hit;
     };
-    console.log('[Scratchings] set sample:', [...scratchingsSet].slice(0, 5));
+    console.log('[Scratchings] set sample (useMemo):', [...scratchingsSet].slice(0, 5));
 
     // Exclude CSV-scratched AND DB-scratched from the scored field
     const active = currentRace.horses.filter(h => !h.scratched && !isDbScr(h));
