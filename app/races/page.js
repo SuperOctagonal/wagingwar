@@ -1989,25 +1989,23 @@ function RacesPageInner() {
         const dateISO = firstKey ? toISO(ar[firstKey]?.date) : null;
         if (dateISO) {
           const venues = Object.keys(av);
-          const rows = venues.map(v => {
-            const rawV = v.toUpperCase();
-            const normV = VENUE_NORMALISE[rawV] || rawV;
-            return { venue: normV, state: VENUE_STATE_MAP[normV] || null, date: dateISO };
-          });
-          await fetch(`${SURL}/rest/v1/today_meetings?date=gte.1900-01-01`, {
-            method: 'DELETE',
-            headers: { apikey: SKEY, Authorization: `Bearer ${SKEY}`, Prefer: 'return=minimal' },
-          });
-          const res = await fetch(`${SURL}/rest/v1/today_meetings`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', apikey: SKEY, Authorization: `Bearer ${SKEY}`, Prefer: 'return=minimal' },
-            body: JSON.stringify(rows),
-          });
-          if (res.ok) {
-            console.log('[Races] today_meetings updated:', venues.length, 'venues');
-            setMeetingsSynced(true);
-          } else {
-            console.error('[Races] today_meetings sync failed:', res.status, await res.text());
+          // Filter unknown-state venues so a single missing entry doesn't abort the batch.
+          // Use ignore-duplicates so the worker's track_condition is never overwritten by CSV reload.
+          const rows = venues
+            .map(v => { const rawV = v.toUpperCase(); const normV = VENUE_NORMALISE[rawV] || rawV; return { venue: normV, state: VENUE_STATE_MAP[normV] || null, date: dateISO }; })
+            .filter(r => r.state !== null);
+          if (rows.length) {
+            const res = await fetch(`${SURL}/rest/v1/today_meetings`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', apikey: SKEY, Authorization: `Bearer ${SKEY}`, Prefer: 'resolution=ignore-duplicates,return=minimal' },
+              body: JSON.stringify(rows),
+            });
+            if (res.ok) {
+              console.log('[Races] today_meetings upserted:', rows.length, 'venues');
+              setMeetingsSynced(true);
+            } else {
+              console.error('[Races] today_meetings sync failed:', res.status, await res.text());
+            }
           }
         }
 
@@ -2077,7 +2075,7 @@ function RacesPageInner() {
     }
   }, [allRaces]);
 
-  // Fetch today_meetings for track conditions shown in left rail
+  // Fetch today_meetings for track conditions — re-runs after CSV load to pick up worker data
   useEffect(() => {
     if (!SURL || !SKEY) return;
     const todayISO = new Date().toLocaleDateString('sv-SE', { timeZone: 'Australia/Brisbane' });
@@ -2091,7 +2089,28 @@ function RacesPageInner() {
         setVenueTrackConds(m);
       })
       .catch(() => {});
-  }, []);
+  }, [allRaces]);
+
+  // Auto-apply DB track conditions to scoring when venueTrackConds loads
+  useEffect(() => {
+    if (!Object.keys(venueTrackConds).length || !Object.keys(allRaces).length) return;
+    setTrackConds(prev => {
+      const next = { ...prev };
+      Object.values(allRaces).forEach(rc => {
+        if (!rc?.venue || next[rc.venue]) return; // skip if user already set
+        const rawUpper = (rc.venue || '').toUpperCase();
+        const normV = VENUE_NORMALISE[rawUpper] || rawUpper;
+        const raw = venueTrackConds[normV] || venueTrackConds[rawUpper] || '';
+        if (!raw) return;
+        const tcl = raw.toLowerCase();
+        next[rc.venue] = tcl.includes('heavy') ? 'heavy'
+                       : tcl.includes('soft') || tcl.includes('slow') ? 'soft'
+                       : tcl.includes('synth') ? 'synthetic'
+                       : 'good';
+      });
+      return next;
+    });
+  }, [venueTrackConds, allRaces]);
 
   const hasData = raceKeys.length > 0;
 
