@@ -83,6 +83,10 @@ const VENUE_NORMALISE = {
   'BALLARAT SYN':                  'BALLARAT SYNTHETIC',
 };
 
+// Strip trailing country-of-origin suffix before scratchings key comparison
+// e.g. "NAMARA (NZ)" → "NAMARA", "TRUE TO FORM (IRE)" → "TRUE TO FORM"
+const stripCountry = n => (n || '').replace(/\s*\([A-Z]{2,4}\)$/i, '').trim();
+
 async function fetchRaceResultsForDate(dateStr) {
   if (!SURL || !SKEY || !dateStr) return {};
   try {
@@ -1322,7 +1326,7 @@ function RunnerRow({ runner, rank, rc, trackCond, onLogBet, onShowPopup, onHideP
 
 function FieldView({ results, scratched, rc, trackCond, onLogBet, onShowPopup, onHidePopup, isResulted, isPro, onUpgrade, scratchingsSet = new Set() }) {
   const tcLabel = { good:'Good', soft:'Soft', heavy:'Heavy', synthetic:'Synth' }[trackCond] || 'Good';
-  const scrKey = h => { const rv = (rc.venue||'').toUpperCase(); return `${VENUE_NORMALISE[rv]||rv}||${rc.num}||${h.name.toUpperCase()}`; };
+  const scrKey = h => { const rv = (rc.venue||'').toUpperCase(); return `${VENUE_NORMALISE[rv]||rv}||${rc.num}||${stripCountry(h.name).toUpperCase()}`; };
   const activeResults = results.filter(h => !scratchingsSet.has(scrKey(h)));
   const dbScratched   = results.filter(h =>  scratchingsSet.has(scrKey(h)));
   const [layers, setLayers] = useState({ form: false, pace: false, scores: false, picks: false });
@@ -1596,7 +1600,7 @@ function FormCard({ runner: r, rank, onLogBet, isResulted, rc, isPro, onUpgrade,
 }
 
 function FormView({ results, scratched, onLogBet, isResulted, rc, isPro, onUpgrade, scratchingsSet = new Set() }) {
-  const scrKey = h => { const rv = (rc.venue||'').toUpperCase(); return `${VENUE_NORMALISE[rv]||rv}||${rc.num}||${h.name.toUpperCase()}`; };
+  const scrKey = h => { const rv = (rc.venue||'').toUpperCase(); return `${VENUE_NORMALISE[rv]||rv}||${rc.num}||${stripCountry(h.name).toUpperCase()}`; };
   const sorted = [...results].sort((a, b) => (+a.tab || 99) - (+b.tab || 99));
   const activeSorted     = sorted.filter(r => !scratchingsSet.has(scrKey(r)));
   const dbScratchedSorted = sorted.filter(r =>  scratchingsSet.has(scrKey(r)));
@@ -1622,7 +1626,7 @@ function FormView({ results, scratched, onLogBet, isResulted, rc, isPro, onUpgra
 // ─── pace map view ────────────────────────────────────────────────────────────
 
 function PaceMapView({ results, scratched, rc, trackCond, isPro, onUpgrade, scratchingsSet = new Set() }) {
-  const scrKey = h => { const rv = (rc.venue||'').toUpperCase(); return `${VENUE_NORMALISE[rv]||rv}||${rc.num}||${h.name.toUpperCase()}`; };
+  const scrKey = h => { const rv = (rc.venue||'').toUpperCase(); return `${VENUE_NORMALISE[rv]||rv}||${rc.num}||${stripCountry(h.name).toUpperCase()}`; };
   const activeResults = results.filter(h => !scratchingsSet.has(scrKey(h)));
   const ranked = activeResults.map((r, i) => ({ ...r, systemRank: i + 1 }));
   const byBarrier = ranked.map(r => ({
@@ -2134,7 +2138,7 @@ function RacesPageInner() {
     // Normalize race venue once for DB scratching lookup
     const rcRawV = (currentRace.venue || '').toUpperCase();
     const rcNormV = VENUE_NORMALISE[rcRawV] || rcRawV;
-    const isDbScr = h => s.has(`${rcNormV}||${String(currentRace.num)}||${h.name.toUpperCase()}`);
+    const isDbScr = h => s.has(`${rcNormV}||${String(currentRace.num)}||${stripCountry(h.name).toUpperCase()}`);
 
     // Exclude CSV-scratched AND DB-scratched from the scored field
     const active = currentRace.horses.filter(h => !h.scratched && !isDbScr(h));
