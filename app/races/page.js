@@ -2138,6 +2138,7 @@ function RacesPageInner() {
       console.log('[Scr check]', checkKey, '→', hit ? 'MATCH' : 'no match', '| set size:', scratchingsSet.size);
       return hit;
     };
+    console.log('[Scratchings] set sample:', [...scratchingsSet].slice(0, 5));
 
     // Exclude CSV-scratched AND DB-scratched from the scored field
     const active = currentRace.horses.filter(h => !h.scratched && !isDbScr(h));
