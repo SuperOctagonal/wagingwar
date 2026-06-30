@@ -1621,9 +1621,10 @@ function FormView({ results, scratched, onLogBet, isResulted, rc, isPro, onUpgra
 
 // ─── pace map view ────────────────────────────────────────────────────────────
 
-function PaceMapView({ results, scratched, rc, trackCond, isPro, onUpgrade }) {
-  // Sort by barrier for display
-  const ranked = results.map((r, i) => ({ ...r, systemRank: i + 1 }));
+function PaceMapView({ results, scratched, rc, trackCond, isPro, onUpgrade, scratchingsSet = new Set() }) {
+  const scrKey = h => { const rv = (rc.venue||'').toUpperCase(); return `${VENUE_NORMALISE[rv]||rv}||${rc.num}||${h.name.toUpperCase()}`; };
+  const activeResults = results.filter(h => !scratchingsSet.has(scrKey(h)));
+  const ranked = activeResults.map((r, i) => ({ ...r, systemRank: i + 1 }));
   const byBarrier = ranked.map(r => ({
     ...r,
     pm: calcPaceMap(r, rc.venue, +rc.dist, trackCond),
@@ -2118,8 +2119,8 @@ function RacesPageInner() {
   })();
 
   // Compute scored results once per race/trackCond/weights change
-  const { results, scratched, scratchingsSet } = useMemo(() => {
-    if (!currentRace) return { results: [], scratched: [], scratchingsSet: new Set() };
+  const { results, scratched, scratchingsSet, allHorsesForDisplay } = useMemo(() => {
+    if (!currentRace) return { results: [], scratched: [], scratchingsSet: new Set(), allHorsesForDisplay: [] };
 
     // Build scratchings Set synchronously from raw rows — avoids async-overwrite race condition
     const s = new Set();
@@ -2167,7 +2168,11 @@ function RacesPageInner() {
       });
     });
 
-    return { results: res, scratched: scr, scratchingsSet: s };
+    // DB-scratched horses (not CSV-scratched) appended for display; FieldView/FormView filter them via scratchingsSet
+    const dbScratchedOnly = currentRace.horses.filter(h => !h.scratched && isDbScr(h));
+    const allHorsesForDisplay = [...res, ...dbScratchedOnly];
+
+    return { results: res, scratched: scr, scratchingsSet: s, allHorsesForDisplay };
   }, [currentRace, trackCond, weights, scratchedRows]);
 
   const handleSelectRace = useCallback(key => {
@@ -2255,7 +2260,7 @@ function RacesPageInner() {
                 <div className="flex-1 overflow-hidden flex flex-col">
                   {view === 'field' && (
                     <div className="flex-1 overflow-hidden flex flex-col">
-                      <FieldView results={results} scratched={scratched} rc={currentRace}
+                      <FieldView results={allHorsesForDisplay} scratched={scratched} rc={currentRace}
                         trackCond={trackCond} onLogBet={handleLogBet}
                         onShowPopup={showHorsePopup} onHidePopup={hideHorsePopup}
                         isResulted={!!currentRaceResult}
@@ -2264,10 +2269,10 @@ function RacesPageInner() {
                     </div>
                   )}
                   {view === 'form' && (
-                    <FormView results={results} scratched={scratched} onLogBet={handleLogBet} isResulted={!!currentRaceResult} rc={currentRace} isPro={isPro} onUpgrade={() => setUpgradeOpen(true)} scratchingsSet={scratchingsSet} />
+                    <FormView results={allHorsesForDisplay} scratched={scratched} onLogBet={handleLogBet} isResulted={!!currentRaceResult} rc={currentRace} isPro={isPro} onUpgrade={() => setUpgradeOpen(true)} scratchingsSet={scratchingsSet} />
                   )}
                   {view === 'pacemap' && (
-                    <PaceMapView results={results} scratched={scratched} rc={currentRace} trackCond={trackCond} isPro={isPro} onUpgrade={() => setUpgradeOpen(true)} scratchingsSet={scratchingsSet} />
+                    <PaceMapView results={allHorsesForDisplay} scratched={scratched} rc={currentRace} trackCond={trackCond} isPro={isPro} onUpgrade={() => setUpgradeOpen(true)} scratchingsSet={scratchingsSet} />
                   )}
                 </div>
               </div>
