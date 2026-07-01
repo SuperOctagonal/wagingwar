@@ -226,6 +226,15 @@ const TC_PILL = {
 
 function LeftRail({ allVenues, allRaces, selectedRaceKey, onSelect, trackConds, venueTrackConds = {} }) {
   const [openVenue, setOpenVenue] = useState(null);
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 60000);
+    return () => clearInterval(id);
+  }, []);
+  const sidebarCountdown = rc => {
+    const at = parseRaceTime(rc.time, rc.date);
+    return at ? Math.floor((at.getTime() - now) / 60000) : null;
+  };
 
   const toggle = useCallback(venue => {
     setOpenVenue(prev => prev === venue ? null : venue);
@@ -271,7 +280,16 @@ function LeftRail({ allVenues, allRaces, selectedRaceKey, onSelect, trackConds, 
                   }}
                 >
                   <span style={{ fontSize: 9, fontWeight: 700 }}>R{rc.num}</span>
-                  {rc.time && <span style={{ fontSize: 9, color: 'rgba(255,255,255,0.85)' }}>{rc.time}</span>}
+                  {rc.time && (() => {
+                    const mins = sidebarCountdown(rc);
+                    const cdText = mins === null ? '' : mins <= 0 ? ' (Off)' : ` (${mins}m)`;
+                    const cdGreen = mins !== null && mins > 0 && mins <= 10;
+                    return (
+                      <span style={{ fontSize: 9, color: 'rgba(255,255,255,0.85)' }}>
+                        {rc.time}{cdText && <span style={{ color: cdGreen ? '#4ade80' : 'rgba(255,255,255,0.85)', fontWeight: cdGreen ? 700 : 400 }}>{cdText}</span>}
+                      </span>
+                    );
+                  })()}
                 </button>
               );
             })}
@@ -1463,7 +1481,7 @@ function FieldView({ results, scratched, rc, trackCond, onLogBet, onShowPopup, o
 
 // ─── form view ────────────────────────────────────────────────────────────────
 
-function FormCard({ runner: r, rank, onLogBet, isResulted, rc, isPro, onUpgrade, isDbScratched }) {
+function FormCard({ runner: r, rank, onLogBet, isResulted, rc, isPro, onUpgrade, isDbScratched, getWinner }) {
   const bp      = r['BP'] || r.BP || '';
   const wt      = r['Weight'] ? `${r['Weight']}kg` : '';
   const allow   = r.allowance ? ` -${r.allowance}kg` : '';
@@ -1476,6 +1494,8 @@ function FormCard({ runner: r, rank, onLogBet, isResulted, rc, isPro, onUpgrade,
   const gsire   = r.gsire || r.grandsire || '';
   const winDists = Array.isArray(r.winDists) ? r.winDists.join(', ') : (r.winDists || '');
   const rfs     = r.rfs || 0;
+
+  const careerPrizeFmt = r['Career Prizemoney'] ? `$${Math.round(r['Career Prizemoney']).toLocaleString('en-AU')}` : null;
 
   const rankBg  = rank===1?'#fbbf24':rank===2?'#d1d5db':rank===3?'#cd7f32':'#4b5563';
   const rankTxt = rank<=3?'#78350f':'#fff';
@@ -1512,6 +1532,7 @@ function FormCard({ runner: r, rank, onLogBet, isResulted, rc, isPro, onUpgrade,
     const mgTxt = n===1 ? `Won ${dtl.margin||0}L` : (dtl.margin!=null ? `${dtl.margin}L` : '');
     const mgColor = n===1?'#059669':n<=3?'#d97706':'#6b7280';
     const rowBg = ri%2===0?'#fff':'#f9fafb';
+    const winner = getWinner ? getWinner(dtl, r.name) : '—';
     runRows.push(
       <tr key={ri} style={{ background:rowBg }}>
         <td style={{ padding:'3px 6px', fontSize:11, color:'#111827', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{fmtDate(dtl.date)}</td>
@@ -1526,6 +1547,7 @@ function FormCard({ runner: r, rank, onLogBet, isResulted, rc, isPro, onUpgrade,
         <td style={{ padding:'3px 6px', fontSize:11, color:'#111827', whiteSpace:'nowrap' }}>{dtl.wt?`${dtl.wt}kg`:'—'}</td>
         <td style={{ padding:'3px 6px', fontSize:11, color:'#111827', whiteSpace:'nowrap' }}>{fmtSP(sp)}</td>
         <td style={{ padding:'3px 6px', fontSize:11, color:mgColor, whiteSpace:'nowrap' }}>{mgTxt}</td>
+        <td style={{ padding:'3px 6px', fontSize:11, color:'#111827', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis', maxWidth:100 }}>{winner}</td>
       </tr>
     );
   }
@@ -1555,19 +1577,22 @@ function FormCard({ runner: r, rank, onLogBet, isResulted, rc, isPro, onUpgrade,
           {(wt||allow) && <span style={{ fontSize:11, color:'rgba(255,255,255,0.75)', flexShrink:0 }}>{wt}{allow}</span>}
           {r.jname && <span style={{ fontSize:11, color:'rgba(255,255,255,0.75)', flexShrink:0 }}>· {jShort(r.jname)}</span>}
           {r.trainer && <span style={{ fontSize:11, color:'rgba(255,255,255,0.75)', flexShrink:0, overflow:'hidden', textOverflow:'ellipsis', maxWidth:140 }}>· {r.trainer}</span>}
-          <div style={{ marginLeft:'auto', display:'flex', alignItems:'center', gap:6, flexShrink:0 }}>
-            {ageSex && <span style={{ fontSize:10, color:'rgba(255,255,255,0.75)' }}>{ageSex}</span>}
-            <span style={{ fontSize:10, color:'rgba(255,255,255,0.75)', fontFamily:'monospace' }}>{starts}-{wins}-{secs}-{thirds}</span>
-            <span style={{ fontSize:10, color:winPct>=25?'#6ee7b7':winPct>=12?'#fcd34d':'rgba(255,255,255,0.75)' }}>{winPct}%win</span>
-            {dslast!=null && <span style={{ fontSize:10, color:'rgba(255,255,255,0.75)' }}>{dslast}d</span>}
-            <button type="button" onClick={() => !isResulted && onLogBet(r, rank)} disabled={isResulted}
-              style={{ fontSize:9, fontWeight:600, padding:'2px 8px', borderRadius:3, border:'1px solid rgba(255,255,255,0.25)', color:isResulted?'rgba(255,255,255,0.35)':'rgba(255,255,255,0.8)', background:'transparent', cursor:isResulted?'default':'pointer', flexShrink:0 }}>
-              {isResulted ? 'Resulted' : '+ Bet'}
-            </button>
-            <button type="button" onClick={() => { if (!isPro) { onUpgrade(); } else { window.__addToBlackbook && window.__addToBlackbook({ name: r.name, venue: rc?.venue || '', raceNumber: rc?.num || '', distance: rc?.dist || '', cls: rc?.cls || '' }); } }}
-              style={{ fontSize:9, fontWeight:600, padding:'2px 8px', borderRadius:3, border:'1px solid rgba(255,255,255,0.25)', color:'rgba(255,255,255,0.8)', background:'transparent', cursor:'pointer', flexShrink:0 }}>
-              🔖 Blackbook
-            </button>
+          <div style={{ marginLeft:'auto', display:'flex', flexDirection:'column', alignItems:'flex-end', flexShrink:0, gap:3 }}>
+            <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+              {ageSex && <span style={{ fontSize:10, color:'rgba(255,255,255,0.75)' }}>{ageSex}</span>}
+              <span style={{ fontSize:10, color:'rgba(255,255,255,0.75)', fontFamily:'monospace' }}>{starts}-{wins}-{secs}-{thirds}</span>
+              <span style={{ fontSize:10, color:winPct>=25?'#6ee7b7':winPct>=12?'#fcd34d':'rgba(255,255,255,0.75)' }}>{winPct}%win</span>
+              {dslast!=null && <span style={{ fontSize:10, color:'rgba(255,255,255,0.75)' }}>{dslast}d</span>}
+              <button type="button" onClick={() => !isResulted && onLogBet(r, rank)} disabled={isResulted}
+                style={{ fontSize:9, fontWeight:600, padding:'2px 8px', borderRadius:3, border:'1px solid rgba(255,255,255,0.25)', color:isResulted?'rgba(255,255,255,0.35)':'rgba(255,255,255,0.8)', background:'transparent', cursor:isResulted?'default':'pointer', flexShrink:0 }}>
+                {isResulted ? 'Resulted' : '+ Bet'}
+              </button>
+              <button type="button" onClick={() => { if (!isPro) { onUpgrade(); } else { window.__addToBlackbook && window.__addToBlackbook({ name: r.name, venue: rc?.venue || '', raceNumber: rc?.num || '', distance: rc?.dist || '', cls: rc?.cls || '' }); } }}
+                style={{ fontSize:9, fontWeight:600, padding:'2px 8px', borderRadius:3, border:'1px solid rgba(255,255,255,0.25)', color:'rgba(255,255,255,0.8)', background:'transparent', cursor:'pointer', flexShrink:0 }}>
+                🔖 Blackbook
+              </button>
+            </div>
+            {careerPrizeFmt && <div style={{ fontSize:9, color:'rgba(255,255,255,0.55)' }}>Career Prize: {careerPrizeFmt}</div>}
           </div>
         </div>
         {/* Row 2: breeding */}
@@ -1589,6 +1614,7 @@ function FormCard({ runner: r, rank, onLogBet, isResulted, rc, isPro, onUpgrade,
               <th style={{            padding:'4px 6px', fontSize:9, fontWeight:700, color:'#9ca3af', textTransform:'uppercase', textAlign:'left',   borderBottom:'0.5px solid #e5e7eb' }}>Wgt</th>
               <th style={{            padding:'4px 6px', fontSize:9, fontWeight:700, color:'#9ca3af', textTransform:'uppercase', textAlign:'left',   borderBottom:'0.5px solid #e5e7eb' }}>SP</th>
               <th style={{            padding:'4px 6px', fontSize:9, fontWeight:700, color:'#9ca3af', textTransform:'uppercase', textAlign:'left',   borderBottom:'0.5px solid #e5e7eb' }}>Margin</th>
+              <th style={{ width:100, padding:'4px 6px', fontSize:9, fontWeight:700, color:'#9ca3af', textTransform:'uppercase', textAlign:'left',   borderBottom:'0.5px solid #e5e7eb' }}>Winner</th>
             </tr>
           </thead>
           <tbody>{runRows}</tbody>
@@ -1616,16 +1642,56 @@ function FormView({ results, scratched, onLogBet, isResulted, rc, isPro, onUpgra
   const sorted = [...results].sort((a, b) => (+a.tab || 99) - (+b.tab || 99));
   const activeSorted     = sorted.filter(r => !scratchingsSet.has(scrKey(r)));
   const dbScratchedSorted = sorted.filter(r =>  scratchingsSet.has(scrKey(r)));
+
+  const [histResults, setHistResults] = useState({});
+  useEffect(() => {
+    if (!SURL || !SKEY || !results.length) return;
+    const dates = new Set();
+    results.forEach(r => (r.lastRunDetails||[]).forEach(dtl => { const iso = toISO(dtl.date); if (iso) dates.add(iso); }));
+    if (!dates.size) return;
+    Promise.all([...dates].map(async iso => {
+      try {
+        const res = await fetch(
+          `${SURL}/rest/v1/race_results?select=venue,race_num,horse_name,finish_pos&date=eq.${iso}&order=venue,race_num,finish_pos`,
+          { headers: { apikey: SKEY, Authorization: `Bearer ${SKEY}` } }
+        );
+        if (!res.ok) return null;
+        const rows = await res.json();
+        const horseRace = {}, raceWinner = {};
+        rows.forEach(row => {
+          const normV = VENUE_NORMALISE[(row.venue||'').toUpperCase()] || (row.venue||'').toUpperCase();
+          const hk = `${normV}||${(row.horse_name||'').toUpperCase()}`;
+          if (!horseRace[hk]) horseRace[hk] = row.race_num;
+          if (row.finish_pos === 1) raceWinner[`${normV}||${row.race_num}`] = (row.horse_name||'').toUpperCase();
+        });
+        return { iso, horseRace, raceWinner };
+      } catch { return null; }
+    })).then(all => {
+      const acc = {};
+      all.forEach(r => { if (r) acc[r.iso] = { horseRace: r.horseRace, raceWinner: r.raceWinner }; });
+      setHistResults(acc);
+    });
+  }, [results]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const getWinner = (dtl, horseName) => {
+    const iso = toISO(dtl.date);
+    if (!iso || !histResults[iso]) return '—';
+    const normV = VENUE_NORMALISE[(dtl.crse||'').toUpperCase()] || (dtl.crse||'').toUpperCase();
+    const raceNum = histResults[iso].horseRace?.[`${normV}||${horseName.toUpperCase()}`];
+    if (!raceNum) return '—';
+    return histResults[iso].raceWinner?.[`${normV}||${raceNum}`] || '—';
+  };
+
   return (
     <div className="flex-1 overflow-y-auto" style={{ padding:'10px 14px' }}>
       {activeSorted.map((r, i) => (
         <div key={r.tab||r.name} style={{ marginBottom: i < activeSorted.length-1 ? 12 : 0 }}>
-          <FormCard runner={r} rank={i+1} onLogBet={onLogBet} isResulted={isResulted} rc={rc} isPro={isPro} onUpgrade={onUpgrade} />
+          <FormCard runner={r} rank={i+1} onLogBet={onLogBet} isResulted={isResulted} rc={rc} isPro={isPro} onUpgrade={onUpgrade} getWinner={getWinner} />
         </div>
       ))}
       {dbScratchedSorted.map(r => (
         <div key={r.tab||r.name} style={{ marginBottom: 12, opacity: 0.45 }}>
-          <FormCard runner={r} rank={null} onLogBet={onLogBet} isResulted={true} rc={rc} isPro={isPro} onUpgrade={onUpgrade} isDbScratched />
+          <FormCard runner={r} rank={null} onLogBet={onLogBet} isResulted={true} rc={rc} isPro={isPro} onUpgrade={onUpgrade} isDbScratched getWinner={getWinner} />
         </div>
       ))}
       {scratched.length > 0 && (
