@@ -282,11 +282,17 @@ function LeftRail({ allVenues, allRaces, selectedRaceKey, onSelect, trackConds, 
                   <span style={{ fontSize: 9, fontWeight: 700 }}>R{rc.num}</span>
                   {rc.time && (() => {
                     const mins = sidebarCountdown(rc);
-                    const cdText = mins === null ? '' : mins <= 0 ? ' (Off)' : ` (${mins}m)`;
+                    const fmtCd = m => {
+                      if (m < 60)   return `${m}m`;
+                      if (m < 1440) { const h = Math.floor(m/60), r = m%60; return r ? `${h}h ${r}m` : `${h}h`; }
+                      const d = Math.floor(m/1440), h = Math.floor((m%1440)/60);
+                      return h ? `${d}d ${h}h` : `${d}d`;
+                    };
+                    const cdLabel = mins === null ? null : mins <= 0 ? 'Off' : fmtCd(mins);
                     const cdGreen = mins !== null && mins > 0 && mins <= 10;
                     return (
                       <span style={{ fontSize: 9, color: 'rgba(255,255,255,0.85)' }}>
-                        {rc.time}{cdText && <span style={{ color: cdGreen ? '#4ade80' : 'rgba(255,255,255,0.85)', fontWeight: cdGreen ? 700 : 400 }}>{cdText}</span>}
+                        {rc.time}{cdLabel && <span style={{ color: cdGreen ? '#4ade80' : 'rgba(255,255,255,0.85)', fontWeight: cdGreen ? 700 : 400 }}>{' ('}{cdLabel}{')'}</span>}
                       </span>
                     );
                   })()}
