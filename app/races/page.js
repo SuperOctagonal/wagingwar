@@ -228,12 +228,12 @@ function LeftRail({ allVenues, allRaces, selectedRaceKey, onSelect, trackConds, 
   const [openVenue, setOpenVenue] = useState(null);
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
-    const id = setInterval(() => setNow(Date.now()), 60000);
+    const id = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(id);
   }, []);
   const sidebarCountdown = rc => {
     const at = parseRaceTime(rc.time, rc.date);
-    return at ? Math.floor((at.getTime() - now) / 60000) : null;
+    return at ? Math.floor((at.getTime() - now) / 1000) : null;
   };
 
   const toggle = useCallback(venue => {
@@ -281,18 +281,26 @@ function LeftRail({ allVenues, allRaces, selectedRaceKey, onSelect, trackConds, 
                 >
                   <span style={{ fontSize: 9, fontWeight: 700 }}>R{rc.num}</span>
                   {rc.time && (() => {
-                    const mins = sidebarCountdown(rc);
-                    const fmtCd = m => {
-                      if (m < 60)   return `${m}m`;
-                      if (m < 1440) { const h = Math.floor(m/60), r = m%60; return r ? `${h}h ${r}m` : `${h}h`; }
-                      const d = Math.floor(m/1440), h = Math.floor((m%1440)/60);
-                      return h ? `${d}d ${h}h` : `${d}d`;
-                    };
-                    const cdLabel = mins === null ? null : mins <= 0 ? 'Off' : fmtCd(mins);
-                    const cdGreen = mins !== null && mins > 0 && mins <= 10;
+                    const secs = sidebarCountdown(rc);
+                    const base = <span style={{ fontSize: 9, color: 'rgba(255,255,255,0.85)' }}>{rc.time}</span>;
+                    if (secs === null) return base;
+                    let label, color, bold;
+                    if (secs > 0) {
+                      if (secs >= 86400) { const d=Math.floor(secs/86400),h=Math.floor((secs%86400)/3600); label=h?`${d}d ${h}h`:`${d}d`; }
+                      else if (secs >= 3600) { const h=Math.floor(secs/3600),m=Math.floor((secs%3600)/60); label=m?`${h}h ${m}m`:`${h}h`; }
+                      else { label=`${Math.ceil(secs/60)}m`; }
+                      bold  = secs <= 600;
+                      color = bold ? '#4ade80' : 'rgba(255,255,255,0.85)';
+                    } else if (secs >= -240) {
+                      const e=Math.abs(secs), m=Math.floor(e/60), s=e%60;
+                      label = m > 0 ? `-${m}m ${s}s` : `-${s}s`;
+                      color = '#f87171'; bold = true;
+                    } else {
+                      label = 'Off'; color = 'rgba(255,255,255,0.4)'; bold = false;
+                    }
                     return (
                       <span style={{ fontSize: 9, color: 'rgba(255,255,255,0.85)' }}>
-                        {rc.time}{cdLabel && <span style={{ color: cdGreen ? '#4ade80' : 'rgba(255,255,255,0.85)', fontWeight: cdGreen ? 700 : 400 }}>{' ('}{cdLabel}{')'}</span>}
+                        {rc.time}<span style={{ color, fontWeight: bold ? 700 : 400 }}>{' ('}{label}{')'}</span>
                       </span>
                     );
                   })()}
