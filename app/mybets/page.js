@@ -441,8 +441,8 @@ export default function MybetsPage() {
     });
   }, [user?.id]);
 
-  // Keep `now` fresh so countdown timers in the TIME column update
-  useEffect(() => { const id = setInterval(() => setNow(Date.now()), 30000); return () => clearInterval(id); }, []);
+  // Keep `now` fresh so countdown timers update (1s for live negative countdown)
+  useEffect(() => { const id = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(id); }, []);
 
   // Auto-flag pending bets as scratched if the horse appears in the scratchings table
   const scratchCheckRef = useRef(false);
@@ -808,24 +808,52 @@ export default function MybetsPage() {
   }, [ledgerFilteredBets, sortCol, sortDir, raceTimeMap]);
 
   const nextRaces = useMemo(() => {
-    if (!csvMeetings.length) return [];
-    const now = new Date();
-    const nowMins = now.getHours() * 60 + now.getMinutes();
-    const races = [];
-    for (const meeting of csvMeetings) {
-      for (const key of (csvVenues[meeting] || [])) {
-        const rc = csvRaces[key];
-        if (!rc) continue;
-        const timeMins = parseRaceTimeStr(rc.time);
-        if (timeMins === null || timeMins <= nowMins) continue;
-        const active = rc.horses.filter(h => !h.scratched);
-        if (!active.length) continue;
-        const top = [...active].sort((a, b) => (+a['BP'] || +a.tab || 99) - (+b['BP'] || +b.tab || 99))[0];
-        races.push({ meeting, raceNum: rc.num, timeMins, minsToJump: timeMins - nowMins, top });
-      }
-    }
-    return races.sort((a, b) => a.timeMins - b.timeMins).slice(0, 5);
-  }, [csvMeetings, csvVenues, csvRaces]);
+    const nowDate = new Date(now);
+    const nowMins = nowDate.getHours() * 60 + nowDate.getMinutes();
+    const nowSecs = nowDate.getSeconds();
+    return bets
+      .filter(b => b.date === todayISO)
+      .map(b => {
+        const t = raceTimeMap[b.id] || b.race_time;
+        const timeMins = parseRaceTimeStr(t);
+        if (timeMins === null) return null;
+        const secsToRace = (timeMins - nowMins) * 60 - nowSecs;
+        if (secsToRace < -240) return null;
+        const rawV = (b.track || b.venue || '').toUpperCase().trim();
+        const normed = BET_VENUE_NORMALISE[rawV] || rawV;
+        const abbr = normed.split(/\s+/).map(w => w.slice(0, 3)).join(' ');
+        return { id: b.id, horse: b.horse_name || '—', odds: b.odds, abbr, timeMins, secsToRace };
+      })
+      .filter(Boolean)
+      .sort((a, b) => a.timeMins - b.timeMins);
+  }, [bets, raceTimeMap, now, todayISO]);
+
+  const fmtPanelCd = secs => {
+    if (secs >= 3600) { const h=Math.floor(secs/3600),m=Math.floor((secs%3600)/60); return { text:m?`${h}h ${m}m`:`${h}h`, color:'#9ca3af', bold:false }; }
+    if (secs > 600)   return { text:`${Math.ceil(secs/60)}m`, color:'#9ca3af', bold:false };
+    if (secs > 0)     return { text:`${Math.ceil(secs/60)}m`, color:'#4ade80', bold:true };
+    const e=Math.abs(secs), m=Math.floor(e/60), s=e%60;
+    return { text:m>0?`-${m}m ${s}s`:`-${s}s`, color:'#f87171', bold:true };
+  };
+
+  const nextBetsPanel = (
+    <div>
+      <div style={{ fontSize:9, fontWeight:700, color:'#6b7280', textTransform:'uppercase', letterSpacing:'.06em', marginBottom:4 }}>Upcoming bets</div>
+      {nextRaces.length === 0 ? (
+        <div style={{ fontSize:10, color:'#9ca3af' }}>No upcoming bets today</div>
+      ) : nextRaces.map(r => {
+        const { text:cdText, color:cdColor, bold:cdBold } = fmtPanelCd(r.secsToRace);
+        return (
+          <div key={r.id} style={{ display:'flex', alignItems:'center', gap:6, padding:'3px 0', borderBottom:'1px solid #f3f4f6' }}>
+            <span style={{ fontSize:9, color:'#9ca3af', flexShrink:0, width:44, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{r.abbr}</span>
+            <span style={{ fontSize:10, fontWeight:600, color:'#111827', flex:1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{r.horse}</span>
+            {r.odds != null && <span style={{ fontSize:10, fontFamily:'monospace', color:'#374151', flexShrink:0 }}>${Number(r.odds).toFixed(1)}</span>}
+            <span style={{ fontSize:9, color:cdColor, fontWeight:cdBold?700:400, flexShrink:0 }}>{cdText}</span>
+          </div>
+        );
+      })}
+    </div>
+  );
 
   const leakFinderCards = useMemo(() => {
     if (resultedBets.length < 5) return [];
@@ -1105,26 +1133,7 @@ export default function MybetsPage() {
               {/* RIGHT: next races + leak finder */}
               <div style={{ flex: '0 1 280px', minWidth: 0, display: 'flex', flexDirection: 'column', padding: '8px 10px', gap: 12, background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, overflow: 'hidden' }}>
 
-                {/* Next races · top pick */}
-                <div>
-                  <div style={{ fontSize: 9, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 4 }}>Next races · top pick</div>
-                  {nextRaces.length === 0 ? (
-                    <div style={{ fontSize: 10, color: '#9ca3af' }}>Load a CSV on Races to see upcoming top picks</div>
-                  ) : nextRaces.map(r => (
-                    <div key={`${r.meeting}-${r.raceNum}`} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '3px 0', borderBottom: '1px solid #f3f4f6' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 4, minWidth: 0, flexShrink: 1, overflow: 'hidden' }}>
-                        <span style={{ fontSize: 9, color: '#6b7280', flexShrink: 0, width: 60, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.meeting} R{r.raceNum}</span>
-                        <span style={{ fontSize: 10, fontWeight: 600, color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.top?.name || '—'}</span>
-                      </div>
-                      <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 4 }}>
-                        {r.top?.rawOdds != null && <span style={{ fontSize: 10, fontFamily: 'monospace', color: '#374151' }}>${r.top.rawOdds.toFixed(1)}</span>}
-                        <span style={{ fontSize: 9, color: '#6b7280' }}>
-                          {r.minsToJump < 60 ? `${Math.round(r.minsToJump)}m` : `${Math.floor(r.minsToJump / 60)}h${r.minsToJump % 60 > 0 ? Math.round(r.minsToJump % 60) + 'm' : ''}`}
-                        </span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                {nextBetsPanel}
 
                 {/* Leak finder */}
                 <div>
@@ -1226,8 +1235,8 @@ export default function MybetsPage() {
                           <th onClick={mkSort('horse')} style={{ ...thBase, textAlign: 'left', position: 'sticky', left: 0, zIndex: 2, background: '#0D1C13' }}>
                             <div style={{ width: 94, whiteSpace: 'nowrap' }}>Horse{ind('horse')}</div>
                           </th>
-                          {[['Venue','left','venue'],['R#','right','race'],['Time','right','time'],['No','right','no'],['Stake','right','stake'],['Odds','right','odds'],['P&L','right','pnl'],['Result','right','result']].map(([h, align, col]) => (
-                            <th key={h} onClick={mkSort(col)} style={{ ...thBase, textAlign: align }}>{h}{ind(col)}</th>
+                          {[['Venue','left','venue',110],['R#','right','race',36],['Time','right','time',72],['No','right','no',30],['Stake','right','stake',54],['Odds','right','odds',54],['P&L','right','pnl',70],['Result','right','result',50]].map(([h, align, col, mw]) => (
+                            <th key={h} onClick={mkSort(col)} style={{ ...thBase, textAlign: align, minWidth: mw }}>{h}{ind(col)}</th>
                           ))}
                         </>);
                       })()}
@@ -1245,7 +1254,7 @@ export default function MybetsPage() {
                       const resultColor = pos === 1 ? '#4ade80' : (pos === 2 || pos === 3) ? '#60a5fa' : '#f87171';
                       const raceNum = b.race_number ?? b.race_num;
                       const venue = b.track || b.venue || '—';
-                      const cs = { border: '1px solid #1a3a25', padding: '5px 8px' };
+                      const cs = { border: '1px solid #1a3a25', padding: '5px 8px', whiteSpace: 'nowrap' };
                       return (
                         <tr key={b.id}>
                           <td style={{ ...cs, position: 'sticky', left: 0, zIndex: 1, background: '#11241A' }}>
@@ -1307,8 +1316,8 @@ export default function MybetsPage() {
                     <table style={{ borderCollapse: 'collapse', fontSize: 11 }}>
                       <thead style={{ position: 'sticky', top: 0, zIndex: 1 }}>
                         <tr style={{ background: '#0D1C13' }}>
-                          {[['Date','left','date'],['Venue','left','venue'],['R#','right','race'],['Time','right','time'],['No','right','no'],['Horse','left','horse'],['Stake','right','stake'],['Odds','right','odds'],['P&L','right','pnl'],['Result','right','result']].map(([h, align, col]) => (
-                            <th key={h} onClick={mkSort(col)} style={{ ...thBase, textAlign: align }}>{h}{ind(col)}</th>
+                          {[['Date','left','date',70],['Venue','left','venue',110],['R#','right','race',36],['Time','right','time',72],['No','right','no',30],['Horse','left','horse',140],['Stake','right','stake',54],['Odds','right','odds',54],['P&L','right','pnl',70],['Result','right','result',50]].map(([h, align, col, mw]) => (
+                            <th key={h} onClick={mkSort(col)} style={{ ...thBase, textAlign: align, minWidth: mw }}>{h}{ind(col)}</th>
                           ))}
                         </tr>
                       </thead>
@@ -1328,13 +1337,13 @@ export default function MybetsPage() {
                           const resultColor = pos === 1 ? '#4ade80' : (pos === 2 || pos === 3) ? '#60a5fa' : '#f87171';
                           const raceNum = b.race_number ?? b.race_num;
                           const venue = b.track || b.venue || '—';
-                          const cs = { border: '1px solid #1a3a25', padding: '5px 8px' };
+                          const cs = { border: '1px solid #1a3a25', padding: '5px 8px', whiteSpace: 'nowrap' };
                           return (
                             <tr key={b.id}
                               onMouseEnter={e => e.currentTarget.style.background = '#1a3a25'}
                               onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
-                              <td style={{ ...cs, color: '#fff', whiteSpace: 'nowrap' }}>{fmtDate(b.date)}</td>
-                              <td style={{ ...cs, color: '#fff', whiteSpace: 'nowrap' }}>{venue}</td>
+                              <td style={{ ...cs, color: '#fff' }}>{fmtDate(b.date)}</td>
+                              <td style={{ ...cs, color: '#fff' }}>{venue}</td>
                               <td style={{ ...cs, color: '#fff', textAlign: 'right' }}>{raceNum ? `R${raceNum}` : '—'}</td>
                               <td style={{ ...cs, color: '#fff', textAlign: 'right', fontFamily: 'monospace', whiteSpace: 'nowrap' }}>{(() => { const t = raceTimeMap[b.id] || b.race_time; if (!t) return '—'; if (isPending && b.date === todayISO) { const d = new Date(now); const rem = parseRaceTime(t) - (d.getHours() * 60 + d.getMinutes()); if (rem > 0 && isFinite(rem)) { const h = Math.floor(rem / 60); const m = rem % 60; const cd = h > 0 ? `${h}h${m > 0 ? m + 'm' : ''}` : `${m}m`; return <>{t} <span style={{ color: rem < 10 ? '#4ade80' : '#9ca3af', fontWeight: 700, fontSize: 9 }}>({cd})</span></>; } } return t; })()}</td>
                               <td style={{ ...cs, color: '#fff', textAlign: 'right' }}>{b.tab_no || b.horse_number || '—'}</td>
@@ -1576,25 +1585,7 @@ export default function MybetsPage() {
 
             {/* Next races + Leak finder */}
             <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, padding: '8px 10px', display: 'flex', flexDirection: 'column', gap: 12, overflow: 'auto' }}>
-              <div>
-                <div style={{ fontSize: 9, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 4 }}>Next races · top pick</div>
-                {nextRaces.length === 0 ? (
-                  <div style={{ fontSize: 10, color: '#9ca3af' }}>Load a CSV on Races to see upcoming top picks</div>
-                ) : nextRaces.map(r => (
-                  <div key={`${r.meeting}-${r.raceNum}`} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '3px 0', borderBottom: '1px solid #f3f4f6' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 4, minWidth: 0, flexShrink: 1, overflow: 'hidden' }}>
-                      <span style={{ fontSize: 9, color: '#6b7280', flexShrink: 0, width: 60, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.meeting} R{r.raceNum}</span>
-                      <span style={{ fontSize: 10, fontWeight: 600, color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.top?.name || '—'}</span>
-                    </div>
-                    <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 4 }}>
-                      {r.top?.rawOdds != null && <span style={{ fontSize: 10, fontFamily: 'monospace', color: '#374151' }}>${r.top.rawOdds.toFixed(1)}</span>}
-                      <span style={{ fontSize: 9, color: '#6b7280' }}>
-                        {r.minsToJump < 60 ? `${Math.round(r.minsToJump)}m` : `${Math.floor(r.minsToJump / 60)}h${r.minsToJump % 60 > 0 ? Math.round(r.minsToJump % 60) + 'm' : ''}`}
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
+              {nextBetsPanel}
               <div>
                 <div style={{ fontSize: 9, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 4 }}>Leak finder</div>
                 {leakFinderCards.length === 0 ? (
