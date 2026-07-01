@@ -1775,28 +1775,31 @@ function PaceMapView({ results, scratched, rc, trackCond, isPro, onUpgrade, scra
           ))}
         </div>
         {/* Column headers */}
-        <div className="flex items-center py-1 border-b border-gray-200 mb-1 text-[8px] font-bold text-gray-400 uppercase tracking-[0.4px]">
-          <div className="w-7" />
-          <div className="w-8 text-center">Bar</div>
-          <div className="w-36 pl-1.5">Horse</div>
-          <div className="w-16">Role</div>
+        <div className="flex items-center gap-2 py-1 border-b border-gray-200 mb-1 text-[8px] font-bold text-gray-400 uppercase tracking-[0.4px]" style={{ padding:'2px 6px' }}>
+          <div className="w-8 text-right flex-shrink-0">No</div>
+          <div className="w-6 text-center flex-shrink-0">Rank</div>
+          <div className="w-8 text-center flex-shrink-0">Bar</div>
+          <div className="w-36 pl-1 flex-shrink-0">Horse</div>
+          <div className="w-16 flex-shrink-0">Role</div>
           <div className="flex-1">Pace score</div>
-          <div className="w-7 text-right">%</div>
-          <div className="w-20 text-right pr-1 border-l border-gray-100 ml-2">Edge$ / SP</div>
+          <div className="w-7 text-right flex-shrink-0">%</div>
+          <div className="w-20 text-right pr-1 border-l border-gray-100 ml-2 flex-shrink-0">Edge$ / SP</div>
         </div>
         {byBarrier.map(h => {
           if (!h.pm) return null;
-          const bp = h['BP'] || h.BP || h.tab || '—';
+          const bp = h['BP'] ?? h.BP ?? '—';
           const myO = h.myOdds ? `$${formatRacingOdds(h.myOdds)}` : '—';
           const spO = h.rawOdds ? `$${formatRacingOdds(h.rawOdds)}` : '—';
           const rkBg = h.systemRank===1?'#fbbf24':h.systemRank===2?'#d1d5db':h.systemRank===3?'#cd7f32':'#f3f4f6';
           const rkColor2 = h.systemRank<=3?'#374151':'#9ca3af';
           return (
             <div key={h.tab||h.name} className="flex items-center gap-2 border-b border-gray-50" style={{ padding:'3px 6px' }}>
+              <div className="w-8 flex-shrink-0 text-right">
+                <span style={{ fontSize:9, color:'#6b7280', fontWeight:600 }}>{h.tab||'—'}</span>
+              </div>
               <div className="w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-bold flex-shrink-0"
                 style={{ background: rkBg, color: rkColor2 }}>{h.systemRank}</div>
-              <div className="w-14 flex-shrink-0 flex items-center justify-center gap-1">
-                <span style={{ fontSize:9, color:'#6b7280', fontWeight:600, minWidth:12, textAlign:'right' }}>{h.tab||'—'}</span>
+              <div className="w-8 flex-shrink-0 text-center">
                 <span className="bg-blue-800 text-white text-[9px] font-bold px-1.5 py-[2px] rounded">{bp}</span>
               </div>
               <div className="w-36 flex-shrink-0 overflow-hidden">
