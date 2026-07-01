@@ -1495,7 +1495,10 @@ function FormCard({ runner: r, rank, onLogBet, isResulted, rc, isPro, onUpgrade,
   const winDists = Array.isArray(r.winDists) ? r.winDists.join(', ') : (r.winDists || '');
   const rfs     = r.rfs || 0;
 
-  const careerPrizeFmt = r['Career Prizemoney'] ? `$${Math.round(r['Career Prizemoney']).toLocaleString('en-AU')}` : null;
+  const avgPrize      = r['Average Prizemoney'];
+  const avgPrizeFmt   = avgPrize ? `$${Math.round(avgPrize).toLocaleString('en-AU')}` : null;
+  const estCareer     = avgPrize && r.starts ? Math.round(avgPrize * r.starts) : null;
+  const estCareerFmt  = estCareer ? `$${estCareer.toLocaleString('en-AU')}` : null;
 
   const rankBg  = rank===1?'#fbbf24':rank===2?'#d1d5db':rank===3?'#cd7f32':'#4b5563';
   const rankTxt = rank<=3?'#78350f':'#fff';
@@ -1592,7 +1595,12 @@ function FormCard({ runner: r, rank, onLogBet, isResulted, rc, isPro, onUpgrade,
                 🔖 Blackbook
               </button>
             </div>
-            {careerPrizeFmt && <div style={{ fontSize:9, color:'rgba(255,255,255,0.55)' }}>Career Prize: {careerPrizeFmt}</div>}
+            {(avgPrizeFmt || estCareerFmt) && (
+              <div style={{ fontSize:9, color:'rgba(255,255,255,0.55)', display:'flex', gap:8 }}>
+                {avgPrizeFmt  && <span>Avg Prize: {avgPrizeFmt}</span>}
+                {estCareerFmt && <span>Est. Career Prize: {estCareerFmt}</span>}
+              </div>
+            )}
           </div>
         </div>
         {/* Row 2: breeding */}
