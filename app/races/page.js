@@ -1795,7 +1795,8 @@ function PaceMapView({ results, scratched, rc, trackCond, isPro, onUpgrade, scra
             <div key={h.tab||h.name} className="flex items-center gap-2 border-b border-gray-50" style={{ padding:'3px 6px' }}>
               <div className="w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-bold flex-shrink-0"
                 style={{ background: rkBg, color: rkColor2 }}>{h.systemRank}</div>
-              <div className="w-8 flex-shrink-0 text-center">
+              <div className="w-14 flex-shrink-0 flex items-center justify-center gap-1">
+                <span style={{ fontSize:9, color:'#6b7280', fontWeight:600, minWidth:12, textAlign:'right' }}>{h.tab||'—'}</span>
                 <span className="bg-blue-800 text-white text-[9px] font-bold px-1.5 py-[2px] rounded">{bp}</span>
               </div>
               <div className="w-36 flex-shrink-0 overflow-hidden">

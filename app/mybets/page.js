@@ -364,8 +364,8 @@ export default function MybetsPage() {
   const [refreshing,       setRefreshing]       = useState(false);
   const [racePopup,        setRacePopup]        = useState(null);
   const [racePopupData,    setRacePopupData]    = useState([]);
-  const [sortCol,          setSortCol]          = useState('date');
-  const [sortDir,          setSortDir]          = useState('desc');
+  const [sortCol,          setSortCol]          = useState('time');
+  const [sortDir,          setSortDir]          = useState('asc');
   const [dateRange,        setDateRange]        = useState('today');
   const [customStart,      setCustomStart]      = useState('');
   const [customEnd,        setCustomEnd]        = useState('');
@@ -443,6 +443,12 @@ export default function MybetsPage() {
 
   // Keep `now` fresh so countdown timers update (1s for live negative countdown)
   useEffect(() => { const id = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(id); }, []);
+
+  // Reset sort to sensible default when switching date ranges
+  useEffect(() => {
+    if (dateRange === 'today') { setSortCol('time'); setSortDir('asc'); }
+    else { setSortCol('date'); setSortDir('desc'); }
+  }, [dateRange]);
 
   // Auto-flag pending bets as scratched if the horse appears in the scratchings table
   const scratchCheckRef = useRef(false);
