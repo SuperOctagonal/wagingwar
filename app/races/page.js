@@ -895,7 +895,7 @@ function BetModal({ horse, onClose }) {
     setToast(dbSuccess ? 'success' : 'error');
     if (dbSuccess) {
       window.dispatchEvent(new Event('ww:profile:refresh'));
-      setTimeout(() => { onClose(); router.push('/mybets'); }, 1500);
+      setTimeout(() => onClose(), 1500);
     } else {
       setTimeout(() => setToast(null), 3000);
     }

@@ -136,7 +136,8 @@ export default function CompetitionsPage() {
   const [csvRaces, setCsvRaces] = useState(null);
   const [picks, setPicks] = useState({});
   const [savingKey, setSavingKey] = useState(null);
-  const [allPicksData, setAllPicksData] = useState([]);
+  const [popularData, setPopularData] = useState([]);   // rows from comp_picks_popular view
+  const [allPicksData, setAllPicksData] = useState([]); // raw rows for leaderboard
   const [results, setResults] = useState({});
   const [scratchings, setScratchings] = useState(new Set());
   const [allTimePoints, setAllTimePoints] = useState(null);
@@ -158,23 +159,23 @@ export default function CompetitionsPage() {
     return m;
   }, [compRaces]);
 
+  // Built from comp_picks_popular aggregate view — no client-side counting
   const popularPicks = useMemo(() => {
-    const counts = {};
-    allPicksData.forEach(r => {
+    const grouped = {};
+    popularData.forEach(r => {
       const key = rk(r.venue, r.race_num);
-      if (!counts[key]) counts[key] = {};
-      counts[key][r.horse_name] = (counts[key][r.horse_name] || 0) + 1;
+      if (!grouped[key]) grouped[key] = [];
+      grouped[key].push({ horse: r.horse_name, count: +r.pick_count });
     });
     const out = {};
-    for (const [key, hc] of Object.entries(counts)) {
-      const total = Object.values(hc).reduce((s, c) => s + c, 0);
-      out[key] = Object.entries(hc)
-        .map(([horse, count]) => ({ horse, count, pct: Math.round(count / total * 100) }))
+    for (const [key, entries] of Object.entries(grouped)) {
+      const total = entries.reduce((s, e) => s + e.count, 0);
+      out[key] = entries
+        .map(e => ({ horse: e.horse, count: e.count, pct: Math.round(e.count / total * 100), total }))
         .sort((a, b) => b.count - a.count);
-      out[key]._total = total;
     }
     return out;
-  }, [allPicksData]);
+  }, [popularData]);
 
   const todayLeaderboard = useMemo(() => {
     const um = {};
@@ -285,7 +286,7 @@ export default function CompetitionsPage() {
 
   useEffect(() => {
     if (!user?.id || !SURL || !SKEY) return;
-    sbFetch(`comp_picks?clerk_id=eq.${encodeURIComponent(user.id)}&comp_date=eq.${today}&select=venue,race_num,horse_name`)
+    sbFetch(`comp_picks?clerk_id=eq.${encodeURIComponent(user.id)}&date=eq.${today}&select=venue,race_num,horse_name`)
       .then(rows => {
         if (!Array.isArray(rows)) return;
         const p = {};
@@ -297,11 +298,11 @@ export default function CompetitionsPage() {
   useEffect(() => {
     if (!SURL || !SKEY) return;
     function load() {
-      sbFetch(`race_results?date=eq.${today}&finish_pos=eq.1&select=venue,race_num,horse_name`)
+      sbFetch(`comp_results?date=eq.${today}&select=venue,race_num,winner`)
         .then(rows => {
           if (!Array.isArray(rows)) return;
           const m = {};
-          rows.forEach(r => { m[rk(r.venue, r.race_num)] = r.horse_name; });
+          rows.forEach(r => { m[rk(r.venue, r.race_num)] = r.winner; });
           setResults(m);
         });
     }
@@ -312,18 +313,27 @@ export default function CompetitionsPage() {
 
   useEffect(() => {
     if (!SURL || !SKEY) return;
-    sbFetch(`scratchings?date=eq.${today}&select=venue,race_num,horse_name`).then(rows => {
-      if (!Array.isArray(rows)) return;
-      const s = new Set();
-      rows.forEach(r => { s.add(`${rk(r.venue, r.race_num)}||${(r.horse_name || '').toUpperCase()}`); });
-      setScratchings(s);
-    });
+    function loadScr() {
+      sbFetch(`scratchings?date=eq.${today}&select=venue,race_num,horse_name`).then(rows => {
+        if (!Array.isArray(rows)) return;
+        const s = new Set();
+        rows.forEach(r => { s.add(`${rk(r.venue, r.race_num)}||${(r.horse_name || '').toUpperCase()}`); });
+        setScratchings(s);
+      });
+    }
+    loadScr();
+    const id = setInterval(loadScr, 60000);
+    return () => clearInterval(id);
   }, [today]);
 
   useEffect(() => {
     if (!SURL || !SKEY) return;
     function loadAll() {
-      sbFetch(`comp_picks?comp_date=eq.${today}&select=clerk_id,username,venue,race_num,horse_name`)
+      // Aggregate view for popularity %
+      sbFetch(`comp_picks_popular?date=eq.${today}&select=venue,race_num,horse_name,pick_count`)
+        .then(rows => { if (Array.isArray(rows)) setPopularData(rows); });
+      // Full rows for leaderboard computation
+      sbFetch(`comp_picks?date=eq.${today}&select=clerk_id,username,venue,race_num,horse_name`)
         .then(rows => { if (Array.isArray(rows)) setAllPicksData(rows); });
     }
     loadAll();
@@ -355,7 +365,7 @@ export default function CompetitionsPage() {
     await sbFetch('comp_picks', {
       method: 'POST',
       prefer: 'resolution=merge-duplicates,return=minimal',
-      body: { clerk_id: user.id, comp_date: today, venue: nv(race.venue), race_num: +race.num, horse_name: horseName, username: uname },
+      body: { clerk_id: user.id, date: today, venue: nv(race.venue), race_num: +race.num, horse_name: horseName, username: uname },
     });
     setSavingKey(null);
   }
@@ -443,7 +453,7 @@ export default function CompetitionsPage() {
             {topPop ? (
               <div>
                 <div style={{ fontSize: 11, fontWeight: 600, color: '#111827', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 120 }}>{topPop.horse}</div>
-                <div style={{ fontSize: 9, color: '#6b7280', marginTop: 1 }}>{topPop.pct}% of {popular._total || popular.reduce((s, p) => s + p.count, 0)} picks</div>
+                <div style={{ fontSize: 9, color: '#6b7280', marginTop: 1 }}>{topPop.pct}% of {topPop.total} picks</div>
               </div>
             ) : (
               <span style={{ fontSize: 10, color: '#d1d5db' }}>No picks yet</span>
