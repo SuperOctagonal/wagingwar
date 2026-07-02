@@ -516,7 +516,7 @@ export default function MybetsPage() {
   // Fetch race date from today_meetings so Quick Log uses the correct betting date
   useEffect(() => {
     sbFetch('today_meetings?select=date&limit=1').then(data => {
-      if (Array.isArray(data) && data.length > 0 && data[0].date) {
+      if (Array.isArray(data) && data.length > 0 && data[0].date === todayISO) {
         setRaceDate(data[0].date);
       }
     });
@@ -609,7 +609,7 @@ export default function MybetsPage() {
 
     const insertBody = {
       clerk_id:    user.id,
-      date:        raceDate || todayISO,
+      date:        todayISO,
       horse_name:  qlHorse.trim(),
       track:       normVenue,
       venue:       normVenue,
