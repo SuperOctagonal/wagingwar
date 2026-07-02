@@ -1,538 +1,772 @@
 'use client';
-import { useState, useEffect } from 'react';
+
+import { useState, useEffect, useMemo } from 'react';
 import { useUser } from '@clerk/nextjs';
-import ProfileRail from '@/components/ProfileRail';
 import useIsPro from '@/hooks/useIsPro';
-import useIsMobile from '@/hooks/useIsMobile';
-import UpgradeModal from '@/components/UpgradeModal';
-import {
-  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  BarChart, Bar, Cell,
-} from 'recharts';
 
 const SURL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SKEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+const G   = '#00471b';
+const RED = '#dc2626';
+const MONO = { fontFamily: 'ui-monospace,SFMono-Regular,monospace', fontFeatureSettings: '"tnum"' };
 
-const G  = '#1D9E75';
-const DG = '#1B4332';
-const R  = '#E24B4A';
+async function sbFetch(path) {
+  if (!SURL || !SKEY) return null;
+  try {
+    const res = await fetch(`${SURL}/rest/v1/${path}`, {
+      headers: { 'Content-Type': 'application/json', apikey: SKEY, Authorization: `Bearer ${SKEY}` },
+    });
+    if (!res.ok) return null;
+    const t = await res.text();
+    return t ? JSON.parse(t) : null;
+  } catch { return null; }
+}
 
-// ─── helpers ──────────────────────────────────────────────────────────────────
+function aestToday() {
+  return new Date().toLocaleDateString('sv-SE', { timeZone: 'Australia/Brisbane' });
+}
 
-function groupBy(bets, fn) {
-  const m = {};
-  for (const b of bets) {
-    const k = fn(b);
-    if (k == null) continue;
-    if (!m[k]) m[k] = [];
-    m[k].push(b);
+function startOfRange(range) {
+  if (range === '90d') {
+    const d = new Date(aestToday()); d.setDate(d.getDate() - 89);
+    return d.toISOString().slice(0, 10);
   }
-  return m;
-}
-
-function gStats(bets) {
-  if (!bets.length) return { bets: 0, wins: 0, strike: 0, staked: 0, ret: 0, pl: 0, roi: null };
-  const wins   = bets.filter(b => (b.return_amt || 0) > (b.stake || 0)).length;
-  const staked = bets.reduce((s, b) => s + (b.stake || 0), 0);
-  const ret    = bets.reduce((s, b) => s + (b.return_amt || 0), 0);
-  const pl     = ret - staked;
-  return { bets: bets.length, wins, strike: wins / bets.length * 100, staked, ret, pl, roi: staked > 0 ? pl / staked * 100 : null };
-}
-
-function oddsRange(o) {
-  if (o == null) return null;
-  if (o < 2)    return '$1–$2';
-  if (o < 3.5)  return '$2–$3.50';
-  if (o < 6)    return '$3.50–$6';
-  if (o < 10)   return '$6–$10';
-  if (o < 20)   return '$10–$20';
-  return '$20+';
-}
-
-const ODDS_ORDER  = ['$1–$2','$2–$3.50','$3.50–$6','$6–$10','$10–$20','$20+'];
-const ODDS_GROUPS = ['Low ($1–$3.50)', 'Mid ($3.50–$10)', 'High ($10+)'];
-const RANK_GROUPS = ['1', '2', '3+'];
-const DAYS        = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
-
-function calcAll(settled) {
-  if (!settled.length) return null;
-  const totalBets   = settled.length;
-  const wins        = settled.filter(b => (b.return_amt || 0) > (b.stake || 0));
-  const totalWins   = wins.length;
-  const strikeRate  = totalWins / totalBets * 100;
-  const totalStaked = settled.reduce((s, b) => s + (b.stake || 0), 0);
-  const totalReturn = settled.reduce((s, b) => s + (b.return_amt || 0), 0);
-  const totalPL     = totalReturn - totalStaked;
-  const roi         = totalStaked > 0 ? totalPL / totalStaked * 100 : 0;
-  const avgOdds     = settled.reduce((s, b) => s + (b.odds || 0), 0) / totalBets;
-  const avgStake    = totalStaked / totalBets;
-  const unitsPL     = avgStake > 0 ? totalPL / avgStake : 0;
-
-  const clvBets = settled.filter(b => b.live_odds != null && b.odds != null);
-  const clv     = clvBets.length > 0
-    ? clvBets.reduce((s, b) => s + (b.odds - b.live_odds), 0) / clvBets.length
-    : null;
-
-  // current streak (most-recent first)
-  const byDate = [...settled].sort((a, b) => (b.date || '') > (a.date || '') ? 1 : -1);
-  let streak = 0, streakType = null;
-  for (const b of byDate) {
-    const w = (b.return_amt || 0) > (b.stake || 0);
-    if (streakType === null) { streakType = w ? 'W' : 'L'; streak = 1; }
-    else if ((w && streakType === 'W') || (!w && streakType === 'L')) streak++;
-    else break;
+  if (range === 'month') {
+    const t = new Date(aestToday());
+    return `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}-01`;
   }
-
-  // worst drawdown
-  const asc = [...byDate].reverse();
-  let maxDD = 0, curDD = 0;
-  for (const b of asc) {
-    if ((b.return_amt || 0) <= (b.stake || 0)) { curDD++; maxDD = Math.max(maxDD, curDD); }
-    else curDD = 0;
-  }
-
-  return { totalBets, totalWins, strikeRate, totalStaked, totalReturn, totalPL, roi, avgOdds, avgStake, unitsPL, clv, streak, streakType, worstDD: maxDD };
+  return null;
 }
 
-// ─── sub-components ───────────────────────────────────────────────────────────
+function betPnl(b) {
+  if (b.status === 'won') return +(+b.stake * (+b.odds - 1)).toFixed(2);
+  if (b.status === 'lost') return -(+b.stake);
+  return 0;
+}
 
-function StatCard({ label, val, color, sub, tooltip }) {
+function roi(pnl, staked) { return staked > 0 ? pnl / staked * 100 : 0; }
+
+function fmt$(n) {
+  const abs = Math.abs(n);
+  const s = abs >= 1000 ? `$${(abs / 1000).toFixed(1)}k` : `$${abs.toFixed(0)}`;
+  return n >= 0 ? `+${s}` : `-${s}`;
+}
+function fmtPct(n) { return `${n >= 0 ? '+' : ''}${n.toFixed(1)}%`; }
+
+function maxDrawdown(sorted) {
+  let peak = 0, cum = 0, dd = 0;
+  for (const b of sorted) {
+    cum += betPnl(b);
+    if (cum > peak) peak = cum;
+    const d = peak - cum;
+    if (d > dd) dd = d;
+  }
+  return -dd;
+}
+
+function kellyPct(winRate, decOdds) {
+  const b = decOdds - 1;
+  return b > 0 ? Math.max(0, (winRate * b - (1 - winRate)) / b * 100) : 0;
+}
+
+function rankBucket(r) {
+  const n = +(r || 0);
+  if (!n) return null;
+  if (n <= 2) return 'R1-2';
+  if (n <= 4) return 'R3-4';
+  return 'R5+';
+}
+
+function oddsBucket(o) {
+  const n = +o;
+  if (n < 4) return '$2-4';
+  if (n < 8) return '$4-8';
+  if (n < 15) return '$8-15';
+  return '$15+';
+}
+
+function heatBg(roiV, n) {
+  if (!n || n < 3) return '#f3f4f6';
+  if (roiV > 25) return '#14532d';
+  if (roiV > 10) return '#166534';
+  if (roiV > 0)  return '#4ade80';
+  if (roiV > -10) return '#fca5a5';
+  if (roiV > -25) return '#ef4444';
+  return '#991b1b';
+}
+function heatFg(roiV, n) {
+  if (!n || n < 3) return '#9ca3af';
+  return (roiV > 0 || Math.abs(roiV) > 10) ? '#fff' : '#111';
+}
+
+function aggGroup(bets) {
+  const settled = bets.filter(b => b.status === 'won' || b.status === 'lost');
+  const won = settled.filter(b => b.status === 'won');
+  const staked = settled.reduce((s, b) => s + +b.stake, 0);
+  const pnl = settled.reduce((s, b) => s + betPnl(b), 0);
+  return {
+    n: settled.length, wins: won.length, staked, pnl,
+    roi: roi(pnl, staked),
+    sr: settled.length > 0 ? won.length / settled.length * 100 : 0,
+  };
+}
+
+function Card({ title, children, style }) {
   return (
-    <div title={tooltip || ''} style={{ background: '#f9fafb', borderRadius: 8, padding: '12px 10px', cursor: tooltip ? 'help' : 'default' }}>
-      <div style={{ fontSize: 20, fontWeight: 800, color: color || '#111827', lineHeight: 1, marginBottom: 3 }}>{val}</div>
-      <div style={{ fontSize: 9, fontWeight: 700, color: '#374151', textTransform: 'uppercase', letterSpacing: '0.4px' }}>{label}</div>
-      {sub && <div style={{ fontSize: 9, color: '#9ca3af', marginTop: 2 }}>{sub}</div>}
+    <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, padding: '16px 20px', ...style }}>
+      {title && (
+        <div style={{ fontSize: 11, fontWeight: 700, color: '#6b7280', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 12 }}>
+          {title}
+        </div>
+      )}
+      {children}
     </div>
   );
 }
 
-function BreakdownTable({ rows, isMobile }) {
-  if (!rows.length) return <div style={{ padding: '20px', fontSize: 12, color: '#9ca3af', textAlign: 'center' }}>No data</div>;
-  const bestROI = Math.max(...rows.map(r => r.roi ?? -Infinity));
-
-  if (isMobile) {
-    return (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: '8px 0' }}>
-        {rows.map(r => (
-          <div key={r.cat} style={{ background: r.roi === bestROI && r.roi != null ? '#f0fdf4' : '#f9fafb', borderRadius: 8, padding: '10px 12px', borderLeft: r.roi === bestROI && r.roi != null ? `3px solid ${G}` : '3px solid transparent' }}>
-            <div style={{ fontSize: 12, fontWeight: 700, color: '#111827', marginBottom: 6 }}>{r.cat}</div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '4px 6px' }}>
-              {[
-                { label: 'Bets',   val: String(r.bets),                                                                           color: '#374151' },
-                { label: 'Wins',   val: String(r.wins),                                                                           color: '#374151' },
-                { label: 'Strike', val: r.bets > 0 ? r.strike.toFixed(1) + '%' : '—',                                            color: '#374151' },
-                { label: 'Staked', val: `$${r.staked.toFixed(0)}`,                                                                color: '#374151' },
-                { label: 'P&L',    val: `${r.pl >= 0 ? '+' : ''}$${r.pl.toFixed(2)}`,                                            color: r.pl >= 0 ? '#059669' : R },
-                { label: 'ROI',    val: r.roi != null ? `${r.roi >= 0 ? '+' : ''}${r.roi.toFixed(1)}%` : '—',                    color: r.roi != null ? (r.roi >= 0 ? '#059669' : R) : '#9ca3af' },
-              ].map(item => (
-                <div key={item.label}>
-                  <div style={{ fontSize: 8, color: '#9ca3af', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.3px' }}>{item.label}</div>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: item.color }}>{item.val}</div>
-                </div>
-              ))}
-            </div>
-          </div>
-        ))}
-      </div>
-    );
-  }
-
-  const th = { fontSize: 9, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', padding: '0 8px 8px', textAlign: 'right', letterSpacing: '0.4px', whiteSpace: 'nowrap' };
-  const td = { fontSize: 11, padding: '7px 8px', textAlign: 'right', color: '#374151' };
-  return (
-    <div style={{ overflowX: 'auto' }}>
-      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-        <thead>
-          <tr>
-            <th style={{ ...th, textAlign: 'left' }}>Category</th>
-            <th style={th}>Bets</th>
-            <th style={th}>Wins</th>
-            <th style={th}>Strike%</th>
-            <th style={th}>Staked</th>
-            <th style={th}>P&amp;L</th>
-            <th style={th}>ROI%</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map(r => (
-            <tr key={r.cat} style={{ borderLeft: r.roi === bestROI && r.roi != null ? `3px solid ${G}` : '3px solid transparent', background: r.roi === bestROI && r.roi != null ? '#f0fdf4' : 'transparent', borderBottom: '0.5px solid #f3f4f6' }}>
-              <td style={{ ...td, textAlign: 'left', fontWeight: 600 }}>{r.cat}</td>
-              <td style={td}>{r.bets}</td>
-              <td style={td}>{r.wins}</td>
-              <td style={td}>{r.bets > 0 ? r.strike.toFixed(1) + '%' : '—'}</td>
-              <td style={td}>${r.staked.toFixed(0)}</td>
-              <td style={{ ...td, color: r.pl >= 0 ? '#059669' : R, fontWeight: 700 }}>{r.pl >= 0 ? '+' : ''}${r.pl.toFixed(2)}</td>
-              <td style={{ ...td, color: r.roi != null ? (r.roi >= 0 ? '#059669' : R) : '#9ca3af', fontWeight: 700 }}>{r.roi != null ? `${r.roi >= 0 ? '+' : ''}${r.roi.toFixed(1)}%` : '—'}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
+function EmptyState({ msg }) {
+  return <div style={{ fontSize: 12, color: '#9ca3af', padding: '12px 0', textAlign: 'center' }}>{msg}</div>;
 }
 
-// ─── page ─────────────────────────────────────────────────────────────────────
+const RANKS_HEAT = ['R1-2', 'R3-4', 'R5+'];
+const ODDS_HEAT  = ['$2-4', '$4-8', '$8-15', '$15+'];
 
 export default function InsightsPage() {
-  const { user } = useUser();
-  const userId   = user?.id || null;
-  const isPro    = useIsPro();
-  const isMobile = useIsMobile();
-  const [upgradeOpen, setUpgradeOpen] = useState(false);
-  const [allBets,     setAllBets]     = useState([]);
-  const [loading,     setLoading]     = useState(true);
-  const [activeTab,   setActiveTab]   = useState('rank');
+  const { user, isLoaded } = useUser();
+  const isPro = useIsPro();
+  const [bets, setBets] = useState([]);
+  const [results, setResults] = useState([]);
+  const [userSettings, setUserSettings] = useState({});
+  const [range, setRange] = useState('all');
+  const [sortVenue, setSortVenue] = useState('roi');
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!userId) { setLoading(false); return; }
-    if (!SURL || !SKEY) { setLoading(false); return; }
-    fetch(`${SURL}/rest/v1/bet_log?select=*&user_id=eq.${userId}&order=date.asc`, {
-      headers: { apikey: SKEY, Authorization: `Bearer ${SKEY}` },
-    })
-      .then(r => r.ok ? r.json() : [])
-      .then(d => { setAllBets(d || []); setLoading(false); })
-      .catch(() => setLoading(false));
-  }, [userId]);
+    if (!user?.id || !isPro) return;
+    setLoading(true);
+    Promise.all([
+      sbFetch(`bet_log?clerk_id=eq.${encodeURIComponent(user.id)}&select=*&order=date.asc,created_at.asc`),
+      sbFetch(`user_settings?clerk_id=eq.${encodeURIComponent(user.id)}&select=settings`),
+    ]).then(([betRows, settingRows]) => {
+      setBets(betRows || []);
+      setUserSettings(settingRows?.[0]?.settings || {});
+      setLoading(false);
+    });
+  }, [user?.id, isPro]);
 
-  // ── gate ──────────────────────────────────────────────────────────────────
+  useEffect(() => {
+    if (!bets.length) return;
+    const dates = [...new Set(bets.map(b => b.date).filter(Boolean))];
+    if (!dates.length) return;
+    sbFetch(`race_results?date=in.(${dates.join(',')})&select=date,venue,race_num,sp,winner`).then(rows => {
+      setResults(rows || []);
+    });
+  }, [bets]);
 
-  if (isPro === false) {
+  const filteredBets = useMemo(() => {
+    const start = startOfRange(range);
+    return start ? bets.filter(b => b.date >= start) : bets;
+  }, [bets, range]);
+
+  const settled = useMemo(() => filteredBets.filter(b => b.status === 'won' || b.status === 'lost'), [filteredBets]);
+  const wins    = useMemo(() => settled.filter(b => b.status === 'won'), [settled]);
+
+  const resultMap = useMemo(() => {
+    const m = {};
+    results.forEach(r => { m[`${r.date}||${(r.venue || '').toUpperCase().trim()}||${r.race_num}`] = r; });
+    return m;
+  }, [results]);
+
+  // ─── hero ────────────────────────────────────────────────────────────────────
+  const hero = useMemo(() => {
+    const staked = settled.reduce((s, b) => s + +b.stake, 0);
+    const pnl    = settled.reduce((s, b) => s + betPnl(b), 0);
+    const sr     = settled.length > 0 ? wins.length / settled.length * 100 : 0;
+    const avgOdds = settled.length > 0 ? settled.reduce((s, b) => s + +b.odds, 0) / settled.length : 0;
+    const clvBets = settled.filter(b => {
+      const r = resultMap[`${b.date}||${(b.venue||'').toUpperCase().trim()}||${b.race_num}`];
+      return r?.sp && +r.sp > 0;
+    });
+    const avgClv = clvBets.length > 0
+      ? clvBets.reduce((s, b) => {
+          const r = resultMap[`${b.date}||${(b.venue||'').toUpperCase().trim()}||${b.race_num}`];
+          return s + (+b.odds - +r.sp) / +r.sp * 100;
+        }, 0) / clvBets.length
+      : null;
+    return { pnl, roi: roi(pnl, staked), sr, avgClv, avgOdds, dd: maxDrawdown(settled), n: settled.length };
+  }, [settled, wins, resultMap]);
+
+  // ─── ai insight ──────────────────────────────────────────────────────────────
+  const aiInsight = useMemo(() => {
+    if (settled.length < 5) return null;
+    const zones = {};
+    settled.forEach(b => {
+      const rank = b.model_rank ? (+(b.model_rank) <= 2 ? 'R1-2' : +(b.model_rank) <= 4 ? 'R3-4' : 'R5+') : null;
+      const cond = (b.track_condition || '').trim() || null;
+      if (!rank || !cond) return;
+      const k = `${rank}__${cond}`;
+      if (!zones[k]) zones[k] = [];
+      zones[k].push(b);
+    });
+    let bestKey = null, bestRoi = -Infinity, worstKey = null, worstRoi = Infinity;
+    Object.entries(zones).forEach(([k, bs]) => {
+      const g = aggGroup(bs);
+      if (bs.length >= 10 && g.roi > bestRoi) { bestRoi = g.roi; bestKey = k; }
+      if (bs.length >= 5  && g.roi < worstRoi) { worstRoi = g.roi; worstKey = k; }
+    });
+    return {
+      bestParts: bestKey ? bestKey.split('__') : [],
+      bestRoi, bestN: bestKey ? zones[bestKey].length : 0,
+      worstParts: worstKey ? worstKey.split('__') : [],
+      worstRoi, worstN: worstKey ? zones[worstKey].length : 0,
+    };
+  }, [settled]);
+
+  // ─── clv by rank ─────────────────────────────────────────────────────────────
+  const clvByRank = useMemo(() => {
+    return ['R1', 'R2', 'R3+', 'All'].map(label => {
+      const bs = settled.filter(b => {
+        const r = resultMap[`${b.date}||${(b.venue||'').toUpperCase().trim()}||${b.race_num}`];
+        if (!r?.sp || +r.sp <= 0) return false;
+        const mr = +(b.model_rank || 99);
+        if (label === 'R1')  return mr === 1;
+        if (label === 'R2')  return mr === 2;
+        if (label === 'R3+') return mr >= 3;
+        return true;
+      });
+      if (!bs.length) return { label, avgClv: 0, beatPct: 0, n: 0 };
+      const vals = bs.map(b => {
+        const r = resultMap[`${b.date}||${(b.venue||'').toUpperCase().trim()}||${b.race_num}`];
+        return (+b.odds - +r.sp) / +r.sp * 100;
+      });
+      return {
+        label,
+        avgClv: vals.reduce((s, v) => s + v, 0) / vals.length,
+        beatPct: vals.filter(v => v > 0).length / vals.length * 100,
+        n: bs.length,
+      };
+    });
+  }, [settled, resultMap]);
+
+  // ─── roi by rank ─────────────────────────────────────────────────────────────
+  const roiByRank = useMemo(() => ['R1','R2','R3','R4+'].map(label => {
+    const bs = settled.filter(b => {
+      const mr = +(b.model_rank || 99);
+      if (label === 'R1')  return mr === 1;
+      if (label === 'R2')  return mr === 2;
+      if (label === 'R3')  return mr === 3;
+      return mr >= 4;
+    });
+    return { label, ...aggGroup(bs) };
+  }), [settled]);
+
+  // ─── edge heatmap ────────────────────────────────────────────────────────────
+  const edgeMap = useMemo(() => {
+    const grid = {};
+    RANKS_HEAT.forEach(rk => ODDS_HEAT.forEach(ob => { grid[`${rk}||${ob}`] = []; }));
+    settled.forEach(b => {
+      const rb = rankBucket(b.model_rank);
+      const ob = oddsBucket(b.odds);
+      if (rb && ob && grid[`${rb}||${ob}`] !== undefined) grid[`${rb}||${ob}`].push(b);
+    });
+    return grid;
+  }, [settled]);
+
+  // ─── track conditions ────────────────────────────────────────────────────────
+  const condData = useMemo(() => ['Good','Soft','Heavy','Synthetic'].map(c => {
+    const bs = settled.filter(b => (b.track_condition || '').toLowerCase().includes(c.toLowerCase()));
+    return { label: c, ...aggGroup(bs) };
+  }), [settled]);
+
+  // ─── kelly advisor ───────────────────────────────────────────────────────────
+  const bankroll    = useMemo(() => +(userSettings.bankroll || 0), [userSettings]);
+  const kellyFrac   = useMemo(() => {
+    const kf = userSettings.kellyFraction || 'Half Kelly';
+    return kf === 'Full Kelly' ? 1 : kf === 'Quarter Kelly' ? 0.25 : 0.5;
+  }, [userSettings]);
+
+  const kellyZones = useMemo(() => {
+    const zones = [
+      { label: 'R1 $2-4',  rb: 'R1-2', ob: '$2-4'  },
+      { label: 'R1 $4-8',  rb: 'R1-2', ob: '$4-8'  },
+      { label: 'R2 $2-4',  rb: null,   ob: '$2-4', r2: true },
+      { label: 'R3+ $8+',  rb: 'R3-4', ob: '$8-15' },
+      { label: 'R3+ $15+', rb: 'R5+',  ob: '$15+'  },
+    ];
+    return zones.map(z => {
+      const bs = settled.filter(b => {
+        const rb = rankBucket(b.model_rank);
+        const ob = oddsBucket(b.odds);
+        if (z.r2) return +(b.model_rank || 0) === 2 && ob === z.ob;
+        return rb === z.rb && ob === z.ob;
+      });
+      if (bs.length < 3) return null;
+      const g = aggGroup(bs);
+      const avgOdds = bs.reduce((s, b) => s + +b.odds, 0) / bs.length;
+      const optK = kellyPct(g.sr / 100, avgOdds) * kellyFrac;
+      const actPct = bankroll > 0 ? (g.staked / g.n / bankroll * 100) : 0;
+      const signal = optK === 0 ? 'avoid' : actPct > optK * 1.2 ? 'over' : actPct < optK * 0.8 ? 'under' : 'ok';
+      return { label: z.label, optK, actPct, signal, n: g.n };
+    }).filter(Boolean);
+  }, [settled, bankroll, kellyFrac]);
+
+  // ─── top venues ──────────────────────────────────────────────────────────────
+  const venueData = useMemo(() => {
+    const vm = {};
+    settled.forEach(b => {
+      const v = (b.venue || 'Unknown').toUpperCase().trim();
+      if (!vm[v]) vm[v] = [];
+      vm[v].push(b);
+    });
+    return Object.entries(vm)
+      .map(([v, bs]) => ({ venue: v, ...aggGroup(bs) }))
+      .sort((a, b) => sortVenue === 'bets' ? b.n - a.n : sortVenue === 'pnl' ? b.pnl - a.pnl : sortVenue === 'sr' ? b.sr - a.sr : b.roi - a.roi);
+  }, [settled, sortVenue]);
+
+  // ─── staking discipline ──────────────────────────────────────────────────────
+  const stakingStats = useMemo(() => {
+    if (!settled.length) return null;
+    const actualPnl = settled.reduce((s, b) => s + betPnl(b), 0);
+    const flatPnl   = settled.reduce((s, b) => s + (b.status === 'won' ? 10 * (+b.odds - 1) : -10), 0);
+    // Kelly sim: use rolling strike rate estimate per day
+    const sorted = [...settled].sort((a, b) => (a.date || '') < (b.date || '') ? -1 : 1);
+    let kb = bankroll || 1000, kellyPnlSum = 0;
+    sorted.forEach((b, i) => {
+      const slice = sorted.slice(0, i);
+      const sliceW = slice.filter(x => x.status === 'won').length;
+      const estSR = slice.length > 5 ? sliceW / slice.length : 0.25;
+      const kStakePct = kellyPct(estSR, +b.odds) * kellyFrac / 100;
+      const kStake = kb * Math.min(kStakePct, 0.1);
+      const p = b.status === 'won' ? kStake * (+b.odds - 1) : -kStake;
+      kb += p; kellyPnlSum += p;
+    });
+    const overallAvg = settled.reduce((s, b) => s + +b.stake, 0) / settled.length;
+    const lossDates = new Set(settled.filter(b => b.status === 'lost').map(b => b.date));
+    const postLoss = settled.filter(b => {
+      const prev = new Date(b.date); prev.setDate(prev.getDate() - 1);
+      return lossDates.has(prev.toISOString().slice(0, 10));
+    });
+    const postLossAvg = postLoss.length ? postLoss.reduce((s, b) => s + +b.stake, 0) / postLoss.length : null;
+    const tiltFlag = postLossAvg !== null && (postLossAvg - overallAvg) / overallAvg > 0.15;
+    return { actualPnl, flatPnl, kellyPnlSum, overallAvg, postLossAvg, tiltFlag };
+  }, [settled, bankroll, kellyFrac]);
+
+  // ─── calendar ────────────────────────────────────────────────────────────────
+  const calendarData = useMemo(() => {
+    const today = aestToday();
+    const days = [];
+    for (let i = 89; i >= 0; i--) {
+      const d = new Date(today); d.setDate(d.getDate() - i);
+      days.push(d.toISOString().slice(0, 10));
+    }
+    const dayPnl = {};
+    settled.forEach(b => { if (b.date) dayPnl[b.date] = (dayPnl[b.date] || 0) + betPnl(b); });
+    const hasBet = {};
+    settled.forEach(b => { if (b.date) hasBet[b.date] = true; });
+    return days.map(d => ({ date: d, pnl: hasBet[d] ? (dayPnl[d] || 0) : null }));
+  }, [settled]);
+
+  const calMax = useMemo(() => Math.max(1, ...calendarData.map(d => d.pnl !== null ? Math.abs(d.pnl) : 0)), [calendarData]);
+
+  function calColor(pnl) {
+    if (pnl === null) return '#f3f4f6';
+    if (pnl === 0) return '#e5e7eb';
+    if (pnl > calMax * 0.6) return '#14532d';
+    if (pnl > 0) return '#4ade80';
+    if (pnl < -calMax * 0.6) return '#991b1b';
+    return '#fca5a5';
+  }
+
+  // ─── early returns ───────────────────────────────────────────────────────────
+  if (!isLoaded) return null;
+
+  if (!isPro) {
     return (
-      <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
-        <ProfileRail />
-        <main style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f8fafc' }}>
-          <div style={{ textAlign: 'center', padding: 40 }}>
-            <i className="ti ti-lock" style={{ fontSize: 48, color: '#d1d5db', display: 'block', marginBottom: 16 }} />
-            <div style={{ fontSize: 18, fontWeight: 700, color: '#111827', marginBottom: 8 }}>Insights is a Pro feature</div>
-            <div style={{ fontSize: 13, color: '#6b7280', marginBottom: 20 }}>Unlock win rate, ROI analytics, and performance breakdowns.</div>
-            <button onClick={() => setUpgradeOpen(true)} style={{ padding: '10px 24px', background: DG, color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
-              Start free trial
-            </button>
+      <div>
+        <div style={{ background: G, padding: '14px 24px' }}>
+          <div style={{ fontSize: 22, fontWeight: 800, color: '#fff', letterSpacing: 2, fontFamily: 'Bebas Neue, sans-serif' }}>Insights</div>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 'calc(100vh - 56px)', background: '#f9fafb' }}>
+          <div style={{ textAlign: 'center', maxWidth: 380, padding: '0 24px' }}>
+            <div style={{ fontSize: 40, marginBottom: 16 }}>&#128202;</div>
+            <h2 style={{ fontSize: 18, fontWeight: 700, color: '#111', marginBottom: 8 }}>Insights is a Pro feature</h2>
+            <p style={{ fontSize: 13, color: '#6b7280', lineHeight: 1.6, marginBottom: 24 }}>
+              Full betting analytics — CLV tracking, edge zone heatmap, Kelly advisor, P&L calendar and more.
+            </p>
+            <a href="/account" style={{ display: 'inline-block', background: G, color: '#fff', borderRadius: 8, padding: '11px 28px', fontSize: 14, fontWeight: 600, textDecoration: 'none' }}>
+              Upgrade to Pro
+            </a>
           </div>
-        </main>
-        {upgradeOpen && <UpgradeModal onClose={() => setUpgradeOpen(false)} />}
+        </div>
       </div>
     );
   }
 
-  // ── derive data ───────────────────────────────────────────────────────────
+  // ─── computed display values ─────────────────────────────────────────────────
+  const roiMaxAbs = Math.max(1, ...roiByRank.map(r => Math.abs(r.roi)));
 
-  const settledBets = allBets.filter(b => b.status === 'settled' || b.return_amt != null);
-  const pendingBets = allBets.filter(b => b.status === 'pending'  && b.return_amt == null);
-  const m = calcAll(settledBets);
+  // Calendar padding to Monday
+  const firstDay = new Date(calendarData[0]?.date || aestToday());
+  const dow = firstDay.getDay();
+  const padDays = dow === 0 ? 6 : dow - 1;
+  const calCells = [...Array(padDays).fill(null), ...calendarData];
 
-  // bankroll curve
-  const bankrollData = (() => {
-    let cum = 0;
-    return settledBets.map((b, i) => {
-      cum += (b.return_amt || 0) - (b.stake || 0);
-      return { i: i + 1, pl: +cum.toFixed(2) };
-    });
-  })();
-
-  // breakdowns
-  const byRankGrp = groupBy(settledBets, b => b.rank != null ? String(b.rank) : null);
-  const byOddsGrp = groupBy(settledBets, b => oddsRange(b.odds));
-  const byCondGrp = groupBy(settledBets, b => b.track_condition || null);
-  const byBookGrp = groupBy(settledBets, b => b.bookmaker || null);
-
-  const rankRows = Object.entries(byRankGrp).map(([c, b]) => ({ cat: c, ...gStats(b) })).sort((a, b) => +a.cat - +b.cat);
-  const oddsRows = ODDS_ORDER.filter(k => byOddsGrp[k]).map(k => ({ cat: k, ...gStats(byOddsGrp[k]) }));
-  const condRows = Object.entries(byCondGrp).map(([c, b]) => ({ cat: c, ...gStats(b) })).sort((a, b) => (b.roi ?? -999) - (a.roi ?? -999));
-  const bookRows = Object.entries(byBookGrp).map(([c, b]) => ({ cat: c, ...gStats(b) })).sort((a, b) => (b.roi ?? -999) - (a.roi ?? -999));
-
-  const tabRows = { rank: rankRows, odds: oddsRows, cond: condRows, book: bookRows };
-
-  // heatmap
-  const heatmap = RANK_GROUPS.map(rg => ({
-    rank: rg,
-    cells: ODDS_GROUPS.map(og => {
-      const bets = settledBets.filter(b => {
-        const rankMatch = rg === '3+' ? (b.rank == null || +b.rank >= 3) : String(b.rank) === rg;
-        const oddsMatch = og === 'Low ($1–$3.50)'  ? b.odds < 3.5
-                        : og === 'Mid ($3.50–$10)' ? (b.odds >= 3.5 && b.odds < 10)
-                        : b.odds >= 10;
-        return rankMatch && oddsMatch;
-      });
-      return { label: og, ...gStats(bets) };
-    }),
-  }));
-
-  // model accuracy
-  const rank1Bets  = settledBets.filter(b => +b.rank === 1);
-  const rank1St    = gStats(rank1Bets);
-  const valueBets  = settledBets.filter(b => b.odds != null && b.my_odds != null && b.odds > b.my_odds);
-  const nValueBets = settledBets.filter(b => b.odds != null && b.my_odds != null && b.odds <= b.my_odds);
-  const valueSt    = gStats(valueBets);
-  const nValueSt   = gStats(nValueBets);
-  const clvBets    = settledBets.filter(b => b.live_odds != null);
-  const posClvPct  = clvBets.length > 0 ? clvBets.filter(b => b.odds > b.live_odds).length / clvBets.length * 100 : null;
-
-  const rankBarData = rankRows.slice(0, 8).map(r => ({ name: `R${r.cat}`, roi: r.roi != null ? +r.roi.toFixed(1) : 0 }));
-
-  // alerts
-  const alerts = [];
-  if (m) {
-    if (m.streak >= 5 && m.streakType === 'L')
-      alerts.push({ type: 'red', msg: `🔴 You've had ${m.streak} consecutive losses — consider reducing stakes or taking a break` });
-    const badCond = condRows.find(r => r.roi != null && r.roi < -20 && r.bets >= 5);
-    if (badCond)
-      alerts.push({ type: 'amber', msg: `⚠️ Avoid ${badCond.cat} tracks — your ROI is ${badCond.roi.toFixed(1)}% from ${badCond.bets} bets` });
-    if (bookRows[0]?.roi != null && bookRows[0].roi > 0)
-      alerts.push({ type: 'green', msg: `✅ ${bookRows[0].cat} is your most profitable bookie (+${bookRows[0].roi.toFixed(1)}% ROI)` });
-    const satSt = gStats(settledBets.filter(b => b.date && new Date(b.date).getDay() === 6));
-    const wdSt  = gStats(settledBets.filter(b => b.date && [1,2,3,4,5].includes(new Date(b.date).getDay())));
-    if (satSt.bets >= 5 && satSt.roi != null && wdSt.roi != null && satSt.roi > wdSt.roi + 10)
-      alerts.push({ type: 'green', msg: `✅ Saturday meetings suit your style — ${satSt.roi.toFixed(1)}% ROI vs ${wdSt.roi.toFixed(1)}% weekday` });
-    if (m.clv != null)
-      alerts.push(m.clv > 0
-        ? { type: 'green', msg: `✅ You're consistently beating the market price — your selections have genuine edge` }
-        : { type: 'amber', msg: `⚠️ You're paying above market price on average — shop for better odds` });
-    if (settledBets.length < 100)
-      alerts.push({ type: 'info', msg: `📊 Keep logging — your data becomes statistically meaningful at 100+ bets (${settledBets.length} so far)` });
-  }
-
-  // variance
-  const expectedWins = settledBets.reduce((s, b) => s + (b.odds > 0 ? 1 / b.odds : 0), 0);
-  const actualWins   = m?.totalWins || 0;
-  const winDiff      = actualWins - expectedWins;
-  const maxBar       = Math.max(expectedWins, actualWins) * 1.15 || 1;
-
-  // best rank highlight
-  const bestRankRow = [...rankRows].sort((a, b) => (b.roi ?? -999) - (a.roi ?? -999))[0];
-
-  // ── render ────────────────────────────────────────────────────────────────
-
+  // ─── render ──────────────────────────────────────────────────────────────────
   return (
-    <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
-      <ProfileRail />
-      <main className="mob-page" style={{ flex: 1, overflowY: 'auto', background: '#f8fafc' }}>
+    <div style={{ background: '#f3f4f6', minHeight: '100vh' }}>
 
-        {/* page header */}
-        <div style={{ padding: '16px 20px 0', maxWidth: 980, margin: '0 auto' }}>
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginBottom: 4 }}>
-            <h1 style={{ fontSize: 22, fontWeight: 800, color: '#111827', margin: 0 }}>Insights</h1>
-            <span style={{ fontSize: 11, color: '#9ca3af' }}>
-              {allBets.length} bets · {settledBets.length} settled · {pendingBets.length} pending
-            </span>
-          </div>
+      {/* Header */}
+      <div style={{ background: G, padding: '14px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div style={{ fontSize: 22, fontWeight: 800, color: '#fff', letterSpacing: 2, fontFamily: 'Bebas Neue, sans-serif' }}>Insights</div>
+        <div style={{ display: 'flex', gap: 6 }}>
+          {[['all','All time'],['90d','Last 90d'],['month','This month']].map(([v, label]) => (
+            <button key={v} onClick={() => setRange(v)} style={{
+              background: range === v ? 'rgba(255,255,255,0.25)' : 'transparent',
+              border: '1px solid rgba(255,255,255,0.4)', color: '#fff',
+              borderRadius: 6, padding: '5px 12px', fontSize: 12,
+              cursor: 'pointer', fontWeight: range === v ? 700 : 400,
+            }}>{label}</button>
+          ))}
         </div>
+      </div>
 
-        {loading ? (
-          <div style={{ textAlign: 'center', padding: 60, color: '#9ca3af', fontSize: 13 }}>Loading…</div>
-        ) : !settledBets.length ? (
-          <div style={{ maxWidth: 980, margin: '32px auto', padding: '0 20px' }}>
-            <div style={{ background: '#fff', borderRadius: 12, border: '0.5px solid #e5e7eb', padding: 60, textAlign: 'center' }}>
-              <div style={{ fontSize: 40, marginBottom: 16 }}>📊</div>
-              <div style={{ fontSize: 15, fontWeight: 700, color: '#374151', marginBottom: 8 }}>No settled bets yet</div>
-              <div style={{ fontSize: 12, color: '#9ca3af' }}>Start logging bets from the Races page, then settle them in My Bets.</div>
-            </div>
-          </div>
-        ) : (
-          <div style={{ maxWidth: 980, margin: '0 auto', padding: '14px 20px 48px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+      {loading ? (
+        <div style={{ padding: 48, textAlign: 'center', color: '#9ca3af', fontSize: 13 }}>Loading…</div>
+      ) : (
+        <div style={{ padding: '14px 20px', display: 'flex', flexDirection: 'column', gap: 12 }}>
 
-            {/* ── S1: Performance snapshot ─────────────────────────────── */}
-            <div style={{ background: DG, borderRadius: 12, padding: '16px 20px' }}>
-              <div style={{ fontSize: 9, fontWeight: 700, color: 'rgba(255,255,255,0.4)', letterSpacing: '0.8px', textTransform: 'uppercase', marginBottom: 14 }}>
-                Performance Snapshot
-              </div>
-              <div className="insights-snapshot" style={{ display: 'grid', gridTemplateColumns: 'repeat(8,1fr)', gap: 6 }}>
-                {[
-                  { label: 'Total P&L',   val: m ? `${m.totalPL >= 0 ? '+' : '−'}$${Math.abs(m.totalPL).toFixed(2)}` : '—',  color: m ? (m.totalPL >= 0 ? '#6ee7b7' : '#fca5a5') : '#fff' },
-                  { label: 'ROI',         val: m ? `${m.roi >= 0 ? '+' : ''}${m.roi.toFixed(1)}%` : '—',                       color: m ? (m.roi >= 0 ? '#6ee7b7' : '#fca5a5') : '#fff' },
-                  { label: 'Strike Rate', val: m ? `${m.strikeRate.toFixed(1)}%` : '—',                                         color: '#fff' },
-                  { label: 'Avg Odds',    val: m ? `$${m.avgOdds.toFixed(2)}` : '—',                                            color: '#fff' },
-                  { label: 'CLV',         val: m?.clv != null ? `${m.clv >= 0 ? '+' : ''}$${Math.abs(m.clv).toFixed(2)}` : 'N/A', color: m?.clv != null ? (m.clv >= 0 ? '#6ee7b7' : '#fca5a5') : 'rgba(255,255,255,0.35)', tooltip: 'Closing Line Value — avg difference between your odds and the final market price. Positive = you beat the market.' },
-                  { label: 'Units P&L',   val: m ? `${m.unitsPL >= 0 ? '+' : ''}${m.unitsPL.toFixed(1)}u` : '—',              color: m ? (m.unitsPL >= 0 ? '#6ee7b7' : '#fca5a5') : '#fff', tooltip: '1 unit = your avg stake. Normalises profit across different bet sizes.' },
-                  { label: 'Settled',     val: settledBets.length,                                                               color: '#fff' },
-                  { label: 'Pending',     val: pendingBets.length,                                                               color: '#fff' },
-                ].map(s => (
-                  <div key={s.label} title={s.tooltip || ''} style={{ textAlign: 'center', cursor: s.tooltip ? 'help' : 'default' }}>
-                    <div style={{ fontSize: 17, fontWeight: 800, color: s.color, lineHeight: 1, marginBottom: 4 }}>{s.val}</div>
-                    <div style={{ fontSize: 8, color: 'rgba(255,255,255,0.4)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px' }}>{s.label}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* ── S2: Bankroll curve ───────────────────────────────────── */}
-            <div style={{ background: '#fff', borderRadius: 12, border: '0.5px solid #e5e7eb', padding: '16px 20px' }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: '#374151', marginBottom: 12 }}>Bankroll curve</div>
-              <ResponsiveContainer width="100%" height={isMobile ? 180 : 160}>
-                <LineChart data={bankrollData} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
-                  <XAxis dataKey="i" tick={{ fontSize: 9, fill: '#9ca3af' }} tickLine={false} axisLine={false} />
-                  <YAxis tick={{ fontSize: 9, fill: '#9ca3af' }} tickLine={false} axisLine={false} tickFormatter={v => `$${v}`} width={48} />
-                  <Tooltip formatter={v => [`$${v}`, 'Cum. P&L']} labelFormatter={i => `Bet #${i}`} contentStyle={{ fontSize: 11, borderRadius: 6, border: '0.5px solid #e5e7eb' }} />
-                  <Line type="monotone" dataKey="pl" stroke={G} strokeWidth={2} dot={false} />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
-
-            {/* ── S3: Best performer + heatmap ─────────────────────────── */}
-            {bestRankRow && bestRankRow.roi != null && (
-              <div style={{ background: '#f0fdf4', border: '1.5px solid #6ee7b7', borderRadius: 10, padding: '12px 16px' }}>
-                <div style={{ fontSize: 12, fontWeight: 700, color: DG }}>
-                  🏆 Best performer: Rank {bestRankRow.cat} — {bestRankRow.roi.toFixed(1)}% ROI from {bestRankRow.bets} bets
-                </div>
-              </div>
-            )}
-
-            <div style={{ background: '#fff', borderRadius: 12, border: '0.5px solid #e5e7eb', padding: '16px 20px' }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: '#374151', marginBottom: 12 }}>ROI heatmap — rank × odds range</div>
-              {/* header */}
-              <div style={{ display: 'flex', gap: 6, marginBottom: 4 }}>
-                <div style={{ width: isMobile ? 44 : 72, flexShrink: 0 }} />
-                {ODDS_GROUPS.map(g => (
-                  <div key={g} style={{ flex: 1, fontSize: isMobile ? 8 : 9, fontWeight: 700, color: '#9ca3af', textAlign: 'center', padding: '4px 2px' }}>{g}</div>
-                ))}
-              </div>
-              {/* rows */}
-              {heatmap.map(row => (
-                <div key={row.rank} style={{ display: 'flex', gap: 6, marginBottom: 6 }}>
-                  <div style={{ width: isMobile ? 44 : 72, flexShrink: 0, fontSize: 10, fontWeight: 700, color: '#374151', display: 'flex', alignItems: 'center' }}>Rank {row.rank}</div>
-                  {row.cells.map(cell => {
-                    const hasDat = cell.bets > 0 && cell.roi != null;
-                    const bg = !hasDat ? '#f9fafb'
-                      : cell.roi > 20  ? 'rgba(16,185,129,0.18)'
-                      : cell.roi > 0   ? 'rgba(16,185,129,0.09)'
-                      : cell.roi > -20 ? 'rgba(226,75,74,0.09)'
-                      : 'rgba(226,75,74,0.18)';
-                    return (
-                      <div key={cell.label} style={{ flex: 1, background: bg, borderRadius: 8, padding: '8px 4px', textAlign: 'center' }}>
-                        {hasDat ? (
-                          <>
-                            <div style={{ fontSize: 12, fontWeight: 700, color: cell.roi >= 0 ? '#059669' : R }}>{cell.roi.toFixed(1)}%</div>
-                            <div style={{ fontSize: 8, color: '#9ca3af', marginTop: 1 }}>{cell.bets}b</div>
-                          </>
-                        ) : <div style={{ color: '#d1d5db', fontSize: 10 }}>—</div>}
-                      </div>
-                    );
-                  })}
+          {/* 1. HERO BAR */}
+          <Card>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6,1fr)' }}>
+              {[
+                ['Total P&L',    hero.pnl !== 0 ? fmt$(hero.pnl) : '$0', hero.pnl > 0, `${hero.n} settled`],
+                ['ROI %',        fmtPct(hero.roi), hero.roi > 0, null],
+                ['Strike Rate',  `${hero.sr.toFixed(1)}%`, null, `${wins.length}/${settled.length} bets`],
+                ['Avg CLV %',    hero.avgClv !== null ? fmtPct(hero.avgClv) : '—', hero.avgClv !== null && hero.avgClv > 0, 'vs closing SP'],
+                ['Avg Odds',     hero.avgOdds > 0 ? hero.avgOdds.toFixed(2) : '—', null, null],
+                ['Max Drawdown', hero.dd !== 0 ? fmt$(hero.dd) : '$0', false, null],
+              ].map(([label, value, pos, sub], i) => (
+                <div key={i} style={{ textAlign: 'center', padding: '10px 6px', borderRight: i < 5 ? '1px solid #f3f4f6' : 'none' }}>
+                  <div style={{ fontSize: 10, color: '#9ca3af', marginBottom: 4, textTransform: 'uppercase', letterSpacing: 0.5 }}>{label}</div>
+                  <div style={{ ...MONO, fontSize: 19, fontWeight: 700, color: pos === true ? G : pos === false ? RED : '#111' }}>{value}</div>
+                  {sub && <div style={{ fontSize: 10, color: '#9ca3af', marginTop: 2 }}>{sub}</div>}
                 </div>
               ))}
             </div>
+          </Card>
 
-            {/* ── S4: Breakdown tables ─────────────────────────────────── */}
-            <div style={{ background: '#fff', borderRadius: 12, border: '0.5px solid #e5e7eb' }}>
-              <div style={{ borderBottom: '0.5px solid #e5e7eb', display: 'flex' }}>
-                {[['rank','By Rank'],['odds','By Odds'],['cond','By Condition'],['book','By Bookmaker']].map(([k, label]) => (
-                  <button key={k} onClick={() => setActiveTab(k)}
-                    style={{ padding: '10px 14px', fontSize: 11, fontWeight: 600, border: 'none', background: 'none', cursor: 'pointer',
-                      color: activeTab === k ? DG : '#9ca3af',
-                      borderBottom: activeTab === k ? `2px solid ${DG}` : '2px solid transparent' }}>
-                    {label}
-                  </button>
-                ))}
-              </div>
-              <div style={{ padding: '8px 8px' }}>
-                <BreakdownTable rows={tabRows[activeTab] || []} isMobile={isMobile} />
+          {/* 2. AI INSIGHT */}
+          {aiInsight && (aiInsight.bestParts.length > 0 || aiInsight.worstParts.length > 0) && (
+            <div style={{ background: '#f0fdf4', border: '1px solid #86efac', borderRadius: 8, padding: '12px 18px' }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: G, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 6 }}>AI Insight</div>
+              <div style={{ fontSize: 13, color: '#166534', lineHeight: 1.65 }}>
+                {aiInsight.bestParts.length > 0 && (
+                  <span>Your best zone is <strong>{aiInsight.bestParts[0]}</strong> picks in <strong>{aiInsight.bestParts[1]}</strong> conditions — ROI <strong>{fmtPct(aiInsight.bestRoi)}</strong> over {aiInsight.bestN} bets.{' '}</span>
+                )}
+                {aiInsight.worstParts.length > 0 && (
+                  <span>Main leak: <strong>{aiInsight.worstParts[0]}</strong> in <strong>{aiInsight.worstParts[1]}</strong> — ROI <strong>{fmtPct(aiInsight.worstRoi)}</strong> over {aiInsight.worstN} bets. Consider cutting stakes here.</span>
+                )}
+                {!aiInsight.bestParts.length && <span>Not enough data in any single zone for a best-zone signal (need 10+ bets per rank/condition combo).</span>}
               </div>
             </div>
+          )}
 
-            {/* ── S5: Model accuracy ───────────────────────────────────── */}
-            <div style={{ background: '#fff', borderRadius: 12, border: '0.5px solid #e5e7eb', padding: '16px 20px' }}>
-              <div style={{ fontSize: 12, fontWeight: 700, color: '#374151', marginBottom: 14 }}>Model accuracy 🤖</div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 10, marginBottom: 16 }}>
-                <StatCard
-                  label="Rank 1 win rate"
-                  val={rank1St.bets > 0 ? `${(rank1St.wins / rank1St.bets * 100).toFixed(1)}%` : '—'}
-                  color={rank1St.bets > 0 ? ((rank1St.wins / rank1St.bets * 100) > 27 ? '#059669' : R) : '#9ca3af'}
-                  sub="Market baseline ~27%"
-                />
-                <StatCard
-                  label="Value bet ROI"
-                  val={valueSt.roi != null ? `${valueSt.roi >= 0 ? '+' : ''}${valueSt.roi.toFixed(1)}%` : '—'}
-                  color={valueSt.roi != null ? (valueSt.roi >= 0 ? '#059669' : R) : '#9ca3af'}
-                  sub={`Non-value: ${nValueSt.roi != null ? nValueSt.roi.toFixed(1) + '%' : '—'}`}
-                />
-                <StatCard
-                  label="CLV accuracy"
-                  val={posClvPct != null ? `${posClvPct.toFixed(1)}%` : 'N/A'}
-                  color={posClvPct != null ? (posClvPct > 50 ? '#059669' : R) : '#9ca3af'}
-                  sub="Bets that beat close"
-                  tooltip="% of your bets placed at better odds than the final market price"
-                />
-                <StatCard
-                  label="Avg edge / bet"
-                  val={m?.clv != null ? `${m.clv >= 0 ? '+' : ''}$${Math.abs(m.clv).toFixed(2)}` : 'N/A'}
-                  color={m?.clv != null ? (m.clv >= 0 ? '#059669' : R) : '#9ca3af'}
-                  sub={m?.clv != null ? (m.clv > 0 ? 'Beating market' : 'Below market') : 'No CLV data'}
-                />
-              </div>
-              {rankBarData.length > 1 && (
-                <ResponsiveContainer width="100%" height={isMobile ? 180 : 130}>
-                  <BarChart data={rankBarData} margin={{ top: 0, right: 8, left: 0, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" vertical={false} />
-                    <XAxis dataKey="name" tick={{ fontSize: 9, fill: '#9ca3af' }} tickLine={false} axisLine={false} />
-                    <YAxis tick={{ fontSize: 9, fill: '#9ca3af' }} tickLine={false} axisLine={false} tickFormatter={v => `${v}%`} width={36} />
-                    <Tooltip formatter={v => [`${v}%`, 'ROI']} contentStyle={{ fontSize: 11, borderRadius: 6, border: '0.5px solid #e5e7eb' }} />
-                    <Bar dataKey="roi" radius={[4,4,0,0]}>
-                      {rankBarData.map((d, i) => <Cell key={i} fill={d.roi >= 0 ? G : R} />)}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
+          {/* 3+4. CLV + ROI by rank */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <Card title="CLV Tracker">
+              {clvByRank.every(r => r.n === 0) ? (
+                <EmptyState msg="No SP data in race_results yet" />
+              ) : (
+                <>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                    <thead>
+                      <tr style={{ color: '#9ca3af' }}>
+                        {['Rank','Avg CLV','Beat %','vs 50%'].map(h => (
+                          <th key={h} style={{ textAlign: h === 'Rank' ? 'left' : 'right', fontWeight: 500, paddingBottom: 8 }}>{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {clvByRank.map(r => (
+                        <tr key={r.label} style={{ borderTop: '1px solid #f3f4f6' }}>
+                          <td style={{ padding: '7px 0', fontWeight: 600 }}>{r.label}</td>
+                          <td style={{ ...MONO, textAlign: 'right', color: r.n ? (r.avgClv >= 0 ? G : RED) : '#9ca3af' }}>{r.n ? fmtPct(r.avgClv) : '—'}</td>
+                          <td style={{ ...MONO, textAlign: 'right' }}>{r.n ? `${r.beatPct.toFixed(0)}%` : '—'}</td>
+                          <td style={{ textAlign: 'right', paddingLeft: 8 }}>
+                            {r.n > 0 && (
+                              <div style={{ display: 'inline-flex', justifyContent: 'flex-end' }}>
+                                <div style={{ width: 64, height: 8, background: '#f3f4f6', borderRadius: 2, position: 'relative', overflow: 'hidden' }}>
+                                  <div style={{ position: 'absolute', left: '50%', top: 0, width: 1, height: '100%', background: '#d1d5db', zIndex: 1 }} />
+                                  {r.beatPct >= 50
+                                    ? <div style={{ position: 'absolute', left: '50%', width: `${Math.min(50, r.beatPct - 50)}%`, height: '100%', background: G }} />
+                                    : <div style={{ position: 'absolute', right: '50%', width: `${Math.min(50, 50 - r.beatPct)}%`, height: '100%', background: RED }} />}
+                                </div>
+                              </div>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  <div style={{ fontSize: 10, color: '#9ca3af', marginTop: 8 }}>50% beat rate = no edge over closing line</div>
+                </>
               )}
-            </div>
+            </Card>
 
-            {/* ── S6: Alerts ───────────────────────────────────────────── */}
-            {alerts.length > 0 && (
-              <div style={{ background: '#fff', borderRadius: 12, border: '0.5px solid #e5e7eb', padding: '16px 20px' }}>
-                <div style={{ fontSize: 12, fontWeight: 700, color: '#374151', marginBottom: 12 }}>Insights &amp; alerts 💡</div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  {alerts.map((a, i) => (
-                    <div key={i} style={{
-                      padding: '10px 14px', borderRadius: 8, fontSize: 12, lineHeight: 1.5,
-                      background:   a.type === 'red' ? '#fef2f2' : a.type === 'amber' ? '#FAEEDA' : a.type === 'green' ? '#f0fdf4' : '#f8fafc',
-                      color:        a.type === 'red' ? '#991b1b' : a.type === 'amber' ? '#854F0B' : a.type === 'green' ? '#065f46' : '#374151',
-                      borderLeft: `3px solid ${a.type === 'red' ? '#ef4444' : a.type === 'amber' ? '#f59e0b' : a.type === 'green' ? '#10b981' : '#d1d5db'}`,
-                    }}>
-                      {a.msg}
+            <Card title="ROI by Model Rank">
+              {roiByRank.every(r => r.n === 0) ? (
+                <EmptyState msg="No model_rank data in bet log" />
+              ) : (
+                roiByRank.map(r => (
+                  <div key={r.label} style={{ marginBottom: 10 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <div style={{ width: 24, fontSize: 12, fontWeight: 700, color: '#374151', flexShrink: 0 }}>{r.label}</div>
+                      <div style={{ flex: 1, height: 18, background: '#f3f4f6', borderRadius: 3, position: 'relative', overflow: 'hidden' }}>
+                        {r.n > 0 && (
+                          <div style={{
+                            position: 'absolute',
+                            [r.roi >= 0 ? 'left' : 'right']: '50%',
+                            width: `${Math.min(50, Math.abs(r.roi) / roiMaxAbs * 50)}%`,
+                            height: '100%', background: r.roi >= 0 ? G : RED,
+                          }} />
+                        )}
+                        <div style={{ position: 'absolute', left: '50%', top: 0, width: 1, height: '100%', background: '#d1d5db' }} />
+                      </div>
+                      <div style={{ ...MONO, fontSize: 11, width: 52, textAlign: 'right', flexShrink: 0, color: r.n ? (r.roi >= 0 ? G : RED) : '#9ca3af' }}>
+                        {r.n ? fmtPct(r.roi) : '—'}
+                      </div>
                     </div>
+                    {r.n > 0 && <div style={{ fontSize: 10, color: '#9ca3af', marginLeft: 32 }}>n={r.n} · {r.sr.toFixed(0)}% SR</div>}
+                  </div>
+                ))
+              )}
+            </Card>
+          </div>
+
+          {/* 5. EDGE ZONE HEATMAP */}
+          <Card title="Edge Zone Heatmap">
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ borderCollapse: 'collapse', fontSize: 12, width: '100%' }}>
+                <thead>
+                  <tr>
+                    <th style={{ width: 52, textAlign: 'left', color: '#9ca3af', fontWeight: 500, paddingBottom: 8 }}></th>
+                    {ODDS_HEAT.map(o => <th key={o} style={{ color: '#9ca3af', fontWeight: 500, paddingBottom: 8, textAlign: 'center', minWidth: 90 }}>{o}</th>)}
+                  </tr>
+                </thead>
+                <tbody>
+                  {RANKS_HEAT.map(rk => (
+                    <tr key={rk}>
+                      <td style={{ fontWeight: 600, color: '#374151', paddingRight: 8, paddingBottom: 4, verticalAlign: 'middle' }}>{rk}</td>
+                      {ODDS_HEAT.map(ob => {
+                        const bs = edgeMap[`${rk}||${ob}`] || [];
+                        const g = aggGroup(bs);
+                        const show = g.n >= 3;
+                        return (
+                          <td key={ob} style={{ padding: 3 }}>
+                            <div style={{ background: heatBg(g.roi, show ? g.n : 0), borderRadius: 4, padding: '8px 6px', textAlign: 'center' }}>
+                              {show ? (
+                                <>
+                                  <div style={{ ...MONO, fontSize: 12, fontWeight: 700, color: heatFg(g.roi, g.n) }}>{fmtPct(g.roi)}</div>
+                                  <div style={{ fontSize: 10, color: heatFg(g.roi, g.n), opacity: 0.75 }}>n={g.n}</div>
+                                </>
+                              ) : (
+                                <div style={{ color: '#9ca3af', fontSize: 12 }}>—</div>
+                              )}
+                            </div>
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div style={{ fontSize: 10, color: '#9ca3af', marginTop: 8 }}>Min 3 bets to show a cell. Dark green = best ROI → red = worst.</div>
+          </Card>
+
+          {/* 6+7. TRACK CONDITIONS + KELLY */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <Card title="Track Condition Breakdown">
+              {condData.every(c => c.n === 0) ? (
+                <EmptyState msg="No track_condition data in bet log" />
+              ) : (
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                  <thead>
+                    <tr style={{ color: '#9ca3af', borderBottom: '1px solid #e5e7eb' }}>
+                      {['Condition','P&L','ROI','SR','n'].map((h, i) => (
+                        <th key={h} style={{ textAlign: i === 0 ? 'left' : 'right', fontWeight: 500, paddingBottom: 8 }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {condData.map(c => (
+                      <tr key={c.label} style={{ borderTop: '1px solid #f3f4f6' }}>
+                        <td style={{ padding: '7px 0', fontWeight: 500 }}>{c.label}</td>
+                        <td style={{ ...MONO, textAlign: 'right', color: c.n ? (c.pnl >= 0 ? G : RED) : '#9ca3af' }}>{c.n ? fmt$(c.pnl) : '—'}</td>
+                        <td style={{ ...MONO, textAlign: 'right', color: c.n ? (c.roi >= 0 ? G : RED) : '#9ca3af' }}>{c.n ? fmtPct(c.roi) : '—'}</td>
+                        <td style={{ ...MONO, textAlign: 'right' }}>{c.n ? `${c.sr.toFixed(0)}%` : '—'}</td>
+                        <td style={{ ...MONO, textAlign: 'right', color: '#9ca3af' }}>{c.n || '—'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </Card>
+
+            <Card title="Kelly Criterion Advisor">
+              {!bankroll ? (
+                <div style={{ fontSize: 12, color: '#6b7280', lineHeight: 1.6 }}>
+                  Set your bankroll in{' '}
+                  <a href="/settings" style={{ color: G, textDecoration: 'none', fontWeight: 600 }}>Settings &#8594; Betting defaults</a>
+                  {' '}to see Kelly recommendations.
+                </div>
+              ) : kellyZones.length === 0 ? (
+                <EmptyState msg="Need 3+ settled bets per zone for Kelly recommendations" />
+              ) : (
+                <>
+                  <div style={{ fontSize: 11, color: '#9ca3af', marginBottom: 10 }}>
+                    Bankroll: <span style={{ ...MONO, color: '#374151', fontWeight: 600 }}>${bankroll.toLocaleString()}</span>
+                    {' '}· {userSettings.kellyFraction || 'Half Kelly'}
+                  </div>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                    <thead>
+                      <tr style={{ color: '#9ca3af', borderBottom: '1px solid #e5e7eb' }}>
+                        {['Zone','Opt%','Actual%','Signal'].map((h, i) => (
+                          <th key={h} style={{ textAlign: i === 0 ? 'left' : 'right', fontWeight: 500, paddingBottom: 8 }}>{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {kellyZones.map(z => (
+                        <tr key={z.label} style={{ borderTop: '1px solid #f3f4f6' }}>
+                          <td style={{ padding: '7px 0', fontWeight: 500 }}>{z.label}</td>
+                          <td style={{ ...MONO, textAlign: 'right' }}>{z.optK.toFixed(1)}%</td>
+                          <td style={{ ...MONO, textAlign: 'right' }}>{z.actPct.toFixed(1)}%</td>
+                          <td style={{ textAlign: 'right' }}>
+                            <span style={{ fontSize: 11, fontWeight: 700, color: z.signal === 'avoid' ? RED : z.signal === 'over' ? '#f59e0b' : z.signal === 'under' ? '#3b82f6' : G }}>
+                              {z.signal === 'over' ? '&#8595; over' : z.signal === 'under' ? '&#8593; under' : z.signal === 'avoid' ? '&#10005; avoid' : '&#10003; ok'}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </>
+              )}
+            </Card>
+          </div>
+
+          {/* 8. TOP VENUES */}
+          <Card title="Top Venues">
+            <div style={{ display: 'flex', gap: 6, marginBottom: 12 }}>
+              {[['roi','ROI'],['bets','Bets'],['pnl','P&L'],['sr','Strike']].map(([v, label]) => (
+                <button key={v} onClick={() => setSortVenue(v)} style={{
+                  background: sortVenue === v ? G : '#f3f4f6',
+                  color: sortVenue === v ? '#fff' : '#374151',
+                  border: 'none', borderRadius: 6, padding: '4px 10px',
+                  fontSize: 11, cursor: 'pointer', fontWeight: 500,
+                }}>{label}</button>
+              ))}
+            </div>
+            {venueData.length === 0 ? <EmptyState msg="No settled bets yet" /> : (
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                <thead>
+                  <tr style={{ color: '#9ca3af', borderBottom: '1px solid #e5e7eb' }}>
+                    {['Venue','Bets','Strike','ROI','P&L'].map((h, i) => (
+                      <th key={h} style={{ textAlign: i === 0 ? 'left' : 'right', fontWeight: 500, paddingBottom: 8 }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {venueData.slice(0, 15).map(v => (
+                    <tr key={v.venue} style={{ borderTop: '1px solid #f3f4f6' }}>
+                      <td style={{ padding: '7px 0', fontWeight: 500 }}>
+                        {v.venue.toLowerCase().replace(/\b\w/g, c => c.toUpperCase())}
+                      </td>
+                      <td style={{ ...MONO, textAlign: 'right' }}>{v.n}</td>
+                      <td style={{ ...MONO, textAlign: 'right' }}>{v.sr.toFixed(1)}%</td>
+                      <td style={{ ...MONO, textAlign: 'right', color: v.roi >= 0 ? G : RED }}>{fmtPct(v.roi)}</td>
+                      <td style={{ ...MONO, textAlign: 'right', color: v.pnl >= 0 ? G : RED }}>{fmt$(v.pnl)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </Card>
+
+          {/* 9+10. STAKING + CALENDAR */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, paddingBottom: 24 }}>
+            <Card title="Staking Discipline">
+              {!stakingStats ? <EmptyState msg="No settled bets in this range" /> : (
+                <>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, marginBottom: 16 }}>
+                    <tbody>
+                      {[
+                        ['Actual P&L',       fmt$(stakingStats.actualPnl),   stakingStats.actualPnl >= 0],
+                        ['Flat $10 stake',   fmt$(stakingStats.flatPnl),     stakingStats.flatPnl >= 0],
+                        ['Kelly simulation', fmt$(stakingStats.kellyPnlSum), stakingStats.kellyPnlSum >= 0],
+                      ].map(([label, val, pos]) => (
+                        <tr key={label} style={{ borderTop: '1px solid #f3f4f6' }}>
+                          <td style={{ padding: '8px 0', color: '#374151' }}>{label}</td>
+                          <td style={{ ...MONO, textAlign: 'right', fontWeight: 700, color: pos ? G : RED }}>{val}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  <div style={{ borderTop: '1px solid #e5e7eb', paddingTop: 12 }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: '#6b7280', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 8 }}>Tilt Detection</div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 4 }}>
+                      <span style={{ color: '#6b7280' }}>Post-loss 24h avg stake</span>
+                      <span style={{ ...MONO, fontWeight: 600 }}>
+                        {stakingStats.postLossAvg !== null ? `$${stakingStats.postLossAvg.toFixed(0)}` : 'n/a'}
+                      </span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 10 }}>
+                      <span style={{ color: '#6b7280' }}>Overall avg stake</span>
+                      <span style={{ ...MONO, fontWeight: 600 }}>${stakingStats.overallAvg.toFixed(0)}</span>
+                    </div>
+                    <div style={{
+                      background: stakingStats.tiltFlag ? '#fef2f2' : '#f0fdf4',
+                      border: `1px solid ${stakingStats.tiltFlag ? '#fca5a5' : '#86efac'}`,
+                      borderRadius: 6, padding: '8px 12px', fontSize: 12, fontWeight: 600,
+                      color: stakingStats.tiltFlag ? RED : G,
+                    }}>
+                      {stakingStats.postLossAvg === null
+                        ? '— insufficient data (need loss history)'
+                        : stakingStats.tiltFlag
+                        ? '&#9888; Tilt detected — staking 15%+ higher after losses'
+                        : '&#10003; Staking discipline OK'}
+                    </div>
+                  </div>
+                </>
+              )}
+            </Card>
+
+            <Card title="P&L Calendar (Last 90 Days)">
+              <div style={{ overflowX: 'auto' }}>
+                <div style={{ display: 'grid', gridTemplateRows: 'repeat(7, 12px)', gridAutoFlow: 'column', gridAutoColumns: '12px', gap: 2, width: 'fit-content' }}>
+                  {calCells.map((cell, i) => (
+                    <div
+                      key={i}
+                      title={cell ? `${cell.date}${cell.pnl !== null ? ` · ${fmt$(cell.pnl)}` : ''}` : ''}
+                      style={{ width: 12, height: 12, borderRadius: 2, background: cell ? calColor(cell.pnl) : 'transparent' }}
+                    />
                   ))}
                 </div>
               </div>
-            )}
-
-            {/* ── S7: Luck vs skill ────────────────────────────────────── */}
-            <div style={{ background: '#fff', borderRadius: 12, border: '0.5px solid #e5e7eb', padding: '16px 20px' }}>
-              <div style={{ fontSize: 12, fontWeight: 700, color: '#374151', marginBottom: 14 }}>Luck vs skill 🎲</div>
-              <div style={{ display: 'flex', gap: 28, marginBottom: 12 }}>
-                {[
-                  { label: 'Expected wins', val: expectedWins.toFixed(1), color: '#374151' },
-                  { label: 'Actual wins',   val: actualWins,              color: '#374151' },
-                  { label: 'Difference',    val: `${winDiff >= 0 ? '+' : ''}${winDiff.toFixed(1)}`, color: winDiff >= 0 ? '#059669' : R },
-                ].map(s => (
-                  <div key={s.label}>
-                    <div style={{ fontSize: 9, color: '#9ca3af', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.4px', marginBottom: 2 }}>{s.label}</div>
-                    <div style={{ fontSize: 22, fontWeight: 800, color: s.color }}>{s.val}</div>
+              <div style={{ display: 'flex', gap: 10, marginTop: 10, fontSize: 10, color: '#9ca3af', flexWrap: 'wrap' }}>
+                {[['#14532d','Profit'],['#4ade80','Small profit'],['#fca5a5','Small loss'],['#991b1b','Loss'],['#f3f4f6','No bets']].map(([color, label]) => (
+                  <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+                    <div style={{ width: 10, height: 10, background: color, borderRadius: 2 }} />
+                    {label}
                   </div>
                 ))}
               </div>
-              <div style={{ fontSize: 11, color: '#6b7280', padding: '8px 12px', background: '#f9fafb', borderRadius: 6, marginBottom: 14, lineHeight: 1.6 }}>
-                {winDiff > 2
-                  ? 'You may be running hot — results could regress toward expectation.'
-                  : winDiff < -2
-                  ? 'You may be running cold — if CLV is positive, results should improve.'
-                  : 'Your results are close to statistical expectation.'}
-              </div>
-              {[
-                { label: 'Expected wins', val: expectedWins },
-                { label: 'Actual wins',   val: actualWins   },
-              ].map(s => (
-                <div key={s.label} style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
-                  <div style={{ fontSize: 10, color: '#6b7280', width: 96, flexShrink: 0 }}>{s.label}</div>
-                  <div style={{ flex: 1, height: 14, background: '#f3f4f6', borderRadius: 7, overflow: 'hidden' }}>
-                    <div style={{ height: '100%', width: `${(s.val / maxBar) * 100}%`, background: G, borderRadius: 7, transition: 'width 0.4s' }} />
-                  </div>
-                  <div style={{ fontSize: 10, fontWeight: 700, color: '#374151', width: 28, textAlign: 'right' }}>{typeof s.val === 'number' ? s.val.toFixed(1) : s.val}</div>
-                </div>
-              ))}
-            </div>
-
+            </Card>
           </div>
-        )}
-      </main>
+
+        </div>
+      )}
     </div>
   );
 }
