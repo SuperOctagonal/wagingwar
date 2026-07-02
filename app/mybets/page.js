@@ -457,17 +457,17 @@ export default function MybetsPage() {
     const pending = bets.filter(b => !b.status || b.status === 'pending');
     if (!pending.length) { scratchCheckRef.current = true; return; }
     scratchCheckRef.current = true;
-    const dates = [...new Set(pending.map(b => b.date).filter(Boolean))];
+    const aestNow = new Date(new Date().toLocaleString('en-US', { timeZone: 'Australia/Brisbane' }));
+    const aestISO = `${aestNow.getFullYear()}-${String(aestNow.getMonth()+1).padStart(2,'0')}-${String(aestNow.getDate()).padStart(2,'0')}`;
+    const dates = [...new Set([aestISO, ...pending.map(b => b.date).filter(Boolean)])];
     sbFetch(`scratchings?date=in.(${dates.join(',')})&select=venue,race_num,horse_name`)
       .then(rows => {
         if (!Array.isArray(rows) || !rows.length) return;
         const toScratch = [];
         for (const bet of pending) {
-          const bv = normName(normVenueName(bet.track || bet.venue || ''));
           const bh = normName(bet.horse_name || '');
           const br = String(+(bet.race_number ?? bet.race_num ?? 0));
           const hit = rows.find(r =>
-            normName(normVenueName(r.venue || '')) === bv &&
             normName(r.horse_name || '') === bh &&
             String(+(r.race_num || 0)) === br
           );
