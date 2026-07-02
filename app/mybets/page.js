@@ -648,7 +648,7 @@ export default function MybetsPage() {
         const newBet = Array.isArray(inserted) ? inserted[0] : inserted;
         if (newBet) setBets(prev => [newBet, ...prev]);
         loadBets(user.id).then(fresh => { if (fresh.length) setBets(fresh); });
-        awardPoints(user.id, 'bet_logged', qlHorse.trim()).catch(() => {});
+        try { awardPoints(user.id, 'bet_logged', qlHorse.trim()).catch(() => {}); } catch {}
         setQlHorse(''); setQlStake(''); setQlOdds('');
       }
     } catch (err) {
