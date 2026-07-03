@@ -215,144 +215,310 @@ function UploadZone({ onFile }) {
   );
 }
 
-// ─── left rail ────────────────────────────────────────────────────────────────
+// ─── shared rail helpers ──────────────────────────────────────────────────────
+
+function countdownSecs(rc, now) {
+  const at = parseRaceTime(rc.time, rc.date);
+  return at ? Math.floor((at.getTime() - now) / 1000) : null;
+}
+
+function fmtCd(secs) {
+  if (secs === null) return null;
+  if (secs > 86400) { const d=Math.floor(secs/86400),h=Math.floor((secs%86400)/3600); return h?`${d}d ${h}h`:`${d}d`; }
+  if (secs > 3600)  { const h=Math.floor(secs/3600), m=Math.floor((secs%3600)/60);   return m?`${h}h ${m}m`:`${h}h`; }
+  if (secs > 0)     return `${Math.ceil(secs/60)}m`;
+  if (secs >= -240) { const abs=Math.abs(secs), m=Math.floor(abs/60), s=abs%60; return m>0?`-${m}m ${s}s`:`-${s}s`; }
+  return 'Off';
+}
+
+function venueAbbr(v) {
+  const words = (v||'').trim().split(/\s+/);
+  if (words.length === 1) return words[0].slice(0, 4).toUpperCase();
+  return words.map(w => w[0]).join('').toUpperCase().slice(0, 5);
+}
 
 const TC_PILL = {
-  good:      { bg: '#16a34a', label: 'Good'  },
-  soft:      { bg: '#d97706', label: 'Soft'  },
-  heavy:     { bg: '#dc2626', label: 'Heavy' },
-  synthetic: { bg: '#2563eb', label: 'Syn'   },
+  good:      { bg: '#16a34a', label: 'Gd' },
+  soft:      { bg: '#d97706', label: 'Sf' },
+  heavy:     { bg: '#dc2626', label: 'Hv' },
+  synthetic: { bg: '#6d28d9', label: 'Sy' },
 };
 
-function LeftRail({ allVenues, allRaces, selectedRaceKey, onSelect, trackConds, venueTrackConds = {} }) {
-  const [openVenue, setOpenVenue] = useState(null);
-  const [now, setNow] = useState(() => Date.now());
+// ─── left rail ────────────────────────────────────────────────────────────────
+
+function LeftRail({ allVenues, allRaces, selectedRaceKey, onSelect, trackConds, raceResults }) {
+  const [now,    setNow]    = useState(() => Date.now());
+  const [pinned, setPinned] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('ww_pinned_meetings') || '[]'); } catch { return []; }
+  });
+
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(id);
   }, []);
-  const sidebarCountdown = rc => {
-    const at = parseRaceTime(rc.time, rc.date);
-    return at ? Math.floor((at.getTime() - now) / 1000) : null;
-  };
 
-  const toggle = useCallback(venue => {
-    setOpenVenue(prev => prev === venue ? null : venue);
+  const togglePin = useCallback((venue, e) => {
+    e.stopPropagation();
+    setPinned(prev => {
+      const next = prev.includes(venue) ? prev.filter(v => v !== venue) : [...prev, venue];
+      try { localStorage.setItem('ww_pinned_meetings', JSON.stringify(next)); } catch {}
+      return next;
+    });
   }, []);
 
-  useEffect(() => { setOpenVenue(null); }, [allVenues]);
+  // Find the "best" race to select when a tile is clicked
+  const bestRaceKey = useCallback((venue) => {
+    const keys = allVenues[venue] || [];
+    // Prefer: racing now (-240..0s), then soonest upcoming, then first key
+    let bestUpcoming = null, bestSecs = Infinity;
+    for (const k of keys) {
+      const s = countdownSecs(allRaces[k], now);
+      if (s !== null && s >= -240 && s <= 30) return k;
+      if (s !== null && s > 0 && s < bestSecs) { bestSecs = s; bestUpcoming = k; }
+    }
+    return bestUpcoming || keys[0];
+  }, [allVenues, allRaces, now]);
+
+  // Race segment status
+  const segStatus = (venue, rc) => {
+    const rawV = (venue||'').toUpperCase();
+    const normV = VENUE_NORMALISE[rawV] || rawV;
+    if ((raceResults||{})[`${normV}||${String(rc.num)}`]) return 'resulted';
+    const s = countdownSecs(rc, now);
+    if (s !== null && s >= -240 && s <= 30) return 'now';
+    return 'upcoming';
+  };
+
+  const venues = Object.keys(allVenues);
+  const pinnedVenues   = venues.filter(v =>  pinned.includes(v));
+  const unpinnedVenues = venues.filter(v => !pinned.includes(v));
+
+  const renderTile = (venue) => {
+    const raceKeys  = allVenues[venue] || [];
+    const tc        = trackConds[venue];
+    const pill      = TC_PILL[tc];
+    const isActive  = raceKeys.some(k => k === selectedRaceKey);
+    const isPinned  = pinned.includes(venue);
+
+    // Progress segments
+    const segments = raceKeys.map(k => segStatus(venue, allRaces[k]));
+
+    // Next race: first 'now', then first upcoming
+    let nextRc = null, nextSecs = null;
+    for (const k of raceKeys) {
+      const rc = allRaces[k];
+      const s  = countdownSecs(rc, now);
+      if (s !== null && s >= -240 && s <= 30) { nextRc = rc; nextSecs = s; break; }
+    }
+    if (!nextRc) {
+      let bestS = Infinity;
+      for (const k of raceKeys) {
+        const rc = allRaces[k];
+        const s  = countdownSecs(rc, now);
+        if (s !== null && s > 0 && s < bestS) { bestS = s; nextRc = rc; nextSecs = s; }
+      }
+    }
+    const nextLabel  = nextSecs !== null ? fmtCd(nextSecs) : null;
+    const nextUrgent = nextSecs !== null && nextSecs <= 600;
+    const nextColor  = nextSecs !== null && nextSecs < 0 ? '#f87171' : nextUrgent ? '#fbbf24' : 'rgba(255,255,255,0.55)';
+
+    return (
+      <div
+        key={venue}
+        onClick={() => { const k = bestRaceKey(venue); if (k) onSelect(k); }}
+        style={{
+          position: 'relative',
+          margin: '5px 8px',
+          padding: '8px 10px 7px',
+          borderRadius: 6,
+          background: isActive ? 'rgba(0,71,27,0.30)' : 'rgba(255,255,255,0.05)',
+          border: '1px solid rgba(255,255,255,0.10)',
+          borderLeft: `3px solid ${isActive ? '#00c853' : 'rgba(255,255,255,0.08)'}`,
+          cursor: 'pointer',
+          transition: 'background 0.15s',
+        }}
+      >
+        {/* Pin star */}
+        <button
+          onClick={e => togglePin(venue, e)}
+          style={{ position: 'absolute', top: 6, right: 7, background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontSize: 12, lineHeight: 1, color: isPinned ? '#fbbf24' : 'rgba(255,255,255,0.22)', transition: 'color 0.15s' }}
+          title={isPinned ? 'Unpin' : 'Pin to top'}
+        >★</button>
+
+        {/* Venue name + TC badge */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginRight: 18, marginBottom: 2 }}>
+          <div style={{ fontSize: 10, fontWeight: 700, color: '#fff', textTransform: 'uppercase', letterSpacing: '0.7px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
+            {venue}
+          </div>
+          {pill && (
+            <span style={{ fontSize: 8, fontWeight: 700, padding: '1px 4px', borderRadius: 3, background: pill.bg, color: '#fff', flexShrink: 0 }}>
+              {pill.label}
+            </span>
+          )}
+        </div>
+
+        {/* Race count */}
+        <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.42)', marginBottom: 6 }}>
+          {raceKeys.length} race{raceKeys.length !== 1 ? 's' : ''}
+        </div>
+
+        {/* Progress bar */}
+        <div style={{ display: 'flex', gap: 2, marginBottom: nextLabel && nextRc ? 5 : 0 }}>
+          {segments.map((status, i) => (
+            <div
+              key={i}
+              onClick={e => { e.stopPropagation(); onSelect(raceKeys[i]); }}
+              title={`R${allRaces[raceKeys[i]]?.num}`}
+              style={{
+                flex: 1, height: 4, borderRadius: 2, cursor: 'pointer',
+                background: status === 'resulted' ? '#4ade80'
+                          : status === 'now'      ? '#fbbf24'
+                          :                         'rgba(255,255,255,0.18)',
+              }}
+            />
+          ))}
+        </div>
+
+        {/* Next race countdown */}
+        {nextLabel && nextRc && (
+          <div style={{ fontSize: 9, fontWeight: nextUrgent ? 700 : 400, color: nextColor }}>
+            R{nextRc.num} next · {nextLabel}
+          </div>
+        )}
+      </div>
+    );
+  };
 
   return (
-    <aside className="w-[172px] flex-shrink-0 bg-[#1a2634] h-full overflow-y-auto flex flex-col">
-      {/* Meetings header */}
-      <div style={{ background: '#1a2634', color: '#fff', fontSize: 10, fontWeight: 700, padding: '6px 10px', letterSpacing: '0.5px', textTransform: 'uppercase', borderBottom: '1px solid rgba(255,255,255,0.08)', flexShrink: 0 }}>
+    <aside style={{ width: 182, flexShrink: 0, background: '#1a2634', height: '100%', overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
+      <div style={{ color: '#fff', fontSize: 10, fontWeight: 700, padding: '7px 12px', letterSpacing: '0.5px', textTransform: 'uppercase', borderBottom: '1px solid rgba(255,255,255,0.08)', flexShrink: 0 }}>
         Meetings
       </div>
-      {Object.keys(allVenues).map(venue => {
-        const isOpen = openVenue === venue;
-        const raceCount = allVenues[venue].length;
-        return (
-          <div key={venue}>
-            <button
-              onClick={() => toggle(venue)}
-              className="w-full flex items-center gap-1.5 px-2.5 py-2 transition-colors"
-              style={{ background: isOpen ? 'rgba(255,255,255,0.1)' : 'transparent', borderLeft: `2px solid ${isOpen ? '#00471b' : 'transparent'}` }}
-            >
-              <div style={{ flex: 1, minWidth: 0, textAlign: 'left' }}>
-                <div style={{ fontSize: 10, fontWeight: 700, color: '#fff', textTransform: 'uppercase', letterSpacing: '0.8px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{venue}</div>
-                <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.85)', marginTop: 1 }}>{raceCount} race{raceCount !== 1 ? 's' : ''}{venueTrackConds[venue] ? ` · ${venueTrackConds[venue]}` : ''}</div>
-              </div>
-              {(() => { const p = TC_PILL[trackConds[venue] || 'good']; return p ? <span style={{ fontSize: 9, fontWeight: 700, padding: '3px 6px', borderRadius: 3, background: p.bg, color: '#fff', flexShrink: 0 }}>{p.label}</span> : null; })()}
-              <span style={{ fontSize: 9, color: 'rgba(255,255,255,0.3)', flexShrink: 0 }}>›</span>
-            </button>
-            {isOpen && allVenues[venue].map(rk => {
-              const rc = allRaces[rk];
-              const active = rk === selectedRaceKey;
-              return (
-                <button
-                  key={rk}
-                  onClick={() => onSelect(rk)}
-                  className="w-full text-left flex items-center justify-between transition-colors"
-                  style={{
-                    padding: '3px 6px 3px 14px',
-                    background: active ? '#00471b' : 'transparent',
-                    color: active ? 'white' : 'rgba(255,255,255,0.9)',
-                  }}
-                >
-                  <span style={{ fontSize: 9, fontWeight: 700 }}>R{rc.num}</span>
-                  {rc.time && (() => {
-                    const secs = sidebarCountdown(rc);
-                    const base = <span style={{ fontSize: 9, color: 'rgba(255,255,255,0.85)' }}>{rc.time}</span>;
-                    if (secs === null) return base;
-                    let label, color, bold;
-                    if (secs > 0) {
-                      if (secs >= 86400) { const d=Math.floor(secs/86400),h=Math.floor((secs%86400)/3600); label=h?`${d}d ${h}h`:`${d}d`; }
-                      else if (secs >= 3600) { const h=Math.floor(secs/3600),m=Math.floor((secs%3600)/60); label=m?`${h}h ${m}m`:`${h}h`; }
-                      else { label=`${Math.ceil(secs/60)}m`; }
-                      bold  = secs <= 600;
-                      color = bold ? '#4ade80' : 'rgba(255,255,255,0.85)';
-                    } else if (secs >= -240) {
-                      const e=Math.abs(secs), m=Math.floor(e/60), s=e%60;
-                      label = m > 0 ? `-${m}m ${s}s` : `-${s}s`;
-                      color = '#f87171'; bold = true;
-                    } else {
-                      label = 'Off'; color = 'rgba(255,255,255,0.4)'; bold = false;
-                    }
-                    return (
-                      <span style={{ fontSize: 9, color: 'rgba(255,255,255,0.85)' }}>
-                        {rc.time}<span style={{ color, fontWeight: bold ? 700 : 400 }}>{' ('}{label}{')'}</span>
-                      </span>
-                    );
-                  })()}
-                </button>
-              );
-            })}
-          </div>
-        );
-      })}
+
+      <div style={{ flex: 1, overflowY: 'auto', paddingBottom: 8 }}>
+        {pinnedVenues.map(renderTile)}
+        {pinnedVenues.length > 0 && unpinnedVenues.length > 0 && (
+          <div style={{ margin: '4px 10px 2px', borderTop: '1px solid rgba(255,255,255,0.14)' }} />
+        )}
+        {unpinnedVenues.map(renderTile)}
+      </div>
     </aside>
   );
 }
 
 // ─── right rail ───────────────────────────────────────────────────────────────
 
-function RightRail({ allRaces, allVenues, selectedRaceKey, onSelect }) {
-  // Parse "HH.MM am/pm" → minutes since midnight for correct 12-hour ordering
-  const parseTimeMins = t => {
-    if (!t) return 9999;
-    const m = t.match(/(\d+)\.(\d+)\s*(am|pm)/i);
-    if (!m) return 9999;
-    let h = parseInt(m[1], 10), min = parseInt(m[2], 10);
-    const pm = m[3].toLowerCase() === 'pm';
-    if (pm && h !== 12) h += 12;
-    if (!pm && h === 12) h = 0;
-    return h * 60 + min;
-  };
-  const aest = new Date(new Date().toLocaleString('en-US', { timeZone: 'Australia/Brisbane' }));
-  const nowMins = aest.getHours() * 60 + aest.getMinutes();
+function RightRail({ allRaces, allVenues, selectedRaceKey, onSelect, isPro, userId }) {
+  const [now,      setNow]      = useState(() => Date.now());
+  const [todayBets, setTodayBets] = useState({});
+
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  // Fetch today's logged bets for Pro users (horse name per race)
+  useEffect(() => {
+    if (!isPro || !userId || !SURL || !SKEY) return;
+    const d = new Date().toLocaleDateString('sv-SE', { timeZone: 'Australia/Brisbane' });
+    fetch(`${SURL}/rest/v1/bet_log?clerk_id=eq.${userId}&date=eq.${d}&select=venue,race_num,horse_name`, {
+      headers: { apikey: SKEY, Authorization: `Bearer ${SKEY}` },
+    })
+      .then(r => r.ok ? r.json() : [])
+      .then(rows => {
+        const m = {};
+        (Array.isArray(rows) ? rows : []).forEach(r => {
+          const k = `${(r.venue||'').toUpperCase()}||${String(r.race_num)}`;
+          if (!m[k]) m[k] = r.horse_name;
+        });
+        setTodayBets(m);
+      })
+      .catch(() => {});
+  }, [isPro, userId]);
+
+  // Sort all races by countdown, exclude selected, include up to -4 min past
   const keys = Object.values(allVenues).flat()
-    .filter(k => k !== selectedRaceKey && parseTimeMins(allRaces[k]?.time) >= nowMins)
-    .sort((a, b) => parseTimeMins(allRaces[a]?.time) - parseTimeMins(allRaces[b]?.time))
-    .slice(0, 12);
+    .filter(k => {
+      if (k === selectedRaceKey) return false;
+      const s = countdownSecs(allRaces[k], now);
+      return s === null || s >= -240;
+    })
+    .sort((a, b) => {
+      const sa = countdownSecs(allRaces[a], now) ?? 99999;
+      const sb = countdownSecs(allRaces[b], now) ?? 99999;
+      return sa - sb;
+    })
+    .slice(0, 18);
+
+  const thS = { padding: '4px 8px', fontSize: 9, fontWeight: 600, color: 'rgba(255,255,255,0.70)', textTransform: 'uppercase', letterSpacing: '0.4px', borderBottom: '0.5px solid rgba(255,255,255,0.15)', background: 'transparent', textAlign: 'left', whiteSpace: 'nowrap' };
+
   return (
-    <aside className="w-[190px] flex-shrink-0 bg-white border-l border-gray-100 overflow-y-auto">
-      <div className="px-3 pt-3 pb-1 text-[9px] font-bold text-gray-600 uppercase tracking-[0.8px]">Up Next</div>
-      {keys.map(rk => {
-        const rc = allRaces[rk];
-        return (
-          <button key={rk} onClick={() => onSelect(rk)}
-            className="w-full text-left px-3 py-2 hover:bg-slate-50 transition-colors border-b border-gray-50">
-            <div className="flex items-baseline gap-1">
-              <span className="text-[8px] font-bold text-blue-800 bg-blue-50 px-1 rounded leading-tight">R{rc.num}</span>
-              <span className="text-[9px] font-bold text-gray-900" style={{ overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', maxWidth:'130px' }}>{rc.venue}</span>
-            </div>
-            <div className="mt-0.5 flex items-center gap-1 text-[9px] text-gray-600">
-              <span>{rc.dist}m</span>
-              {rc.time && <><span>·</span><span>{rc.time}</span></>}
-            </div>
-          </button>
-        );
-      })}
+    <aside style={{ width: 200, flexShrink: 0, background: '#fff', borderLeft: '0.5px solid #e5e7eb', overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
+      {/* Header */}
+      <div style={{ background: '#00471b', color: '#fff', fontSize: 10, fontWeight: 700, padding: '6px 10px', letterSpacing: '0.5px', textTransform: 'uppercase', flexShrink: 0 }}>
+        Up Next
+      </div>
+
+      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 10 }}>
+        <thead>
+          <tr style={{ background: '#1a2634' }}>
+            <th style={{ ...thS, width: '55%' }}>Race</th>
+            <th style={{ ...thS, textAlign: 'right', width: '22%' }}>Time</th>
+            <th style={{ ...thS, textAlign: 'right', width: '23%', paddingRight: 10 }}>−</th>
+          </tr>
+        </thead>
+        <tbody>
+          {keys.flatMap(rk => {
+            const rc    = allRaces[rk];
+            const secs  = countdownSecs(rc, now);
+            const label = fmtCd(secs);
+            const off   = label === 'Off';
+            const neg   = secs !== null && secs < 0 && !off;
+            const urgent= secs !== null && secs >= 0 && secs <= 600;
+            const cdColor = off   ? '#d1d5db'
+                          : neg   ? '#ef4444'
+                          : urgent? '#059669'
+                          :         '#374151';
+            const rawV  = (rc.venue||'').toUpperCase();
+            const normV = VENUE_NORMALISE[rawV] || rawV;
+            const betKey = `${normV}||${String(rc.num)}`;
+            const bet   = isPro ? todayBets[betKey] : null;
+
+            const tdBase = { padding: '4px 8px', borderBottom: '0.5px solid #e5e7eb', verticalAlign: 'middle' };
+
+            const rows = [
+              <tr key={rk}
+                onClick={() => onSelect(rk)}
+                style={{ cursor: 'pointer', background: 'transparent' }}
+                onMouseEnter={e => e.currentTarget.style.background = '#f9fafb'}
+                onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+              >
+                <td style={{ ...tdBase, fontSize: 10, color: '#111827', whiteSpace: 'nowrap' }}>
+                  <span style={{ color: '#9ca3af', fontSize: 9 }}>{venueAbbr(rc.venue)}</span>
+                  {' '}<span style={{ fontWeight: 600 }}>R{rc.num}</span>
+                  {rc.dist && <span style={{ color: '#d1d5db', fontSize: 9, marginLeft: 3 }}>{rc.dist}m</span>}
+                </td>
+                <td style={{ ...tdBase, textAlign: 'right', fontSize: 9, color: '#9ca3af', whiteSpace: 'nowrap' }}>{rc.time}</td>
+                <td style={{ ...tdBase, textAlign: 'right', fontWeight: (urgent || neg) ? 700 : 400, color: cdColor, fontSize: 10, whiteSpace: 'nowrap', paddingRight: 10 }}>
+                  {label}
+                </td>
+              </tr>,
+            ];
+
+            if (bet) {
+              rows.push(
+                <tr key={`${rk}-bet`} style={{ background: '#f0fdf4' }}>
+                  <td colSpan={3} style={{ padding: '2px 10px 4px 18px', fontSize: 9, color: '#059669', borderBottom: '0.5px solid #e5e7eb', fontStyle: 'italic' }}>
+                    ↳ {bet}
+                  </td>
+                </tr>
+              );
+            }
+
+            return rows;
+          })}
+        </tbody>
+      </table>
     </aside>
   );
 }
@@ -2320,7 +2486,7 @@ function RacesPageInner() {
       {/* Left rail — desktop only */}
       {hasData && (
         <div className="hidden md:flex">
-          <LeftRail allVenues={allVenues} allRaces={allRaces} selectedRaceKey={selectedKey} onSelect={handleSelectRace} trackConds={trackConds} venueTrackConds={venueTrackConds} />
+          <LeftRail allVenues={allVenues} allRaces={allRaces} selectedRaceKey={selectedKey} onSelect={handleSelectRace} trackConds={trackConds} raceResults={raceResults} />
         </div>
       )}
 
@@ -2394,7 +2560,7 @@ function RacesPageInner() {
       {/* Right rail — desktop only */}
       {hasData && (
         <div className="hidden md:flex">
-          <RightRail allRaces={allRaces} allVenues={allVenues} selectedRaceKey={selectedKey} onSelect={handleSelectRace} />
+          <RightRail allRaces={allRaces} allVenues={allVenues} selectedRaceKey={selectedKey} onSelect={handleSelectRace} isPro={isPro} userId={user?.id} />
         </div>
       )}
 
