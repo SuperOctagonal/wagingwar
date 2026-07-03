@@ -1285,7 +1285,7 @@ function RunnerRow({ runner, rank, rc, trackCond, onLogBet, onShowPopup, onHideP
       <td className={`${td} text-center font-bold w-7`} style={{ color: rankColor }}>
         {isDbScratched ? '—' : (!isPro ? <LockBtn onClick={onUpgrade} /> : rank)}
       </td>
-      <td className={`${td} min-w-[140px] max-w-[180px]`}>
+      <td className={`${td} overflow-hidden`}>
         <div className="flex items-center flex-wrap gap-x-1 leading-snug">
           <span className="flex-shrink-0 bg-blue-800 text-white text-[8px] font-bold font-mono px-[4px] py-[1px] rounded-sm leading-tight mr-0.5">{runner.tab}</span>
           <span
@@ -1325,9 +1325,9 @@ function RunnerRow({ runner, rank, rc, trackCond, onLogBet, onShowPopup, onHideP
       {/* Group scores */}
       {GRP_KEYS.map(gk => (
         isDbScratched
-          ? <td key={gk} className="px-[6px] py-[5px] text-right min-w-[52px]" />
+          ? <td key={gk} className="px-[6px] py-[5px] text-right" />
           : !isPro
-            ? <td key={gk} className="px-[6px] py-[5px] text-right min-w-[52px]"><LockBtn onClick={onUpgrade} /></td>
+            ? <td key={gk} className="px-[6px] py-[5px] text-right"><LockBtn onClick={onUpgrade} /></td>
             : <GrpCell key={gk} grpKey={gk} grpScore={runner.grpScores[gk]} isBest={runner._grpIsBest?.[gk]} isWorst={runner._grpIsWorst?.[gk]} />
       ))}
       {/* Total */}
@@ -1353,7 +1353,7 @@ function RunnerRow({ runner, rank, rc, trackCond, onLogBet, onShowPopup, onHideP
         </button>
       </td>
       {/* Pace */}
-      <td className={td} style={{ minWidth: 100 }}>
+      <td className={td}>
         {pm && (
           <div className="flex items-center gap-1.5">
             <span className="text-[8px] font-bold w-6 flex-shrink-0" style={{ color: pm.color }}>{pm.role.slice(0,3).toUpperCase()}</span>
@@ -1382,29 +1382,29 @@ function FieldView({ results, scratched, rc, trackCond, onLogBet, onShowPopup, o
   return (
     <>
       {/* Desktop table */}
-      <div className="hidden md:block overflow-x-auto flex-1">
-        <table className="w-full border-collapse" style={{ minWidth: 800 }}>
+      <div className="hidden md:block flex-1 overflow-y-auto overflow-x-hidden">
+        <table className="w-full border-collapse" style={{ tableLayout: 'fixed' }}>
           <thead>
             <tr className="border-b border-gray-200">
-              <th style={{ ...th, textAlign:'center', width:28 }}>RANK</th>
-              <th style={{ ...th, textAlign:'left', minWidth:140 }}>Horse / Jockey / Trainer</th>
-              <th style={{ ...th, textAlign:'center', width:78 }}>Last 4 →</th>
-              <th style={{ ...th, textAlign:'center', width:60 }}>Record</th>
-              <th style={{ ...th, textAlign:'right', width:52, color: GRP_LABELS.form.color }}>Form</th>
-              <th style={{ ...th, textAlign:'right', width:52, color: GRP_LABELS.speed.color }}>Speed</th>
-              <th style={{ ...th, textAlign:'right', width:52, color: GRP_LABELS.cond.color }}>{tcLabel}</th>
-              <th style={{ ...th, textAlign:'right', width:52, color: GRP_LABELS.conn.color }}>Conn</th>
-              <th style={{ ...th, textAlign:'right', width:52 }}>Score</th>
-              <th style={{ ...th, textAlign:'right', width:52 }}>Edge $</th>
-              <th style={{ ...th, textAlign:'right', width:52 }}>Live $</th>
-              <th style={{ ...th, textAlign:'right', width:52 }}>Value</th>
-              <th style={{ ...th, width:52 }} />
-              <th style={{ ...th, textAlign:'left', minWidth:120 }}>
-                <span style={{marginRight:6}}>Pace</span>
+              <th style={{ ...th, textAlign:'center', width:'3%' }}>RANK</th>
+              <th style={{ ...th, textAlign:'left', width:'18%' }}>Horse / Jockey / Trainer</th>
+              <th style={{ ...th, textAlign:'center', width:'7%' }}>Last 4 →</th>
+              <th style={{ ...th, textAlign:'center', width:'6%' }}>Record</th>
+              <th style={{ ...th, textAlign:'right', width:'5%', color: GRP_LABELS.form.color }}>Form</th>
+              <th style={{ ...th, textAlign:'right', width:'5%', color: GRP_LABELS.speed.color }}>Speed</th>
+              <th style={{ ...th, textAlign:'right', width:'5%', color: GRP_LABELS.cond.color }}>{tcLabel}</th>
+              <th style={{ ...th, textAlign:'right', width:'5%', color: GRP_LABELS.conn.color }}>Conn</th>
+              <th style={{ ...th, textAlign:'right', width:'5%' }}>Score</th>
+              <th style={{ ...th, textAlign:'right', width:'6%' }}>Edge $</th>
+              <th style={{ ...th, textAlign:'right', width:'6%' }}>Live $</th>
+              <th style={{ ...th, textAlign:'right', width:'5%' }}>Value</th>
+              <th style={{ ...th, width:'8%' }} />
+              <th style={{ ...th, textAlign:'left', width:'16%' }}>
+                <span style={{marginRight:4}}>Pace</span>
                 {PACE_ROLES.map(r => (
-                  <span key={r.label} style={{display:'inline-flex',alignItems:'center',gap:2,fontSize:9,color:'#6b7280',marginRight:5}}>
+                  <span key={r.label} style={{display:'inline-flex',alignItems:'center',gap:2,fontSize:9,color:'#6b7280',marginRight:3}}>
                     <span style={{width:5,height:5,borderRadius:1,background:r.color,flexShrink:0,display:'inline-block'}} />
-                    {r.label}
+                    {r.label.slice(0,3)}
                   </span>
                 ))}
               </th>
