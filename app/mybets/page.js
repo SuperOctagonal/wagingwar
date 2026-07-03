@@ -944,12 +944,61 @@ export default function MybetsPage() {
   const sbPeriodLabel = { today: "Today's P&L", yesterday: "Yesterday's P&L", this_week: "This Week's P&L", this_month: "This Month's P&L", all_time: "All-Time P&L", custom: "Period P&L" }[dateRange] || "P&L";
   const sbStreakLabel = heroStreak ? `${heroStreak.type}${heroStreak.count}` : '—';
   const sbStreakColor = heroStreak?.type === 'W' ? '#059669' : heroStreak?.type === 'L' ? '#dc2626' : '#9ca3af';
-  const sbSparkFinal = sevenDaySparkData.length ? sevenDaySparkData[sevenDaySparkData.length - 1].pnl : 0;
   const nextBetsPanel = null;
 
   return (
     <div className="mob-page" style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
-      <ProfileRail />
+      <ProfileRail>
+        <div style={{ borderTop: '1px solid #e5e7eb', padding: '10px 12px' }}>
+          <div style={{ fontSize: 10, fontWeight: 700, color: '#374151', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 8 }}>Log a Bet</div>
+          {csvMeetings.length > 0 ? (
+            <select value={qlMeeting} onChange={e => { setQlMeeting(e.target.value); setQlRace(''); setQlHorse(''); setQlOdds(''); setQlTab(''); }} style={{ ...inp, marginBottom: 5 }}>
+              <option value="">Meeting…</option>
+              {csvMeetings.map(v => <option key={v} value={v}>{v}</option>)}
+            </select>
+          ) : (
+            <input value={qlMeeting} onChange={e => setQlMeeting(e.target.value)} placeholder="Track…" style={{ ...inp, marginBottom: 5 }} />
+          )}
+          <select value={qlRace} onChange={e => { setQlRace(e.target.value); setQlHorse(''); setQlOdds(''); setQlTab(''); }} style={{ ...inp, marginBottom: 5 }}>
+            <option value="">Race…</option>
+            {csvRaceOptions.length > 0
+              ? csvRaceOptions.map(o => <option key={o.key} value={o.value}>{o.label}</option>)
+              : Array.from({ length: 12 }, (_, i) => i + 1).map(n => <option key={n} value={n}>R{n}</option>)}
+          </select>
+          {csvHorses.length > 0 ? (
+            <select value={qlHorse} onChange={e => { const h = csvHorses.find(x => x.name === e.target.value); setQlHorse(e.target.value); if (h?.odds) setQlOdds(h.odds.toFixed(2)); setQlTab(h?.tab ? String(h.tab) : ''); }} style={{ ...inp, marginBottom: 5 }}>
+              <option value="">Horse…</option>
+              {csvHorses.map(h => <option key={h.name} value={h.name}>{h.tab ? `${h.tab}. ` : ''}{h.name}{h.odds ? ` ($${h.odds.toFixed(1)})` : ''}</option>)}
+            </select>
+          ) : (
+            <input value={qlHorse} onChange={e => setQlHorse(e.target.value)} placeholder="Horse *" style={{ ...inp, marginBottom: 5 }} />
+          )}
+          <select value={qlBetType} onChange={e => setQlBetType(e.target.value)} style={{ ...inp, marginBottom: 5 }}>
+            <option value="win">Win</option>
+            <option value="place">Place</option>
+            <option value="each-way">E/W</option>
+          </select>
+          <div style={{ display: 'flex', gap: 5, marginBottom: 5 }}>
+            <input value={qlStake} onChange={e => setQlStake(e.target.value)} type="number" placeholder="$Stake" min="0.01" step="0.01" style={{ ...inp, flex: 1 }} />
+            <input value={qlOdds} onChange={e => setQlOdds(e.target.value)} type="number" placeholder="$Odds" min="1.01" step="0.01" style={{ ...inp, flex: 1 }} />
+          </div>
+          <select value={qlBookmaker} onChange={e => setQlBookmaker(e.target.value)} style={{ ...inp, marginBottom: 8 }}>
+            {BOOKMAKERS.map(b => <option key={b} value={b}>{b}</option>)}
+          </select>
+          <button
+            onClick={handleQuickLog}
+            disabled={qlBtnDisabled}
+            style={{ width: '100%', padding: '7px 0', background: raceHasPassed ? '#6b7280' : '#059669', color: '#fff', border: 'none', borderRadius: 5, fontSize: 12, fontWeight: 700, cursor: qlBtnDisabled ? 'default' : 'pointer', opacity: qlBtnDisabled ? 0.6 : 1 }}
+          >
+            {qlSaving ? '…' : 'Save Bet'}
+          </button>
+          {qlToast && (
+            <div style={{ marginTop: 6, fontSize: 11, fontWeight: 600, textAlign: 'center', color: qlToast === 'success' ? '#059669' : '#dc2626' }}>
+              {qlToast === 'success' ? '✓ Logged' : '✗ Failed'}
+            </div>
+          )}
+        </div>
+      </ProfileRail>
 
       {/* ── Main content ── */}
       <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: '#f3f4f6' }}>
@@ -963,16 +1012,6 @@ export default function MybetsPage() {
                 {sbPnl === null ? '—' : (sbPnlPos ? '+$' : '-$') + Math.abs(sbPnl).toFixed(2)}
               </div>
             </div>
-            {!isMobile && sevenDaySparkData.some(d => d.pnl !== 0) && (
-              <div style={{ width: 72, height: 34, flexShrink: 0 }}>
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={sevenDaySparkData} margin={{ top: 2, right: 2, bottom: 2, left: 2 }}>
-                    <ReferenceLine y={0} stroke="#e5e7eb" strokeDasharray="2 2" />
-                    <Area type="monotone" dataKey="pnl" stroke={sbSparkFinal >= 0 ? '#1D9E75' : '#E24B4A'} fill="none" strokeWidth={1.5} dot={false} />
-                  </AreaChart>
-                </ResponsiveContainer>
-              </div>
-            )}
           </div>
           <div style={{ width: 1, height: 28, background: '#e5e7eb', flexShrink: 0 }} />
           {[
@@ -987,6 +1026,40 @@ export default function MybetsPage() {
             </div>
           ))}
         </div>
+
+        {/* TODAY'S CUMULATIVE P&L CHART */}
+        {!isMobile && heroChartData.length > 1 && (() => {
+          const finalPnl = heroChartData[heroChartData.length - 1].pnl;
+          return (
+            <div style={{ flexShrink: 0, height: 120, background: '#fff', borderBottom: '1px solid #e5e7eb' }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={heroChartData} margin={{ top: 6, right: 12, bottom: 4, left: 40 }}>
+                  <defs>
+                    <linearGradient id="heroFill" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#1D9E75" stopOpacity={0.18} />
+                      <stop offset="95%" stopColor="#1D9E75" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" vertical={false} />
+                  <ReferenceLine y={0} stroke="#e5e7eb" />
+                  <XAxis dataKey="label" tick={{ fontSize: 9, fill: '#9ca3af' }} interval="preserveStartEnd" tickLine={false} axisLine={false} />
+                  <YAxis tick={{ fontSize: 9, fill: '#9ca3af' }} tickFormatter={v => `$${v}`} axisLine={false} tickLine={false} />
+                  <Tooltip content={({ active, payload }) => {
+                    if (!active || !payload?.length) return null;
+                    const d = payload[0].payload;
+                    return (
+                      <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 6, padding: '6px 10px', fontSize: 11 }}>
+                        <div style={{ color: '#6b7280', marginBottom: 2 }}>{d.horse}</div>
+                        <div style={{ fontWeight: 700, fontFamily: 'monospace', color: d.pnl >= 0 ? '#1D9E75' : '#E24B4A' }}>{d.pnl >= 0 ? '+$' : '-$'}{Math.abs(d.pnl).toFixed(2)}</div>
+                      </div>
+                    );
+                  }} />
+                  <Area type="monotone" dataKey="pnl" stroke={finalPnl >= 0 ? '#1D9E75' : '#E24B4A'} fill="url(#heroFill)" strokeWidth={2} dot={renderHeroDot} activeDot={{ r: 5, stroke: '#fff', strokeWidth: 2 }} />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+          );
+        })()}
 
         {false && (() => { const pnl = dateStats.pnl; const pnlPos = pnl !== null && pnl >= 0; const pnlColor = ''; const finalPnl = 0; const periodPnlLabel = ''; const streakLabel = ''; const streakColor = ''; if (isMobile) return (
             <div style={{ padding: '8px 8px 0', flexShrink: 0 }}>
@@ -1137,56 +1210,6 @@ export default function MybetsPage() {
             <input type="date" value={customEnd} onChange={e => setCustomEnd(e.target.value)} style={{ fontSize: 10, padding: '2px 6px', border: '1px solid #e5e7eb', borderRadius: 4, color: '#374151' }} />
           </>)}
         </div>
-
-        {/* INLINE LOG BET ROW — desktop only */}
-        {!isMobile && (
-          <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 4, padding: '4px 10px', background: '#fff', borderBottom: '1px solid #e5e7eb' }}>
-            {csvMeetings.length > 0 ? (
-              <select value={qlMeeting} onChange={e => { setQlMeeting(e.target.value); setQlRace(''); setQlHorse(''); setQlOdds(''); setQlTab(''); }} style={{ ...inpIL, minWidth: 100 }}>
-                <option value="">Meeting…</option>
-                {csvMeetings.map(v => <option key={v} value={v}>{v}</option>)}
-              </select>
-            ) : (
-              <input value={qlMeeting} onChange={e => setQlMeeting(e.target.value)} placeholder="Track…" style={{ ...inpIL, width: 96 }} />
-            )}
-            <select value={qlRace} onChange={e => { setQlRace(e.target.value); setQlHorse(''); setQlOdds(''); setQlTab(''); }} style={{ ...inpIL, width: 52 }}>
-              <option value="">Race…</option>
-              {csvRaceOptions.length > 0
-                ? csvRaceOptions.map(o => <option key={o.key} value={o.value}>{o.label}</option>)
-                : Array.from({ length: 12 }, (_, i) => i + 1).map(n => <option key={n} value={n}>R{n}</option>)}
-            </select>
-            {csvHorses.length > 0 ? (
-              <select value={qlHorse} onChange={e => { const h = csvHorses.find(x => x.name === e.target.value); setQlHorse(e.target.value); if (h?.odds) setQlOdds(h.odds.toFixed(2)); setQlTab(h?.tab ? String(h.tab) : ''); }} style={{ ...inpIL, flex: 1 }}>
-                <option value="">Horse…</option>
-                {csvHorses.map(h => <option key={h.name} value={h.name}>{h.tab ? `${h.tab}. ` : ''}{h.name}{h.odds ? ` ($${h.odds.toFixed(1)})` : ''}</option>)}
-              </select>
-            ) : (
-              <input value={qlHorse} onChange={e => setQlHorse(e.target.value)} placeholder="Horse *" style={{ ...inpIL, flex: 1 }} />
-            )}
-            <select value={qlBetType} onChange={e => setQlBetType(e.target.value)} style={{ ...inpIL, width: 68 }}>
-              <option value="win">Win</option>
-              <option value="place">Place</option>
-              <option value="each-way">E/W</option>
-            </select>
-            <input value={qlStake} onChange={e => setQlStake(e.target.value)} type="number" placeholder="$Stake" min="0.01" step="0.01" style={{ ...inpIL, width: 58 }} />
-            <input value={qlOdds} onChange={e => setQlOdds(e.target.value)} type="number" placeholder="$Odds" min="1.01" step="0.01" style={{ ...inpIL, width: 58 }} />
-            <select value={qlBookmaker} onChange={e => setQlBookmaker(e.target.value)} style={{ ...inpIL, width: 86 }}>
-              {BOOKMAKERS.map(b => <option key={b} value={b}>{b}</option>)}
-            </select>
-            <button
-              onClick={handleQuickLog}
-              disabled={qlBtnDisabled}
-              style={{ padding: '4px 14px', background: raceHasPassed ? '#6b7280' : '#059669', color: '#fff', border: 'none', borderRadius: 4, fontSize: 11, fontWeight: 700, cursor: qlBtnDisabled ? 'default' : 'pointer', opacity: qlBtnDisabled ? 0.5 : 1, flexShrink: 0 }}
-            >
-              {qlSaving ? '…' : 'Save'}
-            </button>
-            {qlToast && (
-              <span style={{ fontSize: 11, fontWeight: 600, color: qlToast === 'success' ? '#059669' : '#dc2626', flexShrink: 0 }}>
-                {qlToast === 'success' ? '✓ Logged' : '✗ Failed'}
-              </span>
-            )}
-          </div>
-        )}
 
         {/* TAB BAR */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '5px 10px', background: '#fff', border: '1px solid #e5e7eb', borderRadius: 6, flexShrink: 0, gap: 8, margin: '4px 8px 6px' }}>
