@@ -230,8 +230,11 @@ export default function BlackbookPage() {
   const [csvRaces,    setCsvRaces]    = useState({});
   const [winBanners,  setWinBanners]  = useState([]);
   const [mostWatched, setMostWatched] = useState([]);
-  const [bbPerf,       setBbPerf]       = useState({});
-  const [expandedPerf, setExpandedPerf] = useState(new Set());
+  const [bbPerf,        setBbPerf]        = useState({});
+  const [expandedPerf,  setExpandedPerf]  = useState(new Set());
+  const [expandedNotes, setExpandedNotes] = useState(new Set());
+  const [horseInfo,     setHorseInfo]     = useState({});
+  const [sortDir,       setSortDir]       = useState('desc');
 
   useEffect(() => {
     const csv = localStorage.getItem('ww_csv');
@@ -311,6 +314,21 @@ export default function BlackbookPage() {
     });
   }, [horses]);
 
+  useEffect(() => {
+    if (!horses.length) return;
+    horses.forEach(h => {
+      const normHorse = normName(h.horse_name);
+      sb(`race_results?horse_name=ilike.${encodeURIComponent(normHorse + '%')}&order=date.desc&limit=5&select=horse_name,date,trainer,jockey`)
+        .then(rows => {
+          const matched = (rows || []).filter(r => normName(r.horse_name) === normHorse);
+          if (matched.length > 0) {
+            const r = matched[0];
+            setHorseInfo(prev => ({ ...prev, [h.id]: { date: r.date, trainer: r.trainer, jockey: r.jockey } }));
+          }
+        });
+    });
+  }, [horses]);
+
   const handleRemove = useCallback(async (id) => {
     if (!confirm('Remove from blackbook?')) return;
     await sb(`blackbook?id=eq.${id}`, { method: 'DELETE' });
@@ -321,12 +339,36 @@ export default function BlackbookPage() {
     setHorses(prev => prev.map(h => h.id === updated.id ? updated : h));
   }, []);
 
+  function handleSort(col) {
+    if (sortBy === col) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+    else { setSortBy(col); setSortDir('desc'); }
+  }
+
+  function sortArrow(col) {
+    if (sortBy !== col) return ' ';
+    return sortDir === 'asc' ? ' ▲' : ' ▼';
+  }
+
   const displayed = horses
     .filter(h => tagFilter === 'all' || (h.tags || []).includes(tagFilter))
     .sort((a, b) => {
-      if (sortBy === 'alpha')    return (a.horse_name || '').localeCompare(b.horse_name || '');
-      if (sortBy === 'priority') return (b.priority || 0) - (a.priority || 0);
-      return 0;
+      let cmp = 0;
+      if (sortBy === 'name') {
+        cmp = (a.horse_name || '').localeCompare(b.horse_name || '');
+      } else if (sortBy === 'priority') {
+        cmp = (b.priority || 0) - (a.priority || 0);
+      } else if (sortBy === 'pnl') {
+        const pa = (bbPerf[a.id]?.runs || []).reduce((s, r) => s + r.pnl, 0);
+        const pb = (bbPerf[b.id]?.runs || []).reduce((s, r) => s + r.pnl, 0);
+        cmp = pa - pb;
+      } else if (sortBy === 'lastrun') {
+        const da = horseInfo[a.id]?.date || '';
+        const db = horseInfo[b.id]?.date || '';
+        cmp = da.localeCompare(db);
+      } else {
+        cmp = (a.added_at || '').localeCompare(b.added_at || '');
+      }
+      return sortDir === 'asc' ? cmp : -cmp;
     });
 
   const runningToday = horses.filter(h => csvNames.includes(normName(h.horse_name)));
@@ -447,12 +489,6 @@ export default function BlackbookPage() {
             <h1 style={{ fontSize: 20, fontWeight: 700, color: '#111827', margin: 0 }}>Blackbook</h1>
             <span style={{ fontSize: 11, fontWeight: 600, color: '#6b7280', background: '#f3f4f6', padding: '2px 8px', borderRadius: 10 }}>{horses.length} horses</span>
             <div style={{ marginLeft: 'auto', display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', width: isMobile ? '100%' : undefined }}>
-              <select value={sortBy} onChange={e => setSortBy(e.target.value)}
-                style={{ fontSize: 11, padding: '4px 8px', border: '1px solid #e5e7eb', borderRadius: 6, background: '#fff', cursor: 'pointer', minHeight: 36 }}>
-                <option value="date">Date added</option>
-                <option value="priority">Priority</option>
-                <option value="alpha">A–Z</option>
-              </select>
               <select value={tagFilter} onChange={e => setTagFilter(e.target.value)}
                 style={{ fontSize: 11, padding: '4px 8px', border: '1px solid #e5e7eb', borderRadius: 6, background: '#fff', cursor: 'pointer', minHeight: 36 }}>
                 <option value="all">All tags</option>
@@ -504,12 +540,24 @@ export default function BlackbookPage() {
                 </div>
               ) : (
                 <div style={{ overflowX: 'auto' }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11, border: '1px solid #e5e7eb' }}>
                     <thead>
                       <tr style={{ background: '#173404' }}>
-                        {[['Horse','left',180],['Tags','left',140],['Race Added','left',110],['Rtg','center',72],['Since Added','left',130],['Actions','center',100]].map(([label, align, w]) => (
-                          <th key={label} style={{ padding: '5px 8px', fontSize: 10, fontWeight: 700, color: '#EAF3DE', textTransform: 'uppercase', letterSpacing: '.04em', textAlign: align, whiteSpace: 'nowrap', borderRight: '1px solid #2a5c1a', width: w }}>
-                            {label}
+                        {[
+                          ['Horse',      'left',   155, 'name'],
+                          ['Trainer',    'left',   110, null],
+                          ['Jockey',     'left',   100, null],
+                          ['Last Run',   'left',    88, 'lastrun'],
+                          ['Tags',       'left',   115, null],
+                          ['Date Added', 'left',    98, 'date'],
+                          ['Rtg',        'center',  58, null],
+                          ['P&L',        'left',   105, 'pnl'],
+                          ['Actions',    'center',  88, null],
+                        ].map(([label, align, w, sortKey]) => (
+                          <th key={label}
+                            onClick={sortKey ? () => handleSort(sortKey) : undefined}
+                            style={{ padding: '4px 6px', fontSize: 10, fontWeight: 700, color: '#EAF3DE', textTransform: 'uppercase', letterSpacing: '.04em', textAlign: align, whiteSpace: 'nowrap', borderRight: '1px solid #2a5c1a', width: w, cursor: sortKey ? 'pointer' : 'default', userSelect: 'none' }}>
+                            {label}{sortKey ? sortArrow(sortKey) : ''}
                           </th>
                         ))}
                       </tr>
@@ -530,14 +578,18 @@ export default function BlackbookPage() {
                         const wins    = perfRuns.filter(r => r.pos == 1).length;
                         const seconds = perfRuns.filter(r => r.pos == 2).length;
                         const thirds  = perfRuns.filter(r => r.pos == 3).length;
-                        const td = (extra = {}) => ({ padding: '4px 8px', borderBottom: '1px solid #E5E7EB', borderRight: '1px solid #E5E7EB', verticalAlign: 'top', color: '#111827', ...extra });
+                        const info    = horseInfo[h.id];
+                        const td = (extra = {}) => ({ padding: '3px 6px', borderBottom: '1px solid #e5e7eb', borderRight: '1px solid #e5e7eb', verticalAlign: 'middle', color: '#111827', ...extra });
                         return (
                           <Fragment key={h.id}>
                             <tr style={{ background: isRunning ? '#f0fdf4' : '#fff' }}>
                               <td style={td()}>
-                                <div style={{ fontWeight: 600, color: '#111827' }}>{h.horse_name}</div>
-                                {isRunning && <span style={{ fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 3, background: '#00471b', color: '#fff', display: 'inline-block', marginTop: 2 }}>RUNNING TODAY</span>}
+                                <div style={{ fontWeight: 600 }}>{h.horse_name}</div>
+                                {isRunning && <span style={{ fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 3, background: '#00471b', color: '#fff', display: 'inline-block', marginTop: 2 }}>TODAY</span>}
                               </td>
+                              <td style={td({ fontSize: 10 })}>{info?.trainer || '—'}</td>
+                              <td style={td({ fontSize: 10 })}>{info?.jockey || '—'}</td>
+                              <td style={td({ fontSize: 10, whiteSpace: 'nowrap' })}>{info?.date ? fmtDate(info.date) : '—'}</td>
                               <td style={td()}>
                                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 3 }}>
                                   {(h.tags || []).map(t => {
@@ -547,71 +599,75 @@ export default function BlackbookPage() {
                                 </div>
                               </td>
                               <td style={td({ whiteSpace: 'nowrap', fontSize: 10 })}>
-                                <div style={{ color: '#111827' }}>{[h.venue, h.race_number && `R${h.race_number}`, h.distance && `${h.distance}m`].filter(Boolean).join(' · ') || '—'}</div>
-                                <div style={{ color: '#111827', fontSize: 9, marginTop: 1 }}>{fmtDate(h.added_at)}</div>
+                                <div>{[h.venue, h.race_number && `R${h.race_number}`, h.distance && `${h.distance}m`].filter(Boolean).join(' · ') || '—'}</div>
+                                <div style={{ fontSize: 9, color: '#6b7280', marginTop: 1 }}>{fmtDate(h.added_at)}</div>
                               </td>
                               <td style={td({ textAlign: 'center' })}>
                                 <Stars value={h.priority || 0} readOnly />
                               </td>
-                              <td style={td({ whiteSpace: 'nowrap', fontFamily: 'monospace' })}>
+                              <td style={td({ whiteSpace: 'nowrap', fontFamily: 'monospace', fontSize: 10 })}>
                                 {!perf?.loaded ? (
-                                  <span style={{ color: '#9ca3af', fontSize: 10 }}>…</span>
+                                  <span style={{ color: '#9ca3af' }}>…</span>
                                 ) : perfRuns.length === 0 ? (
-                                  <span style={{ color: '#9ca3af', fontSize: 10 }}>0 runs</span>
+                                  <span style={{ color: '#9ca3af' }}>0 runs</span>
                                 ) : (
                                   <>
-                                    <div style={{ fontSize: 11, color: '#111827' }}>{perfRuns.length}-{wins}-{seconds}-{thirds}</div>
-                                    <div style={{ fontSize: 10, fontWeight: 700, color: perfTotal >= 0 ? '#059669' : '#dc2626' }}>
-                                      {perfTotal >= 0 ? '+$' : '-$'}{Math.abs(perfTotal).toFixed(2)} $1
+                                    <div style={{ color: '#374151' }}>{perfRuns.length}-{wins}-{seconds}-{thirds}</div>
+                                    <div style={{ fontWeight: 700, color: perfTotal >= 0 ? '#059669' : '#dc2626' }}>
+                                      {perfTotal >= 0 ? '+$' : '-$'}{Math.abs(perfTotal).toFixed(2)}
                                     </div>
                                   </>
                                 )}
                               </td>
                               <td style={td({ textAlign: 'center', borderRight: 'none' })}>
-                                <div style={{ display: 'flex', gap: 8, justifyContent: 'center', marginBottom: 3 }}>
+                                <div style={{ display: 'flex', gap: 5, justifyContent: 'center', alignItems: 'center', flexWrap: 'wrap' }}>
                                   <button onClick={() => setEditHorse(h)} style={{ fontSize: 10, fontWeight: 600, color: '#111827', background: 'none', border: 'none', cursor: 'pointer', padding: 0, textDecoration: 'underline' }}>Edit</button>
-                                  <button onClick={() => handleRemove(h.id)} style={{ fontSize: 10, fontWeight: 600, color: '#dc2626', background: 'none', border: 'none', cursor: 'pointer', padding: 0, textDecoration: 'underline' }}>Remove</button>
-                                </div>
-                                {perf?.loaded && perfRuns.length > 0 && (
-                                  <>
-                                    <div style={{ borderTop: '1px solid #e5e7eb', marginBottom: 4 }} />
-                                    <button onClick={togglePerf} style={{ fontSize: 10, fontWeight: 700, color: '#0F6E56', background: '#DCFCE7', border: 'none', borderRadius: 4, cursor: 'pointer', padding: '2px 10px', display: 'inline-flex', flexDirection: 'column', alignItems: 'center', lineHeight: 1.4 }}>
-                                      <span>Details</span>
-                                      <span style={{ fontSize: 11 }}>{isExpanded ? '▴' : '▾'}</span>
+                                  <button onClick={() => handleRemove(h.id)} style={{ fontSize: 10, fontWeight: 600, color: '#dc2626', background: 'none', border: 'none', cursor: 'pointer', padding: 0, textDecoration: 'underline' }}>Rm</button>
+                                  {h.note && (
+                                    <button
+                                      onClick={() => setExpandedNotes(prev => { const n = new Set(prev); n.has(h.id) ? n.delete(h.id) : n.add(h.id); return n; })}
+                                      title="Toggle comment"
+                                      style={{ fontSize: 13, background: 'none', border: 'none', cursor: 'pointer', padding: 0, color: expandedNotes.has(h.id) ? '#00471b' : '#9ca3af', lineHeight: 1 }}>
+                                      &#128172;
                                     </button>
-                                  </>
-                                )}
+                                  )}
+                                  {perf?.loaded && perfRuns.length > 0 && (
+                                    <button onClick={togglePerf} style={{ fontSize: 10, fontWeight: 700, color: '#0F6E56', background: '#dcfce7', border: 'none', borderRadius: 3, cursor: 'pointer', padding: '1px 6px' }}>
+                                      {isExpanded ? '▴' : '▾'}
+                                    </button>
+                                  )}
+                                </div>
                               </td>
                             </tr>
-                            {h.note && (
+                            {h.note && expandedNotes.has(h.id) && (
                               <tr>
-                                <td colSpan={6} style={{ padding: '3px 10px', background: '#FAFAFA', fontSize: 10, color: '#111827', fontStyle: 'italic', borderBottom: '1px solid #E5E7EB' }}>
-                                  {h.note}
+                                <td colSpan={9} style={{ padding: '6px 10px', background: '#fff', borderBottom: '1px solid #e5e7eb', fontSize: 11, color: '#374151' }}>
+                                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+                                    <div style={{ flex: 1 }}>{h.note}</div>
+                                    <button onClick={() => setEditHorse(h)} style={{ fontSize: 10, fontWeight: 600, color: '#00471b', background: 'none', border: '1px solid #00471b', borderRadius: 4, padding: '2px 8px', cursor: 'pointer', flexShrink: 0 }}>Edit</button>
+                                  </div>
                                 </td>
                               </tr>
                             )}
-                            <tr>
-                              <td colSpan={6} style={{ padding: 0, height: 2, background: '#0F6E56', lineHeight: 0, fontSize: 0 }} />
-                            </tr>
                             {isExpanded && perf?.loaded && perfRuns.length > 0 && (
                               <tr>
-                                <td colSpan={6} style={{ padding: 0 }}>
-                                  <div style={{ background: '#F0FDF4', borderLeft: '3px solid #0F6E56', borderBottom: '1px solid #E5E7EB', padding: '8px 12px' }}>
-                                    <div style={{ fontSize: 9, fontWeight: 700, color: '#111827', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 6 }}>Runs since blackbooked</div>
+                                <td colSpan={9} style={{ padding: 0 }}>
+                                  <div style={{ background: '#fff', borderBottom: '1px solid #e5e7eb', padding: '6px 10px' }}>
+                                    <div style={{ fontSize: 9, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 6 }}>Runs since blackbooked</div>
                                     <table style={{ fontSize: 10, fontFamily: 'monospace', borderCollapse: 'collapse' }}>
                                       <thead>
                                         <tr>
                                           {['DATE','VENUE','POS','$1 RESULT'].map((col, ci) => (
-                                            <th key={col} style={{ padding: '3px 10px', textAlign: ci === 2 ? 'center' : ci === 3 ? 'right' : 'left', fontWeight: 600, color: '#111827', borderBottom: '1px solid #E5E7EB' }}>{col}</th>
+                                            <th key={col} style={{ padding: '3px 10px', textAlign: ci === 2 ? 'center' : ci === 3 ? 'right' : 'left', fontWeight: 600, color: '#374151', borderBottom: '1px solid #e5e7eb' }}>{col}</th>
                                           ))}
                                         </tr>
                                       </thead>
                                       <tbody>
                                         {perfRuns.map((r, ri) => (
                                           <tr key={ri}>
-                                            <td style={{ padding: '3px 10px', color: '#111827' }}>{r.date}</td>
-                                            <td style={{ padding: '3px 10px', color: '#111827' }}>{r.venue}</td>
-                                            <td style={{ padding: '3px 10px', textAlign: 'center', color: '#111827' }}>{r.pos}</td>
+                                            <td style={{ padding: '3px 10px', color: '#374151' }}>{r.date}</td>
+                                            <td style={{ padding: '3px 10px', color: '#374151' }}>{r.venue}</td>
+                                            <td style={{ padding: '3px 10px', textAlign: 'center', color: '#374151' }}>{r.pos}</td>
                                             <td style={{ padding: '3px 10px', textAlign: 'right', fontWeight: 700, color: r.pnl >= 0 ? '#059669' : '#dc2626' }}>
                                               {r.pnl >= 0 ? '+$' : '-$'}{Math.abs(r.pnl).toFixed(2)}
                                             </td>
