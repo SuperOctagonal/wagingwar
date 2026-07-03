@@ -793,6 +793,18 @@ export default function MybetsPage() {
     });
   }, [dateResulted, raceTimeMap]);
 
+  const sevenDaySparkData = useMemo(() => {
+    const today = new Date(todayISO + 'T00:00:00');
+    return Array.from({ length: 7 }, (_, i) => {
+      const d = new Date(today);
+      d.setDate(today.getDate() - (6 - i));
+      const iso = d.toISOString().slice(0, 10);
+      const dayBets = bets.filter(b => b.date === iso && b.status && b.status !== 'pending' && b.status !== 'scratched');
+      const pnl = dayBets.reduce((s, b) => s + (b.profit_loss || 0), 0);
+      return { day: iso.slice(5), pnl: Math.round(pnl * 100) / 100 };
+    });
+  }, [bets, todayISO]);
+
   const ledgerFilteredBets = useMemo(() => {
     const base = dateFilteredBets.filter(b => b.status !== 'scratched');
     if (activeTab === 'all') return base;
@@ -851,24 +863,6 @@ export default function MybetsPage() {
     return { text:m>0?`-${m}m ${s}s`:`-${s}s`, color:'#f87171', bold:true };
   };
 
-  const nextBetsPanel = (
-    <div>
-      <div style={{ fontSize:9, fontWeight:700, color:'#6b7280', textTransform:'uppercase', letterSpacing:'.06em', marginBottom:4 }}>Upcoming bets</div>
-      {nextRaces.length === 0 ? (
-        <div style={{ fontSize:10, color:'#9ca3af' }}>No upcoming bets today</div>
-      ) : nextRaces.map(r => {
-        const { text:cdText, color:cdColor, bold:cdBold } = fmtPanelCd(r.secsToRace);
-        return (
-          <div key={r.id} style={{ display:'flex', alignItems:'center', gap:6, padding:'3px 0', borderBottom:'1px solid #f3f4f6' }}>
-            <span style={{ fontSize:9, color:'#9ca3af', flexShrink:0, width:44, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{r.abbr}</span>
-            <span style={{ fontSize:10, fontWeight:600, color:'#111827', flex:1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{r.horse}</span>
-            {r.odds != null && <span style={{ fontSize:10, fontFamily:'monospace', color:'#374151', flexShrink:0 }}>${Number(r.odds).toFixed(1)}</span>}
-            <span style={{ fontSize:9, color:cdColor, fontWeight:cdBold?700:400, flexShrink:0 }}>{cdText}</span>
-          </div>
-        );
-      })}
-    </div>
-  );
 
   const leakFinderCards = useMemo(() => {
     if (resultedBets.length < 5) return [];
@@ -921,6 +915,7 @@ export default function MybetsPage() {
   }
 
   const inp = { fontSize: 11, padding: '5px 8px', border: '1px solid #e5e7eb', borderRadius: 5, color: '#111827', outline: 'none', background: '#fff', width: '100%', boxSizing: 'border-box' };
+  const inpIL = { fontSize: 11, padding: '4px 6px', border: '1px solid #e5e7eb', borderRadius: 4, color: '#111827', outline: 'none', background: '#fff', boxSizing: 'border-box' };
 
   const renderHeroDot = ({ cx, cy, payload }) => {
     if (cx == null || cy == null) return null;
@@ -943,113 +938,57 @@ export default function MybetsPage() {
     qlRaceDate === qlAestDateISO && qlRaceMins <= qlAestMins;
   const qlBtnDisabled = qlSaving || raceHasPassed || !qlHorse.trim() || !(+qlStake > 0) || !(+qlOdds > 1);
 
+  const sbPnl = dateStats.pnl;
+  const sbPnlPos = sbPnl !== null && sbPnl >= 0;
+  const sbPnlColor = sbPnl === null ? '#9ca3af' : sbPnlPos ? '#0F6E56' : '#dc2626';
+  const sbPeriodLabel = { today: "Today's P&L", yesterday: "Yesterday's P&L", this_week: "This Week's P&L", this_month: "This Month's P&L", all_time: "All-Time P&L", custom: "Period P&L" }[dateRange] || "P&L";
+  const sbStreakLabel = heroStreak ? `${heroStreak.type}${heroStreak.count}` : '—';
+  const sbStreakColor = heroStreak?.type === 'W' ? '#059669' : heroStreak?.type === 'L' ? '#dc2626' : '#9ca3af';
+  const sbSparkFinal = sevenDaySparkData.length ? sevenDaySparkData[sevenDaySparkData.length - 1].pnl : 0;
+  const nextBetsPanel = null;
+
   return (
     <div className="mob-page" style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
-      <ProfileRail>
-        {!isMobile && (
-          <div style={{ borderTop: '2px solid #059669' }}>
-            <div style={{ padding: '10px 12px 6px' }}>
-              <span style={{ fontSize: 13, fontWeight: 700, color: '#111827' }}>⚡ Log a Bet</span>
-            </div>
-            <div style={{ padding: '0 12px 12px', display: 'flex', flexDirection: 'column', gap: 5 }}>
-
-              {csvMeetings.length === 0 && (
-                <div style={{ fontSize: 10, color: '#9ca3af', lineHeight: 1.4 }}>
-                  Load a CSV on the Races page to enable meeting/horse selection.
-                </div>
-              )}
-
-              {csvMeetings.length > 0 ? (
-                <select value={qlMeeting} onChange={e => { setQlMeeting(e.target.value); setQlRace(''); setQlHorse(''); setQlOdds(''); setQlTab(''); }} style={inp}>
-                  <option value="">Meeting…</option>
-                  {csvMeetings.map(v => <option key={v} value={v}>{v}</option>)}
-                </select>
-              ) : (
-                <input value={qlMeeting} onChange={e => setQlMeeting(e.target.value)} placeholder="Track (e.g. Flemington)" style={inp} />
-              )}
-
-              <select value={qlRace} onChange={e => { setQlRace(e.target.value); setQlHorse(''); setQlOdds(''); setQlTab(''); }} style={inp}>
-                <option value="">Race #…</option>
-                {csvRaceOptions.length > 0
-                  ? csvRaceOptions.map(o => <option key={o.key} value={o.value}>{o.label}</option>)
-                  : Array.from({ length: 12 }, (_, i) => i + 1).map(n => <option key={n} value={n}>R{n}</option>)
-                }
-              </select>
-
-              {csvHorses.length > 0 ? (
-                <select value={qlHorse} onChange={e => { const h = csvHorses.find(x => x.name === e.target.value); setQlHorse(e.target.value); if (h?.odds) setQlOdds(h.odds.toFixed(2)); setQlTab(h?.tab ? String(h.tab) : ''); }} style={inp}>
-                  <option value="">Select horse…</option>
-                  {csvHorses.map(h => (
-                    <option key={h.name} value={h.name}>
-                      {h.tab ? `${h.tab}. ` : ''}{h.name}{h.odds ? ` ($${h.odds.toFixed(1)})` : ''}
-                    </option>
-                  ))}
-                </select>
-              ) : (
-                <input value={qlHorse} onChange={e => setQlHorse(e.target.value)} placeholder="Horse name *" style={inp} />
-              )}
-
-              <select value={qlBetType} onChange={e => setQlBetType(e.target.value)} style={inp}>
-                <option value="win">Win</option>
-                <option value="place">Place</option>
-                <option value="each-way">Each Way</option>
-              </select>
-
-              <div style={{ display: 'flex', gap: 4 }}>
-                <input value={qlStake} onChange={e => setQlStake(e.target.value)} type="number" placeholder="Stake $" min="0.01" step="0.01" style={{ ...inp, flex: 1, minWidth: 0 }} />
-                <input value={qlOdds} onChange={e => setQlOdds(e.target.value)} type="number" placeholder="Odds $" min="1.01" step="0.01" style={{ ...inp, flex: 1, minWidth: 0 }} />
-              </div>
-
-              <input value={qlRaceTime} onChange={e => setQlRaceTime(e.target.value)} type="text" placeholder="Race Time (auto)" style={inp} />
-
-              <select value={qlBookmaker} onChange={e => setQlBookmaker(e.target.value)} style={inp}>
-                {BOOKMAKERS.map(b => <option key={b} value={b}>{b}</option>)}
-              </select>
-
-              <div style={{ display: 'flex', gap: 4 }}>
-                <button
-                  onClick={handleQuickLog}
-                  disabled={qlBtnDisabled}
-                  style={{ flex: 1, padding: '7px', background: raceHasPassed ? '#6b7280' : '#059669', color: '#fff', border: 'none', borderRadius: 5, fontSize: 11, fontWeight: 700, cursor: qlBtnDisabled ? 'default' : 'pointer', opacity: qlBtnDisabled ? 0.5 : 1 }}
-                >
-                  {qlSaving ? 'Saving…' : 'Save Bet'}
-                </button>
-                <button
-                  onClick={() => { setQlMeeting(''); setQlRace(''); setQlHorse(''); setQlBetType('win'); setQlStake(''); setQlOdds(''); setQlRaceTime(''); setQlBookmaker('Sportsbet'); setQlTab(''); setQlToast(null); }}
-                  style={{ flex: 1, padding: '7px', background: '#dc2626', color: '#fff', border: 'none', borderRadius: 5, fontSize: 11, fontWeight: 700, cursor: 'pointer' }}
-                >
-                  Clear
-                </button>
-              </div>
-
-              {raceHasPassed && (
-                <div style={{ fontSize: 10, fontWeight: 600, color: '#6b7280', textAlign: 'center' }}>
-                  Race has started — cannot log after jump
-                </div>
-              )}
-              {qlToast && (
-                <div style={{ fontSize: 10, fontWeight: 600, color: qlToast === 'success' ? '#059669' : '#dc2626', textAlign: 'center' }}>
-                  {qlToast === 'success' ? '✓ Bet logged! +5pts' : '✗ Failed — check console for details'}
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-      </ProfileRail>
+      <ProfileRail />
 
       {/* ── Main content ── */}
       <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: '#f3f4f6' }}>
 
-        {/* HERO PANE — mobile always; desktop only on Charts tab (Ledger moves hero to right column) */}
-        {(isMobile || mainTab === 'charts') && (() => {
-          const pnl = dateStats.pnl;
-          const pnlPos = pnl !== null && pnl >= 0;
-          const pnlColor = pnl === null ? '#9ca3af' : pnlPos ? '#0F6E56' : '#dc2626';
-          const finalPnl = heroChartData.length ? heroChartData[heroChartData.length - 1].pnl : 0;
-          const periodPnlLabel = { today: "Today's P&L", yesterday: "Yesterday's P&L", this_week: "This Week's P&L", this_month: "This Month's P&L", all_time: "All-Time P&L", custom: "Period P&L" }[dateRange] || "P&L";
-          const streakLabel = heroStreak ? `${heroStreak.type}${heroStreak.count}` : '—';
-          const streakColor = heroStreak?.type === 'W' ? '#059669' : heroStreak?.type === 'L' ? '#dc2626' : '#9ca3af';
-          if (isMobile) return (
+        {/* SCOREBOARD HEADER */}
+        <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: isMobile ? 10 : 16, padding: isMobile ? '6px 10px' : '7px 16px', background: '#fff', borderBottom: '1px solid #e5e7eb', overflowX: 'auto', scrollbarWidth: 'none' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+            <div>
+              <div style={{ fontSize: 9, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 1 }}>{sbPeriodLabel}</div>
+              <div style={{ fontSize: isMobile ? 22 : 28, fontWeight: 800, fontFamily: 'monospace', color: sbPnlColor, lineHeight: 1 }}>
+                {sbPnl === null ? '—' : (sbPnlPos ? '+$' : '-$') + Math.abs(sbPnl).toFixed(2)}
+              </div>
+            </div>
+            {!isMobile && sevenDaySparkData.some(d => d.pnl !== 0) && (
+              <div style={{ width: 72, height: 34, flexShrink: 0 }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={sevenDaySparkData} margin={{ top: 2, right: 2, bottom: 2, left: 2 }}>
+                    <ReferenceLine y={0} stroke="#e5e7eb" strokeDasharray="2 2" />
+                    <Area type="monotone" dataKey="pnl" stroke={sbSparkFinal >= 0 ? '#1D9E75' : '#E24B4A'} fill="none" strokeWidth={1.5} dot={false} />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+          </div>
+          <div style={{ width: 1, height: 28, background: '#e5e7eb', flexShrink: 0 }} />
+          {[
+            { label: 'Strike', value: dateStats.strike, color: '#374151' },
+            { label: 'Staked', value: dateStats.staked, color: '#374151' },
+            { label: 'ROI', value: dateStats.roi, color: parseFloat(dateStats.roi) > 0 ? '#059669' : parseFloat(dateStats.roi) < 0 ? '#dc2626' : '#6b7280' },
+            { label: 'Streak', value: sbStreakLabel, color: sbStreakColor },
+          ].map(({ label, value, color }) => (
+            <div key={label} style={{ flexShrink: 0 }}>
+              <div style={{ fontSize: 9, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '.06em' }}>{label}</div>
+              <div style={{ fontSize: isMobile ? 11 : 13, fontWeight: 700, color }}>{value}</div>
+            </div>
+          ))}
+        </div>
+
+        {false && (() => { const pnl = dateStats.pnl; const pnlPos = pnl !== null && pnl >= 0; const pnlColor = ''; const finalPnl = 0; const periodPnlLabel = ''; const streakLabel = ''; const streakColor = ''; if (isMobile) return (
             <div style={{ padding: '8px 8px 0', flexShrink: 0 }}>
               <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, overflow: 'hidden' }}>
                 <div style={{ display: 'flex', alignItems: 'center', padding: '10px 12px' }}>
@@ -1199,6 +1138,56 @@ export default function MybetsPage() {
           </>)}
         </div>
 
+        {/* INLINE LOG BET ROW — desktop only */}
+        {!isMobile && (
+          <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 4, padding: '4px 10px', background: '#fff', borderBottom: '1px solid #e5e7eb' }}>
+            {csvMeetings.length > 0 ? (
+              <select value={qlMeeting} onChange={e => { setQlMeeting(e.target.value); setQlRace(''); setQlHorse(''); setQlOdds(''); setQlTab(''); }} style={{ ...inpIL, minWidth: 100 }}>
+                <option value="">Meeting…</option>
+                {csvMeetings.map(v => <option key={v} value={v}>{v}</option>)}
+              </select>
+            ) : (
+              <input value={qlMeeting} onChange={e => setQlMeeting(e.target.value)} placeholder="Track…" style={{ ...inpIL, width: 96 }} />
+            )}
+            <select value={qlRace} onChange={e => { setQlRace(e.target.value); setQlHorse(''); setQlOdds(''); setQlTab(''); }} style={{ ...inpIL, width: 52 }}>
+              <option value="">Race…</option>
+              {csvRaceOptions.length > 0
+                ? csvRaceOptions.map(o => <option key={o.key} value={o.value}>{o.label}</option>)
+                : Array.from({ length: 12 }, (_, i) => i + 1).map(n => <option key={n} value={n}>R{n}</option>)}
+            </select>
+            {csvHorses.length > 0 ? (
+              <select value={qlHorse} onChange={e => { const h = csvHorses.find(x => x.name === e.target.value); setQlHorse(e.target.value); if (h?.odds) setQlOdds(h.odds.toFixed(2)); setQlTab(h?.tab ? String(h.tab) : ''); }} style={{ ...inpIL, flex: 1 }}>
+                <option value="">Horse…</option>
+                {csvHorses.map(h => <option key={h.name} value={h.name}>{h.tab ? `${h.tab}. ` : ''}{h.name}{h.odds ? ` ($${h.odds.toFixed(1)})` : ''}</option>)}
+              </select>
+            ) : (
+              <input value={qlHorse} onChange={e => setQlHorse(e.target.value)} placeholder="Horse *" style={{ ...inpIL, flex: 1 }} />
+            )}
+            <select value={qlBetType} onChange={e => setQlBetType(e.target.value)} style={{ ...inpIL, width: 68 }}>
+              <option value="win">Win</option>
+              <option value="place">Place</option>
+              <option value="each-way">E/W</option>
+            </select>
+            <input value={qlStake} onChange={e => setQlStake(e.target.value)} type="number" placeholder="$Stake" min="0.01" step="0.01" style={{ ...inpIL, width: 58 }} />
+            <input value={qlOdds} onChange={e => setQlOdds(e.target.value)} type="number" placeholder="$Odds" min="1.01" step="0.01" style={{ ...inpIL, width: 58 }} />
+            <select value={qlBookmaker} onChange={e => setQlBookmaker(e.target.value)} style={{ ...inpIL, width: 86 }}>
+              {BOOKMAKERS.map(b => <option key={b} value={b}>{b}</option>)}
+            </select>
+            <button
+              onClick={handleQuickLog}
+              disabled={qlBtnDisabled}
+              style={{ padding: '4px 14px', background: raceHasPassed ? '#6b7280' : '#059669', color: '#fff', border: 'none', borderRadius: 4, fontSize: 11, fontWeight: 700, cursor: qlBtnDisabled ? 'default' : 'pointer', opacity: qlBtnDisabled ? 0.5 : 1, flexShrink: 0 }}
+            >
+              {qlSaving ? '…' : 'Save'}
+            </button>
+            {qlToast && (
+              <span style={{ fontSize: 11, fontWeight: 600, color: qlToast === 'success' ? '#059669' : '#dc2626', flexShrink: 0 }}>
+                {qlToast === 'success' ? '✓ Logged' : '✗ Failed'}
+              </span>
+            )}
+          </div>
+        )}
+
         {/* TAB BAR */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '5px 10px', background: '#fff', border: '1px solid #e5e7eb', borderRadius: 6, flexShrink: 0, gap: 8, margin: '4px 8px 6px' }}>
           <div style={{ display: 'flex', gap: 4, ...(isMobile && { flex: 1 }) }}>
@@ -1313,99 +1302,9 @@ export default function MybetsPage() {
         </div>
         )}
 
-        {/* DESKTOP: stacked vertical — Row 1 hero/next-races, Row 2 full-width table */}
-        {!isMobile && (<>
+        {/* DESKTOP: full-width table */}
+        {!isMobile && (
 
-          {/* ROW 1: hero stats (60%) + next races / leak finder (40%) */}
-          <div style={{ display: 'flex', gap: 8, padding: '0 8px 6px', flexShrink: 0 }}>
-
-            {/* LEFT 60%: compact hero stats card */}
-            {(() => {
-              const pnl = dateStats.pnl;
-              const pnlPos = pnl !== null && pnl >= 0;
-              const pnlColor = pnl === null ? '#9ca3af' : pnlPos ? '#0F6E56' : '#dc2626';
-              const finalPnl = heroChartData.length ? heroChartData[heroChartData.length - 1].pnl : 0;
-              const periodPnlLabel = { today: "Today's P&L", yesterday: "Yesterday's P&L", this_week: "This Week's P&L", this_month: "This Month's P&L", all_time: "All-Time P&L", custom: "Period P&L" }[dateRange] || "P&L";
-              const streakLabel = heroStreak ? `${heroStreak.type}${heroStreak.count}` : '—';
-              const streakColor = heroStreak?.type === 'W' ? '#059669' : heroStreak?.type === 'L' ? '#dc2626' : '#9ca3af';
-              return (
-                <div style={{ flex: '0 0 60%', minWidth: 0, background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, overflow: 'hidden' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', padding: '8px 12px', gap: 12, borderBottom: '1px solid #f3f4f6' }}>
-                    <div style={{ minWidth: 60, display: 'flex', flexDirection: 'column', gap: 5 }}>
-                      {[{ label: 'Strike', value: dateStats.strike, color: '#374151' }, { label: 'ROI', value: dateStats.roi, color: parseFloat(dateStats.roi) > 0 ? '#059669' : parseFloat(dateStats.roi) < 0 ? '#dc2626' : '#6b7280' }].map(({ label, value, color }) => (
-                        <div key={label}>
-                          <div style={{ fontSize: 9, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '.06em' }}>{label}</div>
-                          <div style={{ fontSize: 12, fontWeight: 700, color }}>{value}</div>
-                        </div>
-                      ))}
-                    </div>
-                    <div style={{ flex: 1, textAlign: 'center' }}>
-                      <div style={{ fontSize: 10, fontWeight: 600, color: '#374151', marginBottom: 2 }}>{periodPnlLabel}</div>
-                      <div style={{ fontSize: 32, fontWeight: 800, fontFamily: 'monospace', color: pnlColor, lineHeight: 1 }}>
-                        {pnl === null ? '—' : (pnlPos ? '+$' : '-$') + Math.abs(pnl).toFixed(2)}
-                      </div>
-                      <div style={{ fontSize: 11, fontFamily: 'monospace', color: '#374151', marginTop: 3, letterSpacing: '.05em' }}>{heroRecord}</div>
-                    </div>
-                    <div style={{ minWidth: 60, display: 'flex', flexDirection: 'column', gap: 5, alignItems: 'flex-end' }}>
-                      {[{ label: 'Staked', value: dateStats.staked, color: '#374151' }, { label: 'Streak', value: streakLabel, color: streakColor }].map(({ label, value, color }) => (
-                        <div key={label} style={{ textAlign: 'right' }}>
-                          <div style={{ fontSize: 9, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '.06em' }}>{label}</div>
-                          <div style={{ fontSize: 12, fontWeight: 700, color }}>{value}</div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                  {heroChartData.length > 1 ? (
-                    <div style={{ height: 90 }}>
-                      <ResponsiveContainer width="100%" height="100%">
-                        <AreaChart data={heroChartData} margin={{ top: 4, right: 8, bottom: 0, left: 30 }}>
-                          <defs>
-                            <linearGradient id="ledgerHeroFill" x1="0" y1="0" x2="0" y2="1">
-                              <stop offset="5%" stopColor="#1D9E75" stopOpacity={0.18} />
-                              <stop offset="95%" stopColor="#1D9E75" stopOpacity={0} />
-                            </linearGradient>
-                          </defs>
-                          <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" vertical={false} />
-                          <ReferenceLine y={0} stroke="#e5e7eb" />
-                          <XAxis dataKey="label" tick={{ fontSize: 8, fill: '#9ca3af' }} interval="preserveStartEnd" tickLine={false} axisLine={false} />
-                          <YAxis tick={{ fontSize: 8, fill: '#9ca3af' }} tickFormatter={v => `$${v}`} axisLine={false} tickLine={false} />
-                          <Tooltip content={({ active, payload }) => {
-                            if (!active || !payload?.length) return null;
-                            const d = payload[0].payload;
-                            return (
-                              <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 6, padding: '4px 8px', fontSize: 10 }}>
-                                <div style={{ color: '#6b7280' }}>{d.horse}</div>
-                                <div style={{ fontWeight: 700, fontFamily: 'monospace', color: d.pnl >= 0 ? '#1D9E75' : '#E24B4A' }}>{d.pnl >= 0 ? '+$' : '-$'}{Math.abs(d.pnl).toFixed(2)}</div>
-                              </div>
-                            );
-                          }} />
-                          <Area type="monotone" dataKey="pnl" stroke={finalPnl >= 0 ? '#1D9E75' : '#E24B4A'} fill="url(#ledgerHeroFill)" strokeWidth={1.5} dot={renderHeroDot} activeDot={{ r: 4, stroke: '#fff', strokeWidth: 1.5 }} />
-                        </AreaChart>
-                      </ResponsiveContainer>
-                    </div>
-                  ) : <div style={{ height: 8 }} />}
-                </div>
-              );
-            })()}
-
-            {/* RIGHT 40%: next races + leak finder */}
-            <div style={{ flex: 1, minWidth: 0, background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, padding: '8px 10px', display: 'flex', flexDirection: 'column', gap: 12, overflow: 'auto' }}>
-              {nextBetsPanel}
-              <div>
-                <div style={{ fontSize: 9, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 4 }}>Leak finder</div>
-                {leakFinderCards.length === 0 ? (
-                  <div style={{ fontSize: 10, color: '#9ca3af' }}>Not enough data yet — need 5+ bets in a band</div>
-                ) : leakFinderCards.map((card, i) => (
-                  <div key={i} style={{ borderLeft: `3px solid ${card.leak ? '#E24B4A' : '#1D9E75'}`, paddingLeft: 7, marginBottom: 3 }}>
-                    <div style={{ fontSize: 11, fontWeight: 700, color: '#111827' }}>{card.insight}</div>
-                    <div style={{ fontSize: 9, color: '#374151' }}>{card.stat}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          {/* ROW 2: full-width bet view area */}
           <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
 
             {betView === 'table' && (<>
@@ -1424,14 +1323,14 @@ export default function MybetsPage() {
                   );
                 })}
               </div>
-              <div style={{ flex: 1, minHeight: 0, overflowX: 'auto', overflowY: 'auto' }}>
-              <div style={{ background: '#11241A', width: 'fit-content' }}>
+              <div style={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
+              <div style={{ background: '#11241A', minWidth: 600 }}>
                 {(() => {
                   const thBase = { padding: '5px 6px', fontSize: 9, fontWeight: 700, color: '#4b6858', textTransform: 'uppercase', border: '1px solid #1a3a25', whiteSpace: 'nowrap', cursor: 'pointer', userSelect: 'none' };
                   const mkSort = (col) => () => { if (sortCol === col) setSortDir(d => d === 'asc' ? 'desc' : 'asc'); else { setSortCol(col); setSortDir('asc'); } };
                   const ind = (col) => sortCol === col ? (sortDir === 'asc' ? ' ▲' : ' ▼') : '';
                   return (
-                    <table style={{ borderCollapse: 'collapse', fontSize: 11 }}>
+                    <table style={{ borderCollapse: 'collapse', fontSize: 11, width: '100%' }}>
                       <thead style={{ position: 'sticky', top: 0, zIndex: 1 }}>
                         <tr style={{ background: '#0D1C13' }}>
                           {[['Date','left','date',48],['Venue','left','venue',76],['R#','right','race',26],['Time','right','time',62],['No','right','no',20],['Horse','left','horse',106],['Stake','right','stake',42],['Odds','right','odds',42],['P&L','right','pnl',62],['Result','right','result',38]].map(([h, align, col, mw]) => (
@@ -1456,14 +1355,22 @@ export default function MybetsPage() {
                           const raceNum = b.race_number ?? b.race_num;
                           const venue = b.track || b.venue || '—';
                           const cs = { border: '1px solid #1a3a25', padding: '4px 6px', whiteSpace: 'nowrap' };
+                          const raceT = raceTimeMap[b.id] || b.race_time;
+                          const raceMinsCD = parseRaceTime(raceT);
+                          const nowD = new Date(now);
+                          const nowMinsCD = nowD.getHours() * 60 + nowD.getMinutes();
+                          const secsToRace = isFinite(raceMinsCD) ? (raceMinsCD - nowMinsCD) * 60 - nowD.getSeconds() : null;
+                          const isImminent = isPending && b.date === todayISO && secsToRace !== null && secsToRace < 900 && secsToRace > -240;
+                          const rowBg = isImminent ? 'rgba(251,191,36,0.10)' : 'transparent';
                           return (
                             <tr key={b.id}
-                              onMouseEnter={e => e.currentTarget.style.background = '#1a3a25'}
-                              onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                              style={{ background: rowBg }}
+                              onMouseEnter={e => e.currentTarget.style.background = isImminent ? 'rgba(251,191,36,0.18)' : '#1a3a25'}
+                              onMouseLeave={e => e.currentTarget.style.background = rowBg}>
                               <td style={{ ...cs, color: '#fff' }}>{fmtDate(b.date)}</td>
                               <td style={{ ...cs, color: '#fff', maxWidth: 76, overflow: 'hidden', textOverflow: 'ellipsis' }}>{venue}</td>
                               <td style={{ ...cs, color: '#fff', textAlign: 'right' }}>{raceNum ? `R${raceNum}` : '—'}</td>
-                              <td style={{ ...cs, color: '#fff', textAlign: 'right', fontFamily: 'monospace', whiteSpace: 'nowrap' }}>{(() => { const t = raceTimeMap[b.id] || b.race_time; if (!t) return '—'; if (isPending && b.date === todayISO) { const d = new Date(now); const rem = parseRaceTime(t) - (d.getHours() * 60 + d.getMinutes()); if (rem > 0 && isFinite(rem)) { const h = Math.floor(rem / 60); const m = rem % 60; const cd = h > 0 ? `${h}h${m > 0 ? m + 'm' : ''}` : `${m}m`; return <>{t} <span style={{ color: rem < 10 ? '#4ade80' : '#9ca3af', fontWeight: 700, fontSize: 9 }}>({cd})</span></>; } } return t; })()}</td>
+                              <td style={{ ...cs, color: '#fff', textAlign: 'right', fontFamily: 'monospace', whiteSpace: 'nowrap' }}>{raceT || '—'}</td>
                               <td style={{ ...cs, color: '#fff', textAlign: 'right' }}>{b.tab_no || b.horse_number || '—'}</td>
                               <td style={{ ...cs, color: '#fff', fontWeight: 600, maxWidth: 106, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b.horse_name || '—'}</td>
                               <td style={{ ...cs, color: '#fff', textAlign: 'right', fontFamily: 'monospace' }}>${(+(b.stake || 0)).toFixed(0)}</td>
@@ -1471,8 +1378,14 @@ export default function MybetsPage() {
                               <td style={{ ...cs, textAlign: 'right', fontWeight: 700, fontFamily: 'monospace', color: pnlColor, whiteSpace: 'nowrap' }}>
                                 {isPending ? '—' : (pnl >= 0 ? '+$' : '-$') + Math.abs(pnl).toFixed(2)}
                               </td>
-                              <td style={{ ...cs, textAlign: 'right', fontWeight: 700, color: isPending ? '#f97316' : isScratched ? '#6b7280' : (pos ? resultColor : '#6b7280') }}>
-                                {isPending ? 'PND' : isScratched ? 'SCR' : (pos || '—')}
+                              <td style={{ ...cs, textAlign: 'right', fontWeight: 700, color: isPending ? (isImminent ? (secsToRace !== null && secsToRace >= 0 ? '#f59e0b' : '#dc2626') : '#f97316') : isScratched ? '#6b7280' : (pos ? resultColor : '#6b7280') }}>
+                                {isPending ? (
+                                  isImminent && secsToRace !== null ? (
+                                    secsToRace > 60 ? `${Math.ceil(secsToRace / 60)}m` :
+                                    secsToRace > 0 ? '<1m' :
+                                    `-${Math.floor(Math.abs(secsToRace) / 60)}m`
+                                  ) : 'PND'
+                                ) : isScratched ? 'SCR' : (pos || '—')}
                               </td>
                             </tr>
                           );
@@ -1628,7 +1541,7 @@ export default function MybetsPage() {
             )}
 
           </div>
-        </>)}
+        )}
 
         </>)}
 
