@@ -314,16 +314,16 @@ export default function SettingsPage() {
         <>
           <SecTitle>Notifications</SecTitle>
           <p style={{ fontSize: 12, color: '#6b7280', marginTop: -8, marginBottom: 24 }}>
-            Save your preferences now&#8202;&#8212;&#8202;push delivery is coming soon.
+            Preferences save immediately. Push delivery is coming soon — your settings will activate when it launches.
           </p>
           <div style={{ fontSize: 11, fontWeight: 700, color: '#9ca3af', letterSpacing: 1, marginBottom: 12, textTransform: 'uppercase' }}>Free</div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
             <Toggle on={s.notifRank1} onChange={v => set('notifRank1', v)} />
-            <span style={{ fontSize: 13 }}>Rank 1 horse scratched<CSoon /></span>
+            <span style={{ fontSize: 13 }}>Rank 1 horse scratched</span>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 28 }}>
             <Toggle on={s.notifBlackbooked} onChange={v => set('notifBlackbooked', v)} />
-            <span style={{ fontSize: 13 }}>Blackbooked horse scratched<CSoon /></span>
+            <span style={{ fontSize: 13 }}>Blackbooked horse scratched</span>
           </div>
           <div style={{ fontSize: 11, fontWeight: 700, color: '#9ca3af', letterSpacing: 1, marginBottom: 12, textTransform: 'uppercase' }}>Pro only</div>
           {[
@@ -334,7 +334,7 @@ export default function SettingsPage() {
               {isPro
                 ? <Sel value={s[k]} onChange={v => set(k, v)} options={opts} />
                 : <span style={{ fontSize: 13 }}>&#128274;</span>}
-              <span style={{ fontSize: 13 }}>{label}<CSoon /></span>
+              <span style={{ fontSize: 13 }}>{label}</span>
             </div>
           ))}
           {[
@@ -345,7 +345,7 @@ export default function SettingsPage() {
               {isPro
                 ? <Toggle on={s[k]} onChange={v => set(k, v)} />
                 : <span style={{ fontSize: 13 }}>&#128274;</span>}
-              <span style={{ fontSize: 13 }}>{label}<CSoon /></span>
+              <span style={{ fontSize: 13 }}>{label}</span>
             </div>
           ))}
           <SaveBt saving={saving} onClick={save} />
@@ -658,15 +658,15 @@ export default function SettingsPage() {
   if (!isLoaded) return null;
 
   return (
-    <div style={{ background: '#f9fafb' }}>
-      <div style={{ background: G, padding: '18px 24px' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: '#f9fafb', overflow: 'hidden' }}>
+      <div style={{ background: G, padding: '18px 24px', flexShrink: 0 }}>
         <div style={{ fontSize: 22, fontWeight: 800, color: '#fff', letterSpacing: 2, fontFamily: 'Bebas Neue, sans-serif' }}>
           Settings
         </div>
       </div>
 
-      <div style={{ display: 'flex', minHeight: '80vh' }}>
-        <nav style={{ width: 160, flexShrink: 0, background: '#fff', borderRight: '1px solid #e5e7eb', paddingTop: 8 }}>
+      <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
+        <nav style={{ width: 160, flexShrink: 0, background: '#fff', borderRight: '1px solid #e5e7eb', paddingTop: 8, overflowY: 'auto' }}>
           {NAV.map(({ key, label, pro }) => {
             const locked = pro && !isPro;
             const isActive = active === key;
@@ -692,7 +692,7 @@ export default function SettingsPage() {
           })}
         </nav>
 
-        <main style={{ flex: 1, padding: '32px 40px', maxWidth: 640, boxSizing: 'border-box' }}>
+        <main style={{ flex: 1, padding: '32px 40px', maxWidth: 640, boxSizing: 'border-box', overflowY: 'auto' }}>
           {renderSection()}
         </main>
       </div>
