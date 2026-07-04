@@ -379,6 +379,11 @@ export default function MybetsPage() {
   const [customStart,      setCustomStart]      = useState('');
   const [customEnd,        setCustomEnd]        = useState('');
   const [edgeZoneTab,      setEdgeZoneTab]      = useState('odds');
+  const [hoveredId,    setHoveredId]    = useState(null);
+  const [editingId,    setEditingId]    = useState(null);
+  const [editStake,    setEditStake]    = useState('');
+  const [editOdds,     setEditOdds]     = useState('');
+  const [mobileMenuId, setMobileMenuId] = useState(null);
 
   // CSV data for Quick Log
   const [csvMeetings, setCsvMeetings] = useState([]);   // ['Flemington', ...]
@@ -675,6 +680,13 @@ export default function MybetsPage() {
     setBets(prev => prev.filter(b => b.id !== id));
   }, []);
 
+  const handleEditSave = useCallback(async (id) => {
+    if (!editStake || !editOdds) return;
+    await patchBet(id, { stake: +editStake, odds: +editOdds });
+    setBets(prev => prev.map(b => b.id === id ? { ...b, stake: +editStake, odds: +editOdds } : b));
+    setEditingId(null);
+  }, [editStake, editOdds]);
+
   const statsRows = useMemo(() => (
     ['Today', 'This week', 'This month', 'All time'].map(p => ({ label: p, ...calcRow(bets.filter(periodFilter(p, todayISO))) }))
   ), [bets, todayISO]);
@@ -727,6 +739,16 @@ export default function MybetsPage() {
       return mins(a) - mins(b);
     });
   }, [pendingBets, csvRaces, csvVenues]);
+
+  const tabCounts = useMemo(() => {
+    const base = dateFilteredBets.filter(b => b.status !== 'scratched');
+    return {
+      all:   base.length,
+      win:   base.filter(b => b.status === 'win').length,
+      place: base.filter(b => b.status === 'place').length,
+      loss:  base.filter(b => b.status === 'loss').length,
+    };
+  }, [dateFilteredBets]);
 
   const dateFilteredBets = useMemo(() => {
     const anchor = new Date(todayISO + 'T12:00:00Z');
@@ -845,6 +867,34 @@ export default function MybetsPage() {
       return 0;
     });
   }, [ledgerFilteredBets, sortCol, sortDir, raceTimeMap]);
+
+  const exportCSV = useCallback(() => {
+    const headers = ['Date','Venue','R#','Time','Tab','Horse','Type','Stake','Odds','P&L','Result'];
+    const csvRows = sortedLedgerBets.map(b => {
+      const hasPnl = b.profit_loss !== null && b.profit_loss !== undefined;
+      const isEW = (b.bet_type || '').toLowerCase().includes('each');
+      const pnl = hasPnl ? b.profit_loss : (b.return_amt || 0) - (isEW ? (b.stake || 0) * 2 : (b.stake || 0));
+      const isPending = !b.status || b.status === 'pending';
+      const raceNum = b.race_number ?? b.race_num;
+      return [
+        b.date || '',
+        b.track || b.venue || '',
+        raceNum ? `R${raceNum}` : '',
+        raceTimeMap[b.id] || b.race_time || '',
+        b.tab_no || b.horse_number || '',
+        b.horse_name || '',
+        b.bet_type || '',
+        (+(b.stake || 0)).toFixed(2),
+        Number(b.odds || 0).toFixed(2),
+        isPending ? '' : (pnl >= 0 ? '+' : '') + pnl.toFixed(2),
+        isPending ? 'pending' : b.status || '',
+      ].map(v => `"${String(v).replace(/"/g, '""')}"`).join(',');
+    });
+    const blob = new Blob([[headers.join(','), ...csvRows].join('\n')], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = `mybets_${dateRange}.csv`; a.click();
+    URL.revokeObjectURL(url);
+  }, [sortedLedgerBets, dateRange, raceTimeMap]);
 
   const nextRaces = useMemo(() => {
     const nowDate = new Date(now);
@@ -1087,139 +1137,6 @@ export default function MybetsPage() {
 
         </div>
 
-        {false && (() => { const pnl = dateStats.pnl; const pnlPos = pnl !== null && pnl >= 0; const pnlColor = ''; const finalPnl = 0; const periodPnlLabel = ''; const streakLabel = ''; const streakColor = ''; if (isMobile) return (
-            <div style={{ padding: '8px 8px 0', flexShrink: 0 }}>
-              <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, overflow: 'hidden' }}>
-                <div style={{ display: 'flex', alignItems: 'center', padding: '10px 12px' }}>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 24, fontWeight: 800, fontFamily: 'monospace', color: pnlColor, lineHeight: 1 }}>
-                      {pnl === null ? '—' : (pnlPos ? '+$' : '-$') + Math.abs(pnl).toFixed(2)}
-                    </div>
-                    <div style={{ fontSize: 11, fontFamily: 'monospace', color: '#374151', marginTop: 3, letterSpacing: '.04em' }}>{heroRecord}</div>
-                  </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4, alignItems: 'flex-end' }}>
-                    <div style={{ textAlign: 'right' }}>
-                      <div style={{ fontSize: 9, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '.06em' }}>Strike</div>
-                      <div style={{ fontSize: 12, fontWeight: 700, color: '#374151' }}>{dateStats.strike}</div>
-                    </div>
-                    <div style={{ textAlign: 'right' }}>
-                      <div style={{ fontSize: 9, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '.06em' }}>ROI</div>
-                      <div style={{ fontSize: 12, fontWeight: 700, color: parseFloat(dateStats.roi) > 0 ? '#059669' : parseFloat(dateStats.roi) < 0 ? '#dc2626' : '#6b7280' }}>{dateStats.roi}</div>
-                    </div>
-                    <div style={{ textAlign: 'right' }}>
-                      <div style={{ fontSize: 9, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '.06em' }}>Streak</div>
-                      <div style={{ fontSize: 12, fontWeight: 700, color: streakColor }}>{streakLabel}</div>
-                    </div>
-                  </div>
-                </div>
-                {heroChartData.length > 1 && (
-                  <div style={{ height: 52 }}>
-                    <ResponsiveContainer width="100%" height="100%">
-                      <AreaChart data={heroChartData} margin={{ top: 4, right: 8, bottom: 0, left: 0 }}>
-                        <defs>
-                          <linearGradient id="mobHeroFill" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="5%" stopColor="#1D9E75" stopOpacity={0.18} />
-                            <stop offset="95%" stopColor="#1D9E75" stopOpacity={0} />
-                          </linearGradient>
-                        </defs>
-                        <ReferenceLine y={0} stroke="#e5e7eb" />
-                        <Area type="monotone" dataKey="pnl" stroke={finalPnl >= 0 ? '#1D9E75' : '#E24B4A'} fill="url(#mobHeroFill)" strokeWidth={1.5} dot={renderMobileSparkDot} activeDot={{ r: 4, stroke: '#fff', strokeWidth: 1.5 }} />
-                      </AreaChart>
-                    </ResponsiveContainer>
-                  </div>
-                )}
-              </div>
-            </div>
-          );
-          return (
-            <div style={{ display: 'flex', gap: 8, padding: '8px 8px 0', flexShrink: 0 }}>
-
-              {/* LEFT: stats + chart */}
-              <div style={{ flex: '0 0 50%', minWidth: 0, background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, overflow: 'hidden' }}>
-                <div style={{ display: 'flex', alignItems: 'center', padding: '8px 12px', gap: 16, borderBottom: '1px solid #f3f4f6' }}>
-                  <div style={{ minWidth: 72, display: 'flex', flexDirection: 'column', gap: 6 }}>
-                    {[
-                      { label: 'Strike', value: dateStats.strike, color: '#374151' },
-                      { label: 'ROI', value: dateStats.roi, color: parseFloat(dateStats.roi) > 0 ? '#059669' : parseFloat(dateStats.roi) < 0 ? '#dc2626' : '#6b7280' },
-                    ].map(({ label, value, color }) => (
-                      <div key={label}>
-                        <div style={{ fontSize: 9, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '.06em' }}>{label}</div>
-                        <div style={{ fontSize: 13, fontWeight: 700, color }}>{value}</div>
-                      </div>
-                    ))}
-                  </div>
-                  <div style={{ flex: 1, textAlign: 'center' }}>
-                    <div style={{ fontSize: 11, fontWeight: 600, color: '#374151', marginBottom: 2 }}>{periodPnlLabel}</div>
-                    <div style={{ fontSize: 42, fontWeight: 800, fontFamily: 'monospace', color: pnlColor, lineHeight: 1 }}>
-                      {pnl === null ? '—' : (pnlPos ? '+$' : '-$') + Math.abs(pnl).toFixed(2)}
-                    </div>
-                    <div style={{ fontSize: 12, fontFamily: 'monospace', color: '#374151', marginTop: 4, letterSpacing: '.05em' }}>{heroRecord}</div>
-                  </div>
-                  <div style={{ minWidth: 72, display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'flex-end' }}>
-                    {[
-                      { label: 'Staked', value: dateStats.staked, color: '#374151' },
-                      { label: 'Streak', value: streakLabel, color: streakColor },
-                    ].map(({ label, value, color }) => (
-                      <div key={label} style={{ textAlign: 'right' }}>
-                        <div style={{ fontSize: 9, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '.06em' }}>{label}</div>
-                        <div style={{ fontSize: 13, fontWeight: 700, color }}>{value}</div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-                {heroChartData.length > 1 ? (
-                  <div style={{ height: 120 }}>
-                    <ResponsiveContainer width="100%" height="100%">
-                      <AreaChart data={heroChartData} margin={{ top: 8, right: 12, bottom: 4, left: 40 }}>
-                        <defs>
-                          <linearGradient id="heroFill" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="5%" stopColor="#1D9E75" stopOpacity={0.18} />
-                            <stop offset="95%" stopColor="#1D9E75" stopOpacity={0} />
-                          </linearGradient>
-                        </defs>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" vertical={false} />
-                        <ReferenceLine y={0} stroke="#e5e7eb" />
-                        <XAxis dataKey="label" tick={{ fontSize: 9, fill: '#9ca3af' }} interval="preserveStartEnd" tickLine={false} axisLine={false} />
-                        <YAxis tick={{ fontSize: 9, fill: '#9ca3af' }} tickFormatter={v => `$${v}`} axisLine={false} tickLine={false} />
-                        <Tooltip content={({ active, payload }) => {
-                          if (!active || !payload?.length) return null;
-                          const d = payload[0].payload;
-                          return (
-                            <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 6, padding: '6px 10px', fontSize: 11 }}>
-                              <div style={{ color: '#6b7280', marginBottom: 2 }}>{d.horse}</div>
-                              <div style={{ fontWeight: 700, fontFamily: 'monospace', color: d.pnl >= 0 ? '#1D9E75' : '#E24B4A' }}>{d.pnl >= 0 ? '+$' : '-$'}{Math.abs(d.pnl).toFixed(2)}</div>
-                            </div>
-                          );
-                        }} />
-                        <Area type="monotone" dataKey="pnl" stroke={finalPnl >= 0 ? '#1D9E75' : '#E24B4A'} fill="url(#heroFill)" strokeWidth={2} dot={renderHeroDot} activeDot={{ r: 5, stroke: '#fff', strokeWidth: 2 }} />
-                      </AreaChart>
-                    </ResponsiveContainer>
-                  </div>
-                ) : <div style={{ height: 24 }} />}
-              </div>
-
-              {/* RIGHT: next races + leak finder */}
-              <div style={{ flex: '0 1 280px', minWidth: 0, display: 'flex', flexDirection: 'column', padding: '8px 10px', gap: 12, background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, overflow: 'hidden' }}>
-
-                {nextBetsPanel}
-
-                {/* Leak finder */}
-                <div>
-                  <div style={{ fontSize: 9, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 4 }}>Leak finder</div>
-                  {leakFinderCards.length === 0 ? (
-                    <div style={{ fontSize: 10, color: '#9ca3af' }}>Not enough data yet — need 5+ bets in a band</div>
-                  ) : leakFinderCards.map((card, i) => (
-                    <div key={i} style={{ borderLeft: `3px solid ${card.leak ? '#E24B4A' : '#1D9E75'}`, paddingLeft: 7, marginBottom: 3 }}>
-                      <div style={{ fontSize: 11, fontWeight: 700, color: '#111827' }}>{card.insight}</div>
-                      <div style={{ fontSize: 9, color: '#374151' }}>{card.stat}</div>
-                    </div>
-                  ))}
-                </div>
-
-              </div>
-            </div>
-          );
-        })()}
 
         {/* DATE RANGE SWITCHER */}
         <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 4, padding: '5px 10px', background: '#fff', border: '1px solid #e5e7eb', borderRadius: 6, margin: '6px 8px 0', ...(isMobile ? { overflowX: 'auto', flexWrap: 'nowrap', scrollbarWidth: 'none' } : { flexWrap: 'wrap' }) }}>
@@ -1277,7 +1194,7 @@ export default function MybetsPage() {
                     background: activeTab === key ? '#4ade80' : 'transparent',
                     border: activeTab === key ? 'none' : '1px solid #1a3a25',
                     borderRadius: 3, cursor: 'pointer' }}>
-                  {t}
+                  {t} ({tabCounts[key] ?? 0})
                 </button>
               );
             })}
@@ -1306,44 +1223,56 @@ export default function MybetsPage() {
                           {[['Venue','left','venue',110],['R#','right','race',36],['Time','right','time',72],['No','right','no',30],['Stake','right','stake',54],['Odds','right','odds',54],['P&L','right','pnl',70],['Result','right','result',50]].map(([h, align, col, mw]) => (
                             <th key={h} onClick={mkSort(col)} style={{ ...thBase, textAlign: align, minWidth: mw }}>{h}{ind(col)}</th>
                           ))}
+                          <th style={{ ...thBase, width: 32, cursor: 'default', textAlign: 'center' }}>···</th>
                         </>);
                       })()}
                     </tr>
                   </thead>
                   <tbody>
-                    {sortedLedgerBets.map(b => {
-                      const hasPnl = b.profit_loss !== null && b.profit_loss !== undefined;
-                      const isEW = (b.bet_type || '').toLowerCase().includes('each');
-                      const pnl = hasPnl ? b.profit_loss : (b.return_amt || 0) - (isEW ? (b.stake || 0) * 2 : (b.stake || 0));
-                      const pos = b.position;
-                      const isPending = !b.status || b.status === 'pending';
-                      const isScratched = b.status === 'scratched';
-                      const isAbandoned = b.status === 'abandoned';
-                      const pnlColor = !hasPnl || isPending || isAbandoned ? '#6b7280' : pnl >= 0 ? '#4ade80' : '#f87171';
-                      const resultColor = pos === 1 ? '#4ade80' : (pos === 2 || pos === 3) ? '#60a5fa' : '#f87171';
-                      const raceNum = b.race_number ?? b.race_num;
-                      const venue = b.track || b.venue || '—';
-                      const cs = { border: '1px solid #1a3a25', padding: '5px 8px', whiteSpace: 'nowrap' };
-                      return (
-                        <tr key={b.id}>
-                          <td style={{ ...cs, position: 'sticky', left: 0, zIndex: 1, background: '#11241A' }}>
-                            <div style={{ width: 94, color: '#fff', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b.horse_name || '—'}</div>
-                          </td>
-                          <td style={{ ...cs, color: '#fff', whiteSpace: 'nowrap' }}>{venue}</td>
-                          <td style={{ ...cs, color: '#fff', textAlign: 'right', whiteSpace: 'nowrap' }}>{raceNum ? `R${raceNum}` : '—'}</td>
-                          <td style={{ ...cs, color: '#fff', textAlign: 'right', whiteSpace: 'nowrap', fontFamily: 'monospace' }}>{(() => { const t = raceTimeMap[b.id] || b.race_time; if (!t) return '—'; if (isPending && b.date === todayISO) { const d = new Date(now); const rem = parseRaceTime(t) - (d.getHours() * 60 + d.getMinutes()); if (rem > 0 && isFinite(rem)) { const h = Math.floor(rem / 60); const m = rem % 60; const cd = h > 0 ? `${h}h${m > 0 ? m + 'm' : ''}` : `${m}m`; return <>{t} <span style={{ color: rem < 10 ? '#4ade80' : '#9ca3af', fontWeight: 700, fontSize: 9 }}>({cd})</span></>; } } return t; })()}</td>
-                          <td style={{ ...cs, color: '#fff', textAlign: 'right', whiteSpace: 'nowrap' }}>{b.tab_no || b.horse_number || '—'}</td>
-                          <td style={{ ...cs, color: '#fff', textAlign: 'right', fontFamily: 'monospace', whiteSpace: 'nowrap' }}>${(+(b.stake || 0)).toFixed(0)}</td>
-                          <td style={{ ...cs, color: '#fff', textAlign: 'right', fontFamily: 'monospace', whiteSpace: 'nowrap' }}>${Number(b.odds || 0).toFixed(2)}</td>
-                          <td style={{ ...cs, textAlign: 'right', fontWeight: 700, fontFamily: 'monospace', color: pnlColor, whiteSpace: 'nowrap' }}>
-                            {isPending ? '—' : (pnl >= 0 ? '+$' : '-$') + Math.abs(pnl).toFixed(2)}
-                          </td>
-                          <td style={{ ...cs, textAlign: 'right', fontWeight: 700, color: isAbandoned ? '#6b7280' : isPending ? '#f97316' : isScratched ? '#6b7280' : (pos ? resultColor : '#6b7280'), whiteSpace: 'nowrap' }}>
-                            {isAbandoned ? 'ABND' : isPending ? 'PND' : isScratched ? 'SCR' : (pos || '—')}
-                          </td>
-                        </tr>
-                      );
-                    })}
+                    {(() => {
+                      const pinned = sortedLedgerBets.filter(b => b.date === todayISO && (!b.status || b.status === 'pending'));
+                      const rest = sortedLedgerBets.filter(b => !(b.date === todayISO && (!b.status || b.status === 'pending')));
+                      const items = pinned.length > 0 && rest.length > 0 ? [...pinned, null, ...rest] : sortedLedgerBets;
+                      return items.map((b, idx) => {
+                        if (b === null) return (
+                          <tr key="mob-pending-divider"><td colSpan={10} style={{ height: 2, background: '#2d5a3d', padding: 0 }} /></tr>
+                        );
+                        const hasPnl = b.profit_loss !== null && b.profit_loss !== undefined;
+                        const isEW = (b.bet_type || '').toLowerCase().includes('each');
+                        const pnl = hasPnl ? b.profit_loss : (b.return_amt || 0) - (isEW ? (b.stake || 0) * 2 : (b.stake || 0));
+                        const pos = b.position;
+                        const isPending = !b.status || b.status === 'pending';
+                        const isScratched = b.status === 'scratched';
+                        const isAbandoned = b.status === 'abandoned';
+                        const pnlColor = !hasPnl || isPending || isAbandoned ? '#6b7280' : pnl >= 0 ? '#4ade80' : '#f87171';
+                        const resultColor = pos === 1 ? '#4ade80' : (pos === 2 || pos === 3) ? '#60a5fa' : '#f87171';
+                        const raceNum = b.race_number ?? b.race_num;
+                        const venue = b.track || b.venue || '—';
+                        const cs = { border: '1px solid #1a3a25', padding: '5px 8px', whiteSpace: 'nowrap' };
+                        return (
+                          <tr key={b.id}>
+                            <td style={{ ...cs, position: 'sticky', left: 0, zIndex: 1, background: '#11241A' }}>
+                              <div style={{ width: 94, color: '#fff', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b.horse_name || '—'}</div>
+                            </td>
+                            <td style={{ ...cs, color: '#fff', whiteSpace: 'nowrap' }}>{venue}</td>
+                            <td style={{ ...cs, color: '#fff', textAlign: 'right', whiteSpace: 'nowrap' }}>{raceNum ? `R${raceNum}` : '—'}</td>
+                            <td style={{ ...cs, color: '#fff', textAlign: 'right', whiteSpace: 'nowrap', fontFamily: 'monospace' }}>{(() => { const t = raceTimeMap[b.id] || b.race_time; if (!t) return '—'; if (isPending && b.date === todayISO) { const d = new Date(now); const rem = parseRaceTime(t) - (d.getHours() * 60 + d.getMinutes()); if (rem > 0 && isFinite(rem)) { const h = Math.floor(rem / 60); const m = rem % 60; const cd = h > 0 ? `${h}h${m > 0 ? m + 'm' : ''}` : `${m}m`; return <>{t} <span style={{ color: rem < 10 ? '#4ade80' : '#9ca3af', fontWeight: 700, fontSize: 9 }}>({cd})</span></>; } } return t; })()}</td>
+                            <td style={{ ...cs, color: '#fff', textAlign: 'right', whiteSpace: 'nowrap' }}>{b.tab_no || b.horse_number || '—'}</td>
+                            <td style={{ ...cs, color: '#fff', textAlign: 'right', fontFamily: 'monospace', whiteSpace: 'nowrap' }}>${(+(b.stake || 0)).toFixed(0)}</td>
+                            <td style={{ ...cs, color: '#fff', textAlign: 'right', fontFamily: 'monospace', whiteSpace: 'nowrap' }}>${Number(b.odds || 0).toFixed(2)}</td>
+                            <td style={{ ...cs, textAlign: 'right', fontWeight: 700, fontFamily: 'monospace', color: pnlColor, whiteSpace: 'nowrap' }}>
+                              {isPending ? '—' : (pnl >= 0 ? '+$' : '-$') + Math.abs(pnl).toFixed(2)}
+                            </td>
+                            <td style={{ ...cs, textAlign: 'right', fontWeight: 700, color: isAbandoned ? '#6b7280' : isPending ? '#f97316' : isScratched ? '#6b7280' : (pos ? resultColor : '#6b7280'), whiteSpace: 'nowrap' }}>
+                              {isAbandoned ? 'ABND' : isPending ? 'PND' : isScratched ? 'SCR' : (pos || '—')}
+                            </td>
+                            <td style={{ ...cs, textAlign: 'center', padding: '2px 4px', width: 32 }}>
+                              <button onClick={() => { setMobileMenuId(b.id); setEditStake(String(b.stake || '')); setEditOdds(String(b.odds || '')); }} style={{ background: 'none', border: 'none', color: '#9ca3af', fontSize: 14, cursor: 'pointer', padding: '1px 4px', lineHeight: 1 }}>⋯</button>
+                            </td>
+                          </tr>
+                        );
+                      });
+                    })()}
                   </tbody>
                 </table>
               </div>
@@ -1358,7 +1287,7 @@ export default function MybetsPage() {
           <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
 
             {betView === 'table' && (<>
-              <div style={{ flexShrink: 0, display: 'flex', gap: 4, padding: '6px 10px', background: '#0D1C13', borderBottom: '1px solid #1a3a25' }}>
+              <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 4, padding: '6px 10px', background: '#0D1C13', borderBottom: '1px solid #1a3a25' }}>
                 {['All','Win','Place','Loss'].map(t => {
                   const key = t.toLowerCase();
                   return (
@@ -1368,10 +1297,13 @@ export default function MybetsPage() {
                         background: activeTab === key ? '#4ade80' : 'transparent',
                         border: activeTab === key ? 'none' : '1px solid #1a3a25',
                         borderRadius: 3, cursor: 'pointer' }}>
-                      {t}
+                      {t} ({tabCounts[key] ?? 0})
                     </button>
                   );
                 })}
+                <button onClick={exportCSV} title="Export CSV" style={{ marginLeft: 'auto', padding: '2px 8px', fontSize: 9, fontWeight: 600, cursor: 'pointer', border: '1px solid #4ade80', background: 'transparent', color: '#4ade80', borderRadius: 3, display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+                  <i className="ti ti-download" style={{ fontSize: 11 }} /> CSV
+                </button>
               </div>
               <div style={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
               <div style={{ background: '#11241A', minWidth: 600 }}>
@@ -1386,86 +1318,101 @@ export default function MybetsPage() {
                           {[['Date','left','date',48],['Venue','left','venue',76],['R#','right','race',26],['Time','right','time',62],['No','right','no',20],['Horse','left','horse',106],['Stake','right','stake',42],['Odds','right','odds',42],['P&L','right','pnl',62],['Result','right','result',38]].map(([h, align, col, mw]) => (
                             <th key={h} onClick={mkSort(col)} style={{ ...thBase, textAlign: align, minWidth: mw }}>{h}{ind(col)}</th>
                           ))}
+                          <th style={{ ...thBase, width: 44, cursor: 'default' }} />
                         </tr>
                       </thead>
                       <tbody>
                         {loading ? (
-                          <tr><td colSpan={10} style={{ padding: 20, textAlign: 'center', color: '#fff', fontSize: 11 }}>Loading…</td></tr>
+                          <tr><td colSpan={11} style={{ padding: 20, textAlign: 'center', color: '#fff', fontSize: 11 }}>Loading…</td></tr>
                         ) : sortedLedgerBets.length === 0 ? (
-                          <tr><td colSpan={10} style={{ padding: 20, textAlign: 'center', color: '#fff', fontSize: 11 }}>No bets for this period</td></tr>
-                        ) : sortedLedgerBets.map(b => {
-                          const hasPnl = b.profit_loss !== null && b.profit_loss !== undefined;
-                          const isEW = (b.bet_type || '').toLowerCase().includes('each');
-                          const pnl = hasPnl ? b.profit_loss : (b.return_amt || 0) - (isEW ? (b.stake || 0) * 2 : (b.stake || 0));
-                          const pos = b.position;
-                          const isPending = !b.status || b.status === 'pending';
-                          const isScratched = b.status === 'scratched';
-                          const isAbandoned = b.status === 'abandoned';
-                          const pnlColor = !hasPnl || isPending || isAbandoned ? '#6b7280' : pnl >= 0 ? '#4ade80' : '#f87171';
-                          const resultColor = pos === 1 ? '#4ade80' : (pos === 2 || pos === 3) ? '#60a5fa' : '#f87171';
-                          const raceNum = b.race_number ?? b.race_num;
-                          const venue = b.track || b.venue || '—';
-                          const cs = { border: '1px solid #1a3a25', padding: '4px 6px', whiteSpace: 'nowrap' };
-                          const raceT = raceTimeMap[b.id] || b.race_time;
-                          const raceMinsCD = parseRaceTime(raceT);
-                          const nowD = new Date(now);
-                          const nowMinsCD = nowD.getHours() * 60 + nowD.getMinutes();
-                          const secsToRace = isFinite(raceMinsCD) ? (raceMinsCD - nowMinsCD) * 60 - nowD.getSeconds() : null;
-                          const isImminent = isPending && b.date === todayISO && secsToRace !== null && secsToRace < 900 && secsToRace > -240;
-                          const rowBg = isImminent ? 'rgba(251,191,36,0.10)' : 'transparent';
-                          return (
-                            <tr key={b.id}
-                              style={{ background: rowBg }}
-                              onMouseEnter={e => e.currentTarget.style.background = isImminent ? 'rgba(251,191,36,0.18)' : '#1a3a25'}
-                              onMouseLeave={e => e.currentTarget.style.background = rowBg}>
-                              <td style={{ ...cs, color: '#fff' }}>{fmtDate(b.date)}</td>
-                              <td style={{ ...cs, color: '#fff', maxWidth: 76, overflow: 'hidden', textOverflow: 'ellipsis' }}>{venue}</td>
-                              <td style={{ ...cs, color: '#fff', textAlign: 'right' }}>{raceNum ? `R${raceNum}` : '—'}</td>
-                              <td style={{ ...cs, color: '#fff', textAlign: 'right', fontFamily: 'monospace', whiteSpace: 'nowrap' }}>
-                                {(() => {
-                                  if (!raceT) return '—';
-                                  if (isPending && b.date === todayISO && secsToRace !== null && secsToRace > -240) {
-                                    if (secsToRace > 0) {
-                                      const remMins = Math.ceil(secsToRace / 60);
-                                      const cdStr = remMins >= 60 ? `${Math.floor(remMins/60)}h${remMins%60?remMins%60+'m':''}` : `${remMins}m`;
-                                      return <>{raceT} <span style={{ color: secsToRace < 900 ? '#4ade80' : '#9ca3af', fontWeight: 700, fontSize: 9 }}>({cdStr})</span></>;
+                          <tr><td colSpan={11} style={{ padding: 20, textAlign: 'center', color: '#fff', fontSize: 11 }}>No bets for this period</td></tr>
+                        ) : (() => {
+                          const pinned = sortedLedgerBets.filter(b => b.date === todayISO && (!b.status || b.status === 'pending'));
+                          const rest = sortedLedgerBets.filter(b => !(b.date === todayISO && (!b.status || b.status === 'pending')));
+                          const items = pinned.length > 0 && rest.length > 0 ? [...pinned, null, ...rest] : sortedLedgerBets;
+                          return items.map((b, idx) => {
+                            if (b === null) return (
+                              <tr key="desk-pending-divider"><td colSpan={11} style={{ height: 2, background: '#2d5a3d', padding: 0 }} /></tr>
+                            );
+                            const hasPnl = b.profit_loss !== null && b.profit_loss !== undefined;
+                            const isEW = (b.bet_type || '').toLowerCase().includes('each');
+                            const pnl = hasPnl ? b.profit_loss : (b.return_amt || 0) - (isEW ? (b.stake || 0) * 2 : (b.stake || 0));
+                            const pos = b.position;
+                            const isPending = !b.status || b.status === 'pending';
+                            const isScratched = b.status === 'scratched';
+                            const isAbandoned = b.status === 'abandoned';
+                            const pnlColor = !hasPnl || isPending || isAbandoned ? '#6b7280' : pnl >= 0 ? '#4ade80' : '#f87171';
+                            const raceNum = b.race_number ?? b.race_num;
+                            const venue = b.track || b.venue || '—';
+                            const cs = { border: '1px solid #1a3a25', padding: '4px 6px', whiteSpace: 'nowrap' };
+                            const raceT = raceTimeMap[b.id] || b.race_time;
+                            const raceMinsCD = parseRaceTime(raceT);
+                            const nowD = new Date(now);
+                            const nowMinsCD = nowD.getHours() * 60 + nowD.getMinutes();
+                            const secsToRace = isFinite(raceMinsCD) ? (raceMinsCD - nowMinsCD) * 60 - nowD.getSeconds() : null;
+                            const isImminent = isPending && b.date === todayISO && secsToRace !== null && secsToRace < 900 && secsToRace > -240;
+                            const isEditing = editingId === b.id;
+                            const isHovered = hoveredId === b.id;
+                            const rowBg = isImminent ? 'rgba(251,191,36,0.10)' : 'transparent';
+                            return (
+                              <tr key={b.id}
+                                style={{ background: rowBg }}
+                                onMouseEnter={e => { e.currentTarget.style.background = isImminent ? 'rgba(251,191,36,0.18)' : '#1a3a25'; setHoveredId(b.id); }}
+                                onMouseLeave={e => { e.currentTarget.style.background = rowBg; setHoveredId(null); }}>
+                                <td style={{ ...cs, color: '#fff' }}>{fmtDate(b.date)}</td>
+                                <td style={{ ...cs, color: '#fff', maxWidth: 76, overflow: 'hidden', textOverflow: 'ellipsis' }}>{venue}</td>
+                                <td style={{ ...cs, color: '#fff', textAlign: 'right' }}>{raceNum ? `R${raceNum}` : '—'}</td>
+                                <td style={{ ...cs, color: '#fff', textAlign: 'right', fontFamily: 'monospace', whiteSpace: 'nowrap' }}>
+                                  {(() => {
+                                    if (!raceT) return '—';
+                                    if (isPending && b.date === todayISO && secsToRace !== null && secsToRace > -240) {
+                                      if (secsToRace > 0) {
+                                        const remMins = Math.ceil(secsToRace / 60);
+                                        const cdStr = remMins >= 60 ? `${Math.floor(remMins/60)}h${remMins%60?remMins%60+'m':''}` : `${remMins}m`;
+                                        return <>{raceT} <span style={{ color: secsToRace < 900 ? '#4ade80' : '#9ca3af', fontWeight: 700, fontSize: 9 }}>({cdStr})</span></>;
+                                      }
+                                      return <>{raceT} <span style={{ color: '#f87171', fontWeight: 700, fontSize: 9 }}>(-{Math.floor(Math.abs(secsToRace)/60)}m)</span></>;
                                     }
-                                    return <>{raceT} <span style={{ color: '#f87171', fontWeight: 700, fontSize: 9 }}>(-{Math.floor(Math.abs(secsToRace)/60)}m)</span></>;
-                                  }
-                                  return raceT;
-                                })()}
-                              </td>
-                              <td style={{ ...cs, color: '#fff', textAlign: 'right' }}>{b.tab_no || b.horse_number || '—'}</td>
-                              <td style={{ ...cs, color: '#fff', fontWeight: 600, maxWidth: 106, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b.horse_name || '—'}</td>
-                              <td style={{ ...cs, color: '#fff', textAlign: 'right', fontFamily: 'monospace' }}>${(+(b.stake || 0)).toFixed(0)}</td>
-                              <td style={{ ...cs, color: '#fff', textAlign: 'right', fontFamily: 'monospace' }}>${Number(b.odds || 0).toFixed(2)}</td>
-                              <td style={{ ...cs, textAlign: 'right', fontWeight: 700, fontFamily: 'monospace', color: pnlColor, whiteSpace: 'nowrap' }}>
-                                {isPending || isAbandoned ? '—' : (pnl >= 0 ? '+$' : '-$') + Math.abs(pnl).toFixed(2)}
-                              </td>
-                              <td style={{ ...cs, textAlign: 'right', fontWeight: 700, color: isAbandoned ? '#6b7280' : isPending ? '#f97316' : isScratched ? '#6b7280' : (pos === 1 ? '#4ade80' : (pos === 2 || pos === 3) ? '#60a5fa' : pos ? '#f87171' : '#6b7280') }}>
-                                {isAbandoned ? 'ABND' : isPending ? 'PND' : isScratched ? 'SCR' : (pos || '—')}
-                              </td>
-                            </tr>
-                          );
-                        })}
+                                    return raceT;
+                                  })()}
+                                </td>
+                                <td style={{ ...cs, color: '#fff', textAlign: 'right' }}>{b.tab_no || b.horse_number || '—'}</td>
+                                <td style={{ ...cs, color: '#fff', fontWeight: 600, maxWidth: 106, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b.horse_name || '—'}</td>
+                                <td style={{ ...cs, color: '#fff', textAlign: 'right', fontFamily: 'monospace' }}>
+                                  {isEditing ? <input type="number" value={editStake} onChange={e => setEditStake(e.target.value)} style={{ width: 40, fontSize: 10, textAlign: 'right', border: '1px solid #4ade80', background: '#1a3a25', color: '#fff', borderRadius: 3, padding: '1px 3px' }} /> : `$${(+(b.stake || 0)).toFixed(0)}`}
+                                </td>
+                                <td style={{ ...cs, color: '#fff', textAlign: 'right', fontFamily: 'monospace' }}>
+                                  {isEditing ? <input type="number" value={editOdds} onChange={e => setEditOdds(e.target.value)} style={{ width: 40, fontSize: 10, textAlign: 'right', border: '1px solid #4ade80', background: '#1a3a25', color: '#fff', borderRadius: 3, padding: '1px 3px' }} /> : `$${Number(b.odds || 0).toFixed(2)}`}
+                                </td>
+                                <td style={{ ...cs, textAlign: 'right', fontWeight: 700, fontFamily: 'monospace', color: pnlColor, whiteSpace: 'nowrap' }}>
+                                  {isPending || isAbandoned ? '—' : (pnl >= 0 ? '+$' : '-$') + Math.abs(pnl).toFixed(2)}
+                                </td>
+                                <td style={{ ...cs, textAlign: 'right', fontWeight: 700, color: isAbandoned ? '#6b7280' : isPending ? '#f97316' : isScratched ? '#6b7280' : (pos === 1 ? '#4ade80' : (pos === 2 || pos === 3) ? '#60a5fa' : pos ? '#f87171' : '#6b7280') }}>
+                                  {isAbandoned ? 'ABND' : isPending ? 'PND' : isScratched ? 'SCR' : (pos || '—')}
+                                </td>
+                                <td style={{ ...cs, textAlign: 'center', padding: '2px 4px', width: 48 }}>
+                                  {isEditing ? (
+                                    <span style={{ display: 'inline-flex', gap: 3 }}>
+                                      <button onClick={() => handleEditSave(b.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#4ade80', padding: 2, lineHeight: 1 }}><i className="ti ti-check" style={{ fontSize: 13 }} /></button>
+                                      <button onClick={() => setEditingId(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#f87171', padding: 2, lineHeight: 1 }}><i className="ti ti-x" style={{ fontSize: 13 }} /></button>
+                                    </span>
+                                  ) : isHovered ? (
+                                    <span style={{ display: 'inline-flex', gap: 3 }}>
+                                      <button onClick={() => { setEditingId(b.id); setEditStake(String(b.stake || '')); setEditOdds(String(b.odds || '')); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', padding: 2, lineHeight: 1 }}><i className="ti ti-pencil" style={{ fontSize: 12 }} /></button>
+                                      <button onClick={() => handleDeleteBet(b.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#f87171', padding: 2, lineHeight: 1 }}><i className="ti ti-trash" style={{ fontSize: 12 }} /></button>
+                                    </span>
+                                  ) : null}
+                                </td>
+                              </tr>
+                            );
+                          });
+                        })()}
                       </tbody>
                     </table>
                   );
                 })()}
               </div>
               </div>
-              {!loading && sortedLedgerBets.length > 0 && (
-                <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '4px 10px', background: '#0D1C13', borderTop: '1px solid #1a3a25' }}>
-                  <span style={{ fontSize: 10, color: '#fff', fontFamily: 'monospace' }}>
-                    {sortedLedgerBets.length} bets · {sortedLedgerBets.filter(b => b.status && b.status !== 'pending' && b.status !== 'scratched' && b.status !== 'abandoned').length} settled · {sortedLedgerBets.filter(b => b.status === 'abandoned').length} abandoned
-                  </span>
-                  {dateStats.pnl !== null && (
-                    <span style={{ fontSize: 11, fontWeight: 700, fontFamily: 'monospace', color: dateStats.pnl >= 0 ? '#4ade80' : '#f87171' }}>
-                      {dateStats.pnl >= 0 ? '+$' : '-$'}{Math.abs(dateStats.pnl).toFixed(2)}
-                    </span>
-                  )}
-                </div>
-              )}
             </>)}
 
             {betView === 'terminal' && (
@@ -1607,6 +1554,19 @@ export default function MybetsPage() {
                     );
                   })}
                 </div>
+              </div>
+            )}
+
+            {!loading && sortedLedgerBets.length > 0 && (
+              <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '4px 10px', background: '#0D1C13', borderTop: '1px solid #1a3a25' }}>
+                <span style={{ fontSize: 10, color: '#fff', fontFamily: 'monospace' }}>
+                  {sortedLedgerBets.length} bets · {sortedLedgerBets.filter(b => b.status && b.status !== 'pending' && b.status !== 'scratched' && b.status !== 'abandoned').length} settled · {sortedLedgerBets.filter(b => b.status === 'abandoned').length} abandoned
+                </span>
+                {dateStats.pnl !== null && (
+                  <span style={{ fontSize: 11, fontWeight: 700, fontFamily: 'monospace', color: dateStats.pnl >= 0 ? '#4ade80' : '#f87171' }}>
+                    {dateStats.pnl >= 0 ? '+$' : '-$'}{Math.abs(dateStats.pnl).toFixed(2)}
+                  </span>
+                )}
               </div>
             )}
 
@@ -1959,6 +1919,34 @@ export default function MybetsPage() {
       </main>
 
       {upgradeOpen && <UpgradeModal onClose={() => setUpgradeOpen(false)} />}
+
+      {mobileMenuId !== null && (() => {
+        const b = bets.find(x => x.id === mobileMenuId);
+        if (!b) return null;
+        return (
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 60, display: 'flex', alignItems: 'flex-end' }} onClick={() => setMobileMenuId(null)}>
+            <div style={{ background: '#fff', borderRadius: '12px 12px 0 0', width: '100%', padding: 16, boxShadow: '0 -4px 24px rgba(0,0,0,0.18)' }} onClick={e => e.stopPropagation()}>
+              <div style={{ fontWeight: 700, fontSize: 14, color: '#111827', marginBottom: 4 }}>{b.horse_name || 'Bet'}</div>
+              <div style={{ fontSize: 11, color: '#6b7280', marginBottom: 12 }}>{b.track || b.venue || ''}{(b.race_number || b.race_num) ? ` R${b.race_number || b.race_num}` : ''} · {b.date}</div>
+              <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 10, color: '#6b7280', marginBottom: 3 }}>Stake</div>
+                  <input type="number" value={editStake} onChange={e => setEditStake(e.target.value)} style={{ width: '100%', border: '1px solid #e5e7eb', borderRadius: 5, padding: '6px 8px', fontSize: 13, boxSizing: 'border-box' }} />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 10, color: '#6b7280', marginBottom: 3 }}>Odds</div>
+                  <input type="number" value={editOdds} onChange={e => setEditOdds(e.target.value)} style={{ width: '100%', border: '1px solid #e5e7eb', borderRadius: 5, padding: '6px 8px', fontSize: 13, boxSizing: 'border-box' }} />
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button onClick={async () => { if (+editStake > 0 && +editOdds > 1) { await patchBet(mobileMenuId, { stake: +editStake, odds: +editOdds }); setBets(prev => prev.map(x => x.id === mobileMenuId ? { ...x, stake: +editStake, odds: +editOdds } : x)); } setMobileMenuId(null); }} style={{ flex: 1, padding: '10px 0', background: '#059669', color: '#fff', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Save</button>
+                <button onClick={async () => { handleDeleteBet(mobileMenuId); setMobileMenuId(null); }} style={{ flex: 1, padding: '10px 0', background: '#dc2626', color: '#fff', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Delete</button>
+                <button onClick={() => setMobileMenuId(null)} style={{ padding: '10px 16px', background: '#f3f4f6', color: '#374151', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>Cancel</button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {racePopup && (
         <div
