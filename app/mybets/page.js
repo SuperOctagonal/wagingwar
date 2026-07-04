@@ -751,6 +751,12 @@ export default function MybetsPage() {
 
   const dateStats = useMemo(() => calcRow(dateFilteredBets), [dateFilteredBets]);
 
+  const avgOdds = useMemo(() => {
+    const settled = dateFilteredBets.filter(b => b.status && b.status !== 'pending' && b.status !== 'scratched' && +(b.odds || 0) > 1);
+    if (!settled.length) return '—';
+    return '$' + (settled.reduce((s, b) => s + +(b.odds || 0), 0) / settled.length).toFixed(2);
+  }, [dateFilteredBets]);
+
   const heroRecord = useMemo(() => {
     const n = dateResulted.length;
     if (n === 0) return '0-0-0-0';
@@ -1009,63 +1015,77 @@ export default function MybetsPage() {
       {/* ── Main content ── */}
       <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: '#f3f4f6' }}>
 
-        {/* SCOREBOARD HEADER */}
-        <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: isMobile ? 10 : 16, padding: isMobile ? '6px 10px' : '7px 16px', background: '#fff', borderBottom: '1px solid #e5e7eb', overflowX: 'auto', scrollbarWidth: 'none' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-            <div>
-              <div style={{ fontSize: 9, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 1 }}>{sbPeriodLabel}</div>
-              <div style={{ fontSize: isMobile ? 22 : 28, fontWeight: 800, fontFamily: 'monospace', color: sbPnlColor, lineHeight: 1 }}>
-                {sbPnl === null ? '—' : (sbPnlPos ? '+$' : '-$') + Math.abs(sbPnl).toFixed(2)}
-              </div>
-            </div>
-          </div>
-          <div style={{ width: 1, height: 28, background: '#e5e7eb', flexShrink: 0 }} />
-          {[
-            { label: 'Strike', value: dateStats.strike, color: '#374151' },
-            { label: 'Staked', value: dateStats.staked, color: '#374151' },
-            { label: 'ROI', value: dateStats.roi, color: parseFloat(dateStats.roi) > 0 ? '#059669' : parseFloat(dateStats.roi) < 0 ? '#dc2626' : '#6b7280' },
-            { label: 'Streak', value: sbStreakLabel, color: sbStreakColor },
-          ].map(({ label, value, color }) => (
-            <div key={label} style={{ flexShrink: 0 }}>
-              <div style={{ fontSize: 9, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '.06em' }}>{label}</div>
-              <div style={{ fontSize: isMobile ? 11 : 13, fontWeight: 700, color }}>{value}</div>
-            </div>
-          ))}
-        </div>
+        {/* 3-COLUMN SCOREBOARD HEADER */}
+        <div style={{ flexShrink: 0, display: 'flex', background: '#fff', borderBottom: '1px solid #e5e7eb', minHeight: isMobile ? 68 : 120 }}>
 
-        {/* TODAY'S CUMULATIVE P&L CHART */}
-        {!isMobile && heroChartData.length > 1 && (() => {
-          const finalPnl = heroChartData[heroChartData.length - 1].pnl;
-          return (
-            <div style={{ flexShrink: 0, height: 120, background: '#fff', borderBottom: '1px solid #e5e7eb' }}>
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={heroChartData} margin={{ top: 6, right: 12, bottom: 4, left: 40 }}>
-                  <defs>
-                    <linearGradient id="heroFill" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#1D9E75" stopOpacity={0.18} />
-                      <stop offset="95%" stopColor="#1D9E75" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" vertical={false} />
-                  <ReferenceLine y={0} stroke="#e5e7eb" />
-                  <XAxis dataKey="label" tick={{ fontSize: 9, fill: '#9ca3af' }} interval="preserveStartEnd" tickLine={false} axisLine={false} />
-                  <YAxis tick={{ fontSize: 9, fill: '#9ca3af' }} tickFormatter={v => `$${v}`} axisLine={false} tickLine={false} />
-                  <Tooltip content={({ active, payload }) => {
-                    if (!active || !payload?.length) return null;
-                    const d = payload[0].payload;
-                    return (
-                      <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 6, padding: '6px 10px', fontSize: 11 }}>
-                        <div style={{ color: '#6b7280', marginBottom: 2 }}>{d.horse}</div>
-                        <div style={{ fontWeight: 700, fontFamily: 'monospace', color: d.pnl >= 0 ? '#1D9E75' : '#E24B4A' }}>{d.pnl >= 0 ? '+$' : '-$'}{Math.abs(d.pnl).toFixed(2)}</div>
-                      </div>
-                    );
-                  }} />
-                  <Area type="monotone" dataKey="pnl" stroke={finalPnl >= 0 ? '#1D9E75' : '#E24B4A'} fill="url(#heroFill)" strokeWidth={2} dot={renderHeroDot} activeDot={{ r: 5, stroke: '#fff', strokeWidth: 2 }} />
-                </AreaChart>
-              </ResponsiveContainer>
+          {/* Col 1 — P&L + record + streak */}
+          <div style={{ flex: 1, padding: isMobile ? '8px 12px' : '12px 18px', borderRight: '1px solid #e5e7eb', display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 3 }}>
+            <div style={{ fontSize: 9, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '.06em' }}>{sbPeriodLabel}</div>
+            <div style={{ fontSize: isMobile ? 22 : 28, fontWeight: 800, fontFamily: 'monospace', color: sbPnlColor, lineHeight: 1 }}>
+              {sbPnl === null ? '—' : (sbPnlPos ? '+$' : '-$') + Math.abs(sbPnl).toFixed(2)}
             </div>
-          );
-        })()}
+            <div style={{ fontSize: 11, fontFamily: 'monospace', color: '#374151', letterSpacing: '.04em', marginTop: 2 }}>{heroRecord}</div>
+            {heroStreak && (
+              <div style={{ fontSize: 11, fontWeight: 700, color: sbStreakColor }}>{sbStreakLabel} streak</div>
+            )}
+          </div>
+
+          {/* Col 2 — Cumulative chart (desktop only) */}
+          {!isMobile && (
+            <div style={{ flex: 1, borderRight: '1px solid #e5e7eb', overflow: 'hidden' }}>
+              {heroChartData.length > 1 ? (() => {
+                const finalPnl = heroChartData[heroChartData.length - 1].pnl;
+                return (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={heroChartData} margin={{ top: 8, right: 8, bottom: 4, left: 32 }}>
+                      <defs>
+                        <linearGradient id="heroFill3c" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor={finalPnl >= 0 ? '#1D9E75' : '#E24B4A'} stopOpacity={0.18} />
+                          <stop offset="95%" stopColor={finalPnl >= 0 ? '#1D9E75' : '#E24B4A'} stopOpacity={0} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" vertical={false} />
+                      <ReferenceLine y={0} stroke="#e5e7eb" />
+                      <XAxis dataKey="label" tick={{ fontSize: 8, fill: '#9ca3af' }} interval="preserveStartEnd" tickLine={false} axisLine={false} />
+                      <YAxis tick={{ fontSize: 8, fill: '#9ca3af' }} tickFormatter={v => `$${v}`} axisLine={false} tickLine={false} width={32} />
+                      <Tooltip content={({ active, payload }) => {
+                        if (!active || !payload?.length) return null;
+                        const d = payload[0].payload;
+                        return (
+                          <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 6, padding: '6px 10px', fontSize: 11 }}>
+                            <div style={{ color: '#6b7280', marginBottom: 2 }}>{d.horse}</div>
+                            <div style={{ fontWeight: 700, fontFamily: 'monospace', color: d.pnl >= 0 ? '#1D9E75' : '#E24B4A' }}>{d.pnl >= 0 ? '+$' : '-$'}{Math.abs(d.pnl).toFixed(2)}</div>
+                          </div>
+                        );
+                      }} />
+                      <Area type="monotone" dataKey="pnl" stroke={finalPnl >= 0 ? '#1D9E75' : '#E24B4A'} fill="url(#heroFill3c)" strokeWidth={2} dot={renderHeroDot} activeDot={{ r: 5, stroke: '#fff', strokeWidth: 2 }} />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                );
+              })() : (
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#d1d5db', fontSize: 11 }}>No data yet</div>
+              )}
+            </div>
+          )}
+
+          {/* Col 3 — Stat grid (desktop only) */}
+          {!isMobile && (
+            <div style={{ flex: 1, padding: '12px 18px', display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 10 }}>
+              {[
+                { label: 'Strike',   value: dateStats.strike },
+                { label: 'Staked',   value: dateStats.staked },
+                { label: 'ROI',      value: dateStats.roi, color: parseFloat(dateStats.roi) > 0 ? '#059669' : parseFloat(dateStats.roi) < 0 ? '#dc2626' : '#374151' },
+                { label: 'Avg Odds', value: avgOdds },
+              ].map(({ label, value, color }) => (
+                <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                  <span style={{ fontSize: 10, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '.06em' }}>{label}</span>
+                  <span style={{ fontSize: 14, fontWeight: 700, fontFamily: 'monospace', color: color || '#111827' }}>{value}</span>
+                </div>
+              ))}
+            </div>
+          )}
+
+        </div>
 
         {false && (() => { const pnl = dateStats.pnl; const pnlPos = pnl !== null && pnl >= 0; const pnlColor = ''; const finalPnl = 0; const periodPnlLabel = ''; const streakLabel = ''; const streakColor = ''; if (isMobile) return (
             <div style={{ padding: '8px 8px 0', flexShrink: 0 }}>
@@ -1298,7 +1318,8 @@ export default function MybetsPage() {
                       const pos = b.position;
                       const isPending = !b.status || b.status === 'pending';
                       const isScratched = b.status === 'scratched';
-                      const pnlColor = !hasPnl || isPending ? '#6b7280' : pnl >= 0 ? '#4ade80' : '#f87171';
+                      const isAbandoned = b.status === 'abandoned';
+                      const pnlColor = !hasPnl || isPending || isAbandoned ? '#6b7280' : pnl >= 0 ? '#4ade80' : '#f87171';
                       const resultColor = pos === 1 ? '#4ade80' : (pos === 2 || pos === 3) ? '#60a5fa' : '#f87171';
                       const raceNum = b.race_number ?? b.race_num;
                       const venue = b.track || b.venue || '—';
@@ -1317,8 +1338,8 @@ export default function MybetsPage() {
                           <td style={{ ...cs, textAlign: 'right', fontWeight: 700, fontFamily: 'monospace', color: pnlColor, whiteSpace: 'nowrap' }}>
                             {isPending ? '—' : (pnl >= 0 ? '+$' : '-$') + Math.abs(pnl).toFixed(2)}
                           </td>
-                          <td style={{ ...cs, textAlign: 'right', fontWeight: 700, color: isPending ? '#f97316' : isScratched ? '#6b7280' : (pos ? resultColor : '#6b7280'), whiteSpace: 'nowrap' }}>
-                            {isPending ? 'PND' : isScratched ? 'SCR' : (pos || '—')}
+                          <td style={{ ...cs, textAlign: 'right', fontWeight: 700, color: isAbandoned ? '#6b7280' : isPending ? '#f97316' : isScratched ? '#6b7280' : (pos ? resultColor : '#6b7280'), whiteSpace: 'nowrap' }}>
+                            {isAbandoned ? 'ABND' : isPending ? 'PND' : isScratched ? 'SCR' : (pos || '—')}
                           </td>
                         </tr>
                       );
@@ -1379,7 +1400,8 @@ export default function MybetsPage() {
                           const pos = b.position;
                           const isPending = !b.status || b.status === 'pending';
                           const isScratched = b.status === 'scratched';
-                          const pnlColor = !hasPnl || isPending ? '#6b7280' : pnl >= 0 ? '#4ade80' : '#f87171';
+                          const isAbandoned = b.status === 'abandoned';
+                          const pnlColor = !hasPnl || isPending || isAbandoned ? '#6b7280' : pnl >= 0 ? '#4ade80' : '#f87171';
                           const resultColor = pos === 1 ? '#4ade80' : (pos === 2 || pos === 3) ? '#60a5fa' : '#f87171';
                           const raceNum = b.race_number ?? b.race_num;
                           const venue = b.track || b.venue || '—';
@@ -1399,22 +1421,29 @@ export default function MybetsPage() {
                               <td style={{ ...cs, color: '#fff' }}>{fmtDate(b.date)}</td>
                               <td style={{ ...cs, color: '#fff', maxWidth: 76, overflow: 'hidden', textOverflow: 'ellipsis' }}>{venue}</td>
                               <td style={{ ...cs, color: '#fff', textAlign: 'right' }}>{raceNum ? `R${raceNum}` : '—'}</td>
-                              <td style={{ ...cs, color: '#fff', textAlign: 'right', fontFamily: 'monospace', whiteSpace: 'nowrap' }}>{raceT || '—'}</td>
+                              <td style={{ ...cs, color: '#fff', textAlign: 'right', fontFamily: 'monospace', whiteSpace: 'nowrap' }}>
+                                {(() => {
+                                  if (!raceT) return '—';
+                                  if (isPending && b.date === todayISO && secsToRace !== null && secsToRace > -240) {
+                                    if (secsToRace > 0) {
+                                      const remMins = Math.ceil(secsToRace / 60);
+                                      const cdStr = remMins >= 60 ? `${Math.floor(remMins/60)}h${remMins%60?remMins%60+'m':''}` : `${remMins}m`;
+                                      return <>{raceT} <span style={{ color: secsToRace < 900 ? '#4ade80' : '#9ca3af', fontWeight: 700, fontSize: 9 }}>({cdStr})</span></>;
+                                    }
+                                    return <>{raceT} <span style={{ color: '#f87171', fontWeight: 700, fontSize: 9 }}>(-{Math.floor(Math.abs(secsToRace)/60)}m)</span></>;
+                                  }
+                                  return raceT;
+                                })()}
+                              </td>
                               <td style={{ ...cs, color: '#fff', textAlign: 'right' }}>{b.tab_no || b.horse_number || '—'}</td>
                               <td style={{ ...cs, color: '#fff', fontWeight: 600, maxWidth: 106, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b.horse_name || '—'}</td>
                               <td style={{ ...cs, color: '#fff', textAlign: 'right', fontFamily: 'monospace' }}>${(+(b.stake || 0)).toFixed(0)}</td>
                               <td style={{ ...cs, color: '#fff', textAlign: 'right', fontFamily: 'monospace' }}>${Number(b.odds || 0).toFixed(2)}</td>
                               <td style={{ ...cs, textAlign: 'right', fontWeight: 700, fontFamily: 'monospace', color: pnlColor, whiteSpace: 'nowrap' }}>
-                                {isPending ? '—' : (pnl >= 0 ? '+$' : '-$') + Math.abs(pnl).toFixed(2)}
+                                {isPending || isAbandoned ? '—' : (pnl >= 0 ? '+$' : '-$') + Math.abs(pnl).toFixed(2)}
                               </td>
-                              <td style={{ ...cs, textAlign: 'right', fontWeight: 700, color: isPending ? (isImminent ? (secsToRace !== null && secsToRace >= 0 ? '#f59e0b' : '#dc2626') : '#f97316') : isScratched ? '#6b7280' : (pos ? resultColor : '#6b7280') }}>
-                                {isPending ? (
-                                  isImminent && secsToRace !== null ? (
-                                    secsToRace > 60 ? `${Math.ceil(secsToRace / 60)}m` :
-                                    secsToRace > 0 ? '<1m' :
-                                    `-${Math.floor(Math.abs(secsToRace) / 60)}m`
-                                  ) : 'PND'
-                                ) : isScratched ? 'SCR' : (pos || '—')}
+                              <td style={{ ...cs, textAlign: 'right', fontWeight: 700, color: isAbandoned ? '#6b7280' : isPending ? '#f97316' : isScratched ? '#6b7280' : (pos === 1 ? '#4ade80' : (pos === 2 || pos === 3) ? '#60a5fa' : pos ? '#f87171' : '#6b7280') }}>
+                                {isAbandoned ? 'ABND' : isPending ? 'PND' : isScratched ? 'SCR' : (pos || '—')}
                               </td>
                             </tr>
                           );
@@ -1425,6 +1454,18 @@ export default function MybetsPage() {
                 })()}
               </div>
               </div>
+              {!loading && sortedLedgerBets.length > 0 && (
+                <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '4px 10px', background: '#0D1C13', borderTop: '1px solid #1a3a25' }}>
+                  <span style={{ fontSize: 10, color: '#4b6858', fontFamily: 'monospace' }}>
+                    {sortedLedgerBets.length} bets · {sortedLedgerBets.filter(b => b.status && b.status !== 'pending' && b.status !== 'scratched' && b.status !== 'abandoned').length} settled · {sortedLedgerBets.filter(b => b.status === 'abandoned').length} abandoned
+                  </span>
+                  {dateStats.pnl !== null && (
+                    <span style={{ fontSize: 11, fontWeight: 700, fontFamily: 'monospace', color: dateStats.pnl >= 0 ? '#4ade80' : '#f87171' }}>
+                      {dateStats.pnl >= 0 ? '+$' : '-$'}{Math.abs(dateStats.pnl).toFixed(2)}
+                    </span>
+                  )}
+                </div>
+              )}
             </>)}
 
             {betView === 'terminal' && (
