@@ -26,21 +26,35 @@ function aestToday() {
   return new Date().toLocaleDateString('sv-SE', { timeZone: 'Australia/Brisbane' });
 }
 
-function startOfRange(range) {
-  if (range === '90d') {
-    const d = new Date(aestToday()); d.setDate(d.getDate() - 89);
-    return d.toISOString().slice(0, 10);
+function dateRangeBounds(range, customStart, customEnd) {
+  const today = aestToday();
+  if (range === 'today') return { start: today, end: today };
+  if (range === 'yesterday') {
+    const d = new Date(today); d.setDate(d.getDate() - 1);
+    const y = d.toISOString().slice(0, 10);
+    return { start: y, end: y };
   }
-  if (range === 'month') {
-    const t = new Date(aestToday());
-    return `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}-01`;
+  if (range === 'this_week') {
+    const d = new Date(today);
+    const dow = d.getDay();
+    d.setDate(d.getDate() - (dow === 0 ? 6 : dow - 1));
+    return { start: d.toISOString().slice(0, 10), end: today };
   }
-  return null;
+  if (range === 'this_month') {
+    const d = new Date(today);
+    return { start: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`, end: today };
+  }
+  if (range === 'custom') return { start: customStart || today, end: customEnd || today };
+  return null; // all_time
 }
 
+function isBetWon(b)      { return b.status === 'won'  || b.status === 'win'  || b.status === 'place'; }
+function isBetLost(b)     { return b.status === 'lost' || b.status === 'loss'; }
+function isBetSettled(b)  { return isBetWon(b) || isBetLost(b); }
+
 function betPnl(b) {
-  if (b.status === 'won') return +(+b.stake * (+b.odds - 1)).toFixed(2);
-  if (b.status === 'lost') return -(+b.stake);
+  if (isBetWon(b))  return +(+b.stake * (+b.odds - 1)).toFixed(2);
+  if (isBetLost(b)) return -(+b.stake);
   return 0;
 }
 
@@ -100,8 +114,8 @@ function heatFg(roiV, n) {
 }
 
 function aggGroup(bets) {
-  const settled = bets.filter(b => b.status === 'won' || b.status === 'lost');
-  const won = settled.filter(b => b.status === 'won');
+  const settled = bets.filter(isBetSettled);
+  const won = settled.filter(isBetWon);
   const staked = settled.reduce((s, b) => s + +b.stake, 0);
   const pnl = settled.reduce((s, b) => s + betPnl(b), 0);
   return {
@@ -137,7 +151,9 @@ export default function InsightsPage() {
   const [bets, setBets] = useState([]);
   const [results, setResults] = useState([]);
   const [userSettings, setUserSettings] = useState({});
-  const [range, setRange] = useState('all');
+  const [range, setRange] = useState('all_time');
+  const [customStart, setCustomStart] = useState('');
+  const [customEnd, setCustomEnd] = useState('');
   const [sortVenue, setSortVenue] = useState('roi');
   const [loading, setLoading] = useState(true);
 
@@ -148,7 +164,9 @@ export default function InsightsPage() {
       sbFetch(`bet_log?clerk_id=eq.${encodeURIComponent(user.id)}&select=*&order=date.asc,created_at.asc`),
       sbFetch(`user_settings?clerk_id=eq.${encodeURIComponent(user.id)}&select=settings`),
     ]).then(([betRows, settingRows]) => {
-      setBets(betRows || []);
+      const rows = betRows || [];
+      console.log('[insights] bet_log rows:', rows.length, '· statuses:', [...new Set(rows.map(b => b.status))]);
+      setBets(rows);
       setUserSettings(settingRows?.[0]?.settings || {});
       setLoading(false);
     });
@@ -164,12 +182,13 @@ export default function InsightsPage() {
   }, [bets]);
 
   const filteredBets = useMemo(() => {
-    const start = startOfRange(range);
-    return start ? bets.filter(b => b.date >= start) : bets;
-  }, [bets, range]);
+    const bounds = dateRangeBounds(range, customStart, customEnd);
+    if (!bounds) return bets;
+    return bets.filter(b => b.date >= bounds.start && b.date <= bounds.end);
+  }, [bets, range, customStart, customEnd]);
 
-  const settled = useMemo(() => filteredBets.filter(b => b.status === 'won' || b.status === 'lost'), [filteredBets]);
-  const wins    = useMemo(() => settled.filter(b => b.status === 'won'), [settled]);
+  const settled = useMemo(() => filteredBets.filter(isBetSettled), [filteredBets]);
+  const wins    = useMemo(() => settled.filter(isBetWon), [settled]);
 
   const resultMap = useMemo(() => {
     const m = {};
@@ -413,22 +432,31 @@ export default function InsightsPage() {
 
   // ─── render ──────────────────────────────────────────────────────────────────
   return (
-    <div style={{ background: '#f3f4f6', minHeight: '100vh' }}>
+    <div style={{ flex: 1, overflowY: 'auto', background: '#f3f4f6' }}>
 
       {/* Header */}
-      <div style={{ background: G, padding: '14px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+      <div style={{ background: G, padding: '14px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
         <div style={{ fontSize: 22, fontWeight: 800, color: '#fff', letterSpacing: 2, fontFamily: 'Bebas Neue, sans-serif' }}>Insights</div>
-        <div style={{ display: 'flex', gap: 6 }}>
-          {[['all','All time'],['90d','Last 90d'],['month','This month']].map(([v, label]) => (
+        <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+          {[['today','Today'],['yesterday','Yesterday'],['this_week','This Week'],['this_month','This Month'],['all_time','All Time'],['custom','Custom']].map(([v, label]) => (
             <button key={v} onClick={() => setRange(v)} style={{
               background: range === v ? 'rgba(255,255,255,0.25)' : 'transparent',
               border: '1px solid rgba(255,255,255,0.4)', color: '#fff',
-              borderRadius: 6, padding: '5px 12px', fontSize: 12,
+              borderRadius: 6, padding: '4px 10px', fontSize: 11,
               cursor: 'pointer', fontWeight: range === v ? 700 : 400,
             }}>{label}</button>
           ))}
         </div>
       </div>
+
+      {/* Custom date inputs */}
+      {range === 'custom' && (
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', padding: '6px 24px', background: '#fff', borderBottom: '1px solid #e5e7eb' }}>
+          <input type="date" value={customStart} onChange={e => setCustomStart(e.target.value)} style={{ fontSize: 11, padding: '3px 8px', border: '1px solid #e5e7eb', borderRadius: 5, color: '#374151' }} />
+          <span style={{ fontSize: 11, color: '#9ca3af' }}>–</span>
+          <input type="date" value={customEnd} onChange={e => setCustomEnd(e.target.value)} style={{ fontSize: 11, padding: '3px 8px', border: '1px solid #e5e7eb', borderRadius: 5, color: '#374151' }} />
+        </div>
+      )}
 
       {loading ? (
         <div style={{ padding: 48, textAlign: 'center', color: '#9ca3af', fontSize: 13 }}>Loading…</div>
