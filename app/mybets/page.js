@@ -208,15 +208,24 @@ async function matchAndUpdateBets(pendingBets) {
 
 function isoDate(d) { return d.toISOString().slice(0, 10); }
 
+// Date arithmetic anchored at noon UTC — avoids DST/timezone boundary issues.
+// Always pass an AEST ISO string as the base; returns ISO date string.
+function dateMath(isoStr, days) {
+  const d = new Date(isoStr + 'T12:00:00Z');
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
 function periodFilter(period, todayISO) {
-  const today = new Date(todayISO + 'T00:00:00');
-  const dow = today.getDay();
-  const weekStart = new Date(today);
-  weekStart.setDate(today.getDate() - (dow === 0 ? 6 : dow - 1));
-  const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+  const anchor = new Date(todayISO + 'T12:00:00Z');
+  const dow = anchor.getUTCDay();
+  const weekStart = new Date(anchor);
+  weekStart.setUTCDate(anchor.getUTCDate() - (dow === 0 ? 6 : dow - 1));
+  const weekStartISO  = weekStart.toISOString().slice(0, 10);
+  const monthStartISO = todayISO.slice(0, 7) + '-01';
   if (period === 'Today') return b => b.date === todayISO;
-  if (period === 'This week') return b => b.date >= isoDate(weekStart);
-  if (period === 'This month') return b => b.date >= isoDate(monthStart);
+  if (period === 'This week') return b => b.date >= weekStartISO;
+  if (period === 'This month') return b => b.date >= monthStartISO;
   return () => true;
 }
 
@@ -390,7 +399,7 @@ export default function MybetsPage() {
   const [qlTab,       setQlTab]       = useState('');
   const [raceDate,    setRaceDate]    = useState(null);
 
-  const todayISO = new Date().toISOString().slice(0, 10);
+  const todayISO = new Date().toLocaleDateString('en-CA', { timeZone: 'Australia/Sydney' });
   const [now, setNow] = useState(() => Date.now());
 
   useEffect(() => {
@@ -678,11 +687,10 @@ export default function MybetsPage() {
     if (activeTab === 'loss') return resultedBets.filter(b => b.status === 'loss');
     if (activeTab === 'today') return resultedBets.filter(b => b.date === todayISO);
     if (activeTab === 'this week') {
-      const today = new Date(todayISO + 'T00:00:00');
-      const dow = today.getDay();
-      const ws = new Date(today);
-      ws.setDate(today.getDate() - (dow === 0 ? 6 : dow - 1));
-      return resultedBets.filter(b => b.date >= isoDate(ws));
+      const anchor = new Date(todayISO + 'T12:00:00Z');
+      const dow = anchor.getUTCDay();
+      const ws = new Date(anchor); ws.setUTCDate(anchor.getUTCDate() - (dow === 0 ? 6 : dow - 1));
+      return resultedBets.filter(b => b.date >= ws.toISOString().slice(0, 10));
     }
     return resultedBets;
   }, [resultedBets, activeTab, todayISO]);
@@ -697,11 +705,10 @@ export default function MybetsPage() {
     if (activeTab === 'loss') return base.filter(b => b.status === 'loss');
     if (activeTab === 'today') return base.filter(b => b.date === todayISO);
     if (activeTab === 'this week') {
-      const today = new Date(todayISO + 'T00:00:00');
-      const dow = today.getDay();
-      const ws = new Date(today);
-      ws.setDate(today.getDate() - (dow === 0 ? 6 : dow - 1));
-      return base.filter(b => b.date >= isoDate(ws));
+      const anchor = new Date(todayISO + 'T12:00:00Z');
+      const dow = anchor.getUTCDay();
+      const ws = new Date(anchor); ws.setUTCDate(anchor.getUTCDate() - (dow === 0 ? 6 : dow - 1));
+      return base.filter(b => b.date >= ws.toISOString().slice(0, 10));
     }
     return base;
   }, [bets, activeTab, todayISO]);
@@ -722,13 +729,12 @@ export default function MybetsPage() {
   }, [pendingBets, csvRaces, csvVenues]);
 
   const dateFilteredBets = useMemo(() => {
-    const d = new Date(todayISO + 'T00:00:00');
-    const yest = new Date(d); yest.setDate(d.getDate() - 1);
-    const yesterdayISO = isoDate(yest);
-    const dow = d.getDay();
-    const ws = new Date(d); ws.setDate(d.getDate() - (dow === 0 ? 6 : dow - 1));
-    const weekStartISO = isoDate(ws);
-    const monthStartISO = `${todayISO.slice(0, 7)}-01`;
+    const anchor = new Date(todayISO + 'T12:00:00Z');
+    const yesterdayISO = dateMath(todayISO, -1);
+    const dow = anchor.getUTCDay();
+    const ws = new Date(anchor); ws.setUTCDate(anchor.getUTCDate() - (dow === 0 ? 6 : dow - 1));
+    const weekStartISO  = ws.toISOString().slice(0, 10);
+    const monthStartISO = todayISO.slice(0, 7) + '-01';
     switch (dateRange) {
       case 'today':      return bets.filter(b => b.date === todayISO);
       case 'yesterday':  return bets.filter(b => b.date === yesterdayISO);
