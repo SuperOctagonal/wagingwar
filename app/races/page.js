@@ -71,6 +71,7 @@ function parseRaceTime(timeStr, dateStr) {
 const VENUE_NORMALISE = {
   'SANDOWN-HILLSIDE':              'SANDOWN',
   'SANDOWN HILLSIDE':              'SANDOWN',
+  'ROSEHILL':                      'ROSEHILL GARDENS',
   'ROSEHILL GARDENS':              'ROSEHILL GARDENS',
   'ROSEHILL GARDENS RACECOURSE':   'ROSEHILL GARDENS',
   'AQUIS PARK GOLD COAST':         'GOLD COAST',
@@ -2519,6 +2520,32 @@ function RacesPageInner() {
                 <RaceHeader rc={currentRace} trackCond={trackCond} setTrackCond={setTrackCond}
                   weights={weights} setWeights={setWeights} runnerCount={results.length}
                   onUpgrade={() => setUpgradeOpen(true)} />
+                {(() => {
+                  const venueRaces = (allVenues[currentRace.venue] || [])
+                    .slice()
+                    .sort((a, b) => (allRaces[a]?.num || 0) - (allRaces[b]?.num || 0));
+                  if (venueRaces.length < 2) return null;
+                  return (
+                    <div style={{ display:'flex', alignItems:'center', gap:4, padding:'4px 10px', borderBottom:'1px solid #e5e7eb', overflowX:'auto', flexShrink:0, background:'#fafafa' }}>
+                      {venueRaces.map(key => {
+                        const rn = allRaces[key]?.num;
+                        const active = key === selectedKey;
+                        return (
+                          <button
+                            key={key}
+                            onClick={() => setSelectedKey(key)}
+                            style={{
+                              minWidth:28, height:26, fontSize:11, fontWeight: active ? 700 : 500,
+                              borderRadius:5, border: active ? '1.5px solid #1D9E75' : '1px solid #d1d5db',
+                              background: active ? '#1D9E75' : '#fff', color: active ? '#fff' : '#374151',
+                              cursor:'pointer', flexShrink:0, padding:'0 5px',
+                            }}
+                          >R{rn}</button>
+                        );
+                      })}
+                    </div>
+                  );
+                })()}
                 <div className="hidden md:block"><ViewTabBar view={view} setView={setView} runnerCount={results.length} /></div>
                 {currentRaceResult && (
                   <div style={{ background:'#f0fdf4', borderBottom:'1px solid #86efac', padding:'5px 12px', display:'flex', alignItems:'center', gap:8 }}>
