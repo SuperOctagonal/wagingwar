@@ -239,10 +239,10 @@ function venueAbbr(v) {
 }
 
 const TC_PILL = {
-  good:      { bg: '#16a34a', label: 'Gd' },
-  soft:      { bg: '#d97706', label: 'Sf' },
-  heavy:     { bg: '#dc2626', label: 'Hv' },
-  synthetic: { bg: '#6d28d9', label: 'Sy' },
+  good:      { bg: '#16a34a', label: 'Good' },
+  soft:      { bg: '#d97706', label: 'Soft' },
+  heavy:     { bg: '#dc2626', label: 'Heavy' },
+  synthetic: { bg: '#6d28d9', label: 'Synth' },
 };
 
 // ─── left rail ────────────────────────────────────────────────────────────────
@@ -391,7 +391,7 @@ function LeftRail({ allVenues, allRaces, selectedRaceKey, onSelect, trackConds, 
   };
 
   return (
-    <aside style={{ width: 182, flexShrink: 0, background: '#1a2634', height: '100%', overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
+    <aside style={{ width: 202, flexShrink: 0, background: '#1a2634', height: '100%', overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
       <div style={{ color: '#fff', fontSize: 10, fontWeight: 700, padding: '7px 12px', letterSpacing: '0.5px', textTransform: 'uppercase', borderBottom: '1px solid rgba(255,255,255,0.08)', flexShrink: 0 }}>
         Meetings
       </div>
@@ -2279,7 +2279,17 @@ function RacesPageInner() {
       const { allRaces: ar, allVenues: av, raceKeys: rk } = buildRaces(parseCSV(text));
       if (rk.length === 0) { alert('No races found — check Race Number column'); return; }
       setAllRaces(ar); setAllVenues(av); setRaceKeys(rk);
-      setSelectedKey(selectKey && rk.includes(selectKey) ? selectKey : rk[0]);
+      const defaultKey = (() => {
+        const nowMs = Date.now();
+        let bestKey = null, bestTime = Infinity;
+        for (const k of rk) {
+          const rc = ar[k];
+          const t = parseRaceTime(rc?.time, rc?.date)?.getTime();
+          if (t && t > nowMs && t < bestTime) { bestTime = t; bestKey = k; }
+        }
+        return bestKey || rk[0];
+      })();
+      setSelectedKey(selectKey && rk.includes(selectKey) ? selectKey : defaultKey);
       setFileName(name); setView('field');
     } catch (err) { alert('Error parsing CSV: ' + err.message); }
   }, []);
