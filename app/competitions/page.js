@@ -45,10 +45,17 @@ async function sbFetch(path, opts = {}) {
       },
       body: opts.body ? JSON.stringify(opts.body) : undefined,
     });
-    if (!res.ok) return null;
+    if (!res.ok) {
+      const body = await res.text();
+      console.error('[comp sbFetch]', opts.method || 'GET', path, res.status, body);
+      return null;
+    }
     const t = await res.text();
-    return t ? JSON.parse(t) : null;
-  } catch { return null; }
+    return t ? JSON.parse(t) : true;
+  } catch (err) {
+    console.error('[comp sbFetch] network error:', err);
+    return null;
+  }
 }
 
 function jumpDate(timeStr, dateStr) {
@@ -143,6 +150,8 @@ export default function CompetitionsPage() {
   const [allTimePoints, setAllTimePoints] = useState(null);
   const [mainTab, setMainTab] = useState('today');
   const [now, setNow] = useState(Date.now());
+  const [submitting, setSubmitting] = useState(false);
+  const [submitToast, setSubmitToast] = useState(null);
 
   const today = useMemo(() => aestISO(), []);
   const uname = user ? (user.fullName || user.username || user.firstName || 'Anon') : 'Anon';
@@ -218,6 +227,7 @@ export default function CompetitionsPage() {
 
   const userRank = useMemo(() => todayLeaderboard.find(e => e.isMe)?.rank ?? null, [todayLeaderboard]);
   const entrantCount = useMemo(() => new Set(allPicksData.map(r => r.clerk_id)).size, [allPicksData]);
+  const pickedCount = useMemo(() => compRaces.filter(r => picks[rk(r.venue, r.num)]).length, [compRaces, picks]);
   const leaderScore = useMemo(() => todayLeaderboard[0]?.score ?? 0, [todayLeaderboard]);
 
   const scratchAlerts = useMemo(() => compRaces.filter(r => {
@@ -370,6 +380,28 @@ export default function CompetitionsPage() {
     setSavingKey(null);
   }
 
+  async function submitAllPicks() {
+    if (!user?.id || !SURL || !SKEY || pickedCount === 0) return;
+    setSubmitting(true);
+    let allOk = true;
+    for (const race of compRaces) {
+      const key = rk(race.venue, race.num);
+      const horse = picks[key];
+      if (!horse) continue;
+      const res = await sbFetch('comp_picks', {
+        method: 'POST',
+        prefer: 'resolution=merge-duplicates,return=minimal',
+        body: { clerk_id: user.id, date: today, venue: nv(race.venue), race_num: +race.num, horse_name: horse, username: uname },
+      });
+      if (res === null) allOk = false;
+    }
+    const rows = await sbFetch(`comp_picks?date=eq.${today}&select=clerk_id,username,venue,race_num,horse_name`);
+    if (Array.isArray(rows)) setAllPicksData(rows);
+    setSubmitting(false);
+    setSubmitToast(allOk ? 'success' : 'error');
+    setTimeout(() => setSubmitToast(null), 3000);
+  }
+
   // ─── Pro gate ─────────────────────────────────────────────────────────────────
   if (!isPro) {
     return (
@@ -404,7 +436,7 @@ export default function CompetitionsPage() {
     const jt = jumpDate(race.time, race.date);
     const msToJump = jt ? jt.getTime() - now : null;
     const isScratched = pick && scratchings.has(`${key}||${pick.toUpperCase()}`);
-    const activeHorses = (race.horses || []).filter(h => !h.scratched);
+    const activeHorses = (race.horses || []).filter(h => !h.scratched && !scratchings.has(`${key}||${(h.name || '').toUpperCase()}`));
 
     return (
       <>
@@ -706,6 +738,18 @@ export default function CompetitionsPage() {
       {/* Action buttons */}
       <div style={{ padding: '10px 12px 14px', display: 'flex', flexDirection: 'column', gap: 5 }}>
         <button
+          onClick={submitAllPicks}
+          disabled={submitting || pickedCount === 0}
+          style={{
+            padding: '9px 0', borderRadius: 6, fontSize: 11, fontWeight: 700, cursor: pickedCount === 0 ? 'default' : 'pointer', border: 'none',
+            background: submitToast === 'success' ? '#dcfce7' : submitToast === 'error' ? '#fee2e2' : pickedCount > 0 ? G : '#e5e7eb',
+            color: submitToast === 'success' ? '#166534' : submitToast === 'error' ? '#991b1b' : pickedCount > 0 ? '#fff' : '#9ca3af',
+            opacity: submitting ? 0.7 : 1,
+          }}
+        >
+          {submitting ? 'Submitting…' : submitToast === 'success' ? '✓ Picks submitted!' : submitToast === 'error' ? '✗ Submit failed' : `Submit picks (${pickedCount}/${compRaces.length})`}
+        </button>
+        <button
           onClick={() => {
             const text = compRaces.map(r => { const k = rk(r.venue, r.num); return `${titleCase(r.venue)} R${r.num}: ${picks[k] || '—'}`; }).join('\n');
             navigator.clipboard?.writeText(`My picks · ${today}\n${text}`).catch(() => { });
@@ -798,7 +842,7 @@ export default function CompetitionsPage() {
             const jt = jumpDate(race.time, race.date);
             const msToJump = jt ? jt.getTime() - now : null;
             const isScratched = pick && scratchings.has(`${key}||${pick.toUpperCase()}`);
-            const activeHorses = (race.horses || []).filter(h => !h.scratched);
+            const activeHorses = (race.horses || []).filter(h => !h.scratched && !scratchings.has(`${key}||${(h.name || '').toUpperCase()}`));
             return (
               <div key={key} style={{ padding: '10px 14px', borderBottom: '1px solid #f3f4f6' }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
@@ -834,6 +878,24 @@ export default function CompetitionsPage() {
           })}
         </div>
       ))}
+      {/* Submit picks (mobile) */}
+      {csvRaces && compRaces.length > 0 && (
+        <div style={{ padding: '10px 14px', background: '#fff', borderBottom: '1px solid #e5e7eb' }}>
+          <button
+            onClick={submitAllPicks}
+            disabled={submitting || pickedCount === 0}
+            style={{
+              width: '100%', padding: '11px 0', borderRadius: 7, fontSize: 13, fontWeight: 700, border: 'none',
+              cursor: pickedCount === 0 ? 'default' : 'pointer',
+              background: submitToast === 'success' ? '#dcfce7' : submitToast === 'error' ? '#fee2e2' : pickedCount > 0 ? G : '#e5e7eb',
+              color: submitToast === 'success' ? '#166534' : submitToast === 'error' ? '#991b1b' : pickedCount > 0 ? '#fff' : '#9ca3af',
+              opacity: submitting ? 0.7 : 1,
+            }}
+          >
+            {submitting ? 'Submitting…' : submitToast === 'success' ? '✓ Picks submitted!' : submitToast === 'error' ? '✗ Submit failed' : `Submit picks · ${pickedCount}/${compRaces.length} selected`}
+          </button>
+        </div>
+      )}
       {/* Leaderboard (mobile inline) */}
       {todayLeaderboard.length > 0 && (
         <div style={{ background: '#fff', margin: '4px 0 0', padding: '12px 14px' }}>
