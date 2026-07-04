@@ -167,11 +167,13 @@ export default function TopNav() {
 
         {/* Right side */}
         <div className="ml-auto flex gap-2 items-center">
-          {/* Live odds badge */}
-          <div className="hidden sm:flex items-center gap-[5px] px-[9px] py-[3px] rounded-full border border-white/20 text-[9px] font-semibold text-white/70">
-            <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-blink inline-block" />
-            Live odds
-          </div>
+          <button
+            onClick={() => window.location.reload()}
+            title="Refresh page"
+            className="hidden sm:flex items-center justify-center w-7 h-7 rounded-full border border-white/20 text-white/70 hover:text-white hover:border-white/40 transition-colors"
+          >
+            <i className="ti ti-refresh" style={{ fontSize: 13 }} />
+          </button>
 
           {/* Mobile hamburger */}
           <button
