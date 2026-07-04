@@ -453,18 +453,18 @@ function RightRail({ allRaces, allVenues, selectedRaceKey, onSelect, isPro, user
   const thS = { padding: '4px 8px', fontSize: 9, fontWeight: 600, color: 'rgba(255,255,255,0.70)', textTransform: 'uppercase', letterSpacing: '0.4px', borderBottom: '0.5px solid rgba(255,255,255,0.15)', background: 'transparent', textAlign: 'left', whiteSpace: 'nowrap' };
 
   return (
-    <aside style={{ width: 200, flexShrink: 0, background: '#fff', borderLeft: '0.5px solid #e5e7eb', overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
+    <aside style={{ width: 248, flexShrink: 0, background: '#fff', borderLeft: '0.5px solid #e5e7eb', overflowY: 'auto', overflowX: 'hidden', display: 'flex', flexDirection: 'column' }}>
       {/* Header */}
       <div style={{ background: '#00471b', color: '#fff', fontSize: 10, fontWeight: 700, padding: '6px 10px', letterSpacing: '0.5px', textTransform: 'uppercase', flexShrink: 0 }}>
         Up Next
       </div>
 
-      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 10 }}>
+      <table style={{ width: '100%', tableLayout: 'fixed', borderCollapse: 'collapse', fontSize: 10 }}>
         <thead>
           <tr style={{ background: '#1a2634' }}>
-            <th style={{ ...thS, width: '55%' }}>Race</th>
-            <th style={{ ...thS, textAlign: 'right', width: '22%' }}>Time</th>
-            <th style={{ ...thS, textAlign: 'right', width: '23%', paddingRight: 10 }}>−</th>
+            <th style={{ ...thS, width: '52%' }}>Race</th>
+            <th style={{ ...thS, textAlign: 'right', width: '24%' }}>Time</th>
+            <th style={{ ...thS, textAlign: 'right', width: '24%', paddingRight: 10 }}>−</th>
           </tr>
         </thead>
         <tbody>
@@ -493,7 +493,7 @@ function RightRail({ allRaces, allVenues, selectedRaceKey, onSelect, isPro, user
                 onMouseEnter={e => e.currentTarget.style.background = '#f9fafb'}
                 onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
               >
-                <td style={{ ...tdBase, fontSize: 10, color: '#111827', whiteSpace: 'nowrap' }}>
+                <td style={{ ...tdBase, fontSize: 10, color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   <span style={{ color: '#9ca3af', fontSize: 9 }}>{venueAbbr(rc.venue)}</span>
                   {' '}<span style={{ fontWeight: 600 }}>R{rc.num}</span>
                   {rc.dist && <span style={{ color: '#d1d5db', fontSize: 9, marginLeft: 3 }}>{rc.dist}m</span>}
@@ -526,11 +526,10 @@ function RightRail({ allRaces, allVenues, selectedRaceKey, onSelect, isPro, user
 // ─── view tab bar ─────────────────────────────────────────────────────────────
 
 const VIEW_TABS = [
-  { id: 'field',       label: 'Field',         icon: 'ti-layout-list' },
-  { id: 'form',        label: 'Form',           icon: 'ti-horse-toy' },
-  { id: 'pacemap',     label: 'Pace Map',       icon: 'ti-map', premium: true },
-  { id: 'sectionals',  label: 'Sectionals',     icon: 'ti-chart-line', locked: true },
-  { id: 'compareodds', label: 'Compare Odds',   icon: 'ti-currency-dollar', locked: true },
+  { id: 'field',      label: 'Field',    icon: 'ti-layout-list' },
+  { id: 'form',       label: 'Form',     icon: 'ti-horse-toy' },
+  { id: 'pacemap',    label: 'Pace Map', icon: 'ti-map', premium: true },
+  { id: 'sectionals', label: 'Sectionals', icon: 'ti-chart-line', locked: true },
 ];
 
 function ViewTabBar({ view, setView, runnerCount }) {
@@ -555,7 +554,13 @@ function ViewTabBar({ view, setView, runnerCount }) {
           {t.premium && !t.locked && <span className="text-[8px] text-amber-500 font-bold">★</span>}
         </button>
       ))}
-      <span className="ml-auto pr-3 text-[10px] text-gray-700">{runnerCount} runners</span>
+      <button
+        onClick={() => window.location.reload()}
+        title="Refresh page"
+        className="ml-auto mr-2 flex items-center justify-center w-7 h-7 rounded hover:bg-gray-100 transition-colors text-gray-500 hover:text-gray-700"
+      >
+        <i className="ti ti-refresh text-[14px]" />
+      </button>
     </div>
   );
 }
