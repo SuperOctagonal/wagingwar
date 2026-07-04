@@ -118,19 +118,54 @@ function aggGroup(bets) {
   const won = settled.filter(isBetWon);
   const staked = settled.reduce((s, b) => s + +b.stake, 0);
   const pnl = settled.reduce((s, b) => s + betPnl(b), 0);
+  const firsts  = settled.filter(b => +b.finish_pos === 1).length;
+  const seconds = settled.filter(b => +b.finish_pos === 2).length;
+  const thirds  = settled.filter(b => +b.finish_pos === 3).length;
   return {
-    n: settled.length, wins: won.length, staked, pnl,
+    n: settled.length, wins: won.length, firsts, seconds, thirds, staked, pnl,
     roi: roi(pnl, staked),
     sr: settled.length > 0 ? won.length / settled.length * 100 : 0,
   };
 }
 
-function Card({ title, children, style }) {
+function InfoTip({ text }) {
+  const [show, setShow] = useState(false);
+  return (
+    <span style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', marginLeft: 4, verticalAlign: 'middle' }}>
+      <span
+        onMouseEnter={() => setShow(true)}
+        onMouseLeave={() => setShow(false)}
+        onClick={() => setShow(v => !v)}
+        style={{
+          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+          width: 14, height: 14, borderRadius: '50%',
+          background: '#e5e7eb', color: '#6b7280',
+          fontSize: 9, fontWeight: 700, cursor: 'pointer', userSelect: 'none',
+          lineHeight: 1, flexShrink: 0,
+        }}
+      >i</span>
+      {show && (
+        <div style={{
+          position: 'absolute', top: '110%', left: 0,
+          background: '#1f2937', color: '#f9fafb', fontSize: 11, lineHeight: 1.55,
+          padding: '8px 11px', borderRadius: 7, width: 230, zIndex: 200,
+          boxShadow: '0 4px 16px rgba(0,0,0,0.28)', pointerEvents: 'none',
+          fontWeight: 400, textTransform: 'none', letterSpacing: 0,
+        }}>
+          {text}
+        </div>
+      )}
+    </span>
+  );
+}
+
+function Card({ title, info, children, style }) {
   return (
     <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, padding: '16px 20px', ...style }}>
       {title && (
-        <div style={{ fontSize: 11, fontWeight: 700, color: '#6b7280', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 12 }}>
+        <div style={{ fontSize: 11, fontWeight: 700, color: '#6b7280', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 12, display: 'flex', alignItems: 'center' }}>
           {title}
+          {info && <InfoTip text={info} />}
         </div>
       )}
       {children}
@@ -220,7 +255,7 @@ export default function InsightsPage() {
     if (settled.length < 5) return null;
     const zones = {};
     settled.forEach(b => {
-      const rank = b.model_rank ? (+(b.model_rank) <= 2 ? 'R1-2' : +(b.model_rank) <= 4 ? 'R3-4' : 'R5+') : null;
+      const rank = b.rank ? (+(b.rank) <= 2 ? 'R1-2' : +(b.rank) <= 4 ? 'R3-4' : 'R5+') : null;
       const cond = (b.track_condition || '').trim() || null;
       if (!rank || !cond) return;
       const k = `${rank}__${cond}`;
@@ -247,7 +282,7 @@ export default function InsightsPage() {
       const bs = settled.filter(b => {
         const r = resultMap[`${b.date}||${(b.venue||'').toUpperCase().trim()}||${b.race_num}`];
         if (!r?.sp || +r.sp <= 0) return false;
-        const mr = +(b.model_rank || 99);
+        const mr = +(b.rank || 99);
         if (label === 'R1')  return mr === 1;
         if (label === 'R2')  return mr === 2;
         if (label === 'R3+') return mr >= 3;
@@ -270,7 +305,7 @@ export default function InsightsPage() {
   // ─── roi by rank ─────────────────────────────────────────────────────────────
   const roiByRank = useMemo(() => ['R1','R2','R3','R4+'].map(label => {
     const bs = settled.filter(b => {
-      const mr = +(b.model_rank || 99);
+      const mr = +(b.rank || 99);
       if (label === 'R1')  return mr === 1;
       if (label === 'R2')  return mr === 2;
       if (label === 'R3')  return mr === 3;
@@ -284,7 +319,7 @@ export default function InsightsPage() {
     const grid = {};
     RANKS_HEAT.forEach(rk => ODDS_HEAT.forEach(ob => { grid[`${rk}||${ob}`] = []; }));
     settled.forEach(b => {
-      const rb = rankBucket(b.model_rank);
+      const rb = rankBucket(b.rank);
       const ob = oddsBucket(b.odds);
       if (rb && ob && grid[`${rb}||${ob}`] !== undefined) grid[`${rb}||${ob}`].push(b);
     });
@@ -305,29 +340,20 @@ export default function InsightsPage() {
   }, [userSettings]);
 
   const kellyZones = useMemo(() => {
-    const zones = [
-      { label: 'R1 $2-4',  rb: 'R1-2', ob: '$2-4'  },
-      { label: 'R1 $4-8',  rb: 'R1-2', ob: '$4-8'  },
-      { label: 'R2 $2-4',  rb: null,   ob: '$2-4', r2: true },
-      { label: 'R3+ $8+',  rb: 'R3-4', ob: '$8-15' },
-      { label: 'R3+ $15+', rb: 'R5+',  ob: '$15+'  },
-    ];
-    return zones.map(z => {
-      const bs = settled.filter(b => {
-        const rb = rankBucket(b.model_rank);
-        const ob = oddsBucket(b.odds);
-        if (z.r2) return +(b.model_rank || 0) === 2 && ob === z.ob;
-        return rb === z.rb && ob === z.ob;
-      });
-      if (bs.length < 3) return null;
-      const g = aggGroup(bs);
-      const avgOdds = bs.reduce((s, b) => s + +b.odds, 0) / bs.length;
-      const optK = kellyPct(g.sr / 100, avgOdds) * kellyFrac;
-      const actPct = bankroll > 0 ? (g.staked / g.n / bankroll * 100) : 0;
-      const signal = optK === 0 ? 'avoid' : actPct > optK * 1.2 ? 'over' : actPct < optK * 0.8 ? 'under' : 'ok';
-      return { label: z.label, optK, actPct, signal, n: g.n };
-    }).filter(Boolean);
-  }, [settled, bankroll, kellyFrac]);
+    return Object.entries(edgeMap)
+      .map(([key, bs]) => {
+        if (bs.length < 3) return null;
+        const [rb, ob] = key.split('||');
+        const g = aggGroup(bs);
+        const avgOdds = bs.reduce((s, b) => s + +b.odds, 0) / bs.length;
+        const optK = kellyPct(g.sr / 100, avgOdds) * kellyFrac;
+        const actPct = bankroll > 0 ? (g.staked / g.n / bankroll * 100) : 0;
+        const signal = optK === 0 ? 'avoid' : actPct > optK * 1.2 ? 'over' : actPct < optK * 0.8 ? 'under' : 'ok';
+        return { label: `${rb} ${ob}`, optK, actPct, signal, n: g.n };
+      })
+      .filter(Boolean)
+      .sort((a, b) => b.n - a.n);
+  }, [edgeMap, bankroll, kellyFrac]);
 
   // ─── top venues ──────────────────────────────────────────────────────────────
   const venueData = useMemo(() => {
@@ -360,7 +386,7 @@ export default function InsightsPage() {
       kb += p; kellyPnlSum += p;
     });
     const overallAvg = settled.reduce((s, b) => s + +b.stake, 0) / settled.length;
-    const lossDates = new Set(settled.filter(b => b.status === 'lost').map(b => b.date));
+    const lossDates = new Set(settled.filter(isBetLost).map(b => b.date));
     const postLoss = settled.filter(b => {
       const prev = new Date(b.date); prev.setDate(prev.getDate() - 1);
       return lossDates.has(prev.toISOString().slice(0, 10));
@@ -467,15 +493,15 @@ export default function InsightsPage() {
           <Card>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6,1fr)' }}>
               {[
-                ['Total P&L',    hero.pnl !== 0 ? fmt$(hero.pnl) : '$0', hero.pnl > 0, `${hero.n} settled`],
-                ['ROI %',        fmtPct(hero.roi), hero.roi > 0, null],
-                ['Strike Rate',  `${hero.sr.toFixed(1)}%`, null, `${wins.length}/${settled.length} bets`],
-                ['Avg CLV %',    hero.avgClv !== null ? fmtPct(hero.avgClv) : '—', hero.avgClv !== null && hero.avgClv > 0, 'vs closing SP'],
-                ['Avg Odds',     hero.avgOdds > 0 ? hero.avgOdds.toFixed(2) : '—', null, null],
-                ['Max Drawdown', hero.dd !== 0 ? fmt$(hero.dd) : '$0', false, null],
-              ].map(([label, value, pos, sub], i) => (
+                ['Total P&L',    hero.pnl !== 0 ? fmt$(hero.pnl) : '$0', hero.pnl > 0, `${hero.n} settled`, 'Total profit/loss from all settled bets. Win bets: (odds − 1) × stake. Losing bets: −stake.'],
+                ['ROI %',        fmtPct(hero.roi), hero.roi > 0, null, 'Return on investment: P&L ÷ total staked × 100. Positive = profitable long-term.'],
+                ['Strike Rate',  `${hero.sr.toFixed(1)}%`, null, `${wins.length}/${settled.length} bets`, 'Percentage of bets that won or placed. High SR at short odds or low SR at long odds can both be profitable.'],
+                ['Avg CLV %',    hero.avgClv !== null ? fmtPct(hero.avgClv) : '—', hero.avgClv !== null && hero.avgClv > 0, 'vs closing SP', 'Average Closing Line Value — how much better your odds were vs the final market price. Positive CLV means you consistently beat the market.'],
+                ['Avg Odds',     hero.avgOdds > 0 ? hero.avgOdds.toFixed(2) : '—', null, null, 'Average decimal odds taken across all settled bets.'],
+                ['Max Drawdown', hero.dd !== 0 ? fmt$(hero.dd) : '$0', false, null, 'Largest peak-to-trough drop in your running P&L — the most you\'ve been "down" at any point.'],
+              ].map(([label, value, pos, sub, tip], i) => (
                 <div key={i} style={{ textAlign: 'center', padding: '10px 6px', borderRight: i < 5 ? '1px solid #f3f4f6' : 'none' }}>
-                  <div style={{ fontSize: 10, color: '#9ca3af', marginBottom: 4, textTransform: 'uppercase', letterSpacing: 0.5 }}>{label}</div>
+                  <div style={{ fontSize: 10, color: '#9ca3af', marginBottom: 4, textTransform: 'uppercase', letterSpacing: 0.5, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{label}<InfoTip text={tip} /></div>
                   <div style={{ ...MONO, fontSize: 19, fontWeight: 700, color: pos === true ? G : pos === false ? RED : '#111' }}>{value}</div>
                   {sub && <div style={{ fontSize: 10, color: '#9ca3af', marginTop: 2 }}>{sub}</div>}
                 </div>
@@ -501,7 +527,7 @@ export default function InsightsPage() {
 
           {/* 3+4. CLV + ROI by rank */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-            <Card title="CLV Tracker">
+            <Card title="CLV Tracker" info="Closing Line Value — compares your taken odds to the final market price at jump time. Consistently beating the SP means you have a real edge. 50% beat rate = no edge.">
               {clvByRank.every(r => r.n === 0) ? (
                 <EmptyState msg="No SP data in race_results yet" />
               ) : (
@@ -541,7 +567,7 @@ export default function InsightsPage() {
               )}
             </Card>
 
-            <Card title="ROI by Model Rank">
+            <Card title="ROI by Model Rank" info="P&L efficiency grouped by the model's ranking of each horse. R1 = top pick. Shows whether your edge is concentrated in highly-ranked selections or spread across the field.">
               {roiByRank.every(r => r.n === 0) ? (
                 <EmptyState msg="No model_rank data in bet log" />
               ) : (
@@ -572,7 +598,7 @@ export default function InsightsPage() {
           </div>
 
           {/* 5. EDGE ZONE HEATMAP */}
-          <Card title="Edge Zone Heatmap">
+          <Card title="Edge Zone Heatmap" info="Your ROI broken down by model rank AND odds range. Each cell needs 3+ bets to display. Dark green = your most profitable zone, red = worst. Focus bets on green zones.">
             <div style={{ overflowX: 'auto' }}>
               <table style={{ borderCollapse: 'collapse', fontSize: 12, width: '100%' }}>
                 <thead>
@@ -614,14 +640,14 @@ export default function InsightsPage() {
 
           {/* 6+7. TRACK CONDITIONS + KELLY */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-            <Card title="Track Condition Breakdown">
+            <Card title="Track Condition Breakdown" info="Record (Starts-Wins-2nds-3rds), ROI, and P&L split by track condition. Some punters have a real edge on certain surfaces — this reveals it.">
               {condData.every(c => c.n === 0) ? (
                 <EmptyState msg="No track_condition data in bet log" />
               ) : (
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
                   <thead>
                     <tr style={{ color: '#9ca3af', borderBottom: '1px solid #e5e7eb' }}>
-                      {['Condition','P&L','ROI','SR','n'].map((h, i) => (
+                      {['Condition','Record','ROI','SR','P&L'].map((h, i) => (
                         <th key={h} style={{ textAlign: i === 0 ? 'left' : 'right', fontWeight: 500, paddingBottom: 8 }}>{h}</th>
                       ))}
                     </tr>
@@ -630,10 +656,10 @@ export default function InsightsPage() {
                     {condData.map(c => (
                       <tr key={c.label} style={{ borderTop: '1px solid #f3f4f6' }}>
                         <td style={{ padding: '7px 0', fontWeight: 500 }}>{c.label}</td>
-                        <td style={{ ...MONO, textAlign: 'right', color: c.n ? (c.pnl >= 0 ? G : RED) : '#9ca3af' }}>{c.n ? fmt$(c.pnl) : '—'}</td>
+                        <td style={{ ...MONO, textAlign: 'right', fontSize: 11 }}>{c.n ? `${c.n}-${c.firsts}-${c.seconds}-${c.thirds}` : '—'}</td>
                         <td style={{ ...MONO, textAlign: 'right', color: c.n ? (c.roi >= 0 ? G : RED) : '#9ca3af' }}>{c.n ? fmtPct(c.roi) : '—'}</td>
                         <td style={{ ...MONO, textAlign: 'right' }}>{c.n ? `${c.sr.toFixed(0)}%` : '—'}</td>
-                        <td style={{ ...MONO, textAlign: 'right', color: '#9ca3af' }}>{c.n || '—'}</td>
+                        <td style={{ ...MONO, textAlign: 'right', color: c.n ? (c.pnl >= 0 ? G : RED) : '#9ca3af' }}>{c.n ? fmt$(c.pnl) : '—'}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -641,7 +667,7 @@ export default function InsightsPage() {
               )}
             </Card>
 
-            <Card title="Kelly Criterion Advisor">
+            <Card title="Kelly Criterion Advisor" info="Uses your historical win rate and average odds in each zone to calculate the optimal stake size. Over-betting shrinks your bankroll; under-betting leaves profit on the table. Set your bankroll in Settings first.">
               {!bankroll ? (
                 <div style={{ fontSize: 12, color: '#6b7280', lineHeight: 1.6 }}>
                   Set your bankroll in{' '}
@@ -685,7 +711,7 @@ export default function InsightsPage() {
           </div>
 
           {/* 8. TOP VENUES */}
-          <Card title="Top Venues">
+          <Card title="Top Venues" info="Record (Starts-Wins-2nds-3rds), strike rate, ROI and P&L at each track. Sort by ROI to find where you have a genuine edge, or by Bets to weight results by sample size.">
             <div style={{ display: 'flex', gap: 6, marginBottom: 12 }}>
               {[['roi','ROI'],['bets','Bets'],['pnl','P&L'],['sr','Strike']].map(([v, label]) => (
                 <button key={v} onClick={() => setSortVenue(v)} style={{
@@ -700,7 +726,7 @@ export default function InsightsPage() {
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
                 <thead>
                   <tr style={{ color: '#9ca3af', borderBottom: '1px solid #e5e7eb' }}>
-                    {['Venue','Bets','Strike','ROI','P&L'].map((h, i) => (
+                    {['Venue','Record','Strike','ROI','P&L'].map((h, i) => (
                       <th key={h} style={{ textAlign: i === 0 ? 'left' : 'right', fontWeight: 500, paddingBottom: 8 }}>{h}</th>
                     ))}
                   </tr>
@@ -711,7 +737,7 @@ export default function InsightsPage() {
                       <td style={{ padding: '7px 0', fontWeight: 500 }}>
                         {v.venue.toLowerCase().replace(/\b\w/g, c => c.toUpperCase())}
                       </td>
-                      <td style={{ ...MONO, textAlign: 'right' }}>{v.n}</td>
+                      <td style={{ ...MONO, textAlign: 'right', fontSize: 11 }}>{v.n}-{v.firsts}-{v.seconds}-{v.thirds}</td>
                       <td style={{ ...MONO, textAlign: 'right' }}>{v.sr.toFixed(1)}%</td>
                       <td style={{ ...MONO, textAlign: 'right', color: v.roi >= 0 ? G : RED }}>{fmtPct(v.roi)}</td>
                       <td style={{ ...MONO, textAlign: 'right', color: v.pnl >= 0 ? G : RED }}>{fmt$(v.pnl)}</td>
@@ -724,7 +750,7 @@ export default function InsightsPage() {
 
           {/* 9+10. STAKING + CALENDAR */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, paddingBottom: 24 }}>
-            <Card title="Staking Discipline">
+            <Card title="Staking Discipline" info="Compares your actual P&L to two benchmarks: flat $10 stakes on every bet, and a simulated Kelly stake. If either benchmark beats your actual result, your staking is costing you money.">
               {!stakingStats ? <EmptyState msg="No settled bets in this range" /> : (
                 <>
                   <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, marginBottom: 16 }}>
@@ -742,7 +768,7 @@ export default function InsightsPage() {
                     </tbody>
                   </table>
                   <div style={{ borderTop: '1px solid #e5e7eb', paddingTop: 12 }}>
-                    <div style={{ fontSize: 11, fontWeight: 700, color: '#6b7280', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 8 }}>Tilt Detection</div>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: '#6b7280', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 8, display: 'flex', alignItems: 'center' }}>Tilt Detection<InfoTip text="Checks if you stake more on days following a loss. Emotional over-betting after losses (tilt) is one of the biggest bankroll killers. Flagged at 15%+ above your overall average." /></div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 4 }}>
                       <span style={{ color: '#6b7280' }}>Post-loss 24h avg stake</span>
                       <span style={{ ...MONO, fontWeight: 600 }}>
@@ -770,7 +796,7 @@ export default function InsightsPage() {
               )}
             </Card>
 
-            <Card title="P&L Calendar (Last 90 Days)">
+            <Card title="P&L Calendar (Last 90 Days)" info="Daily P&L grid for the past 90 days. Dark green = big profit day, red = losing day, light grey = no bets. Hover a square to see the exact date and P&L.">
               <div style={{ overflowX: 'auto' }}>
                 <div style={{ display: 'grid', gridTemplateRows: 'repeat(7, 12px)', gridAutoFlow: 'column', gridAutoColumns: '12px', gap: 2, width: 'fit-content' }}>
                   {calCells.map((cell, i) => (
