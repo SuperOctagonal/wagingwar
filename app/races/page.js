@@ -422,14 +422,14 @@ function RightRail({ allRaces, allVenues, selectedRaceKey, onSelect, isPro, user
   useEffect(() => {
     if (!isPro || !userId || !SURL || !SKEY) return;
     const d = new Date().toLocaleDateString('sv-SE', { timeZone: 'Australia/Brisbane' });
-    fetch(`${SURL}/rest/v1/bet_log?clerk_id=eq.${userId}&date=eq.${d}&select=venue,race_num,horse_name`, {
+    fetch(`${SURL}/rest/v1/bet_log?clerk_id=eq.${userId}&date=eq.${d}&select=venue,race_number,horse_name`, {
       headers: { apikey: SKEY, Authorization: `Bearer ${SKEY}` },
     })
       .then(r => r.ok ? r.json() : [])
       .then(rows => {
         const m = {};
         (Array.isArray(rows) ? rows : []).forEach(r => {
-          const k = `${(r.venue||'').toUpperCase()}||${String(r.race_num)}`;
+          const k = `${(r.venue||'').toUpperCase()}||${String(r.race_number)}`;
           if (!m[k]) m[k] = r.horse_name;
         });
         setTodayBets(m);

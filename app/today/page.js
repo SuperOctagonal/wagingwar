@@ -168,7 +168,7 @@ function PillCountdown({ time, date }) {
   const label = h > 0 ? `${h}h ${m}m` : secsLeft >= 60 ? `${m}m` : `${s}s`;
 
   return (
-    <span style={{ fontSize: 9, color: isUrgent ? '#dc2626' : '#9ca3af', fontWeight: isUrgent ? 700 : 400, marginLeft: 2 }}>
+    <span style={{ fontSize: 9, color: isUrgent ? '#dc2626' : '#111827', fontWeight: isUrgent ? 700 : 400, marginLeft: 2 }}>
       {label}
     </span>
   );
@@ -317,7 +317,7 @@ export default function TodayPage() {
                             onMouseLeave={e => { if (!resulted) e.currentTarget.style.background = ''; }}
                           >
                             <span style={{ fontSize:11, fontWeight:700, color:resulted?'#065f46':'#111827' }}>R{rc.num}{resulted?' ✓':''}</span>
-                            {rc.time && <span style={{ fontSize:10, color:resulted?'#065f46':'#9ca3af' }}>{rc.time}</span>}
+                            {rc.time && <span style={{ fontSize:10, color:resulted?'#065f46':'#111827' }}>{rc.time}</span>}
                             {!resulted && rc.time && <PillCountdown time={rc.time} date={rc.date} />}
                           </div>
                         );

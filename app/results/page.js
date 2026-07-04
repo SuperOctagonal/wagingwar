@@ -224,9 +224,19 @@ export default function ResultsPage() {
         m[v].push({ raceNum: res.raceNum, results: res });
       }
     });
+    // Add unresulted races from CSV for venues that already have results
+    Object.values(allVenues).flat().forEach(k => {
+      const rc = allRaces[k];
+      if (!rc) return;
+      const v = (rc.venue || '').toUpperCase();
+      if (!m[v]) return;
+      if (!m[v].find(r => String(r.raceNum) === String(rc.num))) {
+        m[v].push({ raceNum: rc.num, results: null });
+      }
+    });
     Object.values(m).forEach(arr => arr.sort((a, b) => a.raceNum - b.raceNum));
     return m;
-  }, [grouped]);
+  }, [grouped, allRaces, allVenues]);
 
   const venueNames = Object.keys(meetings);
   const meetingRaces = selectedMeeting ? (meetings[selectedMeeting] || []) : [];

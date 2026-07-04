@@ -1273,7 +1273,7 @@ export default function MybetsPage() {
               return (
                 <button key={t} onClick={() => setActiveTab(key)}
                   style={{ padding: '2px 8px', fontSize: 9, fontWeight: activeTab === key ? 700 : 400,
-                    color: activeTab === key ? '#0B1F14' : '#4b6858',
+                    color: activeTab === key ? '#0B1F14' : '#fff',
                     background: activeTab === key ? '#4ade80' : 'transparent',
                     border: activeTab === key ? 'none' : '1px solid #1a3a25',
                     borderRadius: 3, cursor: 'pointer' }}>
@@ -1283,20 +1283,20 @@ export default function MybetsPage() {
             })}
           </div>
           <div style={{ background: '#11241A' }}>
-            <div style={{ padding: '4px 10px', fontSize: 9, color: '#4b6858', borderBottom: '1px solid #1a3a25' }}>
+            <div style={{ padding: '4px 10px', fontSize: 9, color: '#fff', borderBottom: '1px solid #1a3a25' }}>
               Horse name stays fixed · swipe right for more →
             </div>
             {loading ? (
-              <div style={{ padding: 20, textAlign: 'center', color: '#4b6858', fontSize: 11 }}>Loading…</div>
+              <div style={{ padding: 20, textAlign: 'center', color: '#fff', fontSize: 11 }}>Loading…</div>
             ) : sortedLedgerBets.length === 0 ? (
-              <div style={{ padding: 20, textAlign: 'center', color: '#4b6858', fontSize: 11 }}>No bets for this period</div>
+              <div style={{ padding: 20, textAlign: 'center', color: '#fff', fontSize: 11 }}>No bets for this period</div>
             ) : (
               <div style={{ overflowX: 'auto' }}>
                 <table style={{ borderCollapse: 'collapse', fontSize: 11 }}>
                   <thead>
                     <tr style={{ background: '#0D1C13' }}>
                       {(() => {
-                        const thBase = { padding: '6px 8px', fontSize: 9, fontWeight: 700, color: '#4b6858', textTransform: 'uppercase', border: '1px solid #1a3a25', whiteSpace: 'nowrap', cursor: 'pointer', userSelect: 'none' };
+                        const thBase = { padding: '6px 8px', fontSize: 9, fontWeight: 700, color: '#fff', textTransform: 'uppercase', border: '1px solid #1a3a25', whiteSpace: 'nowrap', cursor: 'pointer', userSelect: 'none' };
                         const mkSort = (col) => () => { if (sortCol === col) setSortDir(d => d === 'asc' ? 'desc' : 'asc'); else { setSortCol(col); setSortDir('asc'); } };
                         const ind = (col) => sortCol === col ? (sortDir === 'asc' ? ' ▲' : ' ▼') : '';
                         return (<>
@@ -1364,7 +1364,7 @@ export default function MybetsPage() {
                   return (
                     <button key={t} onClick={() => setActiveTab(key)}
                       style={{ padding: '2px 8px', fontSize: 9, fontWeight: activeTab === key ? 700 : 400,
-                        color: activeTab === key ? '#0B1F14' : '#4b6858',
+                        color: activeTab === key ? '#0B1F14' : '#fff',
                         background: activeTab === key ? '#4ade80' : 'transparent',
                         border: activeTab === key ? 'none' : '1px solid #1a3a25',
                         borderRadius: 3, cursor: 'pointer' }}>
@@ -1376,7 +1376,7 @@ export default function MybetsPage() {
               <div style={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
               <div style={{ background: '#11241A', minWidth: 600 }}>
                 {(() => {
-                  const thBase = { padding: '5px 6px', fontSize: 9, fontWeight: 700, color: '#4b6858', textTransform: 'uppercase', border: '1px solid #1a3a25', whiteSpace: 'nowrap', cursor: 'pointer', userSelect: 'none' };
+                  const thBase = { padding: '5px 6px', fontSize: 9, fontWeight: 700, color: '#fff', textTransform: 'uppercase', border: '1px solid #1a3a25', whiteSpace: 'nowrap', cursor: 'pointer', userSelect: 'none' };
                   const mkSort = (col) => () => { if (sortCol === col) setSortDir(d => d === 'asc' ? 'desc' : 'asc'); else { setSortCol(col); setSortDir('asc'); } };
                   const ind = (col) => sortCol === col ? (sortDir === 'asc' ? ' ▲' : ' ▼') : '';
                   return (
@@ -1390,9 +1390,9 @@ export default function MybetsPage() {
                       </thead>
                       <tbody>
                         {loading ? (
-                          <tr><td colSpan={10} style={{ padding: 20, textAlign: 'center', color: '#4b6858', fontSize: 11 }}>Loading…</td></tr>
+                          <tr><td colSpan={10} style={{ padding: 20, textAlign: 'center', color: '#fff', fontSize: 11 }}>Loading…</td></tr>
                         ) : sortedLedgerBets.length === 0 ? (
-                          <tr><td colSpan={10} style={{ padding: 20, textAlign: 'center', color: '#4b6858', fontSize: 11 }}>No bets for this period</td></tr>
+                          <tr><td colSpan={10} style={{ padding: 20, textAlign: 'center', color: '#fff', fontSize: 11 }}>No bets for this period</td></tr>
                         ) : sortedLedgerBets.map(b => {
                           const hasPnl = b.profit_loss !== null && b.profit_loss !== undefined;
                           const isEW = (b.bet_type || '').toLowerCase().includes('each');
@@ -1456,7 +1456,7 @@ export default function MybetsPage() {
               </div>
               {!loading && sortedLedgerBets.length > 0 && (
                 <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '4px 10px', background: '#0D1C13', borderTop: '1px solid #1a3a25' }}>
-                  <span style={{ fontSize: 10, color: '#4b6858', fontFamily: 'monospace' }}>
+                  <span style={{ fontSize: 10, color: '#fff', fontFamily: 'monospace' }}>
                     {sortedLedgerBets.length} bets · {sortedLedgerBets.filter(b => b.status && b.status !== 'pending' && b.status !== 'scratched' && b.status !== 'abandoned').length} settled · {sortedLedgerBets.filter(b => b.status === 'abandoned').length} abandoned
                   </span>
                   {dateStats.pnl !== null && (
@@ -1473,7 +1473,7 @@ export default function MybetsPage() {
                 <div style={{ flexShrink:0, display:'flex', gap:4, padding:'6px 10px', background:'#0f1117', borderBottom:'1px solid rgba(255,255,255,0.08)' }}>
                   {['All','Win','Place','Loss'].map(t => { const key = t.toLowerCase(); return (
                     <button key={t} onClick={() => setActiveTab(key)}
-                      style={{ padding:'2px 8px', fontSize:9, fontWeight: activeTab===key?700:400, color: activeTab===key?'#0B1F14':'#4b6858', background: activeTab===key?'#4ade80':'transparent', border: activeTab===key?'none':'1px solid #1a3a25', borderRadius:3, cursor:'pointer' }}>
+                      style={{ padding:'2px 8px', fontSize:9, fontWeight: activeTab===key?700:400, color: activeTab===key?'#0B1F14':'#fff', background: activeTab===key?'#4ade80':'transparent', border: activeTab===key?'none':'1px solid #1a3a25', borderRadius:3, cursor:'pointer' }}>
                       {t}
                     </button>
                   ); })}
