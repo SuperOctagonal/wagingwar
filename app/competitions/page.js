@@ -372,7 +372,7 @@ export default function CompetitionsPage() {
     setPicks(p => ({ ...p, [key]: horseName }));
     if (!user?.id || !SURL || !SKEY) return;
     setSavingKey(key);
-    await sbFetch('comp_picks', {
+    await sbFetch('comp_picks?on_conflict=clerk_id,date,venue,race_num', {
       method: 'POST',
       prefer: 'resolution=merge-duplicates,return=minimal',
       body: { clerk_id: user.id, date: today, venue: nv(race.venue), race_num: +race.num, horse_name: horseName, username: uname },
