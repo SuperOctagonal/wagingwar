@@ -296,7 +296,7 @@ export default function CompetitionsPage() {
 
   useEffect(() => {
     if (!user?.id || !SURL || !SKEY) return;
-    sbFetch(`comp_picks?clerk_id=eq.${encodeURIComponent(user.id)}&date=eq.${today}&select=venue,race_num,horse_name`)
+    sbFetch(`comp_picks?clerk_id=eq.${encodeURIComponent(user.id)}&comp_date=eq.${today}&select=venue,race_num,horse_name`)
       .then(rows => {
         if (!Array.isArray(rows)) return;
         const p = {};
@@ -308,7 +308,7 @@ export default function CompetitionsPage() {
   useEffect(() => {
     if (!SURL || !SKEY) return;
     function load() {
-      sbFetch(`comp_results?date=eq.${today}&select=venue,race_num,winner`)
+      sbFetch(`comp_results?comp_date=eq.${today}&select=venue,race_num,winner`)
         .then(rows => {
           if (!Array.isArray(rows)) return;
           const m = {};
@@ -340,10 +340,10 @@ export default function CompetitionsPage() {
     if (!SURL || !SKEY) return;
     function loadAll() {
       // Aggregate view for popularity %
-      sbFetch(`comp_picks_popular?date=eq.${today}&select=venue,race_num,horse_name,pick_count`)
+      sbFetch(`comp_picks_popular?comp_date=eq.${today}&select=venue,race_num,horse_name,pick_count`)
         .then(rows => { if (Array.isArray(rows)) setPopularData(rows); });
       // Full rows for leaderboard computation
-      sbFetch(`comp_picks?date=eq.${today}&select=clerk_id,username,venue,race_num,horse_name`)
+      sbFetch(`comp_picks?comp_date=eq.${today}&select=clerk_id,username,venue,race_num,horse_name`)
         .then(rows => { if (Array.isArray(rows)) setAllPicksData(rows); });
     }
     loadAll();
@@ -372,10 +372,10 @@ export default function CompetitionsPage() {
     setPicks(p => ({ ...p, [key]: horseName }));
     if (!user?.id || !SURL || !SKEY) return;
     setSavingKey(key);
-    await sbFetch('comp_picks?on_conflict=clerk_id,date,venue,race_num', {
+    await sbFetch('comp_picks?on_conflict=clerk_id,comp_date,venue,race_num', {
       method: 'POST',
       prefer: 'resolution=merge-duplicates,return=minimal',
-      body: { clerk_id: user.id, date: today, venue: nv(race.venue), race_num: +race.num, horse_name: horseName, username: uname },
+      body: { clerk_id: user.id, comp_date: today, venue: nv(race.venue), race_num: +race.num, horse_name: horseName, username: uname },
     });
     setSavingKey(null);
   }
@@ -388,14 +388,14 @@ export default function CompetitionsPage() {
       const key = rk(race.venue, race.num);
       const horse = picks[key];
       if (!horse) continue;
-      const res = await sbFetch('comp_picks', {
+      const res = await sbFetch('comp_picks?on_conflict=clerk_id,comp_date,venue,race_num', {
         method: 'POST',
         prefer: 'resolution=merge-duplicates,return=minimal',
-        body: { clerk_id: user.id, date: today, venue: nv(race.venue), race_num: +race.num, horse_name: horse, username: uname },
+        body: { clerk_id: user.id, comp_date: today, venue: nv(race.venue), race_num: +race.num, horse_name: horse, username: uname },
       });
       if (res === null) allOk = false;
     }
-    const rows = await sbFetch(`comp_picks?date=eq.${today}&select=clerk_id,username,venue,race_num,horse_name`);
+    const rows = await sbFetch(`comp_picks?comp_date=eq.${today}&select=clerk_id,username,venue,race_num,horse_name`);
     if (Array.isArray(rows)) setAllPicksData(rows);
     setSubmitting(false);
     setSubmitToast(allOk ? 'success' : 'error');
