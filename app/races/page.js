@@ -1262,7 +1262,7 @@ function MobileRacePicker({ allVenues, allRaces, selectedRaceKey, onSelect }) {
 
 // ─── mobile runner card ───────────────────────────────────────────────────────
 
-function MobileRunnerCard({ runner, rank, rc, trackCond, onLogBet, isResulted, isPro, onUpgrade, isDbScratched, layers }) {
+function MobileRunnerCard({ runner, rank, rc, trackCond, onLogBet, isResulted, betBlocked = false, isPro, onUpgrade, isDbScratched, layers }) {
   const mktO = runner.rawOdds;
   const myO  = runner.myOdds;
   const wt   = runner['Weight'] ? `${runner['Weight']}kg` : '';
@@ -1326,8 +1326,8 @@ function MobileRunnerCard({ runner, rank, rc, trackCond, onLogBet, isResulted, i
           {last4 && <span>{last4}</span>}{runner.trainer && <span style={{ color: '#6b7280' }}>{last4 ? ' · ' : ''}{runner.trainer}</span>}
         </div>
         <div style={{ display: 'flex', gap: 3, flexShrink: 0 }}>
-          <button onClick={() => !isResulted && onLogBet(runner, rank)} disabled={isResulted}
-            style={{ fontSize: 8, fontWeight: 600, padding: '2px 6px', borderRadius: 7, border: '1px solid #e5e7eb', background: '#fff', color: isResulted ? '#9ca3af' : '#374151', cursor: isResulted ? 'default' : 'pointer', whiteSpace: 'nowrap' }}>
+          <button onClick={() => !betBlocked && !isResulted && onLogBet(runner, rank)} disabled={betBlocked || isResulted}
+            style={{ fontSize: 8, fontWeight: 600, padding: '2px 6px', borderRadius: 7, border: '1px solid #e5e7eb', background: '#fff', color: betBlocked || isResulted ? '#9ca3af' : '#374151', cursor: betBlocked || isResulted ? 'default' : 'pointer', whiteSpace: 'nowrap' }}>
             + Log bet
           </button>
           <button onClick={() => isPro ? window.__addToBlackbook?.(bbPayload) : onUpgrade()}
@@ -1427,7 +1427,7 @@ function LockBtn({ onClick }) {
   );
 }
 
-function RunnerRow({ runner, rank, rc, trackCond, onLogBet, onShowPopup, onHidePopup, isResulted, isPro, onUpgrade, isDbScratched }) {
+function RunnerRow({ runner, rank, rc, trackCond, onLogBet, onShowPopup, onHidePopup, isResulted, betBlocked = false, isPro, onUpgrade, isDbScratched }) {
   const myO  = runner.myOdds;
   const mktO = runner.rawOdds;
   const pm   = calcPaceMap(runner, rc.venue, +rc.dist, trackCond);
@@ -1513,10 +1513,10 @@ function RunnerRow({ runner, rank, rc, trackCond, onLogBet, onShowPopup, onHideP
       </td>
       {/* Bet */}
       <td className={`${td} text-center`}>
-        <button onClick={() => !isResulted && onLogBet(runner, rank)} disabled={isResulted}
+        <button onClick={() => !betBlocked && onLogBet(runner, rank)} disabled={betBlocked}
           className="text-[9px] font-semibold px-2 py-[3px] rounded border whitespace-nowrap transition-colors"
-          style={{ color:isResulted?'#9ca3af':'#374151', background:isResulted?'#f9fafb':'#fff', borderColor:isResulted?'#e5e7eb':'#e5e7eb', cursor:isResulted?'default':'pointer' }}>
-          {isResulted ? 'Resulted' : '+ Bet'}
+          style={{ color:betBlocked?'#9ca3af':'#374151', background:betBlocked?'#f9fafb':'#fff', borderColor:'#e5e7eb', cursor:betBlocked?'default':'pointer' }}>
+          {isResulted ? 'Resulted' : betBlocked ? 'Closed' : '+ Bet'}
         </button>
       </td>
       {/* Pace */}
@@ -1535,7 +1535,7 @@ function RunnerRow({ runner, rank, rc, trackCond, onLogBet, onShowPopup, onHideP
   );
 }
 
-function FieldView({ results, scratched, rc, trackCond, onLogBet, onShowPopup, onHidePopup, isResulted, isPro, onUpgrade, scratchingsSet = new Set() }) {
+function FieldView({ results, scratched, rc, trackCond, onLogBet, onShowPopup, onHidePopup, isResulted, betBlocked = false, isPro, onUpgrade, scratchingsSet = new Set() }) {
   const tcLabel = { good:'Good', soft:'Soft', heavy:'Heavy', synthetic:'Synth' }[trackCond] || 'Good';
   const scrKey = h => { const rv = (rc.venue||'').toUpperCase(); return `${VENUE_NORMALISE[rv]||rv}||${rc.num}||${stripCountry(h.name).toUpperCase()}`; };
   const activeResults = results.filter(h => !scratchingsSet.has(scrKey(h)));
@@ -1579,10 +1579,10 @@ function FieldView({ results, scratched, rc, trackCond, onLogBet, onShowPopup, o
           </thead>
           <tbody>
             {activeResults.map((r, i) => (
-              <RunnerRow key={r.tab || r.name} runner={r} rank={i+1} rc={rc} trackCond={trackCond} onLogBet={onLogBet} onShowPopup={onShowPopup} onHidePopup={onHidePopup} isResulted={isResulted} isPro={isPro} onUpgrade={onUpgrade} />
+              <RunnerRow key={r.tab || r.name} runner={r} rank={i+1} rc={rc} trackCond={trackCond} onLogBet={onLogBet} onShowPopup={onShowPopup} onHidePopup={onHidePopup} isResulted={isResulted} betBlocked={betBlocked} isPro={isPro} onUpgrade={onUpgrade} />
             ))}
             {dbScratched.map(r => (
-              <RunnerRow key={r.tab || r.name} runner={r} rank={null} rc={rc} trackCond={trackCond} onLogBet={onLogBet} onShowPopup={onShowPopup} onHidePopup={onHidePopup} isResulted={true} isPro={isPro} onUpgrade={onUpgrade} isDbScratched />
+              <RunnerRow key={r.tab || r.name} runner={r} rank={null} rc={rc} trackCond={trackCond} onLogBet={onLogBet} onShowPopup={onShowPopup} onHidePopup={onHidePopup} isResulted={true} betBlocked isPro={isPro} onUpgrade={onUpgrade} isDbScratched />
             ))}
           </tbody>
           {scratched.length > 0 && (
@@ -1643,11 +1643,11 @@ function FieldView({ results, scratched, rc, trackCond, onLogBet, onShowPopup, o
         <div className="mob-page" style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden' }}>
           {mobDisplayResults.map(r => (
             <MobileRunnerCard key={r.tab || r.name} runner={r} rank={mobRankMap.get(r.tab || r.name)} rc={rc} trackCond={trackCond}
-              onLogBet={onLogBet} isResulted={isResulted} isPro={isPro} onUpgrade={onUpgrade} layers={layers} />
+              onLogBet={onLogBet} isResulted={isResulted} betBlocked={betBlocked} isPro={isPro} onUpgrade={onUpgrade} layers={layers} />
           ))}
           {dbScratched.map(r => (
             <MobileRunnerCard key={r.tab || r.name} runner={r} rank={null} rc={rc} trackCond={trackCond}
-              onLogBet={onLogBet} isResulted={true} isPro={isPro} onUpgrade={onUpgrade} isDbScratched layers={layers} />
+              onLogBet={onLogBet} isResulted={true} betBlocked isPro={isPro} onUpgrade={onUpgrade} isDbScratched layers={layers} />
           ))}
           {scratched.length > 0 && (
             <div style={{ padding: '8px 12px', fontSize: 9, color: '#9ca3af', background: '#f9fafb', borderTop: '1px solid #f3f4f6' }}>
@@ -1662,7 +1662,7 @@ function FieldView({ results, scratched, rc, trackCond, onLogBet, onShowPopup, o
 
 // ─── form view ────────────────────────────────────────────────────────────────
 
-function FormCard({ runner: r, rank, onLogBet, isResulted, rc, isPro, onUpgrade, isDbScratched, getWinner }) {
+function FormCard({ runner: r, rank, onLogBet, isResulted, betBlocked = false, rc, isPro, onUpgrade, isDbScratched, getWinner }) {
   const bp      = r['BP'] || r.BP || '';
   const wt      = r['Weight'] ? `${r['Weight']}kg` : '';
   const allow   = r.allowance ? ` -${r.allowance}kg` : '';
@@ -1767,9 +1767,9 @@ function FormCard({ runner: r, rank, onLogBet, isResulted, rc, isPro, onUpgrade,
               <span style={{ fontSize:10, color:'rgba(255,255,255,0.75)', fontFamily:'monospace' }}>{starts}-{wins}-{secs}-{thirds}</span>
               <span style={{ fontSize:10, color:winPct>=25?'#6ee7b7':winPct>=12?'#fcd34d':'rgba(255,255,255,0.75)' }}>{winPct}%win</span>
               {dslast!=null && <span style={{ fontSize:10, color:'rgba(255,255,255,0.75)' }}>{dslast}d</span>}
-              <button type="button" onClick={() => !isResulted && onLogBet(r, rank)} disabled={isResulted}
-                style={{ fontSize:9, fontWeight:600, padding:'2px 8px', borderRadius:3, border:'1px solid rgba(255,255,255,0.25)', color:isResulted?'rgba(255,255,255,0.35)':'rgba(255,255,255,0.8)', background:'transparent', cursor:isResulted?'default':'pointer', flexShrink:0 }}>
-                {isResulted ? 'Resulted' : '+ Bet'}
+              <button type="button" onClick={() => !betBlocked && !isResulted && onLogBet(r, rank)} disabled={betBlocked || isResulted}
+                style={{ fontSize:9, fontWeight:600, padding:'2px 8px', borderRadius:3, border:'1px solid rgba(255,255,255,0.25)', color:betBlocked||isResulted?'rgba(255,255,255,0.35)':'rgba(255,255,255,0.8)', background:'transparent', cursor:betBlocked||isResulted?'default':'pointer', flexShrink:0 }}>
+                {isResulted ? 'Resulted' : betBlocked ? 'Closed' : '+ Bet'}
               </button>
               <button type="button" onClick={() => { if (!isPro) { onUpgrade(); } else { window.__addToBlackbook && window.__addToBlackbook({ name: r.name, venue: rc?.venue || '', raceNumber: rc?.num || '', distance: rc?.dist || '', cls: rc?.cls || '' }); } }}
                 style={{ fontSize:9, fontWeight:600, padding:'2px 8px', borderRadius:3, border:'1px solid rgba(255,255,255,0.25)', color:'rgba(255,255,255,0.8)', background:'transparent', cursor:'pointer', flexShrink:0 }}>
@@ -1826,7 +1826,7 @@ function FormCard({ runner: r, rank, onLogBet, isResulted, rc, isPro, onUpgrade,
   );
 }
 
-function FormView({ results, scratched, onLogBet, isResulted, rc, isPro, onUpgrade, scratchingsSet = new Set() }) {
+function FormView({ results, scratched, onLogBet, isResulted, betBlocked = false, rc, isPro, onUpgrade, scratchingsSet = new Set() }) {
   const scrKey = h => { const rv = (rc.venue||'').toUpperCase(); return `${VENUE_NORMALISE[rv]||rv}||${rc.num}||${stripCountry(h.name).toUpperCase()}`; };
   const sorted = [...results].sort((a, b) => (+a.tab || 99) - (+b.tab || 99));
   const activeSorted     = sorted.filter(r => !scratchingsSet.has(scrKey(r)));
@@ -1875,7 +1875,7 @@ function FormView({ results, scratched, onLogBet, isResulted, rc, isPro, onUpgra
     <div className="flex-1 overflow-y-auto" style={{ padding:'10px 14px' }}>
       {activeSorted.map((r, i) => (
         <div key={r.tab||r.name} style={{ marginBottom: i < activeSorted.length-1 ? 12 : 0 }}>
-          <FormCard runner={r} rank={i+1} onLogBet={onLogBet} isResulted={isResulted} rc={rc} isPro={isPro} onUpgrade={onUpgrade} getWinner={getWinner} />
+          <FormCard runner={r} rank={i+1} onLogBet={onLogBet} isResulted={isResulted} betBlocked={betBlocked} rc={rc} isPro={isPro} onUpgrade={onUpgrade} getWinner={getWinner} />
         </div>
       ))}
       {dbScratchedSorted.map(r => (
@@ -2204,7 +2204,13 @@ function RacesPageInner() {
   const [meetingsSynced, setMeetingsSynced] = useState(false);
   const [venueTrackConds, setVenueTrackConds] = useState({});
   const [scratchedRows,   setScratchedRows]   = useState([]);
+  const [now,             setNow]             = useState(() => Date.now());
   const popupRef     = useRef(null);
+
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, []);
 
   const currentRace = selectedKey ? allRaces[selectedKey] : null;
   const trackCond = (currentRace && trackConds[currentRace.venue]) || 'good';
@@ -2214,6 +2220,8 @@ function RacesPageInner() {
 
   const handleLogBet = useCallback((runner, rank) => {
     const rc = allRaces[selectedKey];
+    const raceAt = rc ? parseRaceTime(rc.time, rc.date) : null;
+    if (raceAt && raceAt.getTime() <= Date.now()) return;
     setBetTarget({ ...runner, _rank: rank, _venue: rc?.venue, _raceNum: rc?.num, _raceName: rc?.name || null, _meetingDate: rc?.date || null, _trackCond: trackCond, _myOdds: runner.rawOdds, _raceTime: rc?.time || null });
   }, [allRaces, selectedKey, trackCond]);
   const hideTimerRef = useRef(null);
@@ -2227,9 +2235,11 @@ function RacesPageInner() {
     };
     window.__logBet = (data) => {
       if (!isPro) { setUpgradeOpen(true); return; }
+      const rc = allRaces[selectedKey];
+      const raceAt = rc ? parseRaceTime(rc.time, rc.date) : null;
+      if (raceAt && raceAt.getTime() <= Date.now()) return;
       const popup = document.getElementById('horse-popup');
       if (popup) popup.style.display = 'none';
-      const rc = allRaces[selectedKey];
       setBetTarget({
         ...data,
         _venue: data._venue || rc?.venue,
@@ -2392,6 +2402,9 @@ function RacesPageInner() {
     const key = `${normVenue}||${String(currentRace.num)}`;
     return raceResults[key] || null;
   })();
+
+  const isRacePassed = !!currentRace && (parseRaceTime(currentRace.time, currentRace.date)?.getTime() ?? Infinity) <= now;
+  const betBlocked   = !!currentRaceResult || isRacePassed;
 
   // Compute scored results once per race/trackCond/weights change
   const { results, scratched, scratchingsSet, allHorsesForDisplay } = useMemo(() => {
@@ -2564,13 +2577,13 @@ function RacesPageInner() {
                       <FieldView results={allHorsesForDisplay} scratched={scratched} rc={currentRace}
                         trackCond={trackCond} onLogBet={handleLogBet}
                         onShowPopup={showHorsePopup} onHidePopup={hideHorsePopup}
-                        isResulted={!!currentRaceResult}
+                        isResulted={!!currentRaceResult} betBlocked={betBlocked}
                         isPro={isPro} onUpgrade={() => setUpgradeOpen(true)}
                         scratchingsSet={scratchingsSet} />
                     </div>
                   )}
                   {view === 'form' && (
-                    <FormView results={allHorsesForDisplay} scratched={scratched} onLogBet={handleLogBet} isResulted={!!currentRaceResult} rc={currentRace} isPro={isPro} onUpgrade={() => setUpgradeOpen(true)} scratchingsSet={scratchingsSet} />
+                    <FormView results={allHorsesForDisplay} scratched={scratched} onLogBet={handleLogBet} isResulted={!!currentRaceResult} betBlocked={betBlocked} rc={currentRace} isPro={isPro} onUpgrade={() => setUpgradeOpen(true)} scratchingsSet={scratchingsSet} />
                   )}
                   {view === 'pacemap' && (
                     <PaceMapView results={allHorsesForDisplay} scratched={scratched} rc={currentRace} trackCond={trackCond} isPro={isPro} onUpgrade={() => setUpgradeOpen(true)} scratchingsSet={scratchingsSet} />
