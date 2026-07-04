@@ -126,8 +126,9 @@ export default function AccountPage() {
         sbFetch(`user_profiles?clerk_id=eq.${userId}&limit=1`),
         sbFetch(`bet_log?clerk_id=eq.${userId}&select=result&order=created_at.desc`),
         sbFetch(`user_badges?clerk_id=eq.${userId}&order=earned_at.desc`),
-        sbFetch(`points_log?clerk_id=eq.${userId}&order=created_at.desc&limit=50`),
+        sbFetch(`points_log?clerk_id=eq.${userId}&select=*&order=created_at.desc&limit=50`),
       ]);
+      if (plog?.length) console.log('[points_log row sample]', plog[0]);
       setProfile(prof?.[0] ?? null);
       setAllResults(allR ?? []);
       setBadges(bdg ?? []);
@@ -193,10 +194,11 @@ export default function AccountPage() {
   const now        = Date.now();
   const WEEK       = 7  * 864e5;
   const MONTH      = 30 * 864e5;
-  const ptsThisWeek  = pointsLog.filter(e => now - new Date(e.created_at) <= WEEK).reduce((s, e) => s + (e.points_earned || 0), 0);
-  const ptsThisMonth = pointsLog.filter(e => now - new Date(e.created_at) <= MONTH).reduce((s, e) => s + (e.points_earned || 0), 0);
+  const getPts = e => e.points_earned ?? e.pts ?? e.points ?? 0;
+  const ptsThisWeek  = pointsLog.filter(e => now - new Date(e.created_at) <= WEEK).reduce((s, e) => s + getPts(e), 0);
+  const ptsThisMonth = pointsLog.filter(e => now - new Date(e.created_at) <= MONTH).reduce((s, e) => s + getPts(e), 0);
   const dayTotals    = {};
-  pointsLog.forEach(e => { const d = e.created_at?.slice(0, 10); if (d) dayTotals[d] = (dayTotals[d] || 0) + (e.points_earned || 0); });
+  pointsLog.forEach(e => { const d = e.created_at?.slice(0, 10); if (d) dayTotals[d] = (dayTotals[d] || 0) + getPts(e); });
   const bestDay = Object.values(dayTotals).length ? Math.max(...Object.values(dayTotals)) : 0;
 
   const earnedBadgeNames = new Set((badges || []).map(b => b.badge_name || b.name || ''));
@@ -416,7 +418,7 @@ export default function AccountPage() {
                             <div style={{ fontSize: 8, color: '#d1d5db' }}>Limit</div>
                           </div>
                         ) : (
-                          <span style={{ fontSize: 9, fontWeight: 700, padding: '1px 6px', borderRadius: 10, background: '#fef3c7', color: '#92400e' }}>+{entry.points_earned} pts</span>
+                          <span style={{ fontSize: 9, fontWeight: 700, padding: '1px 6px', borderRadius: 10, background: '#fef3c7', color: '#92400e' }}>+{entry.points_earned ?? entry.pts ?? entry.points ?? 0} pts</span>
                         )}
                       </div>
                     </div>

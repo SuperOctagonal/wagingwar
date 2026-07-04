@@ -21,10 +21,17 @@ async function sbFetch(path, opts = {}) {
       },
       body: opts.body ? JSON.stringify(opts.body) : undefined,
     });
-    if (!res.ok) return null;
+    if (!res.ok) {
+      const errBody = await res.text();
+      console.error('[settings sbFetch]', path, res.status, errBody);
+      return null;
+    }
     const t = await res.text();
-    return t ? JSON.parse(t) : null;
-  } catch { return null; }
+    return t ? JSON.parse(t) : true;
+  } catch (err) {
+    console.error('[settings sbFetch] network error:', err);
+    return null;
+  }
 }
 
 const NAV = [
@@ -239,9 +246,9 @@ export default function SettingsPage() {
   async function save() {
     if (!user?.id) return;
     setSaving(true);
-    const res = await sbFetch('user_settings', {
+    const res = await sbFetch('user_settings?on_conflict=clerk_id', {
       method: 'POST',
-      prefer: 'resolution=merge-duplicates',
+      prefer: 'return=minimal,resolution=merge-duplicates',
       body: { clerk_id: user.id, settings: s, updated_at: new Date().toISOString() },
     });
     setSaving(false);
