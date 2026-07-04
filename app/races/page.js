@@ -986,6 +986,22 @@ function BetModal({ horse, onClose }) {
 
   useEffect(() => { setOpen(true); }, []);
 
+  useEffect(() => {
+    if (!user?.id || !SURL || !SKEY) return;
+    fetch(`${SURL}/rest/v1/user_settings?clerk_id=eq.${user.id}&select=settings&limit=1`, {
+      headers: { apikey: SKEY, Authorization: `Bearer ${SKEY}` },
+    })
+      .then(r => r.ok ? r.json() : [])
+      .then(rows => {
+        const s = rows?.[0]?.settings;
+        if (!s) return;
+        if (s.defStake)     setStake(String(s.defStake));
+        if (s.defBookmaker) setBookie(s.defBookmaker);
+        if (s.defBetType)   setBetType(s.defBetType.toLowerCase());
+      })
+      .catch(() => {});
+  }, [user?.id]);
+
   const handleSave = async () => {
     if (!stake || isNaN(+stake) || +stake <= 0) { alert('Enter a valid stake'); return; }
     if (!odds || isNaN(+odds) || +odds <= 1)   { alert('Enter valid odds'); return; }
