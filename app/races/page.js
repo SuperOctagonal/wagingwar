@@ -437,10 +437,9 @@ function RightRail({ allRaces, allVenues, selectedRaceKey, onSelect, isPro, user
       .catch(() => {});
   }, [isPro, userId]);
 
-  // Sort all races by countdown, exclude selected, include up to -4 min past
+  // Sort all races by countdown, include up to -4 min past
   const keys = Object.values(allVenues).flat()
     .filter(k => {
-      if (k === selectedRaceKey) return false;
       const s = countdownSecs(allRaces[k], now);
       return s === null || s >= -240;
     })
@@ -588,9 +587,9 @@ function RaceCountdown({ rc }) {
 
   if (secsLeft <= 0) {
     return (
-      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 10, fontWeight: 700, color: '#A32D2D' }}>
-        <i className="ti ti-clock" style={{ fontSize: 9 }} />
-        Passed
+      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 10, color: '#9ca3af' }}>
+        {rc.time && <span>{rc.time}</span>}
+        <span style={{ fontWeight: 700, color: '#A32D2D' }}>· Passed</span>
       </span>
     );
   }
@@ -601,9 +600,10 @@ function RaceCountdown({ rc }) {
   const label = h > 0 ? `${h}h ${mins}m` : secsLeft < 300 ? `${mins}m ${s}s` : `${mins}m`;
 
   return (
-    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 10, fontWeight: 700, color: '#00471b' }}>
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 10, fontWeight: 600, color: '#00471b' }}>
       <i className="ti ti-clock" style={{ fontSize: 9 }} />
-      {label}
+      {rc.time && <span style={{ fontWeight: 400, color: '#374151' }}>{rc.time}</span>}
+      <span>({label})</span>
     </span>
   );
 }
