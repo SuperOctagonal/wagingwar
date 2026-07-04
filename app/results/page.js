@@ -214,22 +214,23 @@ export default function ResultsPage() {
     return g;
   }, [dbRows, dbScratchings]);
 
-  // Build { VENUE: [{ raceNum, results }] }
+  // Build { VENUE: [{ raceNum, results }] } — only venues present in the loaded CSV
   const meetings = useMemo(() => {
     const m = {};
     Object.values(grouped).forEach(res => {
       const v = res.venue;
+      if (!allVenues[v]) return;
       if (!m[v]) m[v] = [];
       if (!m[v].find(r => r.raceNum === res.raceNum)) {
         m[v].push({ raceNum: res.raceNum, results: res });
       }
     });
-    // Add unresulted races from CSV for venues that already have results
+    // Add all CSV races (resulted and unresulted) for every CSV venue
     Object.values(allVenues).flat().forEach(k => {
       const rc = allRaces[k];
       if (!rc) return;
       const v = (rc.venue || '').toUpperCase();
-      if (!m[v]) return;
+      if (!m[v]) m[v] = [];
       if (!m[v].find(r => String(r.raceNum) === String(rc.num))) {
         m[v].push({ raceNum: rc.num, results: null });
       }
