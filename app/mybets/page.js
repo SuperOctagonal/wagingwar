@@ -384,6 +384,7 @@ export default function MybetsPage() {
   const [editStake,    setEditStake]    = useState('');
   const [editOdds,     setEditOdds]     = useState('');
   const [mobileMenuId, setMobileMenuId] = useState(null);
+  const [lastCheckedAt, setLastCheckedAt] = useState(null);
 
   // CSV data for Quick Log
   const [csvMeetings, setCsvMeetings] = useState([]);   // ['Flemington', ...]
@@ -740,16 +741,6 @@ export default function MybetsPage() {
     });
   }, [pendingBets, csvRaces, csvVenues]);
 
-  const tabCounts = useMemo(() => {
-    const base = dateFilteredBets.filter(b => b.status !== 'scratched');
-    return {
-      all:   base.length,
-      win:   base.filter(b => b.status === 'win').length,
-      place: base.filter(b => b.status === 'place').length,
-      loss:  base.filter(b => b.status === 'loss').length,
-    };
-  }, [dateFilteredBets]);
-
   const dateFilteredBets = useMemo(() => {
     const anchor = new Date(todayISO + 'T12:00:00Z');
     const yesterdayISO = dateMath(todayISO, -1);
@@ -772,6 +763,16 @@ export default function MybetsPage() {
   [dateFilteredBets]);
 
   const dateStats = useMemo(() => calcRow(dateFilteredBets), [dateFilteredBets]);
+
+  const tabCounts = useMemo(() => {
+    const base = dateFilteredBets.filter(b => b.status !== 'scratched');
+    return {
+      all:   base.length,
+      win:   base.filter(b => b.status === 'win').length,
+      place: base.filter(b => b.status === 'place').length,
+      loss:  base.filter(b => b.status === 'loss').length,
+    };
+  }, [dateFilteredBets]);
 
   const avgOdds = useMemo(() => {
     const settled = dateFilteredBets.filter(b => b.status && b.status !== 'pending' && b.status !== 'scratched' && +(b.odds || 0) > 1);
