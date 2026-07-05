@@ -85,11 +85,14 @@ const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov
 function fmtDate(iso) { if (!iso) return '—'; const d = new Date(iso + 'T00:00:00'); return `${d.getDate()} ${MONTHS[d.getMonth()]}`; }
 function parseRaceTime(t) {
   if (!t) return Infinity;
+  // dots→colons, then strip anything after am/pm marker so "04.00 pm (racing)" or "04:00:00" all match
   const s = String(t).trim().replace(/\./g, ':');
   if (!s) return Infinity;
-  const m12 = s.match(/^(\d+):(\d+)\s*(AM|PM)$/i);
-  if (m12) { let h = +m12[1]; const min = +m12[2]; const pm = m12[3].toUpperCase() === 'PM'; if (pm && h !== 12) h += 12; if (!pm && h === 12) h = 0; return h * 60 + min; }
-  const m24 = s.match(/^(\d+):(\d+)$/);
+  // 12-hour — no end-anchor so trailing seconds/text are ignored
+  const m12 = s.match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
+  if (m12) { let h = +m12[1]; const min = +m12[2]; const pm = /pm/i.test(m12[3]); if (pm && h !== 12) h += 12; if (!pm && h === 12) h = 0; return h * 60 + min; }
+  // 24-hour — also no end-anchor (handles "04:00:00" postgres time)
+  const m24 = s.match(/^(\d{1,2}):(\d{2})/);
   if (m24) return +m24[1] * 60 + +m24[2];
   return Infinity;
 }
@@ -237,7 +240,7 @@ function calcRow(bets) {
   const pnl = totalRet - totalStaked;
   return {
     bets: settled.length, wins,
-    strike: bets.length > 0 ? (wins / bets.length * 100).toFixed(0) + '%' : '—',
+    strike: settled.length > 0 ? (wins / settled.length * 100).toFixed(0) + '%' : '—',
     staked: totalStaked > 0 ? `$${totalStaked.toFixed(0)}` : '—',
     ret:    totalRet    > 0 ? `$${totalRet.toFixed(0)}`    : '—',
     pnl:    totalStaked > 0 ? pnl : null,
@@ -855,7 +858,13 @@ export default function MybetsPage() {
         case 'horse':   va = (a.horse_name || '').toLowerCase(); vb = (b.horse_name || '').toLowerCase(); break;
         case 'venue':   va = (a.track || a.venue || '').toLowerCase(); vb = (b.track || b.venue || '').toLowerCase(); break;
         case 'race':    va = +(a.race_number ?? a.race_num ?? 0); vb = +(b.race_number ?? b.race_num ?? 0); break;
-        case 'time':    va = parseRaceTime(raceTimeMap[a.id] || a.race_time); vb = parseRaceTime(raceTimeMap[b.id] || b.race_time); break;
+        case 'time': {
+          const da = a.date || '', db = b.date || '';
+          if (da !== db) return (da < db ? -1 : 1) * dir;
+          va = parseRaceTime(raceTimeMap[a.id] || a.race_time);
+          vb = parseRaceTime(raceTimeMap[b.id] || b.race_time);
+          break;
+        }
         case 'no':      va = +(a.tab_no || a.horse_number || 99); vb = +(b.tab_no || b.horse_number || 99); break;
         case 'stake':   va = +(a.stake || 0); vb = +(b.stake || 0); break;
         case 'odds':    va = +(a.odds || 0); vb = +(b.odds || 0); break;
