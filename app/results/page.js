@@ -60,13 +60,13 @@ function rankStyle(r) {
   if (r === 1) return { bg: '#fbbf24', color: '#78350f' };
   if (r === 2) return { bg: '#e5e7eb', color: '#374151' };
   if (r === 3) return { bg: '#fed7aa', color: '#92400e' };
-  return { bg: '#f3f4f6', color: '#9ca3af' };
+  return { bg: '#f3f4f6', color: '#374151' };
 }
 
 function ResultsDetail({ meeting, venue, allRaces, allVenues, weights, dbScratchings }) {
   if (!meeting || !meeting.runners || !meeting.runners.length) {
     return (
-      <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:160, gap:10, color:'#9ca3af' }}>
+      <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:160, gap:10, color:'#374151' }}>
         <i className="ti ti-flag-check" style={{ fontSize:32 }} />
         <p style={{ fontSize:11 }}>No results yet for this race</p>
       </div>
@@ -77,13 +77,13 @@ function ResultsDetail({ meeting, venue, allRaces, allVenues, weights, dbScratch
   const hasSysRank = Object.keys(sysRankMap).length > 0;
 
   return (
-    <div style={{ display:'inline-block', minWidth:320, width:'fit-content', maxWidth:'520px' }}>
+    <div style={{ display:'inline-block', minWidth:420, width:'fit-content' }}>
       <div style={{ background:'#1e2936', padding:'6px 10px', borderRadius:'8px 8px 0 0', display:'flex', alignItems:'center', justifyContent:'space-between', flexWrap:'wrap', gap:4 }}>
         <span style={{ fontSize:11, fontWeight:700, color:'#fff', textTransform:'uppercase' }}>
           {venue} R{meeting.raceNum} — Results
           <span style={{ background:'#22c55e', fontSize:9, padding:'1px 5px', borderRadius:3, marginLeft:6, verticalAlign:'middle' }}>OFFICIAL</span>
         </span>
-        <div style={{ fontSize:9, color:'rgba(255,255,255,.55)', display:'flex', gap:8 }}>
+        <div style={{ fontSize:9, color:'#fff', display:'flex', gap:8 }}>
           {meeting.raceTime && <span>{meeting.raceTime}</span>}
           {meeting.trackCond && <span>{meeting.trackCond}</span>}
           {meeting.dist && <span>{meeting.dist}</span>}
@@ -93,11 +93,13 @@ function ResultsDetail({ meeting, venue, allRaces, allVenues, weights, dbScratch
       <table style={{ width:'100%', borderCollapse:'collapse', tableLayout:'auto', border:'0.5px solid #e5e7eb', borderTop:'none', borderRadius:'0 0 8px 8px', overflow:'hidden' }}>
         <thead>
           <tr style={{ background:'#f1f5f9', borderBottom:'1px solid #e5e7eb' }}>
-            <th style={{ padding:'4px 6px', fontSize:9, fontWeight:700, color:'#374151', textAlign:'center', width:28 }}>POS</th>
-            <th style={{ padding:'4px 6px', fontSize:9, fontWeight:700, color:'#374151', textAlign:'left', minWidth:160 }}>HORSE</th>
-            {hasSysRank && <th style={{ padding:'4px 6px', fontSize:9, fontWeight:700, color:'#374151', textAlign:'center', width:44 }}>RANK</th>}
-            <th style={{ padding:'4px 6px', fontSize:9, fontWeight:700, color:'#374151', textAlign:'right', width:56 }}>SP</th>
-            <th style={{ padding:'4px 6px', fontSize:9, fontWeight:700, color:'#374151', textAlign:'right', width:56 }}>MARGIN</th>
+            <th style={{ padding:'4px 6px', fontSize:9, fontWeight:700, color:'#111827', textAlign:'center', width:28 }}>POS</th>
+            <th style={{ padding:'4px 6px', fontSize:9, fontWeight:700, color:'#111827', textAlign:'left', minWidth:160 }}>HORSE</th>
+            {hasSysRank && <th style={{ padding:'4px 6px', fontSize:9, fontWeight:700, color:'#111827', textAlign:'center', width:44 }}>RANK</th>}
+            <th style={{ padding:'4px 6px', fontSize:9, fontWeight:700, color:'#111827', textAlign:'right', width:56 }}>SP</th>
+            <th style={{ padding:'4px 6px', fontSize:9, fontWeight:700, color:'#111827', textAlign:'right', width:56 }}>MARGIN</th>
+            <th style={{ padding:'4px 6px', fontSize:9, fontWeight:700, color:'#111827', textAlign:'left', minWidth:100, whiteSpace:'nowrap' }}>TRAINER</th>
+            <th style={{ padding:'4px 6px', fontSize:9, fontWeight:700, color:'#111827', textAlign:'left', minWidth:80, whiteSpace:'nowrap' }}>JOCKEY</th>
           </tr>
         </thead>
         <tbody>
@@ -121,14 +123,20 @@ function ResultsDetail({ meeting, venue, allRaces, allVenues, weights, dbScratch
                   <td style={{ padding:pad, textAlign:'center' }}>
                     {rs
                       ? <span style={{ width:18, height:18, borderRadius:'50%', display:'inline-flex', alignItems:'center', justifyContent:'center', fontSize:9, fontWeight:700, background:rs.bg, color:rs.color }}>{sysRank}</span>
-                      : <span style={{ fontSize:9, color:'#d1d5db' }}>—</span>
+                      : <span style={{ fontSize:9, color:'#6b7280' }}>—</span>
                     }
                   </td>
                 )}
                 <td style={{ padding:pad, textAlign:'right', fontFamily:'JetBrains Mono, monospace', fontSize:11, fontWeight:500, color:'#111827' }}>
                   ${Number(r.sp || 0).toFixed(2)}
                 </td>
-                <td style={{ padding:pad, textAlign:'right', fontSize:11, color:'#374151' }}>{r.margin || '—'}</td>
+                <td style={{ padding:pad, textAlign:'right', fontSize:11, color:'#111827', whiteSpace:'nowrap' }}>{r.margin || '—'}</td>
+                <td style={{ padding:pad, whiteSpace:'nowrap', fontSize:11, color: isTop3 ? '#111827' : '#9ca3af' }}>
+                  {isTop3 ? (r.trainer || '—') : '—'}
+                </td>
+                <td style={{ padding:pad, whiteSpace:'nowrap', fontSize:11, color: isTop3 ? '#111827' : '#9ca3af' }}>
+                  {isTop3 ? (r.jockey || '—') : '—'}
+                </td>
               </tr>
             );
           })}
@@ -137,9 +145,9 @@ function ResultsDetail({ meeting, venue, allRaces, allVenues, weights, dbScratch
 
       {(meeting.l600 || meeting.trackCond || (meeting.scratched && meeting.scratched.length > 0)) && (
         <div style={{ padding:'5px 8px', background:'#f8fafc', border:'0.5px solid #e5e7eb', borderTop:'none', borderRadius:'0 0 8px 8px', display:'flex', gap:12, flexWrap:'wrap', marginTop:-1 }}>
-          {meeting.l600 && <span style={{ fontSize:10, color:'#6b7280' }}>L600m: <b style={{ color:'#111827', fontFamily:'JetBrains Mono, monospace' }}>{meeting.l600}</b></span>}
-          {meeting.trackCond && <span style={{ fontSize:10, color:'#6b7280' }}>Track: <b style={{ color:'#111827' }}>{meeting.trackCond}</b></span>}
-          {meeting.scratched && meeting.scratched.length > 0 && <span style={{ fontSize:10, color:'#9ca3af' }}>Scratched: {meeting.scratched.join(' · ')}</span>}
+          {meeting.l600 && <span style={{ fontSize:10, color:'#374151' }}>L600m: <b style={{ color:'#111827', fontFamily:'JetBrains Mono, monospace' }}>{meeting.l600}</b></span>}
+          {meeting.trackCond && <span style={{ fontSize:10, color:'#374151' }}>Track: <b style={{ color:'#111827' }}>{meeting.trackCond}</b></span>}
+          {meeting.scratched && meeting.scratched.length > 0 && <span style={{ fontSize:10, color:'#374151' }}>Scratched: {meeting.scratched.join(' · ')}</span>}
         </div>
       )}
     </div>
@@ -202,7 +210,9 @@ export default function ResultsPage() {
         place: row.finish_pos,
         name: row.horse_name,
         sp: row.sp || 0,
-        margin: row.margin || ''
+        margin: row.margin || '',
+        trainer: row.trainer || '',
+        jockey: row.jockey || '',
       });
     });
     // Populate scratched list from DB scratchings table
@@ -268,7 +278,7 @@ export default function ResultsPage() {
             type="date"
             value={selectedDate}
             onChange={e => setSelectedDate(e.target.value)}
-            style={{ border:'0.5px solid #d1d5db', borderRadius:6, padding:'4px 8px', fontSize:11, fontFamily:'Space Grotesk, sans-serif', color:'#374151', background:'#fff', outline:'none', width: isMobile ? '100%' : undefined }}
+            style={{ border:'0.5px solid #d1d5db', borderRadius:6, padding:'4px 8px', fontSize:11, fontFamily:'Space Grotesk, sans-serif', color:'#111827', background:'#fff', outline:'none', width: isMobile ? '100%' : undefined }}
           />
           <button
             disabled={refreshing}
@@ -278,7 +288,7 @@ export default function ResultsPage() {
               setDbRows(rows || []);
               setRefreshing(false);
             }}
-            style={{ fontSize:11, padding:'4px 8px', background:'#f3f4f6', border:'1px solid #e5e7eb', borderRadius:4, cursor:'pointer', fontWeight:600, color:'#374151', opacity: refreshing ? 0.6 : 1 }}
+            style={{ fontSize:11, padding:'4px 8px', background:'#f3f4f6', border:'1px solid #e5e7eb', borderRadius:4, cursor:'pointer', fontWeight:600, color:'#111827', opacity: refreshing ? 0.6 : 1 }}
           >
             {refreshing ? 'Checking…' : '🔄 Refresh'}
           </button>
@@ -286,7 +296,7 @@ export default function ResultsPage() {
 
         {/* Loading */}
         {loading && (
-          <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:200, gap:8, color:'#9ca3af', fontSize:11 }}>
+          <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:200, gap:8, color:'#374151', fontSize:11 }}>
             <i className="ti ti-loader-2 animate-spin" style={{ fontSize:18 }} />
             Loading results…
           </div>
@@ -299,7 +309,7 @@ export default function ResultsPage() {
             <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:12 }}>
               <button
                 onClick={() => { setSelectedMeeting(null); setSelectedRace(null); }}
-                style={{ display:'flex', alignItems:'center', gap:4, padding:'4px 8px', borderRadius:6, border:'0.5px solid #e5e7eb', background:'#fff', color:'#374151', fontSize:10, fontWeight:600, cursor:'pointer', fontFamily:'inherit' }}
+                style={{ display:'flex', alignItems:'center', gap:4, padding:'4px 8px', borderRadius:6, border:'0.5px solid #e5e7eb', background:'#fff', color:'#111827', fontSize:10, fontWeight:600, cursor:'pointer', fontFamily:'inherit' }}
               >
                 <i className="ti ti-arrow-left" style={{ fontSize:11 }} /> All meetings
               </button>
@@ -312,7 +322,7 @@ export default function ResultsPage() {
                 const resulted = !!r.results;
                 const isActive = selectedRace != null && Number(r.raceNum) === Number(selectedRace);
                 const bg     = isActive ? '#1e2936' : resulted ? '#d1fae5' : '#f1f5f9';
-                const color  = isActive ? '#fff'     : resulted ? '#065f46' : '#9ca3af';
+                const color  = isActive ? '#fff'     : resulted ? '#065f46' : '#374151';
                 const border = isActive ? '#1e2936'  : resulted ? '#86efac' : '#e5e7eb';
                 return (
                   <button
@@ -341,13 +351,13 @@ export default function ResultsPage() {
           <>
             {/* Meetings grid */}
             {venueNames.length === 0 ? (
-              <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:200, gap:10, color:'#9ca3af' }}>
+              <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:200, gap:10, color:'#374151' }}>
                 <i className="ti ti-flag-check" style={{ fontSize:36 }} />
                 <p style={{ fontSize:11 }}>Load a CSV or results will appear here automatically</p>
               </div>
             ) : (
               <>
-                <div style={{ fontSize:10, fontWeight:600, color:'#9ca3af', textTransform:'uppercase', letterSpacing:'.5px', marginBottom:8 }}>
+                <div style={{ fontSize:10, fontWeight:600, color:'#374151', textTransform:'uppercase', letterSpacing:'.5px', marginBottom:8 }}>
                   {venueNames.length} meetings
                 </div>
                 <div style={{ display:'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fill, minmax(280px, 1fr))', gap:6, marginBottom:16, maxWidth:1000 }}>
@@ -356,7 +366,7 @@ export default function ResultsPage() {
                     const resultedCount = races.filter(r => r.results).length;
                     const allResulted = resultedCount === races.length;
                     const badgeBg    = allResulted ? '#d1fae5' : '#f1f5f9';
-                    const badgeColor = allResulted ? '#065f46' : '#9ca3af';
+                    const badgeColor = allResulted ? '#065f46' : '#374151';
                     return (
                       <div
                         key={venue}
@@ -379,7 +389,7 @@ export default function ResultsPage() {
                           {races.map(r => {
                             const cls = r.results
                               ? { bg:'#d1fae5', color:'#065f46' }
-                              : { bg:'#f1f5f9', color:'#9ca3af' };
+                              : { bg:'#f1f5f9', color:'#374151' };
                             return (
                               <button
                                 key={r.raceNum}
