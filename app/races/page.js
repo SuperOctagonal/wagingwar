@@ -618,7 +618,7 @@ function RaceCountdown({ rc }) {
 function RaceHeader({ rc, trackCond, setTrackCond, weights, setWeights, runnerCount, onUpgrade }) {
   const [tcOpen, setTcOpen] = useState(false);
   return (
-    <div className="px-2.5 md:px-4 py-1.5 md:py-2.5 bg-white border-b border-gray-100 flex flex-wrap items-center justify-between gap-3 flex-shrink-0">
+    <div className="px-2.5 md:px-4 py-1.5 md:py-2.5 bg-white flex flex-wrap items-center justify-between gap-3 flex-shrink-0" style={{ borderBottom: '4px solid #00471B' }}>
       <div>
         <div className="flex items-baseline gap-2">
           <h2 className="font-bebas text-[19px] md:text-[22px] tracking-widest text-gray-900 leading-none">
