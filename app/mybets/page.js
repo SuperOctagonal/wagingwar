@@ -102,6 +102,14 @@ function typePillCfg(betType) {
   if (bt === 'place') return { bg: '#2563eb', label: 'Place' };
   return { bg: '#16a34a', label: 'Win' };
 }
+function computePnl(b) {
+  const isEW = (b.bet_type || '').toLowerCase().includes('each');
+  const stk = +(b.stake || 0);
+  if (b.profit_loss !== null && b.profit_loss !== undefined) return b.profit_loss;
+  if (b.return_amt !== null && b.return_amt !== undefined) return b.return_amt - (isEW ? stk * 2 : stk);
+  if (b.status === 'loss') return isEW ? -(stk * 2) : -stk;
+  return null;
+}
 
 async function matchAndUpdateBets(pendingBets) {
   if (!pendingBets.length || !SURL || !SKEY) return { spMap: {}, anyUpdated: false };
@@ -462,6 +470,17 @@ export default function MybetsPage() {
   // Keep `now` fresh so countdown timers update (1s for live negative countdown)
   useEffect(() => { const id = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(id); }, []);
 
+  // ww:refresh event — re-pull bets from DB (dispatched by TopNav refresh button)
+  useEffect(() => {
+    const handler = async () => {
+      if (!user?.id) return;
+      const loaded = await loadBets(user.id);
+      setBets(loaded);
+    };
+    window.addEventListener('ww:refresh', handler);
+    return () => window.removeEventListener('ww:refresh', handler);
+  }, [user?.id]);
+
   // Reset sort to sensible default when switching date ranges
   useEffect(() => {
     if (dateRange === 'today') { setSortCol('time'); setSortDir('asc'); }
@@ -770,10 +789,12 @@ export default function MybetsPage() {
   const tabCounts = useMemo(() => {
     const base = dateFilteredBets.filter(b => b.status !== 'scratched');
     return {
-      all:   base.length,
-      win:   base.filter(b => b.status === 'win').length,
-      place: base.filter(b => b.status === 'place').length,
-      loss:  base.filter(b => b.status === 'loss').length,
+      all:      base.length,
+      win:      base.filter(b => b.status === 'win').length,
+      place:    base.filter(b => b.status === 'place').length,
+      loss:     base.filter(b => b.status === 'loss').length,
+      upcoming: base.filter(b => !b.status || b.status === 'pending').length,
+      resulted: base.filter(b => b.status && b.status !== 'pending').length,
     };
   }, [dateFilteredBets]);
 
@@ -846,12 +867,25 @@ export default function MybetsPage() {
   const ledgerFilteredBets = useMemo(() => {
     const base = dateFilteredBets.filter(b => b.status !== 'scratched');
     if (activeTab === 'all') return base;
+    if (activeTab === 'upcoming') return base.filter(b => !b.status || b.status === 'pending');
+    if (activeTab === 'resulted') return base.filter(b => b.status && b.status !== 'pending');
     return base.filter(b => b.status === activeTab);
   }, [dateFilteredBets, activeTab]);
 
+  const tabStats = useMemo(() => calcRow(ledgerFilteredBets), [ledgerFilteredBets]);
+
   const sortedLedgerBets = useMemo(() => {
     const dir = sortDir === 'asc' ? 1 : -1;
-    return [...ledgerFilteredBets].sort((a, b) => {
+    if (sortCol === 'time') {
+      console.log('[TimeSort] raw →', ledgerFilteredBets.map(b => ({
+        horse: (b.horse_name || '').slice(0, 14),
+        date: b.date,
+        fromMap: raceTimeMap[b.id] ?? null,
+        race_time: b.race_time ?? null,
+        parsed: parseRaceTime(raceTimeMap[b.id] || b.race_time),
+      })));
+    }
+    const sorted = [...ledgerFilteredBets].sort((a, b) => {
       let va, vb;
       switch (sortCol) {
         case 'date':    va = a.date || ''; vb = b.date || ''; break;
@@ -876,6 +910,14 @@ export default function MybetsPage() {
       if (va > vb) return 1 * dir;
       return 0;
     });
+    if (sortCol === 'time') {
+      console.log('[TimeSort] sorted →', sorted.map(b => ({
+        horse: (b.horse_name || '').slice(0, 14),
+        date: b.date,
+        parsed: parseRaceTime(raceTimeMap[b.id] || b.race_time),
+      })));
+    }
+    return sorted;
   }, [ledgerFilteredBets, sortCol, sortDir, raceTimeMap]);
 
   const exportCSV = useCallback(() => {
@@ -1010,10 +1052,13 @@ export default function MybetsPage() {
     qlRaceDate === qlAestDateISO && qlRaceMins <= qlAestMins;
   const qlBtnDisabled = qlSaving || raceHasPassed || !qlHorse.trim() || !(+qlStake > 0) || !(+qlOdds > 1);
 
-  const sbPnl = dateStats.pnl;
+  const sbPnl = tabStats.pnl;
   const sbPnlPos = sbPnl !== null && sbPnl >= 0;
   const sbPnlColor = sbPnl === null ? '#9ca3af' : sbPnlPos ? '#0F6E56' : '#dc2626';
-  const sbPeriodLabel = { today: "Today's P&L", yesterday: "Yesterday's P&L", this_week: "This Week's P&L", this_month: "This Month's P&L", all_time: "All-Time P&L", custom: "Period P&L" }[dateRange] || "P&L";
+  const _rl = { today: "Today's P&L", yesterday: "Yesterday's P&L", this_week: "This Week's P&L", this_month: "This Month's P&L", all_time: "All-Time P&L", custom: "Period P&L" };
+  const sbPeriodLabel = activeTab !== 'all'
+    ? `${activeTab.charAt(0).toUpperCase() + activeTab.slice(1)} P&L`
+    : _rl[dateRange] || "P&L";
   const sbStreakLabel = heroStreak ? `${heroStreak.type}${heroStreak.count}` : '—';
   const sbStreakColor = heroStreak?.type === 'W' ? '#059669' : heroStreak?.type === 'L' ? '#dc2626' : '#9ca3af';
   const nextBetsPanel = null;
@@ -1195,7 +1240,7 @@ export default function MybetsPage() {
         {isMobile && (
         <div style={{ display: 'flex', flexDirection: 'column' }}>
           <div style={{ flexShrink: 0, display: 'flex', gap: 4, padding: '6px 10px', background: '#0D1C13', borderBottom: '1px solid #1a3a25' }}>
-            {['All','Win','Place','Loss'].map(t => {
+            {['All','Win','Place','Loss','Upcoming','Resulted'].map(t => {
               const key = t.toLowerCase();
               return (
                 <button key={t} onClick={() => setActiveTab(key)}
@@ -1247,9 +1292,8 @@ export default function MybetsPage() {
                         if (b === null) return (
                           <tr key="mob-pending-divider"><td colSpan={10} style={{ height: 2, background: '#2d5a3d', padding: 0 }} /></tr>
                         );
-                        const hasPnl = b.profit_loss !== null && b.profit_loss !== undefined;
-                        const isEW = (b.bet_type || '').toLowerCase().includes('each');
-                        const pnl = hasPnl ? b.profit_loss : (b.return_amt || 0) - (isEW ? (b.stake || 0) * 2 : (b.stake || 0));
+                        const pnl = computePnl(b);
+                        const hasPnl = pnl !== null;
                         const pos = b.position;
                         const isPending = !b.status || b.status === 'pending';
                         const isScratched = b.status === 'scratched';
@@ -1271,7 +1315,7 @@ export default function MybetsPage() {
                             <td style={{ ...cs, color: '#fff', textAlign: 'right', fontFamily: 'monospace', whiteSpace: 'nowrap' }}>${(+(b.stake || 0)).toFixed(0)}</td>
                             <td style={{ ...cs, color: '#fff', textAlign: 'right', fontFamily: 'monospace', whiteSpace: 'nowrap' }}>${Number(b.odds || 0).toFixed(2)}</td>
                             <td style={{ ...cs, textAlign: 'right', fontWeight: 700, fontFamily: 'monospace', color: pnlColor, whiteSpace: 'nowrap' }}>
-                              {isPending ? '—' : (pnl >= 0 ? '+$' : '-$') + Math.abs(pnl).toFixed(2)}
+                              {isPending || isAbandoned ? '—' : hasPnl ? (pnl >= 0 ? '+$' : '-$') + Math.abs(pnl).toFixed(2) : '—'}
                             </td>
                             <td style={{ ...cs, textAlign: 'right', fontWeight: 700, color: isAbandoned ? '#6b7280' : isPending ? '#f97316' : isScratched ? '#6b7280' : (pos ? resultColor : '#6b7280'), whiteSpace: 'nowrap' }}>
                               {isAbandoned ? 'ABND' : isPending ? 'PND' : isScratched ? 'SCR' : (pos || '—')}
@@ -1298,7 +1342,7 @@ export default function MybetsPage() {
 
             {betView === 'table' && (<>
               <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 4, padding: '6px 10px', background: '#0D1C13', borderBottom: '1px solid #1a3a25' }}>
-                {['All','Win','Place','Loss'].map(t => {
+                {['All','Win','Place','Loss','Upcoming','Resulted'].map(t => {
                   const key = t.toLowerCase();
                   return (
                     <button key={t} onClick={() => setActiveTab(key)}
@@ -1344,9 +1388,8 @@ export default function MybetsPage() {
                             if (b === null) return (
                               <tr key="desk-pending-divider"><td colSpan={11} style={{ height: 2, background: '#2d5a3d', padding: 0 }} /></tr>
                             );
-                            const hasPnl = b.profit_loss !== null && b.profit_loss !== undefined;
-                            const isEW = (b.bet_type || '').toLowerCase().includes('each');
-                            const pnl = hasPnl ? b.profit_loss : (b.return_amt || 0) - (isEW ? (b.stake || 0) * 2 : (b.stake || 0));
+                            const pnl = computePnl(b);
+                            const hasPnl = pnl !== null;
                             const pos = b.position;
                             const isPending = !b.status || b.status === 'pending';
                             const isScratched = b.status === 'scratched';
@@ -1395,7 +1438,7 @@ export default function MybetsPage() {
                                   {isEditing ? <input type="number" value={editOdds} onChange={e => setEditOdds(e.target.value)} style={{ width: 40, fontSize: 10, textAlign: 'right', border: '1px solid #4ade80', background: '#1a3a25', color: '#fff', borderRadius: 3, padding: '1px 3px' }} /> : `$${Number(b.odds || 0).toFixed(2)}`}
                                 </td>
                                 <td style={{ ...cs, textAlign: 'right', fontWeight: 700, fontFamily: 'monospace', color: pnlColor, whiteSpace: 'nowrap' }}>
-                                  {isPending || isAbandoned ? '—' : (pnl >= 0 ? '+$' : '-$') + Math.abs(pnl).toFixed(2)}
+                                  {isPending || isAbandoned ? '—' : hasPnl ? (pnl >= 0 ? '+$' : '-$') + Math.abs(pnl).toFixed(2) : '—'}
                                 </td>
                                 <td style={{ ...cs, textAlign: 'right', fontWeight: 700, color: isAbandoned ? '#6b7280' : isPending ? '#f97316' : isScratched ? '#6b7280' : (pos === 1 ? '#4ade80' : (pos === 2 || pos === 3) ? '#60a5fa' : pos ? '#f87171' : '#6b7280') }}>
                                   {isAbandoned ? 'ABND' : isPending ? 'PND' : isScratched ? 'SCR' : (pos || '—')}
@@ -1428,7 +1471,7 @@ export default function MybetsPage() {
             {betView === 'terminal' && (
               <div style={{ display:'flex', flexDirection:'column' }}>
                 <div style={{ flexShrink:0, display:'flex', gap:4, padding:'6px 10px', background:'#0f1117', borderBottom:'1px solid rgba(255,255,255,0.08)' }}>
-                  {['All','Win','Place','Loss'].map(t => { const key = t.toLowerCase(); return (
+                  {['All','Win','Place','Loss','Upcoming','Resulted'].map(t => { const key = t.toLowerCase(); return (
                     <button key={t} onClick={() => setActiveTab(key)}
                       style={{ padding:'2px 8px', fontSize:9, fontWeight: activeTab===key?700:400, color: activeTab===key?'#0B1F14':'#fff', background: activeTab===key?'#4ade80':'transparent', border: activeTab===key?'none':'1px solid #1a3a25', borderRadius:3, cursor:'pointer' }}>
                       {t}
@@ -1474,7 +1517,7 @@ export default function MybetsPage() {
             {betView === 'sessions' && (
               <div style={{ display:'flex', flexDirection:'column' }}>
                 <div style={{ flexShrink:0, display:'flex', gap:4, padding:'6px 10px', background:'#fff', borderBottom:'1px solid #e5e7eb' }}>
-                  {['All','Win','Place','Loss'].map(t => { const key = t.toLowerCase(); return (
+                  {['All','Win','Place','Loss','Upcoming','Resulted'].map(t => { const key = t.toLowerCase(); return (
                     <button key={t} onClick={() => setActiveTab(key)}
                       style={{ padding:'2px 8px', fontSize:9, fontWeight: activeTab===key?700:400, color: activeTab===key?'#fff':'#374151', background: activeTab===key?'#374151':'#f3f4f6', border:'none', borderRadius:3, cursor:'pointer' }}>
                       {t}
@@ -1572,9 +1615,9 @@ export default function MybetsPage() {
                 <span style={{ fontSize: 10, color: '#fff', fontFamily: 'monospace' }}>
                   {sortedLedgerBets.length} bets · {sortedLedgerBets.filter(b => b.status && b.status !== 'pending' && b.status !== 'scratched' && b.status !== 'abandoned').length} settled · {sortedLedgerBets.filter(b => b.status === 'abandoned').length} abandoned
                 </span>
-                {dateStats.pnl !== null && (
-                  <span style={{ fontSize: 11, fontWeight: 700, fontFamily: 'monospace', color: dateStats.pnl >= 0 ? '#4ade80' : '#f87171' }}>
-                    {dateStats.pnl >= 0 ? '+$' : '-$'}{Math.abs(dateStats.pnl).toFixed(2)}
+                {tabStats.pnl !== null && (
+                  <span style={{ fontSize: 11, fontWeight: 700, fontFamily: 'monospace', color: tabStats.pnl >= 0 ? '#4ade80' : '#f87171' }}>
+                    {tabStats.pnl >= 0 ? '+$' : '-$'}{Math.abs(tabStats.pnl).toFixed(2)}
                   </span>
                 )}
               </div>
