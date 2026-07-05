@@ -143,8 +143,8 @@ export default function CompetitionsPage() {
   const [csvRaces, setCsvRaces] = useState(null);
   const [picks, setPicks] = useState({});
   const [savingKey, setSavingKey] = useState(null);
-  const [popularData, setPopularData] = useState([]);   // rows from comp_picks_popular view
-  const [allPicksData, setAllPicksData] = useState([]); // raw rows for leaderboard
+  const [popularData, setPopularData] = useState([]);
+  const [allPicksData, setAllPicksData] = useState([]);
   const [results, setResults] = useState({});
   const [scratchings, setScratchings] = useState(new Set());
   const [allTimePoints, setAllTimePoints] = useState(null);
@@ -168,7 +168,6 @@ export default function CompetitionsPage() {
     return m;
   }, [compRaces]);
 
-  // Built from comp_picks_popular aggregate view — no client-side counting
   const popularPicks = useMemo(() => {
     const grouped = {};
     popularData.forEach(r => {
@@ -263,7 +262,6 @@ export default function CompetitionsPage() {
     return m;
   }, [compRaces, selVenues]);
 
-  // AEST day of week 0=Mon..6=Sun
   const todayDayIdx = useMemo(() => {
     const d = new Date(new Date().toLocaleString('en-US', { timeZone: 'Australia/Brisbane' }));
     return (d.getDay() + 6) % 7;
@@ -286,7 +284,6 @@ export default function CompetitionsPage() {
     return jt.getTime() <= now ? 'racing' : 'pending';
   }
 
-  // Effects
   useEffect(() => {
     try {
       const saved = localStorage.getItem('ww_csv');
@@ -339,10 +336,8 @@ export default function CompetitionsPage() {
   useEffect(() => {
     if (!SURL || !SKEY) return;
     function loadAll() {
-      // Aggregate view for popularity %
       sbFetch(`comp_picks_popular?comp_date=eq.${today}&select=venue,race_num,horse_name,pick_count`)
         .then(rows => { if (Array.isArray(rows)) setPopularData(rows); });
-      // Full rows for leaderboard computation
       sbFetch(`comp_picks?comp_date=eq.${today}&select=clerk_id,username,venue,race_num,horse_name`)
         .then(rows => { if (Array.isArray(rows)) setAllPicksData(rows); });
     }
@@ -421,9 +416,18 @@ export default function CompetitionsPage() {
     );
   }
 
+  // ─── Dark theme constants ─────────────────────────────────────────────────────
+  const DK_BG  = '#0B1F14';
+  const DK_HDR = '#0D1C13';
+  const DK_LINE = '#1a3a25';
+  const DK_TEXT = '#e2e8f0';
+  const DK_MUT  = '#6b7280';
+  const CELL = { borderBottom: `1px solid ${DK_LINE}`, borderRight: `1px solid ${DK_LINE}`, verticalAlign: 'middle', padding: '5px 8px' };
+
   // ─── Render helpers ───────────────────────────────────────────────────────────
   const WEEK_DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
   const headerDateStr = new Date().toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'Australia/Brisbane' });
+  const pct = compRaces.length > 0 ? (pickedCount / compRaces.length) * 100 : 0;
 
   function renderRaceRow(race) {
     const key = rk(race.venue, race.num);
@@ -438,100 +442,126 @@ export default function CompetitionsPage() {
     const isScratched = pick && scratchings.has(`${key}||${pick.toUpperCase()}`);
     const activeHorses = (race.horses || []).filter(h => !h.scratched && !scratchings.has(`${key}||${(h.name || '').toUpperCase()}`));
 
+    let jumpCell;
+    if (results[key]) {
+      jumpCell = (
+        <div>
+          <div style={{ fontSize: 9, fontWeight: 600, color: DK_TEXT, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 90, marginBottom: 1 }}>{titleCase(results[key])}</div>
+          {status === 'won'    && <span style={{ fontSize: 8, fontWeight: 700, color: '#4ade80' }}>✓ WON</span>}
+          {status === 'lost'   && <span style={{ fontSize: 8, fontWeight: 700, color: '#f87171' }}>✗ LOST</span>}
+          {status === 'nopick' && <span style={{ fontSize: 8, color: DK_MUT }}>no pick</span>}
+        </div>
+      );
+    } else if (status === 'racing') {
+      jumpCell = <span style={{ fontSize: 9, fontWeight: 700, color: '#fbbf24' }}>Racing</span>;
+    } else if (msToJump !== null) {
+      const underTen = msToJump < 600000;
+      jumpCell = (
+        <span style={{ fontSize: 10, fontWeight: underTen ? 700 : 400, color: underTen ? '#fbbf24' : DK_MUT, fontFamily: 'monospace', fontVariantNumeric: 'tabular-nums' }}>
+          {fmtMs(msToJump) || 'Now'}
+        </span>
+      );
+    } else {
+      jumpCell = <span style={{ fontSize: 9, color: DK_LINE }}>—</span>;
+    }
+
     return (
       <>
         {isScratched && (
           <tr key={`${key}-alert`}>
-            <td colSpan={5} style={{ padding: '5px 10px', background: '#fef2f2', borderBottom: '1px solid #fecaca' }}>
-              <span style={{ fontSize: 10, color: '#dc2626', fontWeight: 700 }}>
-                ⚠ {pick} has been scratched — please re-pick below
-              </span>
+            <td colSpan={5} style={{ padding: '4px 10px', background: '#1a0808', borderBottom: `1px solid ${DK_LINE}` }}>
+              <span style={{ fontSize: 9, color: '#f87171', fontWeight: 700 }}>⚠ {pick} scratched — please re-pick below</span>
             </td>
           </tr>
         )}
-        <tr key={key} style={{ borderBottom: '1px solid #f3f4f6' }}>
-          {/* Race info */}
-          <td style={{ padding: '5px 10px', minWidth: 120, verticalAlign: 'middle' }}>
-            <div style={{ fontSize: 11, fontWeight: 700, color: '#111827' }}>{titleCase(race.venue)} R{race.num}</div>
-            <div style={{ fontSize: 9, color: '#9ca3af', marginTop: 1 }}>{race.time || '—'} · {race.dist || ''}</div>
+        <tr key={key} style={{ background: DK_BG }}>
+          <td style={{ ...CELL, minWidth: 90 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: DK_TEXT }}>R{race.num}</div>
+            <div style={{ fontSize: 9, color: DK_MUT, fontFamily: 'monospace', marginTop: 1 }}>{race.time || '—'}</div>
           </td>
-          {/* Your pick */}
-          <td style={{ padding: '5px 8px', minWidth: 120, verticalAlign: 'middle' }}>
+          <td style={{ ...CELL, minWidth: 130 }}>
             {locked && !isScratched ? (
-              <span style={{
-                fontSize: 11, fontWeight: 600,
-                color: status === 'won' ? '#166534' : status === 'lost' ? '#991b1b' : pick ? '#111827' : '#d1d5db',
-                background: status === 'won' ? '#dcfce7' : status === 'lost' ? '#fee2e2' : 'transparent',
-                padding: (status === 'won' || status === 'lost') ? '2px 5px' : 0,
-                borderRadius: 3, display: 'inline-block',
-              }}>{pick || 'No pick'}</span>
+              <span style={{ fontSize: 10, fontWeight: 600, color: status === 'won' ? '#4ade80' : status === 'lost' ? '#f87171' : pick ? DK_TEXT : DK_MUT }}>
+                {pick || 'No pick'}
+              </span>
             ) : (
               <div>
                 <select
                   value={pick || ''}
                   onChange={e => savePick(race, e.target.value)}
                   style={{
-                    fontSize: 11, padding: '5px 6px', borderRadius: 5, width: '100%', maxWidth: 148,
-                    border: `1px solid ${isScratched ? '#dc2626' : pick ? '#86efac' : '#e5e7eb'}`,
-                    background: isScratched ? '#fef2f2' : pick ? '#f0fdf4' : '#fff',
-                    color: pick ? '#065f46' : '#9ca3af', cursor: 'pointer', boxSizing: 'border-box',
+                    fontSize: 10, padding: '4px 5px', borderRadius: 4, width: '100%', maxWidth: 145,
+                    border: `1px solid ${isScratched ? '#dc2626' : pick ? '#16a34a' : DK_LINE}`,
+                    background: DK_HDR,
+                    color: isScratched ? '#f87171' : pick ? '#4ade80' : '#4b5563',
+                    cursor: 'pointer', boxSizing: 'border-box', outline: 'none',
                   }}
                 >
                   <option value="">Pick horse…</option>
-                  {activeHorses.map(h => (
-                    <option key={h.name} value={h.name}>{h.name}</option>
-                  ))}
+                  {activeHorses.map(h => <option key={h.name} value={h.name}>{h.name}</option>)}
                 </select>
-                {savingKey === key && <div style={{ fontSize: 9, color: '#9ca3af', marginTop: 2 }}>Saving…</div>}
+                {savingKey === key && <div style={{ fontSize: 8, color: DK_MUT, marginTop: 2 }}>Saving…</div>}
               </div>
             )}
           </td>
-          {/* Most popular */}
-          <td style={{ padding: '5px 8px', minWidth: 110, verticalAlign: 'middle' }}>
+          <td style={{ ...CELL, minWidth: 100 }}>
             {topPop ? (
               <div>
-                <div style={{ fontSize: 11, fontWeight: 600, color: '#111827', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 110 }}>{topPop.horse}</div>
-                <div style={{ fontSize: 9, color: '#6b7280', marginTop: 1 }}>{topPop.pct}% of {topPop.total}</div>
+                <div style={{ fontSize: 10, fontWeight: 600, color: DK_TEXT, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 110 }}>{topPop.horse}</div>
+                <div style={{ fontSize: 8, color: DK_MUT, marginTop: 1 }}>{topPop.pct}% of {topPop.total}</div>
               </div>
             ) : (
-              <span style={{ fontSize: 10, color: '#d1d5db' }}>—</span>
+              <span style={{ fontSize: 9, color: DK_LINE }}>—</span>
             )}
           </td>
-          {/* Model #1 */}
-          <td style={{ padding: '5px 8px', minWidth: 90, verticalAlign: 'middle' }}>
-            <span style={{ fontSize: 11, fontWeight: 600, color: '#374151' }}>{rank1 || '—'}</span>
+          <td style={{ ...CELL, minWidth: 90 }}>
+            <span style={{ fontSize: 10, fontWeight: 500, color: '#94a3b8' }}>{rank1 || '—'}</span>
           </td>
-          {/* Result */}
-          <td style={{ padding: '5px 8px', minWidth: 100, verticalAlign: 'middle' }}>
-            {results[key] && (
-              <div style={{ fontSize: 10, fontWeight: 600, color: '#374151', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 110, marginBottom: 2 }}>
-                {titleCase(results[key])}
-              </div>
-            )}
-            {status === 'won' && <span style={{ fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 3, background: '#dcfce7', color: '#166534' }}>✓ WON</span>}
-            {status === 'lost' && <span style={{ fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 3, background: '#fee2e2', color: '#991b1b' }}>✗ LOST</span>}
-            {status === 'racing' && <span style={{ fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 3, background: '#fffbeb', color: '#92400e' }}>Racing</span>}
-            {status === 'nopick' && !results[key] && <span style={{ fontSize: 10, color: '#d1d5db' }}>—</span>}
-            {status === 'pending' && msToJump !== null && (
-              <span style={{ fontSize: 10, fontWeight: 600, color: '#6b7280', fontVariantNumeric: 'tabular-nums' }}>{fmtMs(msToJump) || 'Now'}</span>
-            )}
-            {status === 'pending' && msToJump === null && <span style={{ fontSize: 10, color: '#d1d5db' }}>—</span>}
+          <td style={{ ...CELL, borderRight: 'none', minWidth: 80 }}>
+            {jumpCell}
           </td>
         </tr>
       </>
     );
   }
 
+  // ─── Submit footer (shared) ───────────────────────────────────────────────────
+  function SubmitFooter({ compact }) {
+    return (
+      <div style={{ background: DK_HDR, borderTop: `1px solid ${DK_LINE}`, padding: compact ? '7px 14px' : '8px 12px', display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 2, flexShrink: 0 }}>
+          <span style={{ fontSize: compact ? 9 : 10, color: DK_TEXT, fontWeight: 600, whiteSpace: 'nowrap' }}>
+            {pickedCount} of {compRaces.length} picked{!compact && ` · ${compRaces.length - pickedCount} remaining`}
+          </span>
+          <span style={{ fontSize: 8, color: '#374151' }}>Correct +1 · Perfect meeting +3</span>
+        </div>
+        <div style={{ flex: 1, height: 4, background: DK_LINE, borderRadius: 2, overflow: 'hidden', minWidth: 30 }}>
+          <div style={{ height: '100%', width: `${pct}%`, background: '#16a34a', borderRadius: 2, transition: 'width 0.3s ease' }} />
+        </div>
+        <button
+          onClick={submitAllPicks}
+          disabled={submitting || pickedCount === 0}
+          style={{
+            padding: compact ? '6px 12px' : '7px 14px', borderRadius: 5, fontSize: 11, fontWeight: 700,
+            border: 'none', flexShrink: 0, cursor: pickedCount === 0 ? 'default' : 'pointer', whiteSpace: 'nowrap',
+            background: submitToast === 'success' ? '#166534' : submitToast === 'error' ? '#7f1d1d' : pickedCount > 0 ? '#16a34a' : DK_LINE,
+            color: submitToast === 'success' ? '#4ade80' : submitToast === 'error' ? '#f87171' : pickedCount > 0 ? '#fff' : '#374151',
+            opacity: submitting ? 0.7 : 1,
+          }}
+        >
+          {submitting ? 'Saving…' : submitToast === 'success' ? '✓ Done!' : submitToast === 'error' ? '✗ Failed' : 'Submit picks'}
+        </button>
+      </div>
+    );
+  }
+
   // ─── Left panel ───────────────────────────────────────────────────────────────
   const leftPanel = (
     <div style={{ width: 150, flexShrink: 0, background: '#fff', borderRight: '1px solid #e5e7eb', display: 'flex', flexDirection: 'column', padding: '10px 10px', boxSizing: 'border-box', overflowY: 'auto' }}>
-      {/* Avatar */}
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, paddingBottom: 8, borderBottom: '1px solid #f3f4f6', marginBottom: 8 }}>
         <div style={{ width: 36, height: 36, borderRadius: '50%', background: G, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 800, color: '#fff' }}>{initials}</div>
         <div style={{ fontSize: 10, fontWeight: 700, color: '#111827', textAlign: 'center', lineHeight: 1.3, wordBreak: 'break-word' }}>{uname}</div>
       </div>
-
-      {/* Today stats */}
       <div style={{ paddingBottom: 8, borderBottom: '1px solid #f3f4f6', marginBottom: 8 }}>
         <div style={{ fontSize: 8, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 4 }}>Today</div>
         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3 }}>
@@ -543,8 +573,6 @@ export default function CompetitionsPage() {
           <span style={{ fontSize: 12, fontWeight: 800, color: '#111827' }}>{userScore} pts</span>
         </div>
       </div>
-
-      {/* All-time points */}
       <div style={{ paddingBottom: 8, borderBottom: '1px solid #f3f4f6', marginBottom: 8 }}>
         <div style={{ fontSize: 8, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 4 }}>All-time</div>
         <div style={{ display: 'flex', justifyContent: 'space-between' }}>
@@ -552,8 +580,6 @@ export default function CompetitionsPage() {
           <span style={{ fontSize: 12, fontWeight: 700, color: '#111827' }}>{allTimePoints !== null ? allTimePoints : '—'}</span>
         </div>
       </div>
-
-      {/* This week grid */}
       <div style={{ paddingBottom: 8, borderBottom: '1px solid #f3f4f6', marginBottom: 8 }}>
         <div style={{ fontSize: 8, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 4 }}>This week</div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', gap: 2 }}>
@@ -563,14 +589,7 @@ export default function CompetitionsPage() {
             return (
               <div key={d} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
                 <span style={{ fontSize: 7, color: '#9ca3af' }}>{d[0]}</span>
-                <div style={{
-                  width: 17, height: 17, borderRadius: 3,
-                  background: isToday ? G : isPast ? '#f3f4f6' : '#f9fafb',
-                  border: `1px solid ${isToday ? G : '#e5e7eb'}`,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: 7, fontWeight: 700,
-                  color: isToday ? '#fff' : '#9ca3af',
-                }}>
+                <div style={{ width: 17, height: 17, borderRadius: 3, background: isToday ? G : isPast ? '#f3f4f6' : '#f9fafb', border: `1px solid ${isToday ? G : '#e5e7eb'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 7, fontWeight: 700, color: isToday ? '#fff' : '#9ca3af' }}>
                   {isToday ? userScore : ''}
                 </div>
               </div>
@@ -578,8 +597,6 @@ export default function CompetitionsPage() {
           })}
         </div>
       </div>
-
-      {/* Best streak (today's) */}
       <div style={{ paddingBottom: 8, borderBottom: '1px solid #f3f4f6', marginBottom: 8 }}>
         <div style={{ fontSize: 8, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 3 }}>Best streak</div>
         <div style={{ fontSize: 20, fontWeight: 800, color: '#111827', lineHeight: 1 }}>
@@ -597,7 +614,6 @@ export default function CompetitionsPage() {
         </div>
         <div style={{ fontSize: 9, color: '#9ca3af', marginTop: 1 }}>correct in a row</div>
       </div>
-
       <button onClick={() => setMainTab('alltime')} style={{ padding: '7px 0', background: 'none', border: '1px solid #e5e7eb', borderRadius: 6, fontSize: 11, fontWeight: 600, color: '#6b7280', cursor: 'pointer', width: '100%' }}>
         View history
       </button>
@@ -606,69 +622,50 @@ export default function CompetitionsPage() {
 
   // ─── Centre panel ─────────────────────────────────────────────────────────────
   const centrePanel = (
-    <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-      {/* Stats bar */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '5px 14px', background: '#fff', borderBottom: '1px solid #e5e7eb', flexShrink: 0, flexWrap: 'wrap' }}>
-        {[
-          { label: 'Entrants', val: entrantCount || 0 },
-          { label: 'Leader', val: leaderScore },
-          { label: 'Meetings', val: selVenues.length },
-        ].map(({ label, val }, i) => (
-          <div key={label} style={{ display: 'flex', alignItems: 'center', gap: i > 0 ? 14 : 0 }}>
-            {i > 0 && <div style={{ width: 1, height: 24, background: '#e5e7eb', marginRight: 14 }} />}
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-              <span style={{ fontSize: 16, fontWeight: 800, color: '#111827', lineHeight: 1 }}>{val}</span>
-              <span style={{ fontSize: 8, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.4px', marginTop: 1 }}>{label}</span>
-            </div>
-          </div>
-        ))}
-        <div style={{ flex: 1, display: 'flex', gap: 4, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
-          {selVenues.map(v => (
-            <span key={v} style={{ fontSize: 9, fontWeight: 600, padding: '2px 7px', borderRadius: 4, background: '#f0fdf4', color: G, border: `1px solid #bbf7d0`, whiteSpace: 'nowrap' }}>
-              {titleCase(v)}
-            </span>
-          ))}
-        </div>
-      </div>
-
-      {/* Race table */}
+    <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: DK_BG }}>
       <div style={{ flex: 1, overflowY: 'auto', overflowX: 'auto' }}>
         {!csvRaces && (
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 48, gap: 10, textAlign: 'center' }}>
-            <div style={{ fontSize: 32 }}>📋</div>
-            <div style={{ fontSize: 14, fontWeight: 700, color: '#374151' }}>No race data loaded</div>
-            <div style={{ fontSize: 12, color: '#9ca3af', maxWidth: 280 }}>Upload today&apos;s CSV on the Races page to enable the competition.</div>
+            <div style={{ fontSize: 28 }}>📋</div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: '#94a3b8' }}>No race data loaded</div>
+            <div style={{ fontSize: 11, color: DK_MUT, maxWidth: 260 }}>Upload today&apos;s CSV on the Races page to enable the competition.</div>
           </div>
         )}
         {csvRaces && compRaces.length === 0 && (
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 48, gap: 10 }}>
-            <div style={{ fontSize: 32 }}>🏁</div>
-            <div style={{ fontSize: 14, fontWeight: 700, color: '#374151' }}>No races in CSV</div>
+            <div style={{ fontSize: 28 }}>🏁</div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: '#94a3b8' }}>No races in CSV</div>
           </div>
         )}
-        {csvRaces && compRaces.length > 0 && selVenues.map(v => (
-          <div key={v}>
-            <div style={{ background: '#f9fafb', padding: '4px 12px', borderBottom: '1px solid #e5e7eb', display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span style={{ fontSize: 10, fontWeight: 700, color: '#374151', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{titleCase(v)}</span>
-              <span style={{ fontSize: 9, color: '#9ca3af' }}>${((meetingPrize[v] || 0) / 1000).toFixed(0)}k prize</span>
-            </div>
-            <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 480 }}>
-              <thead>
-                <tr style={{ background: '#fafafa', borderBottom: '1px solid #f3f4f6' }}>
-                  {['Race', 'Your pick', 'Most popular', 'Model #1', 'Result'].map(h => (
-                    <th key={h} style={{ padding: '4px 8px', fontSize: 9, fontWeight: 700, color: '#9ca3af', textAlign: 'left', textTransform: 'uppercase', letterSpacing: '0.5px', whiteSpace: 'nowrap' }}>{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {(racesByVenue[v] || []).map(race => (
-                  <>{renderRaceRow(race)}</>
+        {csvRaces && compRaces.length > 0 && (
+          <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 480, background: DK_BG }}>
+            <thead>
+              <tr style={{ background: DK_HDR }}>
+                {[['RACE', 90], ['YOUR PICK', 130], ['POPULAR', 100], ['MODEL #1', 90], ['JUMP', 80]].map(([h, w], i) => (
+                  <th key={h} style={{ padding: '5px 8px', fontSize: 9, fontWeight: 700, color: '#4b5563', textAlign: 'left', textTransform: 'uppercase', letterSpacing: '0.8px', whiteSpace: 'nowrap', borderBottom: `1px solid ${DK_LINE}`, borderRight: i < 4 ? `1px solid ${DK_LINE}` : 'none', minWidth: w }}>
+                    {h}
+                  </th>
                 ))}
-              </tbody>
-            </table>
-          </div>
-        ))}
+              </tr>
+            </thead>
+            <tbody>
+              {selVenues.map(v => (
+                <>
+                  <tr key={`${v}-hdr`}>
+                    <td colSpan={5} style={{ background: DK_HDR, borderTop: `2px solid ${DK_LINE}`, borderBottom: `1px solid ${DK_LINE}`, padding: '5px 10px' }}>
+                      <span style={{ fontSize: 10, fontWeight: 700, color: '#86efac', letterSpacing: '0.8px', textTransform: 'uppercase' }}>
+                        {v} · ${((meetingPrize[v] || 0) / 1000).toFixed(0)}k
+                      </span>
+                    </td>
+                  </tr>
+                  {(racesByVenue[v] || []).map(race => renderRaceRow(race))}
+                </>
+              ))}
+            </tbody>
+          </table>
+        )}
       </div>
+      <SubmitFooter compact={false} />
     </div>
   );
 
@@ -679,7 +676,6 @@ export default function CompetitionsPage() {
 
   const rightPanel = (
     <div style={{ width: 170, flexShrink: 0, background: '#fff', borderLeft: '1px solid #e5e7eb', display: 'flex', flexDirection: 'column', overflowY: 'auto' }}>
-      {/* Leaderboard */}
       <div style={{ padding: '8px 10px 0' }}>
         <div style={{ fontSize: 9, fontWeight: 700, color: '#111827', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Today&apos;s leaderboard</div>
         {todayLeaderboard.length === 0 && (
@@ -701,10 +697,7 @@ export default function CompetitionsPage() {
           </div>
         ))}
       </div>
-
       <div style={{ height: 1, background: '#f3f4f6', margin: '7px 0' }} />
-
-      {/* Scoring rules */}
       <div style={{ padding: '0 10px 8px' }}>
         <div style={{ fontSize: 9, fontWeight: 700, color: '#111827', marginBottom: 5, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Scoring</div>
         {[['Correct pick', '+1 pt'], ['Perfect 4/4 per meeting', '+3 bonus']].map(([label, val]) => (
@@ -714,10 +707,7 @@ export default function CompetitionsPage() {
           </div>
         ))}
       </div>
-
       <div style={{ height: 1, background: '#f3f4f6' }} />
-
-      {/* Today's meetings */}
       <div style={{ padding: '7px 10px 8px' }}>
         <div style={{ fontSize: 9, fontWeight: 700, color: '#111827', marginBottom: 5, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Today&apos;s meetings</div>
         {selVenues.length === 0 && <div style={{ fontSize: 10, color: '#9ca3af' }}>Load CSV on Races page</div>}
@@ -728,8 +718,6 @@ export default function CompetitionsPage() {
           </div>
         ))}
       </div>
-
-      {/* Scratch alerts */}
       {scratchAlerts.length > 0 && (
         <>
           <div style={{ height: 1, background: '#f3f4f6' }} />
@@ -743,23 +731,8 @@ export default function CompetitionsPage() {
           </div>
         </>
       )}
-
       <div style={{ height: 1, background: '#f3f4f6' }} />
-
-      {/* Action buttons */}
       <div style={{ padding: '7px 10px 10px', display: 'flex', flexDirection: 'column', gap: 4 }}>
-        <button
-          onClick={submitAllPicks}
-          disabled={submitting || pickedCount === 0}
-          style={{
-            padding: '9px 0', borderRadius: 6, fontSize: 11, fontWeight: 700, cursor: pickedCount === 0 ? 'default' : 'pointer', border: 'none',
-            background: submitToast === 'success' ? '#dcfce7' : submitToast === 'error' ? '#fee2e2' : pickedCount > 0 ? G : '#e5e7eb',
-            color: submitToast === 'success' ? '#166534' : submitToast === 'error' ? '#991b1b' : pickedCount > 0 ? '#fff' : '#9ca3af',
-            opacity: submitting ? 0.7 : 1,
-          }}
-        >
-          {submitting ? 'Submitting…' : submitToast === 'success' ? '✓ Picks submitted!' : submitToast === 'error' ? '✗ Submit failed' : `Submit picks (${pickedCount}/${compRaces.length})`}
-        </button>
         <button
           onClick={() => {
             const text = compRaces.map(r => { const k = rk(r.venue, r.num); return `${titleCase(r.venue)} R${r.num}: ${picks[k] || '—'}`; }).join('\n');
@@ -797,50 +770,40 @@ export default function CompetitionsPage() {
     </div>
   );
 
-  // ─── Mobile today view (stacked) ─────────────────────────────────────────────
+  // ─── Mobile today view ────────────────────────────────────────────────────────
   const mobileTodayPanel = (
-    <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 0 }}>
-      {/* User score bar */}
-      <div style={{ background: '#fff', borderBottom: '1px solid #e5e7eb', padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 12 }}>
-        <div style={{ width: 36, height: 36, borderRadius: '50%', background: G, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 800, color: '#fff', flexShrink: 0 }}>{initials}</div>
+    <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', background: DK_BG }}>
+      <div style={{ background: DK_HDR, borderBottom: `1px solid ${DK_LINE}`, padding: '8px 14px', display: 'flex', alignItems: 'center', gap: 10 }}>
+        <div style={{ width: 30, height: 30, borderRadius: '50%', background: G, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 800, color: '#fff', flexShrink: 0 }}>{initials}</div>
         <div style={{ flex: 1 }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: '#111827' }}>{uname}</div>
-          <div style={{ fontSize: 10, color: '#6b7280' }}>Score: <b style={{ color: G }}>{userScore} pts</b> {userRank ? `· Rank #${userRank}` : ''}</div>
+          <div style={{ fontSize: 10, fontWeight: 700, color: DK_TEXT }}>{uname}</div>
+          <div style={{ fontSize: 9, color: DK_MUT }}>Score: <b style={{ color: '#4ade80' }}>{userScore} pts</b> {userRank ? `· #${userRank}` : ''}</div>
         </div>
-        <button onClick={() => setMainTab('alltime')} style={{ fontSize: 10, color: '#6b7280', background: 'none', border: '1px solid #e5e7eb', borderRadius: 5, padding: '4px 8px', cursor: 'pointer' }}>History</button>
+        <div style={{ fontSize: 9, color: DK_MUT }}>{entrantCount} entrants</div>
+        <button onClick={() => setMainTab('alltime')} style={{ fontSize: 9, color: DK_MUT, background: 'none', border: `1px solid ${DK_LINE}`, borderRadius: 4, padding: '3px 7px', cursor: 'pointer' }}>History</button>
       </div>
-      {/* Stats row */}
-      <div style={{ background: '#fff', borderBottom: '1px solid #e5e7eb', padding: '8px 14px', display: 'flex', gap: 16 }}>
-        {[{ label: 'Entrants', val: entrantCount || 0 }, { label: 'Leader', val: leaderScore }, { label: 'Meetings', val: selVenues.length }].map(({ label, val }) => (
-          <div key={label} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-            <span style={{ fontSize: 14, fontWeight: 800, color: '#111827' }}>{val}</span>
-            <span style={{ fontSize: 8, color: '#9ca3af', textTransform: 'uppercase' }}>{label}</span>
-          </div>
-        ))}
-      </div>
-      {/* Scratch alerts */}
       {scratchAlerts.length > 0 && (
-        <div style={{ background: '#fef2f2', borderBottom: '1px solid #fecaca', padding: '8px 14px' }}>
+        <div style={{ background: '#1a0808', borderBottom: `1px solid #7f1d1d`, padding: '6px 14px' }}>
           {scratchAlerts.map(race => (
-            <div key={rk(race.venue, race.num)} style={{ fontSize: 11, color: '#dc2626', fontWeight: 600 }}>
+            <div key={rk(race.venue, race.num)} style={{ fontSize: 10, color: '#f87171', fontWeight: 600 }}>
               ⚠ {picks[rk(race.venue, race.num)]} scratched in {titleCase(race.venue)} R{race.num} — re-pick below
             </div>
           ))}
         </div>
       )}
-      {/* Races */}
       {!csvRaces && (
-        <div style={{ padding: 32, textAlign: 'center', color: '#9ca3af' }}>
-          <div style={{ fontSize: 28, marginBottom: 8 }}>📋</div>
-          <div style={{ fontSize: 13, fontWeight: 600, color: '#374151' }}>No CSV loaded</div>
-          <div style={{ fontSize: 11, marginTop: 4 }}>Upload today&apos;s CSV on the Races page first.</div>
+        <div style={{ padding: 32, textAlign: 'center' }}>
+          <div style={{ fontSize: 24, marginBottom: 8 }}>📋</div>
+          <div style={{ fontSize: 12, fontWeight: 600, color: '#94a3b8' }}>No CSV loaded</div>
+          <div style={{ fontSize: 10, color: DK_MUT, marginTop: 4 }}>Upload today&apos;s CSV on the Races page first.</div>
         </div>
       )}
       {csvRaces && selVenues.map(v => (
-        <div key={v} style={{ background: '#fff', marginBottom: 1 }}>
-          <div style={{ background: '#f9fafb', padding: '7px 14px', borderBottom: '1px solid #e5e7eb' }}>
-            <span style={{ fontSize: 11, fontWeight: 700, color: '#374151' }}>{titleCase(v)}</span>
-            <span style={{ fontSize: 9, color: '#9ca3af', marginLeft: 6 }}>${((meetingPrize[v] || 0) / 1000).toFixed(0)}k prize</span>
+        <div key={v}>
+          <div style={{ background: DK_HDR, borderTop: `2px solid ${DK_LINE}`, borderBottom: `1px solid ${DK_LINE}`, padding: '5px 14px' }}>
+            <span style={{ fontSize: 10, fontWeight: 700, color: '#86efac', letterSpacing: '0.8px', textTransform: 'uppercase' }}>
+              {v} · ${((meetingPrize[v] || 0) / 1000).toFixed(0)}k
+            </span>
           </div>
           {(racesByVenue[v] || []).map(race => {
             const key = rk(race.venue, race.num);
@@ -854,39 +817,42 @@ export default function CompetitionsPage() {
             const msToJump = jt ? jt.getTime() - now : null;
             const isScratched = pick && scratchings.has(`${key}||${pick.toUpperCase()}`);
             const activeHorses = (race.horses || []).filter(h => !h.scratched && !scratchings.has(`${key}||${(h.name || '').toUpperCase()}`));
+            const underTen = msToJump !== null && msToJump < 600000 && !results[key] && status !== 'racing';
             return (
-              <div key={key} style={{ padding: '7px 14px', borderBottom: '1px solid #f3f4f6' }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+              <div key={key} style={{ padding: '8px 14px', borderBottom: `1px solid ${DK_LINE}`, background: DK_BG }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 5 }}>
                   <div>
-                    <span style={{ fontSize: 11, fontWeight: 700, color: '#111827' }}>R{race.num}</span>
-                    <span style={{ fontSize: 10, color: '#9ca3af', marginLeft: 6 }}>{race.time} · {race.dist}</span>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: DK_TEXT }}>R{race.num}</span>
+                    <span style={{ fontSize: 9, color: DK_MUT, fontFamily: 'monospace', marginLeft: 6 }}>{race.time}</span>
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 1 }}>
-                    {results[key] && <span style={{ fontSize: 9, fontWeight: 600, color: '#374151' }}>{titleCase(results[key])}</span>}
-                    {status === 'won' && <span style={{ fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 3, background: '#dcfce7', color: '#166534' }}>✓ WON</span>}
-                    {status === 'lost' && <span style={{ fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 3, background: '#fee2e2', color: '#991b1b' }}>✗ LOST</span>}
-                    {status === 'racing' && <span style={{ fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 3, background: '#fffbeb', color: '#92400e' }}>Racing</span>}
-                    {status === 'pending' && msToJump !== null && <span style={{ fontSize: 9, fontWeight: 600, color: '#6b7280' }}>{fmtMs(msToJump) || 'Now'}</span>}
+                    {results[key] && <span style={{ fontSize: 9, fontWeight: 600, color: DK_TEXT }}>{titleCase(results[key])}</span>}
+                    {status === 'won'    && <span style={{ fontSize: 8, fontWeight: 700, color: '#4ade80' }}>✓ WON</span>}
+                    {status === 'lost'   && <span style={{ fontSize: 8, fontWeight: 700, color: '#f87171' }}>✗ LOST</span>}
+                    {status === 'racing' && <span style={{ fontSize: 9, fontWeight: 700, color: '#fbbf24' }}>Racing</span>}
+                    {status === 'pending' && msToJump !== null && (
+                      <span style={{ fontSize: 9, fontWeight: underTen ? 700 : 400, color: underTen ? '#fbbf24' : DK_MUT, fontFamily: 'monospace' }}>
+                        {fmtMs(msToJump) || 'Now'}
+                      </span>
+                    )}
                   </div>
                 </div>
-                {isScratched && <div style={{ fontSize: 10, color: '#dc2626', fontWeight: 600, marginBottom: 4 }}>⚠ {pick} scratched — re-pick</div>}
+                {isScratched && <div style={{ fontSize: 9, color: '#f87171', fontWeight: 600, marginBottom: 4 }}>⚠ {pick} scratched — re-pick</div>}
                 {locked && !isScratched ? (
-                  <div style={{
-                    fontSize: 11, fontWeight: 600, padding: '4px 8px', borderRadius: 5, border: '1px solid #e5e7eb',
-                    color: status === 'won' ? '#166534' : status === 'lost' ? '#991b1b' : pick ? '#065f46' : '#9ca3af',
-                    background: status === 'won' ? '#dcfce7' : status === 'lost' ? '#fee2e2' : pick ? '#f0fdf4' : '#f9fafb',
-                  }}>{pick || 'No pick'}</div>
+                  <div style={{ fontSize: 11, fontWeight: 600, padding: '4px 8px', borderRadius: 4, border: `1px solid ${DK_LINE}`, color: status === 'won' ? '#4ade80' : status === 'lost' ? '#f87171' : pick ? DK_TEXT : DK_MUT, background: DK_HDR }}>
+                    {pick || 'No pick'}
+                  </div>
                 ) : (
                   <select value={pick || ''} onChange={e => savePick(race, e.target.value)}
-                    style={{ width: '100%', fontSize: 12, padding: '7px 8px', borderRadius: 6, border: `1px solid ${isScratched ? '#dc2626' : pick ? '#86efac' : '#e5e7eb'}`, background: isScratched ? '#fef2f2' : pick ? '#f0fdf4' : '#fff', color: pick ? '#065f46' : '#9ca3af' }}>
+                    style={{ width: '100%', fontSize: 12, padding: '7px 8px', borderRadius: 5, border: `1px solid ${isScratched ? '#dc2626' : pick ? '#16a34a' : DK_LINE}`, background: DK_HDR, color: isScratched ? '#f87171' : pick ? '#4ade80' : '#4b5563', outline: 'none' }}>
                     <option value="">Pick horse…</option>
                     {activeHorses.map(h => <option key={h.name} value={h.name}>{h.name}</option>)}
                   </select>
                 )}
                 {(topPop || rank1) && (
-                  <div style={{ display: 'flex', gap: 10, marginTop: 6 }}>
-                    {topPop && <div style={{ fontSize: 9, color: '#6b7280' }}>Popular: <b style={{ color: '#111827' }}>{topPop.horse}</b> {topPop.pct}%</div>}
-                    {rank1 && <div style={{ fontSize: 9, color: '#6b7280' }}>Model: <b style={{ color: '#111827' }}>{rank1}</b></div>}
+                  <div style={{ display: 'flex', gap: 10, marginTop: 5 }}>
+                    {topPop && <div style={{ fontSize: 9, color: DK_MUT }}>Popular: <b style={{ color: '#94a3b8' }}>{topPop.horse}</b> {topPop.pct}%</div>}
+                    {rank1  && <div style={{ fontSize: 9, color: DK_MUT }}>Model: <b style={{ color: '#94a3b8' }}>{rank1}</b></div>}
                   </div>
                 )}
               </div>
@@ -894,66 +860,54 @@ export default function CompetitionsPage() {
           })}
         </div>
       ))}
-      {/* Submit picks (mobile) */}
-      {csvRaces && compRaces.length > 0 && (
-        <div style={{ padding: '10px 14px', background: '#fff', borderBottom: '1px solid #e5e7eb' }}>
-          <button
-            onClick={submitAllPicks}
-            disabled={submitting || pickedCount === 0}
-            style={{
-              width: '100%', padding: '11px 0', borderRadius: 7, fontSize: 13, fontWeight: 700, border: 'none',
-              cursor: pickedCount === 0 ? 'default' : 'pointer',
-              background: submitToast === 'success' ? '#dcfce7' : submitToast === 'error' ? '#fee2e2' : pickedCount > 0 ? G : '#e5e7eb',
-              color: submitToast === 'success' ? '#166534' : submitToast === 'error' ? '#991b1b' : pickedCount > 0 ? '#fff' : '#9ca3af',
-              opacity: submitting ? 0.7 : 1,
-            }}
-          >
-            {submitting ? 'Submitting…' : submitToast === 'success' ? '✓ Picks submitted!' : submitToast === 'error' ? '✗ Submit failed' : `Submit picks · ${pickedCount}/${compRaces.length} selected`}
-          </button>
-        </div>
-      )}
-      {/* Leaderboard (mobile inline) */}
       {todayLeaderboard.length > 0 && (
-        <div style={{ background: '#fff', margin: '4px 0 0', padding: '12px 14px' }}>
-          <div style={{ fontSize: 10, fontWeight: 700, color: '#111827', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Leaderboard</div>
-          {[...top5, ...(showUserSep ? [userEntry] : [])].map((e, i) => (
-            <div key={e.clerk_id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 0', borderBottom: '1px solid #f3f4f6', background: e.isMe ? '#f0f7ff' : 'transparent' }}>
-              <span style={{ fontSize: 10, color: '#9ca3af', width: 18 }}>#{e.rank}</span>
-              <span style={{ fontSize: 11, flex: 1, fontWeight: e.isMe ? 700 : 400, color: e.isMe ? '#1d4ed8' : '#374151' }}>{e.uname}</span>
-              <span style={{ fontSize: 13, fontWeight: 800, color: e.isMe ? '#1d4ed8' : G }}>{e.score}</span>
+        <div style={{ background: DK_HDR, margin: '8px 0 0', padding: '10px 14px', borderTop: `1px solid ${DK_LINE}` }}>
+          <div style={{ fontSize: 9, fontWeight: 700, color: '#4b5563', marginBottom: 7, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Leaderboard</div>
+          {[...top5, ...(showUserSep ? [userEntry] : [])].map(e => (
+            <div key={e.clerk_id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 0', borderBottom: `1px solid ${DK_LINE}` }}>
+              <span style={{ fontSize: 9, color: DK_MUT, width: 18 }}>#{e.rank}</span>
+              <span style={{ fontSize: 10, flex: 1, fontWeight: e.isMe ? 700 : 400, color: e.isMe ? '#93c5fd' : '#94a3b8' }}>{e.uname}</span>
+              <span style={{ fontSize: 12, fontWeight: 800, color: e.isMe ? '#93c5fd' : '#4ade80' }}>{e.score}</span>
             </div>
           ))}
         </div>
       )}
-      {/* Scoring rules (mobile) */}
-      <div style={{ background: '#fff', margin: '4px 0', padding: '12px 14px' }}>
-        <div style={{ fontSize: 10, fontWeight: 700, color: '#111827', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Scoring</div>
-        <div style={{ fontSize: 11, color: '#6b7280' }}>Correct pick <b style={{ color: G }}>+1pt</b> · Perfect 4/4 per meeting <b style={{ color: G }}>+3 bonus</b></div>
-      </div>
+      <SubmitFooter compact={true} />
     </div>
   );
 
   // ─── Main render ──────────────────────────────────────────────────────────────
   return (
-    <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: '#f3f4f6' }}>
-      {/* Header bar */}
-      <div style={{ background: G, padding: '10px 16px', display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0, flexWrap: 'wrap' }}>
-        <div style={{ fontSize: 14, fontWeight: 800, color: '#fff' }}>{headerDateStr}</div>
-        <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.7)', display: 'flex', gap: 6, alignItems: 'center' }}>
+    <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: DK_BG }}>
+      <div style={{ background: DK_HDR, borderBottom: `1px solid ${DK_LINE}`, padding: '7px 14px', display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0, flexWrap: 'wrap' }}>
+        <div style={{ fontSize: 12, fontWeight: 800, color: DK_TEXT }}>{headerDateStr}</div>
+        <div style={{ fontSize: 9, color: DK_MUT, display: 'flex', gap: 6, alignItems: 'center' }}>
           <span>{entrantCount} entrant{entrantCount !== 1 ? 's' : ''}</span>
-          {closingTime && <><span style={{ opacity: 0.4 }}>·</span><span>Closes {closingTime}</span></>}
+          {closingTime && (
+            <>
+              <span style={{ opacity: 0.4 }}>·</span>
+              <span>Closes <span style={{ color: '#fbbf24', fontWeight: 600 }}>{closingTime}</span></span>
+            </>
+          )}
+          {compRaces.length > 0 && (
+            <>
+              <span style={{ opacity: 0.4 }}>·</span>
+              <span style={{ color: pickedCount === compRaces.length ? '#4ade80' : DK_MUT }}>
+                {pickedCount}/{compRaces.length} picked
+              </span>
+            </>
+          )}
         </div>
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 2 }}>
           {[{ id: 'today', label: 'Today' }, { id: 'alltime', label: 'All-time' }].map(t => (
             <button key={t.id} onClick={() => setMainTab(t.id)}
-              style={{ padding: '5px 12px', fontSize: 11, fontWeight: 700, border: 'none', borderRadius: 4, cursor: 'pointer', background: mainTab === t.id ? 'rgba(255,255,255,0.2)' : 'transparent', color: mainTab === t.id ? '#fff' : 'rgba(255,255,255,0.55)' }}>
+              style={{ padding: '4px 10px', fontSize: 10, fontWeight: 700, border: 'none', borderRadius: 4, cursor: 'pointer', background: mainTab === t.id ? 'rgba(255,255,255,0.10)' : 'transparent', color: mainTab === t.id ? DK_TEXT : '#374151' }}>
               {t.label}
             </button>
           ))}
         </div>
       </div>
 
-      {/* Body */}
       {mainTab === 'today' && (
         isMobile
           ? mobileTodayPanel
