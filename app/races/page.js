@@ -475,10 +475,9 @@ function RightRail({ allRaces, allVenues, selectedRaceKey, onSelect, isPro, user
             const off   = label === 'Off';
             const neg   = secs !== null && secs < 0 && !off;
             const urgent= secs !== null && secs >= 0 && secs <= 600;
-            const cdColor = off   ? '#d1d5db'
-                          : neg   ? '#ef4444'
-                          : urgent? '#059669'
-                          :         '#374151';
+            const cdColor = neg    ? '#ef4444'
+                          : urgent ? '#059669'
+                          :          '#111827';
             const rawV  = (rc.venue||'').toUpperCase();
             const normV = VENUE_NORMALISE[rawV] || rawV;
             const betKey = `${normV}||${String(rc.num)}`;
@@ -494,11 +493,11 @@ function RightRail({ allRaces, allVenues, selectedRaceKey, onSelect, isPro, user
                 onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
               >
                 <td style={{ ...tdBase, fontSize: 10, color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  <span style={{ color: '#9ca3af', fontSize: 9 }}>{venueAbbr(rc.venue)}</span>
+                  <span style={{ color: '#111827', fontSize: 9 }}>{venueAbbr(rc.venue)}</span>
                   {' '}<span style={{ fontWeight: 600 }}>R{rc.num}</span>
-                  {rc.dist && <span style={{ color: '#d1d5db', fontSize: 9, marginLeft: 3 }}>{rc.dist}m</span>}
+                  {rc.dist && <span style={{ color: '#111827', fontSize: 9, marginLeft: 3 }}>{rc.dist}m</span>}
                 </td>
-                <td style={{ ...tdBase, textAlign: 'right', fontSize: 9, color: '#9ca3af', whiteSpace: 'nowrap' }}>{rc.time}</td>
+                <td style={{ ...tdBase, textAlign: 'right', fontSize: 9, color: '#111827', whiteSpace: 'nowrap' }}>{rc.time}</td>
                 <td style={{ ...tdBase, textAlign: 'right', fontWeight: (urgent || neg) ? 700 : 400, color: cdColor, fontSize: 10, whiteSpace: 'nowrap', paddingRight: 10 }}>
                   {label}
                 </td>
