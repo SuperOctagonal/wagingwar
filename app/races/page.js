@@ -468,7 +468,7 @@ function RightRail({ allRaces, allVenues, selectedRaceKey, onSelect, isPro, user
           </tr>
         </thead>
         <tbody>
-          {keys.flatMap(rk => {
+          {keys.flatMap((rk, idx) => {
             const rc    = allRaces[rk];
             const secs  = countdownSecs(rc, now);
             const label = fmtCd(secs);
@@ -483,7 +483,7 @@ function RightRail({ allRaces, allVenues, selectedRaceKey, onSelect, isPro, user
             const betKey = `${normV}||${String(rc.num)}`;
             const bet   = isPro ? todayBets[betKey] : null;
 
-            const tdBase = { padding: '4px 8px', borderBottom: '0.5px solid #e5e7eb', verticalAlign: 'middle' };
+            const tdBase = { padding: '4px 8px', borderBottom: '0.5px solid #e5e7eb', ...(idx > 0 ? { borderTop: '1px solid #86efac' } : {}), verticalAlign: 'middle' };
 
             const rows = [
               <tr key={rk}
