@@ -9,6 +9,7 @@ import useIsMobile from '@/hooks/useIsMobile';
 import UpgradeModal from '@/components/UpgradeModal';
 import BottomSheet from '@/components/BottomSheet';
 import { awardPoints } from '@/lib/points';
+import { normaliseVenue, stripSponsorPrefix, SPONSOR_PREFIXES, VENUE_NORMALISE } from '@/lib/venues';
 
 const SURL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SKEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -66,57 +67,6 @@ function parseRaceTime(timeStr, dateStr) {
   const dateISO = toISO(dateStr) || new Date().toISOString().slice(0, 10);
   const raceAt = new Date(`${dateISO}T${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:00`);
   return isNaN(raceAt.getTime()) ? null : raceAt;
-}
-
-const VENUE_NORMALISE = {
-  'SANDOWN-HILLSIDE':              'SANDOWN',
-  'SANDOWN HILLSIDE':              'SANDOWN',
-  'SANDOWN LAKESIDE':              'SANDOWN',
-  'ROSEHILL':                      'ROSEHILL GARDENS',
-  'ROSEHILL GARDENS':              'ROSEHILL GARDENS',
-  'ROSEHILL GARDENS RACECOURSE':   'ROSEHILL GARDENS',
-  'AQUIS PARK GOLD COAST':         'GOLD COAST',
-  'AQUIS PARK GOLD COAST POLY':    'GOLD COAST POLY',
-  'THOMAS FARMS RC MURRAY BRIDGE': 'MURRAY BRIDGE',
-  'THOMAS FARMS MURRAY BRIDGE':    'MURRAY BRIDGE',
-  'RC MURRAY BRIDGE':              'MURRAY BRIDGE',
-  'SPORTSBET SANDOWN HILLSIDE':    'SANDOWN',
-  'BELMONT PARK':                  'BELMONT',
-  'BALLARAT SYN':                  'BALLARAT SYNTHETIC',
-  'SPORTSBET-BALLARAT SYNTHETIC':  'BALLARAT SYNTHETIC',
-  'SPORTSBET BALLARAT SYNTHETIC':  'BALLARAT SYNTHETIC',
-  'SOUTHSIDE PAKENHAM SYNTHETIC':  'PAKENHAM SYNTHETIC',
-  'WAGGA':                         'WAGGA WAGGA',
-  'WAGGA WAGGA':                   'WAGGA WAGGA',
-  'CANBERRA':                      'THOROUGHBRED PARK',
-  'SPORTSBET MT ISA':              'MOUNT ISA',
-};
-
-const SPONSOR_PREFIXES = ['SPORTSBET-', 'SPORTSBET ', 'LADBROKES-', 'LADBROKES ', 'BET365-', 'BET365 ', 'TAB-', 'TAB ', 'SOUTHSIDE ', 'AQUIS '];
-
-function stripSponsorPrefix(name) {
-  const upper = (name || '').toUpperCase();
-  for (const p of SPONSOR_PREFIXES) {
-    if (upper.startsWith(p)) return name.slice(p.length).trim();
-  }
-  return (name || '').trim();
-}
-
-function normaliseVenue(raw) {
-  const cleaned = (raw || '').toUpperCase().trim();
-  if (VENUE_NORMALISE[cleaned]) return VENUE_NORMALISE[cleaned];
-  const stripped = stripSponsorPrefix(raw).toUpperCase().trim();
-  if (stripped !== cleaned) {
-    if (VENUE_NORMALISE[stripped]) return VENUE_NORMALISE[stripped];
-    for (const [key, val] of Object.entries(VENUE_NORMALISE)) {
-      if (stripped === key || stripped.includes(key) || key.includes(stripped)) return val;
-    }
-    return stripped;
-  }
-  for (const [key, val] of Object.entries(VENUE_NORMALISE)) {
-    if (cleaned.includes(key) || key.includes(cleaned)) return val;
-  }
-  return cleaned;
 }
 
 // Strip trailing country-of-origin suffix before scratchings key comparison

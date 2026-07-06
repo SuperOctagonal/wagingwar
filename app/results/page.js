@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { parseCSV, buildRaces } from '@/lib/csvParser';
 import { scoreGroup, getDefaultWeights, GRP_KEYS } from '@/lib/scoring';
+import { normaliseVenue } from '@/lib/venues';
 import ProfileRail from '@/components/ProfileRail';
 import useIsMobile from '@/hooks/useIsMobile';
 
@@ -24,15 +25,16 @@ async function fetchResultsForDate(dateStr) {
 function normName(n) { return (n || '').toUpperCase().replace(/[^A-Z0-9]/g, ''); }
 
 function getSysRanks(allRaces, allVenues, venue, raceNum, weights, dbScratchings = []) {
+  const normVenue = normaliseVenue(venue);
   const dbScrNames = new Set(
-    dbScratchings.filter(r => (r.venue||'').toUpperCase() === (venue||'').toUpperCase() && String(r.race_num) === String(raceNum))
+    dbScratchings.filter(r => normaliseVenue(r.venue) === normVenue && String(r.race_num) === String(raceNum))
       .map(r => normName(r.horse_name || ''))
   );
   for (const keys of Object.values(allVenues)) {
     for (const k of keys) {
       const rc = allRaces[k];
       if (!rc) continue;
-      if ((rc.venue || '').toUpperCase() !== (venue || '').toUpperCase()) continue;
+      if (normaliseVenue(rc.venue) !== normVenue) continue;
       if (String(rc.num) !== String(raceNum)) continue;
       const active = (rc.horses || []).filter(h => !h.scratched && !dbScrNames.has(normName(h.name || '')));
       const scored = active.map(h => {
@@ -195,9 +197,10 @@ export default function ResultsPage() {
   const grouped = useMemo(() => {
     const g = {};
     (dbRows || []).forEach(row => {
-      const key = `${(row.venue||'').toUpperCase()}||${row.race_num}`;
+      const norm = normaliseVenue(row.venue);
+      const key = `${norm}||${row.race_num}`;
       if (!g[key]) g[key] = {
-        venue: (row.venue||'').toUpperCase(),
+        venue: norm,
         raceNum: row.race_num,
         raceTime: row.race_time || '',
         trackCond: row.track_cond || '',
@@ -217,7 +220,7 @@ export default function ResultsPage() {
     });
     // Populate scratched list from DB scratchings table
     (dbScratchings || []).forEach(row => {
-      const key = `${(row.venue||'').toUpperCase()}||${row.race_num}`;
+      const key = `${normaliseVenue(row.venue)}||${row.race_num}`;
       if (g[key] && row.horse_name) g[key].scratched.push(row.horse_name);
     });
     Object.values(g).forEach(x => x.runners.sort((a, b) => a.place - b.place));
@@ -226,10 +229,11 @@ export default function ResultsPage() {
 
   // Build { VENUE: [{ raceNum, results }] } — only venues present in the loaded CSV
   const meetings = useMemo(() => {
+    const csvNormVenues = new Set(Object.keys(allVenues).map(k => normaliseVenue(k)));
     const m = {};
     Object.values(grouped).forEach(res => {
-      const v = res.venue;
-      if (!allVenues[v]) return;
+      const v = res.venue; // already normalised in grouped
+      if (!csvNormVenues.has(v)) return;
       if (!m[v]) m[v] = [];
       if (!m[v].find(r => r.raceNum === res.raceNum)) {
         m[v].push({ raceNum: res.raceNum, results: res });
@@ -239,7 +243,7 @@ export default function ResultsPage() {
     Object.values(allVenues).flat().forEach(k => {
       const rc = allRaces[k];
       if (!rc) return;
-      const v = (rc.venue || '').toUpperCase();
+      const v = normaliseVenue(rc.venue);
       if (!m[v]) m[v] = [];
       if (!m[v].find(r => String(r.raceNum) === String(rc.num))) {
         m[v].push({ raceNum: rc.num, results: null });
