@@ -151,17 +151,16 @@ async function matchAndUpdateBets(pendingBets) {
     const sp    = +(row.sp    || 0);
     const pos   = row.finish_pos;
     const type  = (bet.bet_type || '').toLowerCase();
-    const useOdds = sp > 1 ? sp : odds;
     const isEW = type === 'each-way' || type === 'each way';
 
     let status, returnAmt, profitLoss;
     if (isEW) {
       if (pos === 1) {
         status     = 'win';
-        profitLoss = (stake * useOdds) - stake + (stake * (useOdds / 4)) - stake;
+        profitLoss = (stake * odds) - stake + (stake * (odds / 4)) - stake;
       } else if (pos <= 3) {
         status     = 'place';
-        profitLoss = -stake + (stake * (useOdds / 4)) - stake;
+        profitLoss = -stake + (stake * (odds / 4)) - stake;
       } else {
         status = 'loss'; profitLoss = -(2 * stake);
       }
@@ -169,7 +168,7 @@ async function matchAndUpdateBets(pendingBets) {
     } else if (type === 'place') {
       if (pos <= 3) {
         status     = 'place';
-        returnAmt  = stake * (useOdds / 4);
+        returnAmt  = stake * (odds / 4);
         profitLoss = returnAmt - stake;
       } else {
         status = 'loss'; returnAmt = 0; profitLoss = -stake;
@@ -177,7 +176,7 @@ async function matchAndUpdateBets(pendingBets) {
     } else {
       if (pos === 1) {
         status     = 'win';
-        returnAmt  = stake * useOdds;
+        returnAmt  = stake * odds;
         profitLoss = returnAmt - stake;
       } else {
         status = 'loss'; returnAmt = 0; profitLoss = -stake;
