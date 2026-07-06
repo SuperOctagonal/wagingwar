@@ -71,6 +71,7 @@ function parseRaceTime(timeStr, dateStr) {
 const VENUE_NORMALISE = {
   'SANDOWN-HILLSIDE':              'SANDOWN',
   'SANDOWN HILLSIDE':              'SANDOWN',
+  'SANDOWN LAKESIDE':              'SANDOWN',
   'ROSEHILL':                      'ROSEHILL GARDENS',
   'ROSEHILL GARDENS':              'ROSEHILL GARDENS',
   'ROSEHILL GARDENS RACECOURSE':   'ROSEHILL GARDENS',
@@ -82,7 +83,41 @@ const VENUE_NORMALISE = {
   'SPORTSBET SANDOWN HILLSIDE':    'SANDOWN',
   'BELMONT PARK':                  'BELMONT',
   'BALLARAT SYN':                  'BALLARAT SYNTHETIC',
+  'SPORTSBET-BALLARAT SYNTHETIC':  'BALLARAT SYNTHETIC',
+  'SPORTSBET BALLARAT SYNTHETIC':  'BALLARAT SYNTHETIC',
+  'SOUTHSIDE PAKENHAM SYNTHETIC':  'PAKENHAM SYNTHETIC',
+  'WAGGA':                         'WAGGA WAGGA',
+  'WAGGA WAGGA':                   'WAGGA WAGGA',
+  'CANBERRA':                      'THOROUGHBRED PARK',
+  'SPORTSBET MT ISA':              'MOUNT ISA',
 };
+
+const SPONSOR_PREFIXES = ['SPORTSBET-', 'SPORTSBET ', 'LADBROKES-', 'LADBROKES ', 'BET365-', 'BET365 ', 'TAB-', 'TAB ', 'SOUTHSIDE ', 'AQUIS '];
+
+function stripSponsorPrefix(name) {
+  const upper = (name || '').toUpperCase();
+  for (const p of SPONSOR_PREFIXES) {
+    if (upper.startsWith(p)) return name.slice(p.length).trim();
+  }
+  return (name || '').trim();
+}
+
+function normaliseVenue(raw) {
+  const cleaned = (raw || '').toUpperCase().trim();
+  if (VENUE_NORMALISE[cleaned]) return VENUE_NORMALISE[cleaned];
+  const stripped = stripSponsorPrefix(raw).toUpperCase().trim();
+  if (stripped !== cleaned) {
+    if (VENUE_NORMALISE[stripped]) return VENUE_NORMALISE[stripped];
+    for (const [key, val] of Object.entries(VENUE_NORMALISE)) {
+      if (stripped === key || stripped.includes(key) || key.includes(stripped)) return val;
+    }
+    return stripped;
+  }
+  for (const [key, val] of Object.entries(VENUE_NORMALISE)) {
+    if (cleaned.includes(key) || key.includes(cleaned)) return val;
+  }
+  return cleaned;
+}
 
 // Strip trailing country-of-origin suffix before scratchings key comparison
 // e.g. "NAMARA (NZ)" → "NAMARA", "TRUE TO FORM (IRE)" → "TRUE TO FORM"
@@ -99,8 +134,7 @@ async function fetchRaceResultsForDate(dateStr) {
     const rows = await res.json();
     const g = {};
     rows.forEach(row => {
-      const rawV = (row.venue||'').toUpperCase();
-      const normV = VENUE_NORMALISE[rawV] || rawV;
+      const normV = normaliseVenue(row.venue);
       const key = `${normV}||${String(row.race_num)}`;
       if (!g[key]) g[key] = { venue: normV, raceNum:row.race_num, runners:[] };
       if (row.finish_pos) g[key].runners.push({ place:row.finish_pos, name:row.horse_name, sp:row.sp||0, margin:row.margin||'' });
@@ -247,7 +281,7 @@ const TC_PILL = {
 
 // ─── left rail ────────────────────────────────────────────────────────────────
 
-function LeftRail({ allVenues, allRaces, selectedRaceKey, onSelect, trackConds, raceResults }) {
+function LeftRail({ allVenues, allRaces, selectedRaceKey, onSelect, trackConds, raceResults, abandonedVenues }) {
   const [now,    setNow]    = useState(() => Date.now());
   const [pinned, setPinned] = useState(() => {
     try { return JSON.parse(localStorage.getItem('ww_pinned_meetings') || '[]'); } catch { return []; }
@@ -282,8 +316,7 @@ function LeftRail({ allVenues, allRaces, selectedRaceKey, onSelect, trackConds, 
 
   // Race segment status
   const segStatus = (venue, rc) => {
-    const rawV = (venue||'').toUpperCase();
-    const normV = VENUE_NORMALISE[rawV] || rawV;
+    const normV = normaliseVenue(venue);
     if ((raceResults||{})[`${normV}||${String(rc.num)}`]) return 'resulted';
     const s = countdownSecs(rc, now);
     if (s !== null && s >= -240 && s <= 30) return 'now';
@@ -295,10 +328,11 @@ function LeftRail({ allVenues, allRaces, selectedRaceKey, onSelect, trackConds, 
   const unpinnedVenues = venues.filter(v => !pinned.includes(v));
 
   const renderTile = (venue) => {
-    const raceKeys  = allVenues[venue] || [];
-    const tc        = trackConds[venue];
-    const pill      = TC_PILL[tc];
-    const isActive  = raceKeys.some(k => k === selectedRaceKey);
+    const raceKeys   = allVenues[venue] || [];
+    const isAbandoned = (abandonedVenues || new Set()).has(normaliseVenue(venue));
+    const tc         = !isAbandoned && trackConds[venue];
+    const pill       = TC_PILL[tc];
+    const isActive   = raceKeys.some(k => k === selectedRaceKey);
     const isPinned  = pinned.includes(venue);
 
     // Progress segments
@@ -351,7 +385,11 @@ function LeftRail({ allVenues, allRaces, selectedRaceKey, onSelect, trackConds, 
           <div style={{ fontSize: 10, fontWeight: 700, color: '#fff', textTransform: 'uppercase', letterSpacing: '0.7px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
             {venue}
           </div>
-          {pill && (
+          {isAbandoned ? (
+            <span style={{ fontSize: 8, fontWeight: 700, padding: '1px 4px', borderRadius: 3, background: '#6b7280', color: '#fff', flexShrink: 0 }}>
+              Abandoned
+            </span>
+          ) : pill && (
             <span style={{ fontSize: 8, fontWeight: 700, padding: '1px 4px', borderRadius: 3, background: pill.bg, color: '#fff', flexShrink: 0 }}>
               {pill.label}
             </span>
@@ -489,9 +527,7 @@ function RightRail({ allRaces, allVenues, selectedRaceKey, onSelect, isPro, user
             const cdColor = neg    ? '#ef4444'
                           : urgent ? '#059669'
                           :          '#111827';
-            const rawV  = (rc.venue||'').toUpperCase();
-            const normV = VENUE_NORMALISE[rawV] || rawV;
-            const betKey = `${normV}||${String(rc.num)}`;
+            const betKey = `${normaliseVenue(rc.venue)}||${String(rc.num)}`;
             const bet   = isPro ? todayBets[betKey] : null;
 
             const tdBase = { padding: '4px 8px', borderBottom: '0.5px solid #e5e7eb', ...(idx > 0 ? { borderTop: '1px solid #86efac' } : {}), verticalAlign: 'middle' };
@@ -1568,7 +1604,7 @@ function RunnerRow({ runner, rank, rc, trackCond, onLogBet, onShowPopup, onHideP
 
 function FieldView({ results, scratched, rc, trackCond, onLogBet, onShowPopup, onHidePopup, isResulted, betBlocked = false, isPro, onUpgrade, scratchingsSet = new Set() }) {
   const tcLabel = { good:'Good', soft:'Soft', heavy:'Heavy', synthetic:'Synth' }[trackCond] || 'Good';
-  const scrKey = h => { const rv = (rc.venue||'').toUpperCase(); return `${VENUE_NORMALISE[rv]||rv}||${rc.num}||${stripCountry(h.name).toUpperCase()}`; };
+  const scrKey = h => `${normaliseVenue(rc.venue)}||${rc.num}||${stripCountry(h.name).toUpperCase()}`;
   const activeResults = results.filter(h => !scratchingsSet.has(scrKey(h)));
   const dbScratched   = results.filter(h =>  scratchingsSet.has(scrKey(h)));
   const [layers, setLayers] = useState({ form: false, pace: false, scores: false, picks: false });
@@ -1858,7 +1894,7 @@ function FormCard({ runner: r, rank, onLogBet, isResulted, betBlocked = false, r
 }
 
 function FormView({ results, scratched, onLogBet, isResulted, betBlocked = false, rc, isPro, onUpgrade, scratchingsSet = new Set() }) {
-  const scrKey = h => { const rv = (rc.venue||'').toUpperCase(); return `${VENUE_NORMALISE[rv]||rv}||${rc.num}||${stripCountry(h.name).toUpperCase()}`; };
+  const scrKey = h => `${normaliseVenue(rc.venue)}||${rc.num}||${stripCountry(h.name).toUpperCase()}`;
   const sorted = [...results].sort((a, b) => (+a.tab || 99) - (+b.tab || 99));
   const activeSorted     = sorted.filter(r => !scratchingsSet.has(scrKey(r)));
   const dbScratchedSorted = sorted.filter(r =>  scratchingsSet.has(scrKey(r)));
@@ -1879,7 +1915,7 @@ function FormView({ results, scratched, onLogBet, isResulted, betBlocked = false
         const rows = await res.json();
         const horseRace = {}, raceWinner = {};
         rows.forEach(row => {
-          const normV = VENUE_NORMALISE[(row.venue||'').toUpperCase()] || (row.venue||'').toUpperCase();
+          const normV = normaliseVenue(row.venue);
           const hk = `${normV}||${(row.horse_name||'').toUpperCase()}`;
           if (!horseRace[hk]) horseRace[hk] = row.race_num;
           if (row.finish_pos === 1) raceWinner[`${normV}||${row.race_num}`] = (row.horse_name||'').toUpperCase();
@@ -1896,7 +1932,7 @@ function FormView({ results, scratched, onLogBet, isResulted, betBlocked = false
   const getWinner = (dtl, horseName) => {
     const iso = toISO(dtl.date);
     if (!iso || !histResults[iso]) return '—';
-    const normV = VENUE_NORMALISE[(dtl.crse||'').toUpperCase()] || (dtl.crse||'').toUpperCase();
+    const normV = normaliseVenue(dtl.crse);
     const raceNum = histResults[iso].horseRace?.[`${normV}||${horseName.toUpperCase()}`];
     if (!raceNum) return '—';
     return histResults[iso].raceWinner?.[`${normV}||${raceNum}`] || '—';
@@ -1924,7 +1960,7 @@ function FormView({ results, scratched, onLogBet, isResulted, betBlocked = false
 // ─── pace map view ────────────────────────────────────────────────────────────
 
 function PaceMapView({ results, scratched, rc, trackCond, isPro, onUpgrade, scratchingsSet = new Set() }) {
-  const scrKey = h => { const rv = (rc.venue||'').toUpperCase(); return `${VENUE_NORMALISE[rv]||rv}||${rc.num}||${stripCountry(h.name).toUpperCase()}`; };
+  const scrKey = h => `${normaliseVenue(rc.venue)}||${rc.num}||${stripCountry(h.name).toUpperCase()}`;
   const activeResults = results.filter(h => !scratchingsSet.has(scrKey(h)));
   const ranked = activeResults.map((r, i) => ({ ...r, systemRank: i + 1 }));
   const byBarrier = ranked.map(r => ({
@@ -2234,6 +2270,7 @@ function RacesPageInner() {
   const [bbTarget,      setBbTarget]      = useState(null);
   const [meetingsSynced, setMeetingsSynced] = useState(false);
   const [venueTrackConds, setVenueTrackConds] = useState({});
+  const [venueAbandoned,  setVenueAbandoned]  = useState(new Set());
   const [scratchedRows,   setScratchedRows]   = useState([]);
   const [now,             setNow]             = useState(() => Date.now());
   const popupRef     = useRef(null);
@@ -2319,7 +2356,7 @@ function RacesPageInner() {
           // Filter unknown-state venues so a single missing entry doesn't abort the batch.
           // Use ignore-duplicates so the worker's track_condition is never overwritten by CSV reload.
           const rows = venues
-            .map(v => { const rawV = v.toUpperCase(); const normV = VENUE_NORMALISE[rawV] || rawV; return { venue: normV, state: VENUE_STATE_MAP[normV] || null, date: dateISO }; })
+            .map(v => { const normV = normaliseVenue(v); return { venue: normV, state: VENUE_STATE_MAP[normV] || null, date: dateISO }; })
             .filter(r => r.state !== null);
           if (rows.length) {
             const res = await fetch(`${SURL}/rest/v1/today_meetings`, {
@@ -2397,20 +2434,27 @@ function RacesPageInner() {
     }
   }, [allRaces]);
 
-  // Fetch today_meetings for track conditions — re-runs after CSV load to pick up worker data
+  // Fetch today_meetings for track conditions and abandoned status
   useEffect(() => {
     if (!SURL || !SKEY) return;
     const todayISO = new Date().toLocaleDateString('sv-SE', { timeZone: 'Australia/Brisbane' });
-    fetch(`${SURL}/rest/v1/today_meetings?date=eq.${todayISO}&select=venue,track_condition`, {
-      headers: { apikey: SKEY, Authorization: `Bearer ${SKEY}` }
-    })
-      .then(r => r.ok ? r.json() : [])
+    fetch(
+      `${SURL}/rest/v1/today_meetings?date=eq.${todayISO}&select=venue,track_condition,is_abandoned`,
+      { headers: { apikey: SKEY, Authorization: `Bearer ${SKEY}` } }
+    )
+      .then(r => r.ok ? r.json() : r.text().then(t => Promise.reject(`HTTP ${r.status}: ${t}`)))
       .then(rows => {
-        const m = {};
-        rows.forEach(r => { if (r.track_condition) m[(r.venue||'').toUpperCase()] = r.track_condition; });
-        setVenueTrackConds(m);
+        const tc = {}, aband = new Set();
+        rows.forEach(r => {
+          const norm = normaliseVenue(r.venue);
+          if (r.track_condition) tc[norm] = r.track_condition;
+          if (r.is_abandoned) aband.add(norm);
+        });
+        console.log('[today_meetings] track conds:', Object.keys(tc).length, 'abandoned:', [...aband]);
+        setVenueTrackConds(tc);
+        setVenueAbandoned(aband);
       })
-      .catch(() => {});
+      .catch(e => console.error('[today_meetings] fetch failed:', e));
   }, [allRaces]);
 
   // Auto-apply DB track conditions to scoring when venueTrackConds loads
@@ -2421,8 +2465,7 @@ function RacesPageInner() {
       Object.values(allRaces).forEach(rc => {
         if (!rc?.venue || next[rc.venue]) return; // skip if user already set
         const rawUpper = (rc.venue || '').toUpperCase();
-        const normV = VENUE_NORMALISE[rawUpper] || rawUpper;
-        const raw = venueTrackConds[normV] || venueTrackConds[rawUpper] || '';
+        const raw = venueTrackConds[normaliseVenue(rawUpper)] || '';
         if (!raw) return;
         const tcl = raw.toLowerCase();
         next[rc.venue] = tcl.includes('heavy') ? 'heavy'
@@ -2438,9 +2481,7 @@ function RacesPageInner() {
 
   const currentRaceResult = (() => {
     if (!currentRace) return null;
-    const rawVenue = (currentRace.venue || '').toUpperCase();
-    const normVenue = VENUE_NORMALISE[rawVenue] || rawVenue;
-    const key = `${normVenue}||${String(currentRace.num)}`;
+    const key = `${normaliseVenue(currentRace.venue)}||${String(currentRace.num)}`;
     return raceResults[key] || null;
   })();
 
@@ -2454,15 +2495,12 @@ function RacesPageInner() {
     // Build scratchings Set synchronously from raw rows — avoids async-overwrite race condition
     const s = new Set();
     scratchedRows.forEach(row => {
-      const rawV = (row.venue || '').toUpperCase();
-      const normV = VENUE_NORMALISE[rawV] || rawV;
-      s.add(`${normV}||${String(row.race_num)}||${(row.horse_name || '').toUpperCase()}`);
+      s.add(`${normaliseVenue(row.venue)}||${String(row.race_num)}||${(row.horse_name || '').toUpperCase()}`);
     });
     console.log('[Scratchings] set size:', s.size, 'sample:', [...s].slice(0, 3));
 
     // Normalize race venue once for DB scratching lookup
-    const rcRawV = (currentRace.venue || '').toUpperCase();
-    const rcNormV = VENUE_NORMALISE[rcRawV] || rcRawV;
+    const rcNormV = normaliseVenue(currentRace.venue);
     const isDbScr = h => s.has(`${rcNormV}||${String(currentRace.num)}||${stripCountry(h.name).toUpperCase()}`);
 
     // Exclude CSV-scratched AND DB-scratched from the scored field
@@ -2541,7 +2579,7 @@ function RacesPageInner() {
       {/* Left rail — desktop only */}
       {hasData && (
         <div className="hidden md:flex">
-          <LeftRail allVenues={allVenues} allRaces={allRaces} selectedRaceKey={selectedKey} onSelect={handleSelectRace} trackConds={trackConds} raceResults={raceResults} />
+          <LeftRail allVenues={allVenues} allRaces={allRaces} selectedRaceKey={selectedKey} onSelect={handleSelectRace} trackConds={trackConds} raceResults={raceResults} abandonedVenues={venueAbandoned} />
         </div>
       )}
 
