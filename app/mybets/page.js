@@ -8,6 +8,7 @@ import useIsMobile from '@/hooks/useIsMobile';
 import UpgradeModal from '@/components/UpgradeModal';
 import { awardPoints } from '@/lib/points';
 import { parseCSV, buildRaces } from '@/lib/csvParser';
+import { normaliseVenue } from '@/lib/venues';
 import {
   LineChart, Line, AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine,
@@ -493,26 +494,27 @@ export default function MybetsPage() {
     if (scratchCheckRef.current || !bets.length || !SURL || !SKEY) return;
     const pending = bets.filter(b => !b.status || b.status === 'pending');
     if (!pending.length) { scratchCheckRef.current = true; return; }
-    scratchCheckRef.current = true;
     const aestNow = new Date(new Date().toLocaleString('en-US', { timeZone: 'Australia/Brisbane' }));
     const aestISO = `${aestNow.getFullYear()}-${String(aestNow.getMonth()+1).padStart(2,'0')}-${String(aestNow.getDate()).padStart(2,'0')}`;
-    const dates = [...new Set([aestISO, ...pending.map(b => b.date).filter(Boolean)])];
-    sbFetch(`scratchings?date=in.(${dates.join(',')})&select=venue,race_num,horse_name`)
+    sbFetch(`scratchings?date=eq.${aestISO}&select=venue,race_num,horse_name`)
       .then(rows => {
-        if (!Array.isArray(rows) || !rows.length) return;
-        const toScratch = [];
-        for (const bet of pending) {
-          const bh = normName(bet.horse_name || '');
-          const br = String(+(bet.race_number ?? bet.race_num ?? 0));
-          const hit = rows.find(r =>
-            normName(r.horse_name || '') === bh &&
-            String(+(r.race_num || 0)) === br
+        console.log('[Scratchings] MyBets fetch returned:', rows?.length ?? 'null', 'rows for', aestISO);
+        if (Array.isArray(rows) && rows.length) {
+          const scrSet = new Set(
+            rows.map(r => `${normaliseVenue(r.venue || '')}||${String(+(r.race_num || 0))}||${normName(r.horse_name || '')}`)
           );
-          if (hit) toScratch.push(bet.id);
+          console.log('[Scratchings] Set populated:', scrSet.size, 'entries');
+          const toScratch = [];
+          for (const bet of pending) {
+            const key = `${normaliseVenue(bet.track || bet.venue || '')}||${String(+(bet.race_number ?? bet.race_num ?? 0))}||${normName(bet.horse_name || '')}`;
+            if (scrSet.has(key)) toScratch.push(bet.id);
+          }
+          if (toScratch.length) {
+            setBets(prev => prev.map(b => toScratch.includes(b.id) ? { ...b, status: 'scratched' } : b));
+            toScratch.forEach(id => patchBet(id, { status: 'scratched' }));
+          }
         }
-        if (!toScratch.length) return;
-        setBets(prev => prev.map(b => toScratch.includes(b.id) ? { ...b, status: 'scratched' } : b));
-        toScratch.forEach(id => patchBet(id, { status: 'scratched' }));
+        scratchCheckRef.current = true;
       });
   }, [bets]);
 
