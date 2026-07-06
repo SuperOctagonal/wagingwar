@@ -162,6 +162,7 @@ export default function ResultsPage() {
   const [allVenues, setAllVenues] = useState({});
   const [dbRows, setDbRows] = useState([]);
   const [dbScratchings, setDbScratchings] = useState([]);
+  const [venueAbandoned, setVenueAbandoned] = useState(new Set());
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [selectedDate, setSelectedDate] = useState(() => new Date().toLocaleDateString('sv-SE'));
@@ -183,12 +184,21 @@ export default function ResultsPage() {
     setLoading(true);
     setSelectedMeeting(null);
     setSelectedRace(null);
-    const scrFetch = (SURL && SKEY)
-      ? fetch(`${SURL}/rest/v1/scratchings?date=eq.${selectedDate}&select=venue,race_num,horse_name`, { headers: { apikey: SKEY, Authorization: `Bearer ${SKEY}` } }).then(r => r.ok ? r.json() : [])
+    setVenueAbandoned(new Set());
+    const hdrs = (SURL && SKEY) ? { apikey: SKEY, Authorization: `Bearer ${SKEY}` } : null;
+    const scrFetch = hdrs
+      ? fetch(`${SURL}/rest/v1/scratchings?date=eq.${selectedDate}&select=venue,race_num,horse_name`, { headers: hdrs }).then(r => r.ok ? r.json() : [])
       : Promise.resolve([]);
-    Promise.all([fetchResultsForDate(selectedDate), scrFetch]).then(([rows, scrRows]) => {
+    const abandonedFetch = hdrs
+      ? fetch(`${SURL}/rest/v1/today_meetings?date=eq.${selectedDate}&select=venue,is_abandoned`, { headers: hdrs })
+          .then(r => r.ok ? r.json() : [])
+          .then(rows => new Set((rows || []).filter(r => r.is_abandoned).map(r => normaliseVenue(r.venue))))
+          .catch(() => new Set())
+      : Promise.resolve(new Set());
+    Promise.all([fetchResultsForDate(selectedDate), scrFetch, abandonedFetch]).then(([rows, scrRows, abandoned]) => {
       setDbRows(rows || []);
       setDbScratchings(scrRows || []);
+      setVenueAbandoned(abandoned);
       setLoading(false);
     });
   }, [selectedDate]);
@@ -318,6 +328,9 @@ export default function ResultsPage() {
                 <i className="ti ti-arrow-left" style={{ fontSize:11 }} /> All meetings
               </button>
               <span style={{ fontSize:13, fontWeight:700, color:'#111827' }}>{selectedMeeting}</span>
+              {venueAbandoned.has(selectedMeeting) && (
+                <span style={{ fontSize:9, fontWeight:700, padding:'1px 6px', borderRadius:3, background:'#6b7280', color:'#fff' }}>ABANDONED</span>
+              )}
             </div>
 
             {/* Race tab pills */}
@@ -369,6 +382,7 @@ export default function ResultsPage() {
                     const races = meetings[venue];
                     const resultedCount = races.filter(r => r.results).length;
                     const allResulted = resultedCount === races.length;
+                    const isAbandoned = venueAbandoned.has(venue);
                     const badgeBg    = allResulted ? '#d1fae5' : '#f1f5f9';
                     const badgeColor = allResulted ? '#065f46' : '#374151';
                     return (
@@ -385,9 +399,13 @@ export default function ResultsPage() {
                       >
                         <div style={{ background:'#1e2936', padding:'6px 10px', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
                           <span style={{ fontSize:11, fontWeight:700, color:'#fff', textTransform:'uppercase', letterSpacing:'.4px' }}>{venue}</span>
-                          <span style={{ background:badgeBg, color:badgeColor, fontSize:9, fontWeight:600, padding:'1px 7px', borderRadius:5 }}>
-                            {resultedCount}/{races.length} resulted
-                          </span>
+                          {isAbandoned ? (
+                            <span style={{ background:'#6b7280', color:'#fff', fontSize:9, fontWeight:600, padding:'1px 7px', borderRadius:5 }}>Abandoned</span>
+                          ) : (
+                            <span style={{ background:badgeBg, color:badgeColor, fontSize:9, fontWeight:600, padding:'1px 7px', borderRadius:5 }}>
+                              {resultedCount}/{races.length} resulted
+                            </span>
+                          )}
                         </div>
                         <div style={{ display:'flex', flexWrap:'wrap', padding:'3px 4px' }}>
                           {races.map(r => {
