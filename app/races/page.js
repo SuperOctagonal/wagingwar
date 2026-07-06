@@ -354,7 +354,7 @@ function LeftRail({ allVenues, allRaces, selectedRaceKey, onSelect, trackConds, 
         {/* R-number labels above segments */}
         <div style={{ display: 'flex', gap: 2, marginBottom: 2 }}>
           {raceKeys.map((k, i) => (
-            <div key={i} style={{ flex: 1, textAlign: 'center', fontSize: 9, color: '#fff', lineHeight: 1, overflow: 'hidden' }}>
+            <div key={i} style={{ flex: 1, textAlign: 'center', fontSize: 11, color: '#fff', lineHeight: 1, overflow: 'hidden' }}>
               R{allRaces[k]?.num}
             </div>
           ))}
@@ -370,7 +370,7 @@ function LeftRail({ allVenues, allRaces, selectedRaceKey, onSelect, trackConds, 
               onMouseEnter={e => { e.currentTarget.style.boxShadow = 'inset 0 0 0 1px #fff'; }}
               onMouseLeave={e => { e.currentTarget.style.boxShadow = 'none'; }}
               style={{
-                flex: 1, height: 5, borderRadius: 2, cursor: 'pointer',
+                flex: 1, height: 6, borderRadius: 2, cursor: 'pointer',
                 background: status === 'resulted' ? '#4ade80'
                           : status === 'now'      ? '#fbbf24'
                           :                         'rgba(255,255,255,0.18)',
