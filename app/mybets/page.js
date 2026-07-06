@@ -245,7 +245,10 @@ function calcRow(bets) {
   const wins = settled.filter(b => b.status === 'win').length;
   const totalStaked = settled.reduce((s, b) => s + (b.stake || 0), 0);
   const totalRet = settled.reduce((s, b) => s + (b.return_amt || 0), 0);
-  const pnl = totalRet - totalStaked;
+  const pnl = settled.reduce((s, b) => {
+    if (b.profit_loss !== null && b.profit_loss !== undefined) return s + b.profit_loss;
+    return s + (b.return_amt || 0) - (b.stake || 0);
+  }, 0);
   return {
     bets: settled.length, wins,
     strike: settled.length > 0 ? (wins / settled.length * 100).toFixed(0) + '%' : '—',
@@ -983,8 +986,11 @@ export default function MybetsPage() {
     if (resultedBets.length < 5) return [];
     const calcROI = arr => {
       const staked = arr.reduce((s, b) => s + (b.stake || 0), 0);
-      const ret = arr.reduce((s, b) => s + (b.return_amt || 0), 0);
-      return staked > 0 ? Math.round((ret - staked) / staked * 1000) / 10 : null;
+      const pnl = arr.reduce((s, b) => {
+        if (b.profit_loss !== null && b.profit_loss !== undefined) return s + b.profit_loss;
+        return s + (b.return_amt || 0) - (b.stake || 0);
+      }, 0);
+      return staked > 0 ? Math.round(pnl / staked * 1000) / 10 : null;
     };
     const cards = [];
     const bands = [['$1–$2',1,2],['$2–$4',2,4],['$4–$6',4,6],['$6–$8',6,8],['$8+',8,Infinity]];
@@ -1667,7 +1673,10 @@ export default function MybetsPage() {
                     const wins = settled.filter(b => b.status === 'win').length;
                     const staked = settled.reduce((s, b) => s + (b.stake || 0), 0);
                     const ret = settled.reduce((s, b) => s + (b.return_amt || 0), 0);
-                    const pnl = ret - staked;
+                    const pnl = settled.reduce((s, b) => {
+                      if (b.profit_loss !== null && b.profit_loss !== undefined) return s + b.profit_loss;
+                      return s + (b.return_amt || 0) - (b.stake || 0);
+                    }, 0);
                     const roi = staked > 0 ? Math.round((pnl / staked * 100) * 10) / 10 : 0;
                     return { bets: settled.length, wins, pnl: Math.round(pnl * 100) / 100, roi, staked, smallSample: settled.length < MIN_SAMPLE };
                   };
@@ -1883,8 +1892,10 @@ export default function MybetsPage() {
                   const second = settled.filter(b => b.position === 2).length;
                   const third  = settled.filter(b => b.position === 3).length;
                   const staked = settled.reduce((s, b) => s + (b.stake || 0), 0);
-                  const ret    = settled.reduce((s, b) => s + (b.return_amt || 0), 0);
-                  const pnl    = ret - staked;
+                  const pnl    = settled.reduce((s, b) => {
+                    if (b.profit_loss !== null && b.profit_loss !== undefined) return s + b.profit_loss;
+                    return s + (b.return_amt || 0) - (b.stake || 0);
+                  }, 0);
                   const roi    = staked > 0 ? Math.round((pnl / staked * 100) * 10) / 10 : null;
                   const strike = settled.length > 0 ? Math.round(wins / settled.length * 1000) / 10 : null;
                   return { bets: settled.length, wins, second, third, roi, strike, smallSample: settled.length < MIN_EZ };
