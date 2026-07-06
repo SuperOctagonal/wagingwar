@@ -185,12 +185,15 @@ async function matchAndUpdateBets(pendingBets) {
 
     spMap[bet.id] = sp || null;
 
+    const hasExistingPnl = bet.profit_loss !== null && bet.profit_loss !== undefined;
     const fields = {
       status,
-      result:      status,
-      return_amt:  Math.round((returnAmt  || 0) * 100) / 100,
-      position:    pos,
-      profit_loss: Math.round((profitLoss || 0) * 100) / 100,
+      result:   status,
+      position: pos,
+      ...(hasExistingPnl ? {} : {
+        return_amt:  Math.round((returnAmt  || 0) * 100) / 100,
+        profit_loss: Math.round((profitLoss || 0) * 100) / 100,
+      }),
     };
 
     patches.push(
