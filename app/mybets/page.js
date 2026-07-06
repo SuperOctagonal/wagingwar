@@ -185,11 +185,16 @@ async function matchAndUpdateBets(pendingBets) {
 
     spMap[bet.id] = sp || null;
 
+    const winMargin = pos === 1
+      ? (rows.find(r => +r.race_num === betRaceNum && r.finish_pos === 2)?.margin || null)
+      : (row.margin || null);
+
     const hasExistingPnl = bet.profit_loss !== null && bet.profit_loss !== undefined;
     const fields = {
       status,
       result:   status,
       position: pos,
+      margin:   winMargin,
       ...(hasExistingPnl ? {} : {
         return_amt:  Math.round((returnAmt  || 0) * 100) / 100,
         profit_loss: Math.round((profitLoss || 0) * 100) / 100,
@@ -1328,7 +1333,7 @@ export default function MybetsPage() {
                               {isPending || isAbandoned ? '—' : hasPnl ? (pnl >= 0 ? '+$' : '-$') + Math.abs(pnl).toFixed(2) : '—'}
                             </td>
                             <td style={{ ...cs, textAlign: 'right', fontWeight: 700, color: isAbandoned ? '#6b7280' : isPending ? '#f97316' : isScratched ? '#6b7280' : (pos ? resultColor : '#6b7280'), whiteSpace: 'nowrap' }}>
-                              {isAbandoned ? 'ABND' : isPending ? 'PND' : isScratched ? 'SCR' : (pos || '—')}
+                              {isAbandoned ? 'ABND' : isPending ? 'PND' : isScratched ? 'SCR' : pos ? `${pos}${b.margin ? ` (${b.margin})` : ''}` : '—'}
                             </td>
                             <td style={{ ...cs, textAlign: 'center', padding: '2px 4px', width: 32 }}>
                               <button onClick={() => { setMobileMenuId(b.id); setEditStake(String(b.stake || '')); setEditOdds(String(b.odds || '')); }} style={{ background: 'none', border: 'none', color: '#9ca3af', fontSize: 14, cursor: 'pointer', padding: '1px 4px', lineHeight: 1 }}>⋯</button>
@@ -1451,7 +1456,7 @@ export default function MybetsPage() {
                                   {isPending || isAbandoned ? '—' : hasPnl ? (pnl >= 0 ? '+$' : '-$') + Math.abs(pnl).toFixed(2) : '—'}
                                 </td>
                                 <td style={{ ...cs, textAlign: 'right', fontWeight: 700, color: isAbandoned ? '#6b7280' : isPending ? '#f97316' : isScratched ? '#6b7280' : (pos === 1 ? '#4ade80' : (pos === 2 || pos === 3) ? '#60a5fa' : pos ? '#f87171' : '#6b7280') }}>
-                                  {isAbandoned ? 'ABND' : isPending ? 'PND' : isScratched ? 'SCR' : (pos || '—')}
+                                  {isAbandoned ? 'ABND' : isPending ? 'PND' : isScratched ? 'SCR' : pos ? `${pos}${b.margin ? ` (${b.margin})` : ''}` : '—'}
                                 </td>
                                 <td style={{ ...cs, textAlign: 'center', padding: '2px 4px', width: 48 }}>
                                   {isEditing ? (
