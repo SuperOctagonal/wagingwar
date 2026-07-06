@@ -342,7 +342,7 @@ function LeftRail({ allVenues, allRaces, selectedRaceKey, onSelect, trackConds, 
         {/* Pin star */}
         <button
           onClick={e => togglePin(venue, e)}
-          style={{ position: 'absolute', top: 6, right: 7, background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontSize: 12, lineHeight: 1, color: isPinned ? '#fbbf24' : 'rgba(255,255,255,0.22)', transition: 'color 0.15s' }}
+          style={{ position: 'absolute', top: 6, right: 7, background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontSize: 12, lineHeight: 1, color: isPinned ? '#fbbf24' : '#fff', transition: 'color 0.15s' }}
           title={isPinned ? 'Unpin' : 'Pin to top'}
         >★</button>
 
@@ -366,7 +366,7 @@ function LeftRail({ allVenues, allRaces, selectedRaceKey, onSelect, trackConds, 
         {/* R-number labels above segments */}
         <div style={{ display: 'flex', gap: 2, marginBottom: 2 }}>
           {raceKeys.map((k, i) => (
-            <div key={i} style={{ flex: 1, textAlign: 'center', fontSize: 7, color: 'rgba(255,255,255,0.55)', lineHeight: 1, overflow: 'hidden' }}>
+            <div key={i} style={{ flex: 1, textAlign: 'center', fontSize: 9, color: '#fff', lineHeight: 1, overflow: 'hidden' }}>
               R{allRaces[k]?.num}
             </div>
           ))}
@@ -382,7 +382,7 @@ function LeftRail({ allVenues, allRaces, selectedRaceKey, onSelect, trackConds, 
               onMouseEnter={e => { e.currentTarget.style.boxShadow = 'inset 0 0 0 1px #fff'; }}
               onMouseLeave={e => { e.currentTarget.style.boxShadow = 'none'; }}
               style={{
-                flex: 1, height: 4, borderRadius: 2, cursor: 'pointer',
+                flex: 1, height: 5, borderRadius: 2, cursor: 'pointer',
                 background: status === 'resulted' ? '#4ade80'
                           : status === 'now'      ? '#fbbf24'
                           :                         'rgba(255,255,255,0.18)',
