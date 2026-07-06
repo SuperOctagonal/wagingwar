@@ -1290,7 +1290,7 @@ export default function MybetsPage() {
                           <th onClick={mkSort('horse')} style={{ ...thBase, textAlign: 'left', position: 'sticky', left: 0, zIndex: 2, background: '#0D1C13' }}>
                             <div style={{ width: 94, whiteSpace: 'nowrap' }}>Horse{ind('horse')}</div>
                           </th>
-                          {[['Venue','left','venue',110],['R#','right','race',36],['Time','right','time',72],['No','right','no',30],['Stake','right','stake',54],['Odds','right','odds',54],['P&L','right','pnl',70],['Result','right','result',50]].map(([h, align, col, mw]) => (
+                          {[['Venue','left','venue',110],['R#','right','race',36],['Time','right','time',72],['No','right','no',30],['Stake','right','stake',54],['Odds','right','odds',54],['P&L','right','pnl',70],['Result','right','result',50],['Margin','right','margin',60]].map(([h, align, col, mw]) => (
                             <th key={h} onClick={mkSort(col)} style={{ ...thBase, textAlign: align, minWidth: mw }}>{h}{ind(col)}</th>
                           ))}
                           <th style={{ ...thBase, width: 32, cursor: 'default', textAlign: 'center' }}>···</th>
@@ -1305,7 +1305,7 @@ export default function MybetsPage() {
                       const items = pinned.length > 0 && rest.length > 0 ? [...pinned, null, ...rest] : sortedLedgerBets;
                       return items.map((b, idx) => {
                         if (b === null) return (
-                          <tr key="mob-pending-divider"><td colSpan={10} style={{ height: 2, background: '#2d5a3d', padding: 0 }} /></tr>
+                          <tr key="mob-pending-divider"><td colSpan={11} style={{ height: 2, background: '#2d5a3d', padding: 0 }} /></tr>
                         );
                         const pnl = computePnl(b);
                         const hasPnl = pnl !== null;
@@ -1333,7 +1333,10 @@ export default function MybetsPage() {
                               {isPending || isAbandoned ? '—' : hasPnl ? (pnl >= 0 ? '+$' : '-$') + Math.abs(pnl).toFixed(2) : '—'}
                             </td>
                             <td style={{ ...cs, textAlign: 'right', fontWeight: 700, color: isAbandoned ? '#6b7280' : isPending ? '#f97316' : isScratched ? '#6b7280' : (pos ? resultColor : '#6b7280'), whiteSpace: 'nowrap' }}>
-                              {isAbandoned ? 'ABND' : isPending ? 'PND' : isScratched ? 'SCR' : pos ? `${pos}${b.margin ? ` (${b.margin})` : ''}` : '—'}
+                              {isAbandoned ? 'ABND' : isPending ? 'PND' : isScratched ? 'SCR' : pos ? String(pos) : '—'}
+                            </td>
+                            <td style={{ ...cs, textAlign: 'right', color: '#9ca3af', fontFamily: 'monospace', whiteSpace: 'nowrap' }}>
+                              {b.margin || '—'}
                             </td>
                             <td style={{ ...cs, textAlign: 'center', padding: '2px 4px', width: 32 }}>
                               <button onClick={() => { setMobileMenuId(b.id); setEditStake(String(b.stake || '')); setEditOdds(String(b.odds || '')); }} style={{ background: 'none', border: 'none', color: '#9ca3af', fontSize: 14, cursor: 'pointer', padding: '1px 4px', lineHeight: 1 }}>⋯</button>
@@ -1384,7 +1387,7 @@ export default function MybetsPage() {
                     <table style={{ borderCollapse: 'collapse', fontSize: 11, width: '100%' }}>
                       <thead style={{ position: 'sticky', top: 0, zIndex: 1 }}>
                         <tr style={{ background: '#0D1C13' }}>
-                          {[['Date','left','date',48],['Venue','left','venue',76],['R#','right','race',26],['Time','right','time',62],['No','right','no',20],['Horse','left','horse',106],['Stake','right','stake',42],['Odds','right','odds',42],['P&L','right','pnl',62],['Result','right','result',38]].map(([h, align, col, mw]) => (
+                          {[['Date','left','date',48],['Venue','left','venue',76],['R#','right','race',26],['Time','right','time',62],['No','right','no',20],['Horse','left','horse',106],['Stake','right','stake',42],['Odds','right','odds',42],['P&L','right','pnl',62],['Result','right','result',38],['Margin','right','margin',48]].map(([h, align, col, mw]) => (
                             <th key={h} onClick={mkSort(col)} style={{ ...thBase, textAlign: align, minWidth: mw }}>{h}{ind(col)}</th>
                           ))}
                           <th style={{ ...thBase, width: 44, cursor: 'default' }} />
@@ -1392,16 +1395,16 @@ export default function MybetsPage() {
                       </thead>
                       <tbody>
                         {loading ? (
-                          <tr><td colSpan={11} style={{ padding: 20, textAlign: 'center', color: '#fff', fontSize: 11 }}>Loading…</td></tr>
+                          <tr><td colSpan={12} style={{ padding: 20, textAlign: 'center', color: '#fff', fontSize: 11 }}>Loading…</td></tr>
                         ) : sortedLedgerBets.length === 0 ? (
-                          <tr><td colSpan={11} style={{ padding: 20, textAlign: 'center', color: '#fff', fontSize: 11 }}>No bets for this period</td></tr>
+                          <tr><td colSpan={12} style={{ padding: 20, textAlign: 'center', color: '#fff', fontSize: 11 }}>No bets for this period</td></tr>
                         ) : (() => {
                           const pinned = sortedLedgerBets.filter(b => b.date === todayISO && (!b.status || b.status === 'pending'));
                           const rest = sortedLedgerBets.filter(b => !(b.date === todayISO && (!b.status || b.status === 'pending')));
                           const items = pinned.length > 0 && rest.length > 0 ? [...pinned, null, ...rest] : sortedLedgerBets;
                           return items.map((b, idx) => {
                             if (b === null) return (
-                              <tr key="desk-pending-divider"><td colSpan={11} style={{ height: 2, background: '#2d5a3d', padding: 0 }} /></tr>
+                              <tr key="desk-pending-divider"><td colSpan={12} style={{ height: 2, background: '#2d5a3d', padding: 0 }} /></tr>
                             );
                             const pnl = computePnl(b);
                             const hasPnl = pnl !== null;
@@ -1456,7 +1459,10 @@ export default function MybetsPage() {
                                   {isPending || isAbandoned ? '—' : hasPnl ? (pnl >= 0 ? '+$' : '-$') + Math.abs(pnl).toFixed(2) : '—'}
                                 </td>
                                 <td style={{ ...cs, textAlign: 'right', fontWeight: 700, color: isAbandoned ? '#6b7280' : isPending ? '#f97316' : isScratched ? '#6b7280' : (pos === 1 ? '#4ade80' : (pos === 2 || pos === 3) ? '#60a5fa' : pos ? '#f87171' : '#6b7280') }}>
-                                  {isAbandoned ? 'ABND' : isPending ? 'PND' : isScratched ? 'SCR' : pos ? `${pos}${b.margin ? ` (${b.margin})` : ''}` : '—'}
+                                  {isAbandoned ? 'ABND' : isPending ? 'PND' : isScratched ? 'SCR' : pos ? String(pos) : '—'}
+                                </td>
+                                <td style={{ ...cs, textAlign: 'right', color: '#9ca3af', fontFamily: 'monospace' }}>
+                                  {b.margin || '—'}
                                 </td>
                                 <td style={{ ...cs, textAlign: 'center', padding: '2px 4px', width: 48 }}>
                                   {isEditing ? (
