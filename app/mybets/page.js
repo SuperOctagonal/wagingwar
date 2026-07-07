@@ -1424,6 +1424,7 @@ export default function MybetsPage() {
                             const isImminent = isPending && b.date === todayISO && secsToRace !== null && secsToRace < 900 && secsToRace > -240;
                             const isEditing = editingId === b.id;
                             const isHovered = hoveredId === b.id;
+                            const isLocked  = b.date < todayISO || (secsToRace !== null && secsToRace <= 0);
                             const rowBg = isImminent ? 'rgba(251,191,36,0.10)' : 'transparent';
                             return (
                               <tr key={b.id}
@@ -1450,10 +1451,10 @@ export default function MybetsPage() {
                                 <td style={{ ...cs, color: '#fff', textAlign: 'right' }}>{b.tab_no || b.horse_number || '—'}</td>
                                 <td style={{ ...cs, color: '#fff', fontWeight: 600, maxWidth: 106, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b.horse_name || '—'}</td>
                                 <td style={{ ...cs, color: '#fff', textAlign: 'right', fontFamily: 'monospace' }}>
-                                  {isEditing ? <input type="number" value={editStake} onChange={e => setEditStake(e.target.value)} style={{ width: 40, fontSize: 10, textAlign: 'right', border: '1px solid #4ade80', background: '#1a3a25', color: '#fff', borderRadius: 3, padding: '1px 3px' }} /> : `$${(+(b.stake || 0)).toFixed(0)}`}
+                                  {isEditing && !isLocked ? <input type="number" value={editStake} onChange={e => setEditStake(e.target.value)} style={{ width: 40, fontSize: 10, textAlign: 'right', border: '1px solid #4ade80', background: '#1a3a25', color: '#fff', borderRadius: 3, padding: '1px 3px' }} /> : `$${(+(b.stake || 0)).toFixed(0)}`}
                                 </td>
                                 <td style={{ ...cs, color: '#fff', textAlign: 'right', fontFamily: 'monospace' }}>
-                                  {isEditing ? <input type="number" value={editOdds} onChange={e => setEditOdds(e.target.value)} style={{ width: 40, fontSize: 10, textAlign: 'right', border: '1px solid #4ade80', background: '#1a3a25', color: '#fff', borderRadius: 3, padding: '1px 3px' }} /> : `$${Number(b.odds || 0).toFixed(2)}`}
+                                  {isEditing && !isLocked ? <input type="number" value={editOdds} onChange={e => setEditOdds(e.target.value)} style={{ width: 40, fontSize: 10, textAlign: 'right', border: '1px solid #4ade80', background: '#1a3a25', color: '#fff', borderRadius: 3, padding: '1px 3px' }} /> : `$${Number(b.odds || 0).toFixed(2)}`}
                                 </td>
                                 <td style={{ ...cs, textAlign: 'right', fontWeight: 700, fontFamily: 'monospace', color: pnlColor, whiteSpace: 'nowrap' }}>
                                   {isPending || isAbandoned ? '—' : hasPnl ? (pnl >= 0 ? '+$' : '-$') + Math.abs(pnl).toFixed(2) : '—'}
@@ -1465,12 +1466,12 @@ export default function MybetsPage() {
                                   {b.margin || '—'}
                                 </td>
                                 <td style={{ ...cs, textAlign: 'center', padding: '2px 4px', width: 48 }}>
-                                  {isEditing ? (
+                                  {isEditing && !isLocked ? (
                                     <span style={{ display: 'inline-flex', gap: 3 }}>
                                       <button onClick={() => handleEditSave(b.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#4ade80', padding: 2, lineHeight: 1 }}><i className="ti ti-check" style={{ fontSize: 13 }} /></button>
                                       <button onClick={() => setEditingId(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#f87171', padding: 2, lineHeight: 1 }}><i className="ti ti-x" style={{ fontSize: 13 }} /></button>
                                     </span>
-                                  ) : isHovered ? (
+                                  ) : !isLocked && isHovered ? (
                                     <span style={{ display: 'inline-flex', gap: 3 }}>
                                       <button onClick={() => { setEditingId(b.id); setEditStake(String(b.stake || '')); setEditOdds(String(b.odds || '')); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', padding: 2, lineHeight: 1 }}><i className="ti ti-pencil" style={{ fontSize: 12 }} /></button>
                                       <button onClick={() => handleDeleteBet(b.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#f87171', padding: 2, lineHeight: 1 }}><i className="ti ti-trash" style={{ fontSize: 12 }} /></button>
