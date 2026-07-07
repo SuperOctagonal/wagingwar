@@ -136,12 +136,18 @@ async function matchAndUpdateBets(pendingBets) {
 
     const betRaceNum = +(bet.race_number ?? bet.race_num ?? 0);
     const betHorse = normName(bet.horse_name || '');
+    const betHorseStripped = normName((bet.horse_name || '').replace(/\s*\([A-Z]+\)\s*$/i, ''));
 
     const row = rows.find(r => {
       const rRace  = +r.race_num;
       const rHorse = normName(r.horse_name);
       const rHorseStripped = normName(r.horse_name.replace(/\s*\([A-Z]+\)\s*$/i, ''));
-      return rRace === betRaceNum && (rHorse === betHorse || rHorseStripped === betHorse);
+      return rRace === betRaceNum && (
+        rHorse === betHorse ||
+        rHorseStripped === betHorse ||
+        rHorse === betHorseStripped ||
+        rHorseStripped === betHorseStripped
+      );
     });
 
     if (!row) continue;
