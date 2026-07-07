@@ -80,18 +80,23 @@ function rankStyle(r) {
   return { bg: '#f3f4f6', color: '#374151' };
 }
 
-const AGGREGATE_PANELS = [
-  { key: 'model',   label: 'Model',         icon: 'ti-chart-bar'      },
-  { key: 'barrier', label: 'Barriers',       icon: 'ti-layout-columns' },
-  { key: 'upsets',  label: 'Upsets',         icon: 'ti-bolt'           },
-  { key: 'staff',   label: 'Trainer/Jockey', icon: 'ti-users'          },
-];
+function SidePanel({ icon, label, children }) {
+  return (
+    <div style={{ background: '#fff', border: '0.5px solid #e5e7eb', borderRadius: 8, overflow: 'hidden' }}>
+      <div style={{ background: '#1e2936', padding: '6px 10px', display: 'flex', alignItems: 'center', gap: 5 }}>
+        <i className={`ti ${icon}`} style={{ fontSize: 11, color: '#fff' }} />
+        <span style={{ fontSize: 10, fontWeight: 700, color: '#fff', textTransform: 'uppercase', letterSpacing: '.4px' }}>{label}</span>
+      </div>
+      <div style={{ padding: '0 10px 10px' }}>{children}</div>
+    </div>
+  );
+}
 
 function NoCsvMsg() {
   return (
-    <div style={{ padding: '40px 16px', textAlign: 'center', color: '#6b7280', fontSize: 11 }}>
-      <i className="ti ti-upload" style={{ fontSize: 28, display: 'block', marginBottom: 8 }} />
-      Load a CSV on the Races page to enable this analysis
+    <div style={{ padding: '24px 0', textAlign: 'center', color: '#6b7280', fontSize: 10 }}>
+      <i className="ti ti-upload" style={{ fontSize: 20, display: 'block', marginBottom: 6 }} />
+      Load a CSV to enable this analysis
     </div>
   );
 }
@@ -103,33 +108,32 @@ function ModelPerfPanel({ data }) {
   const roiColor = roiPct >= 0 ? '#065f46' : '#991b1b';
   const roiBg    = roiPct >= 0 ? '#d1fae5' : '#fee2e2';
   return (
-    <div style={{ padding: '12px 0' }}>
-      <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap', alignItems: 'center' }}>
-        <div style={{ padding: '6px 12px', borderRadius: 6, background: '#f1f5f9', fontSize: 11 }}>
-          <span style={{ color: '#374151' }}>Strike rate </span>
+    <div style={{ paddingTop: 8 }}>
+      <div style={{ display: 'flex', gap: 6, marginBottom: 10, flexWrap: 'wrap' }}>
+        <div style={{ padding: '4px 8px', borderRadius: 5, background: '#f1f5f9', fontSize: 10 }}>
+          <span style={{ color: '#374151' }}>SR </span>
           <span style={{ fontWeight: 700, color: '#111827', fontFamily: 'JetBrains Mono, monospace' }}>
             {hits}/{total} ({total ? Math.round(strikeRate * 100) : 0}%)
           </span>
         </div>
-        <div style={{ padding: '6px 12px', borderRadius: 6, background: roiBg, fontSize: 11 }}>
+        <div style={{ padding: '4px 8px', borderRadius: 5, background: roiBg, fontSize: 10 }}>
           <span style={{ color: '#374151' }}>ROI </span>
           <span style={{ fontWeight: 700, color: roiColor, fontFamily: 'JetBrains Mono, monospace' }}>
             {roiPct >= 0 ? '+' : ''}{roiPct.toFixed(1)}%
           </span>
         </div>
-        <span style={{ fontSize: 9, color: '#9ca3af' }}>$1 on rank 1 each race at SP</span>
       </div>
       {details.length === 0 ? (
-        <div style={{ color: '#6b7280', fontSize: 11 }}>No resulted races with model data yet.</div>
+        <div style={{ color: '#6b7280', fontSize: 10 }}>No model data yet.</div>
       ) : (
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 10 }}>
           <thead>
             <tr style={{ background: '#f1f5f9', borderBottom: '1px solid #e5e7eb' }}>
-              <th style={{ padding: '4px 8px', textAlign: 'left',   fontWeight: 700, color: '#111827' }}>Race</th>
-              <th style={{ padding: '4px 8px', textAlign: 'left',   fontWeight: 700, color: '#111827' }}>Winner</th>
-              <th style={{ padding: '4px 8px', textAlign: 'center', fontWeight: 700, color: '#111827' }}>Rank</th>
-              <th style={{ padding: '4px 8px', textAlign: 'right',  fontWeight: 700, color: '#111827' }}>SP</th>
-              <th style={{ padding: '4px 8px', textAlign: 'center', fontWeight: 700, color: '#111827' }}>Hit</th>
+              <th style={{ padding: '3px 5px', textAlign: 'left',   fontWeight: 700, color: '#111827' }}>R#</th>
+              <th style={{ padding: '3px 5px', textAlign: 'left',   fontWeight: 700, color: '#111827' }}>Winner</th>
+              <th style={{ padding: '3px 5px', textAlign: 'center', fontWeight: 700, color: '#111827' }}>Rank</th>
+              <th style={{ padding: '3px 5px', textAlign: 'right',  fontWeight: 700, color: '#111827' }}>SP</th>
+              <th style={{ padding: '3px 5px', textAlign: 'center', fontWeight: 700, color: '#111827' }}>✓</th>
             </tr>
           </thead>
           <tbody>
@@ -137,23 +141,22 @@ function ModelPerfPanel({ data }) {
               const rs = d.rank ? rankStyle(d.rank) : null;
               return (
                 <tr key={d.raceNum} style={{ borderBottom: '0.5px solid #f3f4f6' }}>
-                  <td style={{ padding: '5px 8px', fontWeight: 700, color: '#111827' }}>R{d.raceNum}</td>
-                  <td style={{ padding: '5px 8px', color: '#111827' }}>{d.horse}</td>
-                  <td style={{ padding: '5px 8px', textAlign: 'center' }}>
+                  <td style={{ padding: '3px 5px', fontWeight: 700, color: '#111827' }}>{d.raceNum}</td>
+                  <td style={{ padding: '3px 5px', color: '#111827', maxWidth: 90, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.horse}</td>
+                  <td style={{ padding: '3px 5px', textAlign: 'center' }}>
                     {rs
-                      ? <span style={{ padding: '1px 7px', borderRadius: 4, fontSize: 10, fontWeight: 700, background: rs.bg, color: rs.color }}>#{d.rank}</span>
+                      ? <span style={{ padding: '1px 5px', borderRadius: 3, fontSize: 9, fontWeight: 700, background: rs.bg, color: rs.color }}>#{d.rank}</span>
                       : <span style={{ color: '#9ca3af' }}>—</span>}
                   </td>
-                  <td style={{ padding: '5px 8px', textAlign: 'right', fontFamily: 'JetBrains Mono, monospace' }}>${Number(d.sp || 0).toFixed(2)}</td>
-                  <td style={{ padding: '5px 8px', textAlign: 'center', fontSize: 13, color: d.hit ? '#065f46' : '#9ca3af' }}>
-                    {d.hit ? '✓' : '✗'}
-                  </td>
+                  <td style={{ padding: '3px 5px', textAlign: 'right', fontFamily: 'JetBrains Mono, monospace' }}>${Number(d.sp || 0).toFixed(2)}</td>
+                  <td style={{ padding: '3px 5px', textAlign: 'center', color: d.hit ? '#065f46' : '#9ca3af' }}>{d.hit ? '✓' : '✗'}</td>
                 </tr>
               );
             })}
           </tbody>
         </table>
       )}
+      <div style={{ marginTop: 6, fontSize: 8, color: '#9ca3af' }}>$1 on rank 1 each race at SP</div>
     </div>
   );
 }
@@ -162,38 +165,38 @@ function BarrierPanel({ data, hasCsv }) {
   if (!hasCsv) return <NoCsvMsg />;
   if (!data || data.every(g => g.total === 0)) {
     return (
-      <div style={{ padding: '40px 16px', textAlign: 'center', color: '#6b7280', fontSize: 11 }}>
-        No barrier data available. Ensure the CSV includes a barrier field.
+      <div style={{ padding: '24px 0', textAlign: 'center', color: '#6b7280', fontSize: 10 }}>
+        No barrier data — ensure CSV includes a barrier field.
       </div>
     );
   }
   const maxPct = Math.max(...data.map(g => g.total ? g.wins / g.total : 0), 0.001);
   return (
-    <div style={{ padding: '12px 0' }}>
-      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
+    <div style={{ paddingTop: 8 }}>
+      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 10 }}>
         <thead>
           <tr style={{ background: '#f1f5f9', borderBottom: '1px solid #e5e7eb' }}>
-            <th style={{ padding: '4px 8px', textAlign: 'left',   fontWeight: 700, color: '#111827', width: 56 }}>Group</th>
-            <th style={{ padding: '4px 8px', textAlign: 'center', fontWeight: 700, color: '#111827', width: 48 }}>Wins</th>
-            <th style={{ padding: '4px 8px', textAlign: 'center', fontWeight: 700, color: '#111827', width: 68 }}>Runners</th>
-            <th style={{ padding: '4px 8px', textAlign: 'center', fontWeight: 700, color: '#111827', width: 52 }}>Win%</th>
-            <th style={{ padding: '4px 8px', textAlign: 'left',   fontWeight: 700, color: '#111827' }}></th>
+            <th style={{ padding: '3px 5px', textAlign: 'left',   fontWeight: 700, color: '#111827' }}>Gate</th>
+            <th style={{ padding: '3px 5px', textAlign: 'center', fontWeight: 700, color: '#111827' }}>W</th>
+            <th style={{ padding: '3px 5px', textAlign: 'center', fontWeight: 700, color: '#111827' }}>R</th>
+            <th style={{ padding: '3px 5px', textAlign: 'center', fontWeight: 700, color: '#111827' }}>%</th>
+            <th style={{ padding: '3px 5px', textAlign: 'left',   fontWeight: 700, color: '#111827' }}></th>
           </tr>
         </thead>
         <tbody>
           {data.map(g => {
             const pct  = g.total ? g.wins / g.total : 0;
-            const barW = maxPct > 0 ? Math.round((pct / maxPct) * 100) : 0;
+            const barW = maxPct > 0 ? Math.round((pct / maxPct) * 72) : 0;
             return (
               <tr key={g.label} style={{ borderBottom: '0.5px solid #f3f4f6' }}>
-                <td style={{ padding: '7px 8px', fontWeight: 700, color: '#111827' }}>{g.label}</td>
-                <td style={{ padding: '7px 8px', textAlign: 'center', fontFamily: 'JetBrains Mono, monospace', color: '#111827' }}>{g.wins}</td>
-                <td style={{ padding: '7px 8px', textAlign: 'center', color: '#6b7280' }}>{g.total}</td>
-                <td style={{ padding: '7px 8px', textAlign: 'center', fontWeight: 700, fontFamily: 'JetBrains Mono, monospace', color: '#111827' }}>
+                <td style={{ padding: '5px 5px', fontWeight: 700, color: '#111827' }}>{g.label}</td>
+                <td style={{ padding: '5px 5px', textAlign: 'center', fontFamily: 'JetBrains Mono, monospace', color: '#111827' }}>{g.wins}</td>
+                <td style={{ padding: '5px 5px', textAlign: 'center', color: '#6b7280' }}>{g.total}</td>
+                <td style={{ padding: '5px 5px', textAlign: 'center', fontWeight: 700, fontFamily: 'JetBrains Mono, monospace', color: '#111827' }}>
                   {g.total ? Math.round(pct * 100) : 0}%
                 </td>
-                <td style={{ padding: '7px 8px' }}>
-                  <div style={{ height: 10, width: barW, background: '#1e2936', borderRadius: 3, minWidth: pct > 0 ? 3 : 0 }} />
+                <td style={{ padding: '5px 5px' }}>
+                  <div style={{ height: 8, width: barW, background: '#1e2936', borderRadius: 2, minWidth: pct > 0 ? 2 : 0 }} />
                 </td>
               </tr>
             );
@@ -208,25 +211,23 @@ function UpsetsPanel({ data, hasCsv }) {
   if (!hasCsv) return <NoCsvMsg />;
   if (!data || data.length === 0) {
     return (
-      <div style={{ padding: '40px 16px', textAlign: 'center', color: '#6b7280', fontSize: 11 }}>
-        No resulted races with model data yet.
+      <div style={{ padding: '24px 0', textAlign: 'center', color: '#6b7280', fontSize: 10 }}>
+        No model data yet.
       </div>
     );
   }
   const medals = ['🥇', '🥈', '🥉'];
   return (
-    <div style={{ padding: '12px 0', display: 'flex', flexDirection: 'column', gap: 8 }}>
+    <div style={{ paddingTop: 8, display: 'flex', flexDirection: 'column', gap: 6 }}>
       {data.map((u, i) => (
-        <div key={`${u.raceNum}-${u.horse}`} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 12px', background: '#f8fafc', borderRadius: 6, border: '0.5px solid #e5e7eb' }}>
-          <span style={{ fontSize: 20 }}>{medals[i]}</span>
-          <div style={{ flex: 1 }}>
-            <div style={{ fontWeight: 700, fontSize: 12, color: '#111827' }}>{u.horse}</div>
-            <div style={{ fontSize: 10, color: '#6b7280', marginTop: 2 }}>
-              R{u.raceNum} — model ranked #{u.rank} → won at ${Number(u.sp || 0).toFixed(2)}
-            </div>
+        <div key={`${u.raceNum}-${u.horse}`} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 8px', background: '#f8fafc', borderRadius: 5, border: '0.5px solid #e5e7eb' }}>
+          <span style={{ fontSize: 16, flexShrink: 0 }}>{medals[i]}</span>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontWeight: 700, fontSize: 11, color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{u.horse}</div>
+            <div style={{ fontSize: 9, color: '#6b7280', marginTop: 1 }}>R{u.raceNum} · rank #{u.rank} · ${Number(u.sp || 0).toFixed(2)}</div>
           </div>
-          <div style={{ padding: '2px 8px', borderRadius: 4, background: '#fef3c7', color: '#92400e', fontSize: 10, fontWeight: 700, whiteSpace: 'nowrap' }}>
-            Rank #{u.rank}
+          <div style={{ padding: '1px 6px', borderRadius: 3, background: '#fef3c7', color: '#92400e', fontSize: 9, fontWeight: 700, flexShrink: 0 }}>
+            #{u.rank}
           </div>
         </div>
       ))}
@@ -238,31 +239,31 @@ function StaffPanel({ data }) {
   const { trainers, jockeys } = data;
   if (!trainers.length && !jockeys.length) {
     return (
-      <div style={{ padding: '40px 16px', textAlign: 'center', color: '#6b7280', fontSize: 11 }}>
-        No winner data yet for this meeting.
+      <div style={{ padding: '24px 0', textAlign: 'center', color: '#6b7280', fontSize: 10 }}>
+        No winner data yet.
       </div>
     );
   }
   return (
-    <div style={{ padding: '12px 0', display: 'flex', gap: 24, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+    <div style={{ paddingTop: 8, display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'flex-start' }}>
       {trainers.length > 0 && (
-        <div style={{ flex: 1, minWidth: 140 }}>
-          <div style={{ fontSize: 10, fontWeight: 700, color: '#374151', textTransform: 'uppercase', letterSpacing: '.4px', marginBottom: 8 }}>Trainers</div>
+        <div style={{ flex: 1, minWidth: 100 }}>
+          <div style={{ fontSize: 9, fontWeight: 700, color: '#374151', textTransform: 'uppercase', letterSpacing: '.4px', marginBottom: 5 }}>Trainers</div>
           {trainers.map(([name, wins]) => (
-            <div key={name} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '5px 0', borderBottom: '0.5px solid #f3f4f6', fontSize: 11 }}>
-              <span style={{ color: '#111827' }}>{name}</span>
-              <span style={{ fontWeight: 700, color: '#111827', fontFamily: 'JetBrains Mono, monospace', marginLeft: 8 }}>{wins}W</span>
+            <div key={name} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '3px 0', borderBottom: '0.5px solid #f3f4f6', fontSize: 10 }}>
+              <span style={{ color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginRight: 4 }}>{name}</span>
+              <span style={{ fontWeight: 700, color: '#111827', fontFamily: 'JetBrains Mono, monospace', flexShrink: 0 }}>{wins}W</span>
             </div>
           ))}
         </div>
       )}
       {jockeys.length > 0 && (
-        <div style={{ flex: 1, minWidth: 140 }}>
-          <div style={{ fontSize: 10, fontWeight: 700, color: '#374151', textTransform: 'uppercase', letterSpacing: '.4px', marginBottom: 8 }}>Jockeys</div>
+        <div style={{ flex: 1, minWidth: 100 }}>
+          <div style={{ fontSize: 9, fontWeight: 700, color: '#374151', textTransform: 'uppercase', letterSpacing: '.4px', marginBottom: 5 }}>Jockeys</div>
           {jockeys.map(([name, wins]) => (
-            <div key={name} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '5px 0', borderBottom: '0.5px solid #f3f4f6', fontSize: 11 }}>
-              <span style={{ color: '#111827' }}>{name}</span>
-              <span style={{ fontWeight: 700, color: '#111827', fontFamily: 'JetBrains Mono, monospace', marginLeft: 8 }}>{wins}W</span>
+            <div key={name} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '3px 0', borderBottom: '0.5px solid #f3f4f6', fontSize: 10 }}>
+              <span style={{ color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginRight: 4 }}>{name}</span>
+              <span style={{ fontWeight: 700, color: '#111827', fontFamily: 'JetBrains Mono, monospace', flexShrink: 0 }}>{wins}W</span>
             </div>
           ))}
         </div>
@@ -370,7 +371,6 @@ export default function ResultsPage() {
   const [selectedDate, setSelectedDate] = useState(() => new Date().toLocaleDateString('sv-SE'));
   const [selectedMeeting, setSelectedMeeting] = useState(null);
   const [selectedRace, setSelectedRace] = useState(null);
-  const [activePanel, setActivePanel] = useState('race');
   const weights = useMemo(() => getDefaultWeights(), []);
 
   useEffect(() => {
@@ -387,7 +387,6 @@ export default function ResultsPage() {
     setLoading(true);
     setSelectedMeeting(null);
     setSelectedRace(null);
-    setActivePanel('race');
     setVenueAbandoned(new Set());
     const hdrs = (SURL && SKEY) ? { apikey: SKEY, Authorization: `Bearer ${SKEY}` } : null;
     const scrFetch = hdrs
@@ -600,7 +599,7 @@ export default function ResultsPage() {
             {/* Back + title */}
             <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:12 }}>
               <button
-                onClick={() => { setSelectedMeeting(null); setSelectedRace(null); setActivePanel('race'); }}
+                onClick={() => { setSelectedMeeting(null); setSelectedRace(null); }}
                 style={{ display:'flex', alignItems:'center', gap:4, padding:'4px 8px', borderRadius:6, border:'0.5px solid #e5e7eb', background:'#fff', color:'#111827', fontSize:10, fontWeight:600, cursor:'pointer', fontFamily:'inherit' }}
               >
                 <i className="ti ti-arrow-left" style={{ fontSize:11 }} /> All meetings
@@ -612,10 +611,10 @@ export default function ResultsPage() {
             </div>
 
             {/* Race tab pills */}
-            <div style={{ display:'flex', gap:4, flexWrap:'wrap', marginBottom:8, position:'relative', zIndex:10 }}>
+            <div style={{ display:'flex', gap:4, flexWrap:'wrap', marginBottom:12, position:'relative', zIndex:10 }}>
               {meetingRaces.map(r => {
                 const resulted = !!r.results;
-                const isActive = activePanel === 'race' && selectedRace != null && Number(r.raceNum) === Number(selectedRace);
+                const isActive = selectedRace != null && Number(r.raceNum) === Number(selectedRace);
                 const bg     = isActive ? '#1e2936' : resulted ? '#d1fae5' : '#f1f5f9';
                 const color  = isActive ? '#fff'    : resulted ? '#065f46' : '#374151';
                 const border = isActive ? '#1e2936' : resulted ? '#86efac' : '#e5e7eb';
@@ -623,7 +622,7 @@ export default function ResultsPage() {
                   <button
                     key={r.raceNum}
                     type="button"
-                    onClick={(e) => { e.stopPropagation(); e.preventDefault(); setSelectedRace(Number(r.raceNum)); setActivePanel('race'); }}
+                    onClick={(e) => { e.stopPropagation(); e.preventDefault(); setSelectedRace(Number(r.raceNum)); }}
                     style={{ padding:'3px 6px', borderRadius:5, fontSize:10, fontWeight:700, cursor:'pointer', background:bg, color, border:`0.5px solid ${border}`, fontFamily:'inherit' }}
                   >
                     R{r.raceNum}{resulted ? ' ✓' : ''}
@@ -632,55 +631,38 @@ export default function ResultsPage() {
               })}
             </div>
 
-            {/* Aggregate panel pills */}
-            <div style={{ display:'flex', gap:4, flexWrap:'wrap', marginBottom:14, paddingBottom:14, borderBottom:'0.5px solid #e5e7eb' }}>
-              {AGGREGATE_PANELS.map(p => {
-                const isActive = activePanel === p.key;
-                return (
-                  <button
-                    key={p.key}
-                    type="button"
-                    onClick={() => setActivePanel(p.key)}
-                    style={{ display:'flex', alignItems:'center', gap:4, padding:'4px 10px', borderRadius:16, fontSize:10, fontWeight:600, cursor:'pointer', fontFamily:'inherit', border:'0.5px solid', background: isActive ? '#1e2936' : '#fff', color: isActive ? '#fff' : '#374151', borderColor: isActive ? '#1e2936' : '#e5e7eb' }}
-                  >
-                    <i className={`ti ${p.icon}`} style={{ fontSize:11 }} />
-                    {p.label}
-                  </button>
-                );
-              })}
-            </div>
+            {/* Two-column body: results left, analysis right */}
+            <div style={{ display:'flex', gap:10, alignItems:'flex-start', flexDirection: isMobile ? 'column' : 'row' }}>
 
-            {/* Content area */}
-            {activePanel === 'race' ? (
-              <ResultsDetail
-                meeting={activeRaceData}
-                venue={selectedMeeting}
-                allRaces={allRaces}
-                allVenues={allVenues}
-                weights={weights}
-                dbScratchings={dbScratchings}
-              />
-            ) : (
-              <div style={{ background:'#fff', border:'0.5px solid #e5e7eb', borderRadius:8, overflow:'hidden', maxWidth:680 }}>
-                <div style={{ background:'#1e2936', padding:'7px 12px', display:'flex', alignItems:'center', gap:6 }}>
-                  {(() => {
-                    const p = AGGREGATE_PANELS.find(p => p.key === activePanel);
-                    return (
-                      <>
-                        <i className={`ti ${p.icon}`} style={{ fontSize:13, color:'#fff' }} />
-                        <span style={{ fontSize:11, fontWeight:700, color:'#fff', textTransform:'uppercase' }}>{p.label} — {selectedMeeting}</span>
-                      </>
-                    );
-                  })()}
-                </div>
-                <div style={{ padding:'0 12px 12px' }}>
-                  {activePanel === 'model'   && <ModelPerfPanel data={modelPerf} />}
-                  {activePanel === 'barrier' && <BarrierPanel data={barrierBias} hasCsv={hasCsv} />}
-                  {activePanel === 'upsets'  && <UpsetsPanel data={biggestUpsets} hasCsv={hasCsv} />}
-                  {activePanel === 'staff'   && <StaffPanel data={staffForm} />}
-                </div>
+              {/* Left — race results */}
+              <div style={{ flex:1, minWidth:0 }}>
+                <ResultsDetail
+                  meeting={activeRaceData}
+                  venue={selectedMeeting}
+                  allRaces={allRaces}
+                  allVenues={allVenues}
+                  weights={weights}
+                  dbScratchings={dbScratchings}
+                />
               </div>
-            )}
+
+              {/* Right — analysis panels stacked */}
+              <div style={{ flex:1, minWidth:0, display:'flex', flexDirection:'column', gap:10 }}>
+                <SidePanel icon="ti-chart-bar" label="Model">
+                  <ModelPerfPanel data={modelPerf} />
+                </SidePanel>
+                <SidePanel icon="ti-layout-columns" label="Barriers">
+                  <BarrierPanel data={barrierBias} hasCsv={hasCsv} />
+                </SidePanel>
+                <SidePanel icon="ti-bolt" label="Upsets">
+                  <UpsetsPanel data={biggestUpsets} hasCsv={hasCsv} />
+                </SidePanel>
+                <SidePanel icon="ti-users" label="Trainer / Jockey">
+                  <StaffPanel data={staffForm} />
+                </SidePanel>
+              </div>
+
+            </div>
           </>
         ) : (
           <>
@@ -710,7 +692,6 @@ export default function ResultsPage() {
                           const firstResulted = (meetings[venue] || []).find(r => r.results)?.raceNum ?? null;
                           setSelectedMeeting(venue);
                           setSelectedRace(firstResulted);
-                          setActivePanel('race');
                         }}
                         style={{ background:'#fff', border:'0.5px solid #e5e7eb', borderRadius:8, overflow:'hidden', cursor:'pointer', transition:'box-shadow .15s' }}
                         onMouseEnter={e => { e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,.08)'; }}
@@ -735,7 +716,7 @@ export default function ResultsPage() {
                               <button
                                 key={r.raceNum}
                                 type="button"
-                                onClick={(e) => { e.stopPropagation(); setSelectedMeeting(venue); setSelectedRace(Number(r.raceNum)); setActivePanel('race'); }}
+                                onClick={(e) => { e.stopPropagation(); setSelectedMeeting(venue); setSelectedRace(Number(r.raceNum)); }}
                                 style={{ display:'flex', alignItems:'center', gap:4, padding:'3px 6px', borderRadius:5, margin:2, fontSize:10, fontWeight:600, background:cls.bg, color:cls.color, border:'none', cursor: r.results ? 'pointer' : 'default', fontFamily:'inherit' }}
                               >
                                 R{r.raceNum}{r.results ? ' ✓' : ''}
