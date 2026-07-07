@@ -358,8 +358,8 @@ function LeftRail({ allVenues, allRaces, selectedRaceKey, onSelect, trackConds, 
                 key={i}
                 onClick={e => { e.stopPropagation(); onSelect(k); }}
                 title={`R${allRaces[k]?.num}`}
-                onMouseEnter={e => { e.currentTarget.style.opacity = '0.7'; }}
-                onMouseLeave={e => { e.currentTarget.style.opacity = '1'; }}
+                onMouseEnter={e => { e.currentTarget.lastElementChild.style.boxShadow = 'inset 0 0 0 1px #fff'; }}
+                onMouseLeave={e => { e.currentTarget.lastElementChild.style.boxShadow = 'none'; }}
                 style={{ flex: 1, cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}
               >
                 <div style={{ fontSize: 14, color: '#fff', lineHeight: 1, overflow: 'hidden', textAlign: 'center', width: '100%' }}>
