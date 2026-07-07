@@ -98,14 +98,19 @@ export default function TopNav() {
                   <button
                     onClick={() => navigate(link.href, link.public)}
                     className={[
-                      'h-full px-[11px] font-space text-[10px] font-semibold uppercase tracking-[0.5px]',
-                      'border-b-2 whitespace-nowrap transition-colors',
-                      currentPage === link.id
-                        ? 'text-white border-amber-400'
-                        : 'text-white/55 border-transparent hover:text-white/85',
+                      'group h-full px-1 font-space text-[10px] font-semibold uppercase tracking-[0.5px]',
+                      'border-b-2 whitespace-nowrap flex items-center',
+                      currentPage === link.id ? 'border-amber-400' : 'border-transparent',
                     ].join(' ')}
                   >
-                    {link.label} ▾
+                    <span className={[
+                      'px-3.5 py-[7px] rounded-full transition-colors',
+                      currentPage === link.id
+                        ? 'text-white'
+                        : 'text-white/55 group-hover:bg-white group-hover:text-brand',
+                    ].join(' ')}>
+                      {link.label} ▾
+                    </span>
                   </button>
                   {showLearnMenu && (
                     <div style={{ position: 'absolute', top: '100%', left: 0, zIndex: 200, background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, boxShadow: '0 8px 24px rgba(0,0,0,0.12)', width: 460, padding: '8px 0' }}>
@@ -161,14 +166,19 @@ export default function TopNav() {
                 key={link.id}
                 onClick={() => navigate(link.href, link.public)}
                 className={[
-                  'h-full px-[11px] font-space text-[10px] font-semibold uppercase tracking-[0.5px]',
-                  'border-b-2 whitespace-nowrap transition-colors',
-                  currentPage === link.id
-                    ? 'text-white border-amber-400'
-                    : 'text-white/55 border-transparent hover:text-white/85',
+                  'group h-full px-1 font-space text-[10px] font-semibold uppercase tracking-[0.5px]',
+                  'border-b-2 whitespace-nowrap flex items-center',
+                  currentPage === link.id ? 'border-amber-400' : 'border-transparent',
                 ].join(' ')}
               >
-                {link.label}
+                <span className={[
+                  'px-3.5 py-[7px] rounded-full transition-colors',
+                  currentPage === link.id
+                    ? 'text-white'
+                    : 'text-white/55 group-hover:bg-white group-hover:text-brand',
+                ].join(' ')}>
+                  {link.label}
+                </span>
               </button>
             );
           })}
