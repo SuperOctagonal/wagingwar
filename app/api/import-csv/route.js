@@ -84,7 +84,7 @@ export async function POST(request) {
     Authorization: `Bearer ${SKEY}`,
   };
 
-  const result = { date: dateISO, venues: 0, scheduleRows: 0, errors: [] };
+  const result = { date: dateISO, venues: 0, scheduleRows: 0, cardRows: 0, errors: [] };
 
   // today_meetings — ignore duplicates so the worker's track_condition is never clobbered
   const meetingRows = Object.keys(allVenues)
@@ -136,6 +136,46 @@ export async function POST(request) {
       }
     } catch (err) {
       result.errors.push(`race_schedule network error: ${err.message}`);
+    }
+  }
+
+  // race_cards — upsert full per-horse form data; merge-duplicates so re-runs update scratchings
+  const cardRows = [];
+  for (const k of raceKeys) {
+    const rc = allRaces[k];
+    if (!rc.date || !rc.venue) continue;
+    const d = toISO(rc.date);
+    if (!d) continue;
+    const normV = normaliseVenue(rc.venue);
+    for (const horse of (rc.horses || [])) {
+      if (!horse.name) continue;
+      cardRows.push({
+        date: d,
+        venue: normV,
+        race_num: String(rc.num),
+        horse_name: horse.name,
+        barrier: horse.BP ?? null,
+        scratched: horse.scratched || false,
+        form_data: horse,
+        updated_at: new Date().toISOString(),
+      });
+    }
+  }
+
+  if (cardRows.length) {
+    try {
+      const r = await fetch(`${SURL}/rest/v1/race_cards?on_conflict=date,venue,race_num,horse_name`, {
+        method: 'POST',
+        headers: { ...sbHeaders, Prefer: 'resolution=merge-duplicates,return=minimal' },
+        body: JSON.stringify(cardRows),
+      });
+      if (r.ok) {
+        result.cardRows = cardRows.length;
+      } else {
+        result.errors.push(`race_cards ${r.status}: ${await r.text()}`);
+      }
+    } catch (err) {
+      result.errors.push(`race_cards network error: ${err.message}`);
     }
   }
 
