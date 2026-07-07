@@ -301,7 +301,7 @@ export default function BlackbookPage() {
       if (!h.added_at) return;
       const normHorse = normName(h.horse_name);
       const since = h.added_at.slice(0, 10);
-      sb(`race_results?horse_name=ilike.${encodeURIComponent(normHorse + '%')}&date=gt.${since}&select=horse_name,date,venue,finish_pos,sp&order=date.desc`)
+      sb(`race_results?horse_name=ilike.${encodeURIComponent(normHorse + '%')}&date=gte.${since}&select=horse_name,date,venue,finish_pos,sp&order=date.desc`)
         .then(rows => {
           const matched = (rows || []).filter(r => normName(r.horse_name) === normHorse);
           const runs = matched.map(r => {
