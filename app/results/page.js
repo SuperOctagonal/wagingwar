@@ -82,12 +82,12 @@ function rankStyle(r) {
 
 function SidePanel({ icon, label, children }) {
   return (
-    <div style={{ background: '#fff', border: '0.5px solid #e5e7eb', borderRadius: 8, overflow: 'hidden' }}>
-      <div style={{ background: '#1e2936', padding: '6px 10px', display: 'flex', alignItems: 'center', gap: 5 }}>
+    <div style={{ background: '#fff', border: '0.5px solid #e5e7eb', borderRadius: 8, overflow: 'hidden', display: 'flex', flexDirection: 'column', maxHeight: 'calc(100vh - 210px)' }}>
+      <div style={{ background: '#1e2936', padding: '6px 10px', display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0 }}>
         <i className={`ti ${icon}`} style={{ fontSize: 11, color: '#fff' }} />
         <span style={{ fontSize: 10, fontWeight: 700, color: '#fff', textTransform: 'uppercase', letterSpacing: '.4px' }}>{label}</span>
       </div>
-      <div style={{ padding: '0 10px 10px' }}>{children}</div>
+      <div style={{ padding: '0 10px 10px', flex: 1, overflowY: 'auto' }}>{children}</div>
     </div>
   );
 }
@@ -110,13 +110,13 @@ function ModelPerfPanel({ data }) {
   return (
     <div style={{ paddingTop: 8 }}>
       <div style={{ display: 'flex', gap: 6, marginBottom: 10, flexWrap: 'wrap' }}>
-        <div style={{ padding: '4px 8px', borderRadius: 5, background: '#f1f5f9', fontSize: 10 }}>
+        <div style={{ padding: '3px 6px', borderRadius: 5, background: '#f1f5f9', fontSize: 10 }}>
           <span style={{ color: '#374151' }}>SR </span>
           <span style={{ fontWeight: 700, color: '#111827', fontFamily: 'JetBrains Mono, monospace' }}>
             {hits}/{total} ({total ? Math.round(strikeRate * 100) : 0}%)
           </span>
         </div>
-        <div style={{ padding: '4px 8px', borderRadius: 5, background: roiBg, fontSize: 10 }}>
+        <div style={{ padding: '3px 6px', borderRadius: 5, background: roiBg, fontSize: 10 }}>
           <span style={{ color: '#374151' }}>ROI </span>
           <span style={{ fontWeight: 700, color: roiColor, fontFamily: 'JetBrains Mono, monospace' }}>
             {roiPct >= 0 ? '+' : ''}{roiPct.toFixed(1)}%
@@ -129,11 +129,11 @@ function ModelPerfPanel({ data }) {
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 10 }}>
           <thead>
             <tr style={{ background: '#f1f5f9', borderBottom: '1px solid #e5e7eb' }}>
-              <th style={{ padding: '3px 5px', textAlign: 'left',   fontWeight: 700, color: '#111827' }}>R#</th>
-              <th style={{ padding: '3px 5px', textAlign: 'left',   fontWeight: 700, color: '#111827' }}>Winner</th>
-              <th style={{ padding: '3px 5px', textAlign: 'center', fontWeight: 700, color: '#111827' }}>Rank</th>
-              <th style={{ padding: '3px 5px', textAlign: 'right',  fontWeight: 700, color: '#111827' }}>SP</th>
-              <th style={{ padding: '3px 5px', textAlign: 'center', fontWeight: 700, color: '#111827' }}>✓</th>
+              <th style={{ padding: '2px 4px', textAlign: 'left',   fontWeight: 700, color: '#111827' }}>R#</th>
+              <th style={{ padding: '2px 4px', textAlign: 'left',   fontWeight: 700, color: '#111827' }}>Winner</th>
+              <th style={{ padding: '2px 4px', textAlign: 'center', fontWeight: 700, color: '#111827' }}>Rank</th>
+              <th style={{ padding: '2px 4px', textAlign: 'right',  fontWeight: 700, color: '#111827' }}>SP</th>
+              <th style={{ padding: '2px 4px', textAlign: 'center', fontWeight: 700, color: '#111827' }}>✓</th>
             </tr>
           </thead>
           <tbody>
@@ -141,15 +141,15 @@ function ModelPerfPanel({ data }) {
               const rs = d.rank ? rankStyle(d.rank) : null;
               return (
                 <tr key={d.raceNum} style={{ borderBottom: '0.5px solid #f3f4f6' }}>
-                  <td style={{ padding: '3px 5px', fontWeight: 700, color: '#111827' }}>{d.raceNum}</td>
-                  <td style={{ padding: '3px 5px', color: '#111827', maxWidth: 90, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.horse}</td>
-                  <td style={{ padding: '3px 5px', textAlign: 'center' }}>
+                  <td style={{ padding: '2px 4px', fontWeight: 700, color: '#111827' }}>{d.raceNum}</td>
+                  <td style={{ padding: '2px 4px', color: '#111827', maxWidth: 90, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.horse}</td>
+                  <td style={{ padding: '2px 4px', textAlign: 'center' }}>
                     {rs
                       ? <span style={{ padding: '1px 5px', borderRadius: 3, fontSize: 9, fontWeight: 700, background: rs.bg, color: rs.color }}>#{d.rank}</span>
                       : <span style={{ color: '#9ca3af' }}>—</span>}
                   </td>
-                  <td style={{ padding: '3px 5px', textAlign: 'right', fontFamily: 'JetBrains Mono, monospace' }}>${Number(d.sp || 0).toFixed(2)}</td>
-                  <td style={{ padding: '3px 5px', textAlign: 'center', color: d.hit ? '#065f46' : '#9ca3af' }}>{d.hit ? '✓' : '✗'}</td>
+                  <td style={{ padding: '2px 4px', textAlign: 'right', fontFamily: 'JetBrains Mono, monospace' }}>${Number(d.sp || 0).toFixed(2)}</td>
+                  <td style={{ padding: '2px 4px', textAlign: 'center', color: d.hit ? '#065f46' : '#9ca3af' }}>{d.hit ? '✓' : '✗'}</td>
                 </tr>
               );
             })}
@@ -189,13 +189,13 @@ function BarrierPanel({ data, hasCsv }) {
             const barW = maxPct > 0 ? Math.round((pct / maxPct) * 72) : 0;
             return (
               <tr key={g.label} style={{ borderBottom: '0.5px solid #f3f4f6' }}>
-                <td style={{ padding: '5px 5px', fontWeight: 700, color: '#111827' }}>{g.label}</td>
-                <td style={{ padding: '5px 5px', textAlign: 'center', fontFamily: 'JetBrains Mono, monospace', color: '#111827' }}>{g.wins}</td>
-                <td style={{ padding: '5px 5px', textAlign: 'center', color: '#6b7280' }}>{g.total}</td>
-                <td style={{ padding: '5px 5px', textAlign: 'center', fontWeight: 700, fontFamily: 'JetBrains Mono, monospace', color: '#111827' }}>
+                <td style={{ padding: '3px 5px', fontWeight: 700, color: '#111827' }}>{g.label}</td>
+                <td style={{ padding: '3px 5px', textAlign: 'center', fontFamily: 'JetBrains Mono, monospace', color: '#111827' }}>{g.wins}</td>
+                <td style={{ padding: '3px 5px', textAlign: 'center', color: '#6b7280' }}>{g.total}</td>
+                <td style={{ padding: '3px 5px', textAlign: 'center', fontWeight: 700, fontFamily: 'JetBrains Mono, monospace', color: '#111827' }}>
                   {g.total ? Math.round(pct * 100) : 0}%
                 </td>
-                <td style={{ padding: '5px 5px' }}>
+                <td style={{ padding: '3px 5px' }}>
                   <div style={{ height: 8, width: barW, background: '#1e2936', borderRadius: 2, minWidth: pct > 0 ? 2 : 0 }} />
                 </td>
               </tr>
@@ -218,10 +218,10 @@ function UpsetsPanel({ data, hasCsv }) {
   }
   const medals = ['🥇', '🥈', '🥉'];
   return (
-    <div style={{ paddingTop: 8, display: 'flex', flexDirection: 'column', gap: 6 }}>
+    <div style={{ paddingTop: 8, display: 'flex', flexDirection: 'column', gap: 5 }}>
       {data.map((u, i) => (
-        <div key={`${u.raceNum}-${u.horse}`} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 8px', background: '#f8fafc', borderRadius: 5, border: '0.5px solid #e5e7eb' }}>
-          <span style={{ fontSize: 16, flexShrink: 0 }}>{medals[i]}</span>
+        <div key={`${u.raceNum}-${u.horse}`} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 8px', background: '#f8fafc', borderRadius: 5, border: '0.5px solid #e5e7eb' }}>
+          <span style={{ fontSize: 14, flexShrink: 0 }}>{medals[i]}</span>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontWeight: 700, fontSize: 11, color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{u.horse}</div>
             <div style={{ fontSize: 9, color: '#6b7280', marginTop: 1 }}>R{u.raceNum} · rank #{u.rank} · ${Number(u.sp || 0).toFixed(2)}</div>
@@ -250,7 +250,7 @@ function StaffPanel({ data }) {
         <div style={{ flex: 1, minWidth: 100 }}>
           <div style={{ fontSize: 9, fontWeight: 700, color: '#374151', textTransform: 'uppercase', letterSpacing: '.4px', marginBottom: 5 }}>Trainers</div>
           {trainers.map(([name, wins]) => (
-            <div key={name} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '3px 0', borderBottom: '0.5px solid #f3f4f6', fontSize: 10 }}>
+            <div key={name} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '2px 0', borderBottom: '0.5px solid #f3f4f6', fontSize: 10 }}>
               <span style={{ color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginRight: 4 }}>{name}</span>
               <span style={{ fontWeight: 700, color: '#111827', fontFamily: 'JetBrains Mono, monospace', flexShrink: 0 }}>{wins}W</span>
             </div>
@@ -261,7 +261,7 @@ function StaffPanel({ data }) {
         <div style={{ flex: 1, minWidth: 100 }}>
           <div style={{ fontSize: 9, fontWeight: 700, color: '#374151', textTransform: 'uppercase', letterSpacing: '.4px', marginBottom: 5 }}>Jockeys</div>
           {jockeys.map(([name, wins]) => (
-            <div key={name} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '3px 0', borderBottom: '0.5px solid #f3f4f6', fontSize: 10 }}>
+            <div key={name} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '2px 0', borderBottom: '0.5px solid #f3f4f6', fontSize: 10 }}>
               <span style={{ color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginRight: 4 }}>{name}</span>
               <span style={{ fontWeight: 700, color: '#111827', fontFamily: 'JetBrains Mono, monospace', flexShrink: 0 }}>{wins}W</span>
             </div>
