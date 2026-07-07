@@ -372,6 +372,9 @@ export default function ResultsPage() {
   const [selectedMeeting, setSelectedMeeting] = useState(null);
   const [selectedRace, setSelectedRace] = useState(null);
   const [sidePanel, setSidePanel] = useState('model');
+  const [cardRows, setCardRows] = useState([]);
+  const todayAEST = new Date().toLocaleDateString('sv-SE', { timeZone: 'Australia/Brisbane' });
+  const isToday = selectedDate === todayAEST;
   const weights = useMemo(() => getDefaultWeights(), []);
 
   useEffect(() => {
@@ -390,6 +393,7 @@ export default function ResultsPage() {
     setSelectedRace(null);
     setSidePanel('model');
     setVenueAbandoned(new Set());
+    setCardRows([]);
     const hdrs = (SURL && SKEY) ? { apikey: SKEY, Authorization: `Bearer ${SKEY}` } : null;
     const scrFetch = hdrs
       ? fetch(`${SURL}/rest/v1/scratchings?date=eq.${selectedDate}&select=venue,race_num,horse_name`, { headers: hdrs }).then(r => r.ok ? r.json() : [])
@@ -400,10 +404,15 @@ export default function ResultsPage() {
           .then(rows => new Set((rows || []).filter(r => r.is_abandoned).map(r => normaliseVenue(r.venue))))
           .catch(() => new Set())
       : Promise.resolve(new Set());
-    Promise.all([fetchResultsForDate(selectedDate), scrFetch, abandonedFetch]).then(([rows, scrRows, abandoned]) => {
+    const todayCheck = new Date().toLocaleDateString('sv-SE', { timeZone: 'Australia/Brisbane' });
+    const cardFetch = hdrs && selectedDate !== todayCheck
+      ? fetch(`${SURL}/rest/v1/race_cards?date=eq.${selectedDate}&select=*`, { headers: hdrs }).then(r => r.ok ? r.json() : [])
+      : Promise.resolve([]);
+    Promise.all([fetchResultsForDate(selectedDate), scrFetch, abandonedFetch, cardFetch]).then(([rows, scrRows, abandoned, cards]) => {
       setDbRows(rows || []);
       setDbScratchings(scrRows || []);
       setVenueAbandoned(abandoned);
+      setCardRows(cards || []);
       setLoading(false);
     });
   }, [selectedDate]);
@@ -441,6 +450,22 @@ export default function ResultsPage() {
     return g;
   }, [dbRows, dbScratchings]);
 
+  const cardRaceData = useMemo(() => {
+    if (!cardRows.length) return { allRaces: {}, allVenues: {} };
+    const ar = {}, av = {};
+    cardRows.forEach(row => {
+      const key = `${row.venue}_R${row.race_num}`;
+      if (!ar[key]) ar[key] = { venue: row.venue, num: row.race_num, horses: [] };
+      if (row.form_data) ar[key].horses.push(row.form_data);
+      if (!av[row.venue]) av[row.venue] = [];
+      if (!av[row.venue].includes(key)) av[row.venue].push(key);
+    });
+    return { allRaces: ar, allVenues: av };
+  }, [cardRows]);
+
+  const effectiveRaces  = useMemo(() => isToday ? allRaces  : cardRaceData.allRaces,  [isToday, allRaces,  cardRaceData]);
+  const effectiveVenues = useMemo(() => isToday ? allVenues : cardRaceData.allVenues, [isToday, allVenues, cardRaceData]);
+
   const meetings = useMemo(() => {
     const m = {};
     Object.values(grouped).forEach(res => {
@@ -451,8 +476,7 @@ export default function ResultsPage() {
       }
     });
     // Only merge CSV-derived unresulted races when viewing today's card
-    const todayAEST = new Date().toLocaleDateString('sv-SE', { timeZone: 'Australia/Brisbane' });
-    if (selectedDate === todayAEST) {
+    if (isToday) {
       Object.values(allVenues).flat().forEach(k => {
         const rc = allRaces[k];
         if (!rc) return;
@@ -465,7 +489,7 @@ export default function ResultsPage() {
     }
     Object.values(m).forEach(arr => arr.sort((a, b) => a.raceNum - b.raceNum));
     return m;
-  }, [grouped, allRaces, allVenues, selectedDate]);
+  }, [grouped, allRaces, allVenues, isToday]);
 
   const venueNames = Object.keys(meetings);
   const meetingRaces = selectedMeeting ? (meetings[selectedMeeting] || []) : [];
@@ -481,7 +505,7 @@ export default function ResultsPage() {
     return null;
   })();
 
-  const hasCsv = Object.keys(allRaces).length > 0;
+  const hasCsv = Object.keys(effectiveRaces).length > 0;
 
   const meetingResulted = useMemo(() => {
     if (!selectedMeeting) return [];
@@ -493,7 +517,7 @@ export default function ResultsPage() {
     let hits = 0, total = 0, roi = 0;
     const details = [];
     meetingResulted.forEach(({ raceNum, results }) => {
-      const rankMap = getSysRanks(allRaces, allVenues, selectedMeeting, raceNum, weights, dbScratchings) || {};
+      const rankMap = getSysRanks(effectiveRaces, effectiveVenues, selectedMeeting, raceNum, weights, dbScratchings) || {};
       if (!Object.keys(rankMap).length) return;
       const winner = (results.runners || []).find(r => r.place === 1);
       if (!winner) return;
@@ -506,7 +530,7 @@ export default function ResultsPage() {
     });
     if (total === 0) return null;
     return { hits, total, roi, strikeRate: hits / total, details };
-  }, [meetingResulted, allRaces, allVenues, selectedMeeting, weights, dbScratchings, hasCsv]);
+  }, [meetingResulted, effectiveRaces, effectiveVenues, selectedMeeting, weights, dbScratchings, hasCsv]);
 
   const barrierBias = useMemo(() => {
     const groups = [
@@ -518,7 +542,7 @@ export default function ResultsPage() {
       (results.runners || []).forEach(runner => {
         let bar = runner.barrier;
         if (bar == null && hasCsv) {
-          bar = getBarrierFromCSV(allRaces, allVenues, selectedMeeting, raceNum, runner.name);
+          bar = getBarrierFromCSV(effectiveRaces, effectiveVenues, selectedMeeting, raceNum, runner.name);
         }
         if (bar == null || bar <= 0) return;
         const g = groups.find(c => bar >= c.min && bar <= c.max);
@@ -528,13 +552,13 @@ export default function ResultsPage() {
       });
     });
     return groups;
-  }, [meetingResulted, allRaces, allVenues, selectedMeeting, hasCsv]);
+  }, [meetingResulted, effectiveRaces, effectiveVenues, selectedMeeting, hasCsv]);
 
   const biggestUpsets = useMemo(() => {
     if (!hasCsv) return [];
     const upsets = [];
     meetingResulted.forEach(({ raceNum, results }) => {
-      const rankMap = getSysRanks(allRaces, allVenues, selectedMeeting, raceNum, weights, dbScratchings) || {};
+      const rankMap = getSysRanks(effectiveRaces, effectiveVenues, selectedMeeting, raceNum, weights, dbScratchings) || {};
       if (!Object.keys(rankMap).length) return;
       const winner = (results.runners || []).find(r => r.place === 1);
       if (!winner) return;
@@ -544,7 +568,7 @@ export default function ResultsPage() {
     });
     upsets.sort((a, b) => (b.rank || 0) - (a.rank || 0));
     return upsets.slice(0, 3);
-  }, [meetingResulted, allRaces, allVenues, selectedMeeting, weights, dbScratchings, hasCsv]);
+  }, [meetingResulted, effectiveRaces, effectiveVenues, selectedMeeting, weights, dbScratchings, hasCsv]);
 
   const staffForm = useMemo(() => {
     const tMap = {}, jMap = {};
@@ -644,8 +668,8 @@ export default function ResultsPage() {
                   <ResultsDetail
                     meeting={activeRaceData}
                     venue={selectedMeeting}
-                    allRaces={allRaces}
-                    allVenues={allVenues}
+                    allRaces={effectiveRaces}
+                    allVenues={effectiveVenues}
                     weights={weights}
                     dbScratchings={dbScratchings}
                   />
