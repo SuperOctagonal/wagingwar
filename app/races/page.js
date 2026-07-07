@@ -1500,7 +1500,7 @@ function RunnerRow({ runner, rank, rc, trackCond, onLogBet, onShowPopup, onHideP
         </div>
       </td>
       {/* Career record */}
-      <td className={`${td} text-center text-[9px] font-mono whitespace-nowrap`} style={{ color: '#111827' }}>
+      <td className={`${td} text-center text-[9px] font-mono whitespace-nowrap`} style={{ color: '#111827', paddingLeft: 14 }}>
         {runner.starts}-{runner.wins}-{runner.seconds||0}-{runner.thirds||0}
       </td>
       {/* Group scores */}
@@ -1519,7 +1519,7 @@ function RunnerRow({ runner, rank, rc, trackCond, onLogBet, onShowPopup, onHideP
       <td className={`${td} text-right text-[11px] font-semibold text-emerald-600 tabular-nums whitespace-nowrap`}>
         {!isPro ? <LockBtn onClick={onUpgrade} /> : (myO ? `$${formatRacingOdds(myO)}` : '—')}
       </td>
-      {/* Live $ */}
+      {/* Ref $ */}
       <td className={`${td} text-right text-[11px] tabular-nums whitespace-nowrap`} style={{ color: '#111827' }}>{mktO ? `$${mktO.toFixed(2)}` : '—'}</td>
       {/* Value */}
       <td className={`${td} text-right text-[10px] font-semibold tabular-nums whitespace-nowrap`} style={{ color: valColor }}>
@@ -1570,14 +1570,14 @@ function FieldView({ results, scratched, rc, trackCond, onLogBet, onShowPopup, o
               <th style={{ ...th, textAlign:'center', width:'3%' }}>RANK</th>
               <th style={{ ...th, textAlign:'left', width:'18%' }}>Horse / Jockey / Trainer</th>
               <th style={{ ...th, textAlign:'center', width:'7%' }}>Last 4 →</th>
-              <th style={{ ...th, textAlign:'center', width:'6%' }}>Record</th>
+              <th style={{ ...th, textAlign:'center', width:'6%', paddingLeft: 14 }}>Record</th>
               <th style={{ ...th, textAlign:'right', width:'5%', color: GRP_LABELS.form.color }}>Form</th>
               <th style={{ ...th, textAlign:'right', width:'5%', color: GRP_LABELS.speed.color }}>Speed</th>
               <th style={{ ...th, textAlign:'right', width:'5%', color: GRP_LABELS.cond.color }}>{tcLabel}</th>
               <th style={{ ...th, textAlign:'right', width:'5%', color: GRP_LABELS.conn.color }}>Conn</th>
               <th style={{ ...th, textAlign:'right', width:'5%' }}>Score</th>
               <th style={{ ...th, textAlign:'right', width:'6%' }}>Edge $</th>
-              <th style={{ ...th, textAlign:'right', width:'6%' }}>Live $</th>
+              <th style={{ ...th, textAlign:'right', width:'6%' }}>Ref $</th>
               <th style={{ ...th, textAlign:'right', width:'5%' }}>Value</th>
               <th style={{ ...th, width:'8%' }} />
               <th style={{ ...th, textAlign:'left', width:'16%' }}>
