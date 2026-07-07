@@ -651,7 +651,7 @@ export default function ResultsPage() {
               </div>
 
               {/* Right — analysis panels (pill-switched) */}
-              <div style={{ flex:1, minWidth:0, display:'flex', flexDirection:'column', gap:10 }}>
+              <div style={{ width:300, flexShrink:0, display:'flex', flexDirection:'column', gap:10 }}>
                 <div style={{ display:'flex', gap:4, flexWrap:'wrap' }}>
                   {[
                     { key:'model',   label:'Model',    icon:'ti-chart-bar'      },
