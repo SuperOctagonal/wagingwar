@@ -637,15 +637,17 @@ export default function ResultsPage() {
             <div style={{ display:'flex', gap:10, alignItems:'flex-start', flexDirection: isMobile ? 'column' : 'row' }}>
 
               {/* Left — race results */}
-              <div style={{ flex:1, minWidth:0, overflow:'auto' }}>
-                <ResultsDetail
-                  meeting={activeRaceData}
-                  venue={selectedMeeting}
-                  allRaces={allRaces}
-                  allVenues={allVenues}
-                  weights={weights}
-                  dbScratchings={dbScratchings}
-                />
+              <div style={{ flex:1, minWidth:0 }}>
+                <div style={{ overflowX:'auto' }}>
+                  <ResultsDetail
+                    meeting={activeRaceData}
+                    venue={selectedMeeting}
+                    allRaces={allRaces}
+                    allVenues={allVenues}
+                    weights={weights}
+                    dbScratchings={dbScratchings}
+                  />
+                </div>
               </div>
 
               {/* Right — analysis panels (pill-switched) */}
