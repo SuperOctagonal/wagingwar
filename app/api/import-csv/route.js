@@ -162,15 +162,25 @@ export async function POST(request) {
     }
   }
 
-  if (cardRows.length) {
+  const seenCards = new Set();
+  const dedupedCards = cardRows.filter(row => {
+    const key = `${row.date}||${row.venue}||${row.race_num}||${row.horse_name}`;
+    if (seenCards.has(key)) return false;
+    seenCards.add(key);
+    return true;
+  });
+  const dupeCount = cardRows.length - dedupedCards.length;
+  if (dupeCount > 0) console.warn(`[import-csv] race_cards: removed ${dupeCount} duplicate rows`);
+
+  if (dedupedCards.length) {
     try {
       const r = await fetch(`${SURL}/rest/v1/race_cards?on_conflict=date,venue,race_num,horse_name`, {
         method: 'POST',
         headers: { ...sbHeaders, Prefer: 'resolution=merge-duplicates,return=minimal' },
-        body: JSON.stringify(cardRows),
+        body: JSON.stringify(dedupedCards),
       });
       if (r.ok) {
-        result.cardRows = cardRows.length;
+        result.cardRows = dedupedCards.length;
       } else {
         result.errors.push(`race_cards ${r.status}: ${await r.text()}`);
       }
