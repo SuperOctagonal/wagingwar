@@ -110,6 +110,15 @@ function parsePostTimeMs(dateStr, timeStr) {
   return isNaN(d.getTime()) ? null : d.getTime();
 }
 
+function findPostTime(schedList, date, venue, raceNum) {
+  const wv = (venue || '').toUpperCase();
+  const wr = String(raceNum || '');
+  return (schedList.find(s =>
+    s.date === date && s.race_num === wr &&
+    (s.venue === wv || s.venue.includes(wv) || wv.includes(s.venue))
+  ) || {}).post_time || null;
+}
+
 const STAR_COLORS = { 1: '#ef4444', 2: '#f97316', 3: '#eab308', 4: '#22c55e', 5: '#f59e0b' };
 
 function Stars({ value, onChange, readOnly }) {
@@ -279,12 +288,7 @@ export default function BlackbookPage() {
       sb(`race_schedule?date=gte.${sinceDate}&select=date,venue,race_num,post_time`),
     ]).then(([winners, schedule]) => {
       if (!winners || winners.length === 0) return;
-      // Build schedule lookup: "VENUE||date||race_num" -> post_time
-      const schedMap = {};
-      (schedule || []).forEach(s => {
-        const k = `${(s.venue || '').toUpperCase()}||${s.date}||${String(s.race_num)}`;
-        schedMap[k] = s.post_time;
-      });
+      const schedList = (schedule || []).map(s => ({ date: s.date, venue: (s.venue || '').toUpperCase(), race_num: String(s.race_num), post_time: s.post_time }));
       const winnerMap = {};
       winners.forEach(w => {
         const key = (w.horse_name || '').toUpperCase();
@@ -304,14 +308,10 @@ export default function BlackbookPage() {
           if (notified.includes(nkey)) return;
           if (win.date < addedDate) return; // win predates add
           if (win.date === addedDate) {
-            // Same day: use post_time for precision if available
-            const sk = `${(win.venue || '').toUpperCase()}||${win.date}||${String(win.race_num || '')}`;
-            const postTime = schedMap[sk];
-            if (postTime) {
-              const raceMs = parsePostTimeMs(win.date, postTime);
-              if (raceMs !== null && addedMs >= raceMs) return; // added at or after race start
-            }
-            // No post_time: allow (consistent with gte in bbPerf)
+            const postTime = findPostTime(schedList, win.date, win.venue, win.race_num);
+            if (!postTime) return; // fail-safe: can't confirm horse was added before race
+            const raceMs = parsePostTimeMs(win.date, postTime);
+            if (raceMs === null || addedMs >= raceMs) return; // added at or after race start
           }
           newBanners.push({ horse: h.horse_name, venue: win.venue, date: win.date, rowId: h.id, nkey });
         });
@@ -342,16 +342,28 @@ export default function BlackbookPage() {
       if (!h.added_at) return;
       const normHorse = normName(h.horse_name);
       const since = h.added_at.slice(0, 10);
-      sb(`race_results?horse_name=ilike.${encodeURIComponent(normHorse + '%')}&date=gte.${since}&select=horse_name,date,venue,finish_pos,sp&order=date.desc`)
-        .then(rows => {
-          const matched = (rows || []).filter(r => normName(r.horse_name) === normHorse);
-          const runs = matched.map(r => {
+      const addedMs = new Date(h.added_at).getTime();
+      Promise.all([
+        sb(`race_results?horse_name=ilike.${encodeURIComponent(normHorse + '%')}&date=gte.${since}&select=horse_name,date,venue,finish_pos,sp,race_num&order=date.desc`),
+        sb(`race_schedule?date=eq.${since}&select=date,venue,race_num,post_time`),
+      ]).then(([rows, sched]) => {
+        const schedList = (sched || []).map(s => ({ date: s.date, venue: (s.venue || '').toUpperCase(), race_num: String(s.race_num), post_time: s.post_time }));
+        const matched = (rows || []).filter(r => normName(r.horse_name) === normHorse);
+        const runs = matched
+          .filter(r => {
+            if (r.date !== since) return true; // different day: always include
+            const pt = findPostTime(schedList, r.date, r.venue, r.race_num);
+            if (!pt) return false; // fail-safe: no post_time → exclude
+            const raceMs = parsePostTimeMs(r.date, pt);
+            return raceMs !== null && addedMs < raceMs; // include only if race started after add
+          })
+          .map(r => {
             const sp = parseFloat(r.sp) || 0;
             const win = r.finish_pos === 1 || r.finish_pos === '1';
             return { date: r.date, venue: r.venue, pos: r.finish_pos, sp, pnl: win ? sp - 1 : -1 };
           });
-          setBbPerf(prev => ({ ...prev, [h.id]: { runs, loaded: true } }));
-        });
+        setBbPerf(prev => ({ ...prev, [h.id]: { runs, loaded: true } }));
+      });
     });
   }, [horses]);
 
