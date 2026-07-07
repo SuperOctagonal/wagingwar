@@ -118,8 +118,8 @@ function aggGroup(bets) {
   const won = settled.filter(isBetWon);
   const staked = settled.reduce((s, b) => s + +b.stake, 0);
   const pnl = settled.reduce((s, b) => s + betPnl(b), 0);
-  const firsts  = settled.filter(b => +b.finish_pos === 1).length;
-  const seconds = settled.filter(b => +b.finish_pos === 2).length;
+  const firsts  = settled.filter(b => +b.finish_pos === 1 || (!+b.finish_pos && (b.status === 'win' || b.status === 'won'))).length;
+  const seconds = settled.filter(b => +b.finish_pos === 2 || (!+b.finish_pos && b.status === 'place')).length;
   const thirds  = settled.filter(b => +b.finish_pos === 3).length;
   return {
     n: settled.length, wins: won.length, firsts, seconds, thirds, staked, pnl,
@@ -638,7 +638,7 @@ export default function InsightsPage() {
             <div style={{ fontSize: 10, color: '#9ca3af', marginTop: 8 }}>Min 3 bets to show a cell. Dark green = best ROI → red = worst.</div>
           </Card>
 
-          {/* 6+7. TRACK CONDITIONS + KELLY */}
+          {/* 6+8. TRACK CONDITIONS + TOP VENUES */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             <Card title="Track Condition Breakdown" info="Record (Starts-Wins-2nds-3rds), ROI, and P&L split by track condition. Some punters have a real edge on certain surfaces — this reveals it.">
               {condData.every(c => c.n === 0) ? (
@@ -667,6 +667,46 @@ export default function InsightsPage() {
               )}
             </Card>
 
+            <Card title="Top Venues" info="Record (Starts-Wins-2nds-3rds), strike rate, ROI and P&L at each track. Sort by ROI to find where you have a genuine edge, or by Bets to weight results by sample size.">
+              <div style={{ display: 'flex', gap: 6, marginBottom: 12 }}>
+                {[['roi','ROI'],['bets','Bets'],['pnl','P&L'],['sr','Strike']].map(([v, label]) => (
+                  <button key={v} onClick={() => setSortVenue(v)} style={{
+                    background: sortVenue === v ? G : '#f3f4f6',
+                    color: sortVenue === v ? '#fff' : '#374151',
+                    border: 'none', borderRadius: 6, padding: '4px 10px',
+                    fontSize: 11, cursor: 'pointer', fontWeight: 500,
+                  }}>{label}</button>
+                ))}
+              </div>
+              {venueData.length === 0 ? <EmptyState msg="No settled bets yet" /> : (
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                  <thead>
+                    <tr style={{ color: '#9ca3af', borderBottom: '1px solid #e5e7eb' }}>
+                      {['Venue','Record','Strike','ROI','P&L'].map((h, i) => (
+                        <th key={h} style={{ textAlign: i === 0 ? 'left' : 'right', fontWeight: 500, paddingBottom: 8 }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {venueData.slice(0, 15).map(v => (
+                      <tr key={v.venue} style={{ borderTop: '1px solid #f3f4f6' }}>
+                        <td style={{ padding: '7px 0', fontWeight: 500 }}>
+                          {v.venue.toLowerCase().replace(/\b\w/g, c => c.toUpperCase())}
+                        </td>
+                        <td style={{ ...MONO, textAlign: 'right', fontSize: 11 }}>{v.n}-{v.firsts}-{v.seconds}-{v.thirds}</td>
+                        <td style={{ ...MONO, textAlign: 'right' }}>{v.sr.toFixed(1)}%</td>
+                        <td style={{ ...MONO, textAlign: 'right', color: v.roi >= 0 ? G : RED }}>{fmtPct(v.roi)}</td>
+                        <td style={{ ...MONO, textAlign: 'right', color: v.pnl >= 0 ? G : RED }}>{fmt$(v.pnl)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </Card>
+          </div>
+
+          {/* 7+9. KELLY + STAKING */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             <Card title="Kelly Criterion Advisor" info="Uses your historical win rate and average odds in each zone to calculate the optimal stake size. Over-betting shrinks your bankroll; under-betting leaves profit on the table. Set your bankroll in Settings first.">
               {!bankroll ? (
                 <div style={{ fontSize: 12, color: '#6b7280', lineHeight: 1.6 }}>
@@ -708,48 +748,7 @@ export default function InsightsPage() {
                 </>
               )}
             </Card>
-          </div>
 
-          {/* 8. TOP VENUES */}
-          <Card title="Top Venues" info="Record (Starts-Wins-2nds-3rds), strike rate, ROI and P&L at each track. Sort by ROI to find where you have a genuine edge, or by Bets to weight results by sample size.">
-            <div style={{ display: 'flex', gap: 6, marginBottom: 12 }}>
-              {[['roi','ROI'],['bets','Bets'],['pnl','P&L'],['sr','Strike']].map(([v, label]) => (
-                <button key={v} onClick={() => setSortVenue(v)} style={{
-                  background: sortVenue === v ? G : '#f3f4f6',
-                  color: sortVenue === v ? '#fff' : '#374151',
-                  border: 'none', borderRadius: 6, padding: '4px 10px',
-                  fontSize: 11, cursor: 'pointer', fontWeight: 500,
-                }}>{label}</button>
-              ))}
-            </div>
-            {venueData.length === 0 ? <EmptyState msg="No settled bets yet" /> : (
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
-                <thead>
-                  <tr style={{ color: '#9ca3af', borderBottom: '1px solid #e5e7eb' }}>
-                    {['Venue','Record','Strike','ROI','P&L'].map((h, i) => (
-                      <th key={h} style={{ textAlign: i === 0 ? 'left' : 'right', fontWeight: 500, paddingBottom: 8 }}>{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {venueData.slice(0, 15).map(v => (
-                    <tr key={v.venue} style={{ borderTop: '1px solid #f3f4f6' }}>
-                      <td style={{ padding: '7px 0', fontWeight: 500 }}>
-                        {v.venue.toLowerCase().replace(/\b\w/g, c => c.toUpperCase())}
-                      </td>
-                      <td style={{ ...MONO, textAlign: 'right', fontSize: 11 }}>{v.n}-{v.firsts}-{v.seconds}-{v.thirds}</td>
-                      <td style={{ ...MONO, textAlign: 'right' }}>{v.sr.toFixed(1)}%</td>
-                      <td style={{ ...MONO, textAlign: 'right', color: v.roi >= 0 ? G : RED }}>{fmtPct(v.roi)}</td>
-                      <td style={{ ...MONO, textAlign: 'right', color: v.pnl >= 0 ? G : RED }}>{fmt$(v.pnl)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </Card>
-
-          {/* 9+10. STAKING + CALENDAR */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, paddingBottom: 24 }}>
             <Card title="Staking Discipline" info="Compares your actual P&L to two benchmarks: flat $10 stakes on every bet, and a simulated Kelly stake. If either benchmark beats your actual result, your staking is costing you money.">
               {!stakingStats ? <EmptyState msg="No settled bets in this range" /> : (
                 <>
@@ -795,7 +794,10 @@ export default function InsightsPage() {
                 </>
               )}
             </Card>
+          </div>
 
+          {/* 10. CALENDAR */}
+          <div style={{ paddingBottom: 24 }}>
             <Card title="P&L Calendar (Last 90 Days)" info="Daily P&L grid for the past 90 days. Dark green = big profit day, red = losing day, light grey = no bets. Hover a square to see the exact date and P&L.">
               <div style={{ overflowX: 'auto' }}>
                 <div style={{ display: 'grid', gridTemplateRows: 'repeat(7, 12px)', gridAutoFlow: 'column', gridAutoColumns: '12px', gap: 2, width: 'fit-content' }}>
