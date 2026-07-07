@@ -60,7 +60,7 @@ function getBarrierFromCSV(allRaces, allVenues, venue, raceNum, horseName) {
       if (normaliseVenue(rc.venue) !== normV) continue;
       if (String(rc.num) !== String(raceNum)) continue;
       const h = (rc.horses || []).find(h => normName(h.name) === normName(horseName));
-      if (h) return h.barrier ?? h.bar ?? null;
+      if (h) return h.BP ?? h.barrier ?? h.bar ?? null;
     }
   }
   return null;
