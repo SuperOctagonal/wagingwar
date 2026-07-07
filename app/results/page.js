@@ -51,6 +51,21 @@ function getSysRanks(allRaces, allVenues, venue, raceNum, weights, dbScratchings
   return null;
 }
 
+function getBarrierFromCSV(allRaces, allVenues, venue, raceNum, horseName) {
+  const normV = normaliseVenue(venue);
+  for (const keys of Object.values(allVenues)) {
+    for (const k of keys) {
+      const rc = allRaces[k];
+      if (!rc) continue;
+      if (normaliseVenue(rc.venue) !== normV) continue;
+      if (String(rc.num) !== String(raceNum)) continue;
+      const h = (rc.horses || []).find(h => normName(h.name) === normName(horseName));
+      if (h) return h.barrier ?? h.bar ?? null;
+    }
+  }
+  return null;
+}
+
 function placeStyle(p) {
   if (p === 1) return { bg: '#fbbf24', color: '#78350f' };
   if (p === 2) return { bg: '#e5e7eb', color: '#374151' };
@@ -63,6 +78,197 @@ function rankStyle(r) {
   if (r === 2) return { bg: '#e5e7eb', color: '#374151' };
   if (r === 3) return { bg: '#fed7aa', color: '#92400e' };
   return { bg: '#f3f4f6', color: '#374151' };
+}
+
+const AGGREGATE_PANELS = [
+  { key: 'model',   label: 'Model',         icon: 'ti-chart-bar'      },
+  { key: 'barrier', label: 'Barriers',       icon: 'ti-layout-columns' },
+  { key: 'upsets',  label: 'Upsets',         icon: 'ti-bolt'           },
+  { key: 'staff',   label: 'Trainer/Jockey', icon: 'ti-users'          },
+];
+
+function NoCsvMsg() {
+  return (
+    <div style={{ padding: '40px 16px', textAlign: 'center', color: '#6b7280', fontSize: 11 }}>
+      <i className="ti ti-upload" style={{ fontSize: 28, display: 'block', marginBottom: 8 }} />
+      Load a CSV on the Races page to enable this analysis
+    </div>
+  );
+}
+
+function ModelPerfPanel({ data }) {
+  if (!data) return <NoCsvMsg />;
+  const { hits, total, roi, strikeRate, details } = data;
+  const roiPct   = total ? (roi / total) * 100 : 0;
+  const roiColor = roiPct >= 0 ? '#065f46' : '#991b1b';
+  const roiBg    = roiPct >= 0 ? '#d1fae5' : '#fee2e2';
+  return (
+    <div style={{ padding: '12px 0' }}>
+      <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap', alignItems: 'center' }}>
+        <div style={{ padding: '6px 12px', borderRadius: 6, background: '#f1f5f9', fontSize: 11 }}>
+          <span style={{ color: '#374151' }}>Strike rate </span>
+          <span style={{ fontWeight: 700, color: '#111827', fontFamily: 'JetBrains Mono, monospace' }}>
+            {hits}/{total} ({total ? Math.round(strikeRate * 100) : 0}%)
+          </span>
+        </div>
+        <div style={{ padding: '6px 12px', borderRadius: 6, background: roiBg, fontSize: 11 }}>
+          <span style={{ color: '#374151' }}>ROI </span>
+          <span style={{ fontWeight: 700, color: roiColor, fontFamily: 'JetBrains Mono, monospace' }}>
+            {roiPct >= 0 ? '+' : ''}{roiPct.toFixed(1)}%
+          </span>
+        </div>
+        <span style={{ fontSize: 9, color: '#9ca3af' }}>$1 on rank 1 each race at SP</span>
+      </div>
+      {details.length === 0 ? (
+        <div style={{ color: '#6b7280', fontSize: 11 }}>No resulted races with model data yet.</div>
+      ) : (
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
+          <thead>
+            <tr style={{ background: '#f1f5f9', borderBottom: '1px solid #e5e7eb' }}>
+              <th style={{ padding: '4px 8px', textAlign: 'left',   fontWeight: 700, color: '#111827' }}>Race</th>
+              <th style={{ padding: '4px 8px', textAlign: 'left',   fontWeight: 700, color: '#111827' }}>Winner</th>
+              <th style={{ padding: '4px 8px', textAlign: 'center', fontWeight: 700, color: '#111827' }}>Rank</th>
+              <th style={{ padding: '4px 8px', textAlign: 'right',  fontWeight: 700, color: '#111827' }}>SP</th>
+              <th style={{ padding: '4px 8px', textAlign: 'center', fontWeight: 700, color: '#111827' }}>Hit</th>
+            </tr>
+          </thead>
+          <tbody>
+            {details.map(d => {
+              const rs = d.rank ? rankStyle(d.rank) : null;
+              return (
+                <tr key={d.raceNum} style={{ borderBottom: '0.5px solid #f3f4f6' }}>
+                  <td style={{ padding: '5px 8px', fontWeight: 700, color: '#111827' }}>R{d.raceNum}</td>
+                  <td style={{ padding: '5px 8px', color: '#111827' }}>{d.horse}</td>
+                  <td style={{ padding: '5px 8px', textAlign: 'center' }}>
+                    {rs
+                      ? <span style={{ padding: '1px 7px', borderRadius: 4, fontSize: 10, fontWeight: 700, background: rs.bg, color: rs.color }}>#{d.rank}</span>
+                      : <span style={{ color: '#9ca3af' }}>—</span>}
+                  </td>
+                  <td style={{ padding: '5px 8px', textAlign: 'right', fontFamily: 'JetBrains Mono, monospace' }}>${Number(d.sp || 0).toFixed(2)}</td>
+                  <td style={{ padding: '5px 8px', textAlign: 'center', fontSize: 13, color: d.hit ? '#065f46' : '#9ca3af' }}>
+                    {d.hit ? '✓' : '✗'}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      )}
+    </div>
+  );
+}
+
+function BarrierPanel({ data, hasCsv }) {
+  if (!hasCsv) return <NoCsvMsg />;
+  if (!data || data.every(g => g.total === 0)) {
+    return (
+      <div style={{ padding: '40px 16px', textAlign: 'center', color: '#6b7280', fontSize: 11 }}>
+        No barrier data available. Ensure the CSV includes a barrier field.
+      </div>
+    );
+  }
+  const maxPct = Math.max(...data.map(g => g.total ? g.wins / g.total : 0), 0.001);
+  return (
+    <div style={{ padding: '12px 0' }}>
+      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
+        <thead>
+          <tr style={{ background: '#f1f5f9', borderBottom: '1px solid #e5e7eb' }}>
+            <th style={{ padding: '4px 8px', textAlign: 'left',   fontWeight: 700, color: '#111827', width: 56 }}>Group</th>
+            <th style={{ padding: '4px 8px', textAlign: 'center', fontWeight: 700, color: '#111827', width: 48 }}>Wins</th>
+            <th style={{ padding: '4px 8px', textAlign: 'center', fontWeight: 700, color: '#111827', width: 68 }}>Runners</th>
+            <th style={{ padding: '4px 8px', textAlign: 'center', fontWeight: 700, color: '#111827', width: 52 }}>Win%</th>
+            <th style={{ padding: '4px 8px', textAlign: 'left',   fontWeight: 700, color: '#111827' }}></th>
+          </tr>
+        </thead>
+        <tbody>
+          {data.map(g => {
+            const pct  = g.total ? g.wins / g.total : 0;
+            const barW = maxPct > 0 ? Math.round((pct / maxPct) * 100) : 0;
+            return (
+              <tr key={g.label} style={{ borderBottom: '0.5px solid #f3f4f6' }}>
+                <td style={{ padding: '7px 8px', fontWeight: 700, color: '#111827' }}>{g.label}</td>
+                <td style={{ padding: '7px 8px', textAlign: 'center', fontFamily: 'JetBrains Mono, monospace', color: '#111827' }}>{g.wins}</td>
+                <td style={{ padding: '7px 8px', textAlign: 'center', color: '#6b7280' }}>{g.total}</td>
+                <td style={{ padding: '7px 8px', textAlign: 'center', fontWeight: 700, fontFamily: 'JetBrains Mono, monospace', color: '#111827' }}>
+                  {g.total ? Math.round(pct * 100) : 0}%
+                </td>
+                <td style={{ padding: '7px 8px' }}>
+                  <div style={{ height: 10, width: barW, background: '#1e2936', borderRadius: 3, minWidth: pct > 0 ? 3 : 0 }} />
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function UpsetsPanel({ data, hasCsv }) {
+  if (!hasCsv) return <NoCsvMsg />;
+  if (!data || data.length === 0) {
+    return (
+      <div style={{ padding: '40px 16px', textAlign: 'center', color: '#6b7280', fontSize: 11 }}>
+        No resulted races with model data yet.
+      </div>
+    );
+  }
+  const medals = ['🥇', '🥈', '🥉'];
+  return (
+    <div style={{ padding: '12px 0', display: 'flex', flexDirection: 'column', gap: 8 }}>
+      {data.map((u, i) => (
+        <div key={`${u.raceNum}-${u.horse}`} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 12px', background: '#f8fafc', borderRadius: 6, border: '0.5px solid #e5e7eb' }}>
+          <span style={{ fontSize: 20 }}>{medals[i]}</span>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontWeight: 700, fontSize: 12, color: '#111827' }}>{u.horse}</div>
+            <div style={{ fontSize: 10, color: '#6b7280', marginTop: 2 }}>
+              R{u.raceNum} — model ranked #{u.rank} → won at ${Number(u.sp || 0).toFixed(2)}
+            </div>
+          </div>
+          <div style={{ padding: '2px 8px', borderRadius: 4, background: '#fef3c7', color: '#92400e', fontSize: 10, fontWeight: 700, whiteSpace: 'nowrap' }}>
+            Rank #{u.rank}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function StaffPanel({ data }) {
+  const { trainers, jockeys } = data;
+  if (!trainers.length && !jockeys.length) {
+    return (
+      <div style={{ padding: '40px 16px', textAlign: 'center', color: '#6b7280', fontSize: 11 }}>
+        No winner data yet for this meeting.
+      </div>
+    );
+  }
+  return (
+    <div style={{ padding: '12px 0', display: 'flex', gap: 24, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+      {trainers.length > 0 && (
+        <div style={{ flex: 1, minWidth: 140 }}>
+          <div style={{ fontSize: 10, fontWeight: 700, color: '#374151', textTransform: 'uppercase', letterSpacing: '.4px', marginBottom: 8 }}>Trainers</div>
+          {trainers.map(([name, wins]) => (
+            <div key={name} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '5px 0', borderBottom: '0.5px solid #f3f4f6', fontSize: 11 }}>
+              <span style={{ color: '#111827' }}>{name}</span>
+              <span style={{ fontWeight: 700, color: '#111827', fontFamily: 'JetBrains Mono, monospace', marginLeft: 8 }}>{wins}W</span>
+            </div>
+          ))}
+        </div>
+      )}
+      {jockeys.length > 0 && (
+        <div style={{ flex: 1, minWidth: 140 }}>
+          <div style={{ fontSize: 10, fontWeight: 700, color: '#374151', textTransform: 'uppercase', letterSpacing: '.4px', marginBottom: 8 }}>Jockeys</div>
+          {jockeys.map(([name, wins]) => (
+            <div key={name} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '5px 0', borderBottom: '0.5px solid #f3f4f6', fontSize: 11 }}>
+              <span style={{ color: '#111827' }}>{name}</span>
+              <span style={{ fontWeight: 700, color: '#111827', fontFamily: 'JetBrains Mono, monospace', marginLeft: 8 }}>{wins}W</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 }
 
 function ResultsDetail({ meeting, venue, allRaces, allVenues, weights, dbScratchings }) {
@@ -133,12 +339,8 @@ function ResultsDetail({ meeting, venue, allRaces, allVenues, weights, dbScratch
                   ${Number(r.sp || 0).toFixed(2)}
                 </td>
                 <td style={{ padding:pad, textAlign:'right', fontSize:11, color:'#111827', whiteSpace:'nowrap' }}>{r.margin || '—'}</td>
-                <td style={{ padding:pad, whiteSpace:'nowrap', fontSize:11, color:'#111827' }}>
-                  {r.trainer || '—'}
-                </td>
-                <td style={{ padding:pad, whiteSpace:'nowrap', fontSize:11, color:'#111827' }}>
-                  {r.jockey || '—'}
-                </td>
+                <td style={{ padding:pad, whiteSpace:'nowrap', fontSize:11, color:'#111827' }}>{r.trainer || '—'}</td>
+                <td style={{ padding:pad, whiteSpace:'nowrap', fontSize:11, color:'#111827' }}>{r.jockey || '—'}</td>
               </tr>
             );
           })}
@@ -168,6 +370,7 @@ export default function ResultsPage() {
   const [selectedDate, setSelectedDate] = useState(() => new Date().toLocaleDateString('sv-SE'));
   const [selectedMeeting, setSelectedMeeting] = useState(null);
   const [selectedRace, setSelectedRace] = useState(null);
+  const [activePanel, setActivePanel] = useState('race');
   const weights = useMemo(() => getDefaultWeights(), []);
 
   useEffect(() => {
@@ -184,6 +387,7 @@ export default function ResultsPage() {
     setLoading(true);
     setSelectedMeeting(null);
     setSelectedRace(null);
+    setActivePanel('race');
     setVenueAbandoned(new Set());
     const hdrs = (SURL && SKEY) ? { apikey: SKEY, Authorization: `Bearer ${SKEY}` } : null;
     const scrFetch = hdrs
@@ -203,7 +407,6 @@ export default function ResultsPage() {
     });
   }, [selectedDate]);
 
-  // Group raw rows into { 'VENUE||raceNum': { venue, raceNum, runners, ... } }
   const grouped = useMemo(() => {
     const g = {};
     (dbRows || []).forEach(row => {
@@ -226,9 +429,9 @@ export default function ResultsPage() {
         margin: row.margin || '',
         trainer: row.trainer || '',
         jockey: row.jockey || '',
+        barrier: row.barrier ?? null,
       });
     });
-    // Populate scratched list from DB scratchings table
     (dbScratchings || []).forEach(row => {
       const key = `${normaliseVenue(row.venue)}||${row.race_num}`;
       if (g[key] && row.horse_name) g[key].scratched.push(row.horse_name);
@@ -237,19 +440,17 @@ export default function ResultsPage() {
     return g;
   }, [dbRows, dbScratchings]);
 
-  // Build { VENUE: [{ raceNum, results }] } — only venues present in the loaded CSV
   const meetings = useMemo(() => {
     const csvNormVenues = new Set(Object.keys(allVenues).map(k => normaliseVenue(k)));
     const m = {};
     Object.values(grouped).forEach(res => {
-      const v = res.venue; // already normalised in grouped
+      const v = res.venue;
       if (!csvNormVenues.has(v)) return;
       if (!m[v]) m[v] = [];
       if (!m[v].find(r => r.raceNum === res.raceNum)) {
         m[v].push({ raceNum: res.raceNum, results: res });
       }
     });
-    // Add all CSV races (resulted and unresulted) for every CSV venue
     Object.values(allVenues).flat().forEach(k => {
       const rc = allRaces[k];
       if (!rc) return;
@@ -266,8 +467,6 @@ export default function ResultsPage() {
   const venueNames = Object.keys(meetings);
   const meetingRaces = selectedMeeting ? (meetings[selectedMeeting] || []) : [];
 
-  // Active race data — only show results for an explicitly selected tab.
-  // No auto-default: opening a meeting shows nothing until a tab is clicked.
   const activeRaceData = (() => {
     if (!selectedMeeting) return null;
     const races = meetings[selectedMeeting] || [];
@@ -278,6 +477,86 @@ export default function ResultsPage() {
     }
     return null;
   })();
+
+  const hasCsv = Object.keys(allRaces).length > 0;
+
+  const meetingResulted = useMemo(() => {
+    if (!selectedMeeting) return [];
+    return (meetings[selectedMeeting] || []).filter(r => r.results && r.results.runners && r.results.runners.length > 0);
+  }, [meetings, selectedMeeting]);
+
+  const modelPerf = useMemo(() => {
+    if (!hasCsv || !meetingResulted.length) return null;
+    let hits = 0, total = 0, roi = 0;
+    const details = [];
+    meetingResulted.forEach(({ raceNum, results }) => {
+      const rankMap = getSysRanks(allRaces, allVenues, selectedMeeting, raceNum, weights, dbScratchings) || {};
+      if (!Object.keys(rankMap).length) return;
+      const winner = (results.runners || []).find(r => r.place === 1);
+      if (!winner) return;
+      const rank = rankMap[normName(winner.name)] ?? null;
+      const hit  = rank === 1;
+      roi += hit ? (Number(winner.sp) - 1) : -1;
+      if (hit) hits++;
+      total++;
+      details.push({ raceNum, horse: winner.name, rank, sp: winner.sp, hit });
+    });
+    if (total === 0) return null;
+    return { hits, total, roi, strikeRate: hits / total, details };
+  }, [meetingResulted, allRaces, allVenues, selectedMeeting, weights, dbScratchings, hasCsv]);
+
+  const barrierBias = useMemo(() => {
+    const groups = [
+      { label: '1–4', min: 1, max: 4,        wins: 0, total: 0 },
+      { label: '5–8', min: 5, max: 8,        wins: 0, total: 0 },
+      { label: '9+',  min: 9, max: Infinity, wins: 0, total: 0 },
+    ];
+    meetingResulted.forEach(({ raceNum, results }) => {
+      (results.runners || []).forEach(runner => {
+        let bar = runner.barrier;
+        if (bar == null && hasCsv) {
+          bar = getBarrierFromCSV(allRaces, allVenues, selectedMeeting, raceNum, runner.name);
+        }
+        if (bar == null || bar <= 0) return;
+        const g = groups.find(c => bar >= c.min && bar <= c.max);
+        if (!g) return;
+        g.total++;
+        if (runner.place === 1) g.wins++;
+      });
+    });
+    return groups;
+  }, [meetingResulted, allRaces, allVenues, selectedMeeting, hasCsv]);
+
+  const biggestUpsets = useMemo(() => {
+    if (!hasCsv) return [];
+    const upsets = [];
+    meetingResulted.forEach(({ raceNum, results }) => {
+      const rankMap = getSysRanks(allRaces, allVenues, selectedMeeting, raceNum, weights, dbScratchings) || {};
+      if (!Object.keys(rankMap).length) return;
+      const winner = (results.runners || []).find(r => r.place === 1);
+      if (!winner) return;
+      const rank = rankMap[normName(winner.name)];
+      if (!rank) return;
+      upsets.push({ raceNum, horse: winner.name, rank, sp: winner.sp });
+    });
+    upsets.sort((a, b) => (b.rank || 0) - (a.rank || 0));
+    return upsets.slice(0, 3);
+  }, [meetingResulted, allRaces, allVenues, selectedMeeting, weights, dbScratchings, hasCsv]);
+
+  const staffForm = useMemo(() => {
+    const tMap = {}, jMap = {};
+    meetingResulted.forEach(({ results }) => {
+      (results.runners || []).forEach(runner => {
+        if (runner.place !== 1) return;
+        if (runner.trainer) tMap[runner.trainer] = (tMap[runner.trainer] || 0) + 1;
+        if (runner.jockey)  jMap[runner.jockey]  = (jMap[runner.jockey]  || 0) + 1;
+      });
+    });
+    return {
+      trainers: Object.entries(tMap).sort((a, b) => b[1] - a[1]),
+      jockeys:  Object.entries(jMap).sort((a, b) => b[1] - a[1]),
+    };
+  }, [meetingResulted]);
 
   return (
     <div style={{ display:'flex', flex:1, overflow:'hidden' }}>
@@ -318,11 +597,10 @@ export default function ResultsPage() {
 
         {!loading && (selectedMeeting ? (
           <>
-            {/* Individual meeting view */}
             {/* Back + title */}
             <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:12 }}>
               <button
-                onClick={() => { setSelectedMeeting(null); setSelectedRace(null); }}
+                onClick={() => { setSelectedMeeting(null); setSelectedRace(null); setActivePanel('race'); }}
                 style={{ display:'flex', alignItems:'center', gap:4, padding:'4px 8px', borderRadius:6, border:'0.5px solid #e5e7eb', background:'#fff', color:'#111827', fontSize:10, fontWeight:600, cursor:'pointer', fontFamily:'inherit' }}
               >
                 <i className="ti ti-arrow-left" style={{ fontSize:11 }} /> All meetings
@@ -334,18 +612,18 @@ export default function ResultsPage() {
             </div>
 
             {/* Race tab pills */}
-            <div style={{ display:'flex', gap:4, flexWrap:'wrap', marginBottom:12, position:'relative', zIndex:10 }}>
+            <div style={{ display:'flex', gap:4, flexWrap:'wrap', marginBottom:8, position:'relative', zIndex:10 }}>
               {meetingRaces.map(r => {
                 const resulted = !!r.results;
-                const isActive = selectedRace != null && Number(r.raceNum) === Number(selectedRace);
+                const isActive = activePanel === 'race' && selectedRace != null && Number(r.raceNum) === Number(selectedRace);
                 const bg     = isActive ? '#1e2936' : resulted ? '#d1fae5' : '#f1f5f9';
-                const color  = isActive ? '#fff'     : resulted ? '#065f46' : '#374151';
-                const border = isActive ? '#1e2936'  : resulted ? '#86efac' : '#e5e7eb';
+                const color  = isActive ? '#fff'    : resulted ? '#065f46' : '#374151';
+                const border = isActive ? '#1e2936' : resulted ? '#86efac' : '#e5e7eb';
                 return (
                   <button
                     key={r.raceNum}
                     type="button"
-                    onClick={(e) => { e.stopPropagation(); e.preventDefault(); setSelectedRace(Number(r.raceNum)); }}
+                    onClick={(e) => { e.stopPropagation(); e.preventDefault(); setSelectedRace(Number(r.raceNum)); setActivePanel('race'); }}
                     style={{ padding:'3px 6px', borderRadius:5, fontSize:10, fontWeight:700, cursor:'pointer', background:bg, color, border:`0.5px solid ${border}`, fontFamily:'inherit' }}
                   >
                     R{r.raceNum}{resulted ? ' ✓' : ''}
@@ -354,15 +632,55 @@ export default function ResultsPage() {
               })}
             </div>
 
-            {/* Results detail */}
-            <ResultsDetail
-              meeting={activeRaceData}
-              venue={selectedMeeting}
-              allRaces={allRaces}
-              allVenues={allVenues}
-              weights={weights}
-              dbScratchings={dbScratchings}
-            />
+            {/* Aggregate panel pills */}
+            <div style={{ display:'flex', gap:4, flexWrap:'wrap', marginBottom:14, paddingBottom:14, borderBottom:'0.5px solid #e5e7eb' }}>
+              {AGGREGATE_PANELS.map(p => {
+                const isActive = activePanel === p.key;
+                return (
+                  <button
+                    key={p.key}
+                    type="button"
+                    onClick={() => setActivePanel(p.key)}
+                    style={{ display:'flex', alignItems:'center', gap:4, padding:'4px 10px', borderRadius:16, fontSize:10, fontWeight:600, cursor:'pointer', fontFamily:'inherit', border:'0.5px solid', background: isActive ? '#1e2936' : '#fff', color: isActive ? '#fff' : '#374151', borderColor: isActive ? '#1e2936' : '#e5e7eb' }}
+                  >
+                    <i className={`ti ${p.icon}`} style={{ fontSize:11 }} />
+                    {p.label}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Content area */}
+            {activePanel === 'race' ? (
+              <ResultsDetail
+                meeting={activeRaceData}
+                venue={selectedMeeting}
+                allRaces={allRaces}
+                allVenues={allVenues}
+                weights={weights}
+                dbScratchings={dbScratchings}
+              />
+            ) : (
+              <div style={{ background:'#fff', border:'0.5px solid #e5e7eb', borderRadius:8, overflow:'hidden', maxWidth:680 }}>
+                <div style={{ background:'#1e2936', padding:'7px 12px', display:'flex', alignItems:'center', gap:6 }}>
+                  {(() => {
+                    const p = AGGREGATE_PANELS.find(p => p.key === activePanel);
+                    return (
+                      <>
+                        <i className={`ti ${p.icon}`} style={{ fontSize:13, color:'#fff' }} />
+                        <span style={{ fontSize:11, fontWeight:700, color:'#fff', textTransform:'uppercase' }}>{p.label} — {selectedMeeting}</span>
+                      </>
+                    );
+                  })()}
+                </div>
+                <div style={{ padding:'0 12px 12px' }}>
+                  {activePanel === 'model'   && <ModelPerfPanel data={modelPerf} />}
+                  {activePanel === 'barrier' && <BarrierPanel data={barrierBias} hasCsv={hasCsv} />}
+                  {activePanel === 'upsets'  && <UpsetsPanel data={biggestUpsets} hasCsv={hasCsv} />}
+                  {activePanel === 'staff'   && <StaffPanel data={staffForm} />}
+                </div>
+              </div>
+            )}
           </>
         ) : (
           <>
@@ -392,6 +710,7 @@ export default function ResultsPage() {
                           const firstResulted = (meetings[venue] || []).find(r => r.results)?.raceNum ?? null;
                           setSelectedMeeting(venue);
                           setSelectedRace(firstResulted);
+                          setActivePanel('race');
                         }}
                         style={{ background:'#fff', border:'0.5px solid #e5e7eb', borderRadius:8, overflow:'hidden', cursor:'pointer', transition:'box-shadow .15s' }}
                         onMouseEnter={e => { e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,.08)'; }}
@@ -416,7 +735,7 @@ export default function ResultsPage() {
                               <button
                                 key={r.raceNum}
                                 type="button"
-                                onClick={(e) => { e.stopPropagation(); setSelectedMeeting(venue); setSelectedRace(Number(r.raceNum)); }}
+                                onClick={(e) => { e.stopPropagation(); setSelectedMeeting(venue); setSelectedRace(Number(r.raceNum)); setActivePanel('race'); }}
                                 style={{ display:'flex', alignItems:'center', gap:4, padding:'3px 6px', borderRadius:5, margin:2, fontSize:10, fontWeight:600, background:cls.bg, color:cls.color, border:'none', cursor: r.results ? 'pointer' : 'default', fontFamily:'inherit' }}
                               >
                                 R{r.raceNum}{r.results ? ' ✓' : ''}
