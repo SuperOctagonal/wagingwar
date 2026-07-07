@@ -30,6 +30,9 @@ const VENUE_STATE_MAP = {
   'BUNBURY':'WA','GERALDTON':'WA','KALGOORLIE':'WA','ALBANY':'WA',
   'DARWIN':'NT','ALICE SPRINGS':'NT',
   'HOBART':'TAS','LAUNCESTON':'TAS','SPREYTON':'TAS','DEVONPORT':'TAS',
+  'THOROUGHBRED PARK':'ACT',
+  'PAKENHAM SYNTHETIC':'VIC',
+  'MOUNT ISA':'QLD',
 };
 
 function toISO(d) {
@@ -85,8 +88,12 @@ export async function POST(request) {
 
   // today_meetings — ignore duplicates so the worker's track_condition is never clobbered
   const meetingRows = Object.keys(allVenues)
-    .map(v => { const normV = normaliseVenue(v); return { venue: normV, state: VENUE_STATE_MAP[normV] || null, date: dateISO }; })
-    .filter(r => r.state !== null);
+    .map(v => {
+      const normV = normaliseVenue(v);
+      const state = VENUE_STATE_MAP[normV] || null;
+      if (!state) console.warn(`[import-csv] unknown state for venue: "${v}" → "${normV}" — writing with state null`);
+      return { venue: normV, state, date: dateISO };
+    });
 
   if (meetingRows.length) {
     try {
