@@ -285,8 +285,6 @@ function LeftRail({ allVenues, allRaces, selectedRaceKey, onSelect, trackConds, 
     const isActive   = raceKeys.some(k => k === selectedRaceKey);
     const isPinned  = pinned.includes(venue);
 
-    // Progress segments
-    const segments = raceKeys.map(k => segStatus(venue, allRaces[k]));
 
     // Next race: first 'now', then first upcoming
     let nextRc = null, nextSecs = null;
@@ -351,32 +349,31 @@ function LeftRail({ allVenues, allRaces, selectedRaceKey, onSelect, trackConds, 
           {raceKeys.length} race{raceKeys.length !== 1 ? 's' : ''}
         </div>
 
-        {/* R-number labels above segments */}
-        <div style={{ display: 'flex', gap: 2, marginBottom: 2 }}>
-          {raceKeys.map((k, i) => (
-            <div key={i} style={{ flex: 1, textAlign: 'center', fontSize: 11, color: '#fff', lineHeight: 1, overflow: 'hidden' }}>
-              R{allRaces[k]?.num}
-            </div>
-          ))}
-        </div>
-
-        {/* Progress bar */}
+        {/* Race buttons: label + bar merged for a larger tap target */}
         <div style={{ display: 'flex', gap: 2, marginBottom: nextLabel && nextRc ? 5 : 0 }}>
-          {segments.map((status, i) => (
-            <div
-              key={i}
-              onClick={e => { e.stopPropagation(); onSelect(raceKeys[i]); }}
-              title={`R${allRaces[raceKeys[i]]?.num}`}
-              onMouseEnter={e => { e.currentTarget.style.boxShadow = 'inset 0 0 0 1px #fff'; }}
-              onMouseLeave={e => { e.currentTarget.style.boxShadow = 'none'; }}
-              style={{
-                flex: 1, height: 6, borderRadius: 2, cursor: 'pointer',
-                background: status === 'resulted' ? '#4ade80'
-                          : status === 'now'      ? '#fbbf24'
-                          :                         'rgba(255,255,255,0.18)',
-              }}
-            />
-          ))}
+          {raceKeys.map((k, i) => {
+            const status = segStatus(venue, allRaces[k]);
+            return (
+              <div
+                key={i}
+                onClick={e => { e.stopPropagation(); onSelect(k); }}
+                title={`R${allRaces[k]?.num}`}
+                onMouseEnter={e => { e.currentTarget.style.opacity = '0.7'; }}
+                onMouseLeave={e => { e.currentTarget.style.opacity = '1'; }}
+                style={{ flex: 1, cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}
+              >
+                <div style={{ fontSize: 14, color: '#fff', lineHeight: 1, overflow: 'hidden', textAlign: 'center', width: '100%' }}>
+                  R{allRaces[k]?.num}
+                </div>
+                <div style={{
+                  width: '100%', height: 12, borderRadius: 2,
+                  background: status === 'resulted' ? '#4ade80'
+                            : status === 'now'      ? '#fbbf24'
+                            :                         'rgba(255,255,255,0.18)',
+                }} />
+              </div>
+            );
+          })}
         </div>
 
         {/* Next race countdown */}
