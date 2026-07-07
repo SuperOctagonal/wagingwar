@@ -133,11 +133,11 @@ function ResultsDetail({ meeting, venue, allRaces, allVenues, weights, dbScratch
                   ${Number(r.sp || 0).toFixed(2)}
                 </td>
                 <td style={{ padding:pad, textAlign:'right', fontSize:11, color:'#111827', whiteSpace:'nowrap' }}>{r.margin || '—'}</td>
-                <td style={{ padding:pad, whiteSpace:'nowrap', fontSize:11, color: isTop3 ? '#111827' : '#9ca3af' }}>
-                  {isTop3 ? (r.trainer || '—') : '—'}
+                <td style={{ padding:pad, whiteSpace:'nowrap', fontSize:11, color:'#111827' }}>
+                  {r.trainer || '—'}
                 </td>
-                <td style={{ padding:pad, whiteSpace:'nowrap', fontSize:11, color: isTop3 ? '#111827' : '#9ca3af' }}>
-                  {isTop3 ? (r.jockey || '—') : '—'}
+                <td style={{ padding:pad, whiteSpace:'nowrap', fontSize:11, color:'#111827' }}>
+                  {r.jockey || '—'}
                 </td>
               </tr>
             );
