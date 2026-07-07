@@ -2350,12 +2350,21 @@ function RacesPageInner() {
     }
   }, [loadCSV]);
 
-  // On mount: restore CSV from localStorage and honour ?select param
+  // On mount: try today's CSV from Storage, fall back to localStorage
   useEffect(() => {
-    const saved = localStorage.getItem('ww_csv');
-    const savedName = localStorage.getItem('ww_csv_name') || 'saved.csv';
     const selectParam = searchParams.get('select');
-    if (saved) loadCSV(saved, savedName, selectParam);
+    fetch('/api/today-csv')
+      .then(r => r.ok ? r.text() : Promise.reject(r.status))
+      .then(text => {
+        localStorage.setItem('ww_csv', text);
+        localStorage.setItem('ww_csv_name', 'today.csv');
+        loadCSV(text, 'today.csv', selectParam);
+      })
+      .catch(() => {
+        const saved = localStorage.getItem('ww_csv');
+        const savedName = localStorage.getItem('ww_csv_name') || 'saved.csv';
+        if (saved) loadCSV(saved, savedName, selectParam);
+      });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
