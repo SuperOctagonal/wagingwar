@@ -93,6 +93,23 @@ function fmtDate(iso) {
   catch { return ''; }
 }
 
+function parsePostTimeMs(dateStr, timeStr) {
+  const t = (timeStr || '').trim().replace(/\./g, ':');
+  let h, m;
+  const ampm = t.match(/^(\d{1,2}):(\d{2})\s*(am|pm)/i);
+  if (ampm) {
+    h = parseInt(ampm[1], 10); m = parseInt(ampm[2], 10);
+    if (/pm/i.test(ampm[3]) && h !== 12) h += 12;
+    if (/am/i.test(ampm[3]) && h === 12) h = 0;
+  } else {
+    const plain = t.match(/^(\d{1,2}):(\d{2})/);
+    if (!plain) return null;
+    h = parseInt(plain[1], 10); m = parseInt(plain[2], 10);
+  }
+  const d = new Date(`${dateStr}T${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:00`);
+  return isNaN(d.getTime()) ? null : d.getTime();
+}
+
 const STAR_COLORS = { 1: '#ef4444', 2: '#f97316', 3: '#eab308', 4: '#22c55e', 5: '#f59e0b' };
 
 function Stars({ value, onChange, readOnly }) {
@@ -257,8 +274,17 @@ export default function BlackbookPage() {
     const since = new Date();
     since.setDate(since.getDate() - 7);
     const sinceDate = since.toISOString().slice(0, 10);
-    sb(`race_results?finish_pos=eq.1&date=gte.${sinceDate}&select=horse_name,venue,date`).then(winners => {
+    Promise.all([
+      sb(`race_results?finish_pos=eq.1&date=gte.${sinceDate}&select=horse_name,venue,date,race_num`),
+      sb(`race_schedule?date=gte.${sinceDate}&select=date,venue,race_num,post_time`),
+    ]).then(([winners, schedule]) => {
       if (!winners || winners.length === 0) return;
+      // Build schedule lookup: "VENUE||date||race_num" -> post_time
+      const schedMap = {};
+      (schedule || []).forEach(s => {
+        const k = `${(s.venue || '').toUpperCase()}||${s.date}||${String(s.race_num)}`;
+        schedMap[k] = s.post_time;
+      });
       const winnerMap = {};
       winners.forEach(w => {
         const key = (w.horse_name || '').toUpperCase();
@@ -267,12 +293,27 @@ export default function BlackbookPage() {
       });
       const newBanners = [];
       horses.forEach(h => {
+        if (!h.added_at) return;
         const norm = (h.horse_name || '').toUpperCase();
         if (!winnerMap[norm]) return;
         const notified = h.notified_wins || [];
+        const addedDate = h.added_at.slice(0, 10);
+        const addedMs = new Date(h.added_at).getTime();
         winnerMap[norm].forEach(win => {
           const nkey = `${win.venue}|${win.date}`;
-          if (!notified.includes(nkey)) newBanners.push({ horse: h.horse_name, venue: win.venue, date: win.date, rowId: h.id, nkey });
+          if (notified.includes(nkey)) return;
+          if (win.date < addedDate) return; // win predates add
+          if (win.date === addedDate) {
+            // Same day: use post_time for precision if available
+            const sk = `${(win.venue || '').toUpperCase()}||${win.date}||${String(win.race_num || '')}`;
+            const postTime = schedMap[sk];
+            if (postTime) {
+              const raceMs = parsePostTimeMs(win.date, postTime);
+              if (raceMs !== null && addedMs >= raceMs) return; // added at or after race start
+            }
+            // No post_time: allow (consistent with gte in bbPerf)
+          }
+          newBanners.push({ horse: h.horse_name, venue: win.venue, date: win.date, rowId: h.id, nkey });
         });
       });
       if (newBanners.length === 0) return;
