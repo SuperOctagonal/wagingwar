@@ -90,7 +90,7 @@ export async function POST(request) {
 
   if (meetingRows.length) {
     try {
-      const r = await fetch(`${SURL}/rest/v1/today_meetings`, {
+      const r = await fetch(`${SURL}/rest/v1/today_meetings?on_conflict=date,venue`, {
         method: 'POST',
         headers: { ...sbHeaders, Prefer: 'resolution=ignore-duplicates,return=minimal' },
         body: JSON.stringify(meetingRows),
@@ -117,7 +117,7 @@ export async function POST(request) {
 
   if (scheduleRows.length) {
     try {
-      const r = await fetch(`${SURL}/rest/v1/race_schedule`, {
+      const r = await fetch(`${SURL}/rest/v1/race_schedule?on_conflict=date,venue,race_num`, {
         method: 'POST',
         headers: { ...sbHeaders, Prefer: 'resolution=merge-duplicates,return=minimal' },
         body: JSON.stringify(scheduleRows),
