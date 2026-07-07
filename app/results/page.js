@@ -442,28 +442,30 @@ export default function ResultsPage() {
   }, [dbRows, dbScratchings]);
 
   const meetings = useMemo(() => {
-    const csvNormVenues = new Set(Object.keys(allVenues).map(k => normaliseVenue(k)));
     const m = {};
     Object.values(grouped).forEach(res => {
       const v = res.venue;
-      if (!csvNormVenues.has(v)) return;
       if (!m[v]) m[v] = [];
       if (!m[v].find(r => r.raceNum === res.raceNum)) {
         m[v].push({ raceNum: res.raceNum, results: res });
       }
     });
-    Object.values(allVenues).flat().forEach(k => {
-      const rc = allRaces[k];
-      if (!rc) return;
-      const v = normaliseVenue(rc.venue);
-      if (!m[v]) m[v] = [];
-      if (!m[v].find(r => String(r.raceNum) === String(rc.num))) {
-        m[v].push({ raceNum: rc.num, results: null });
-      }
-    });
+    // Only merge CSV-derived unresulted races when viewing today's card
+    const todayAEST = new Date().toLocaleDateString('sv-SE', { timeZone: 'Australia/Brisbane' });
+    if (selectedDate === todayAEST) {
+      Object.values(allVenues).flat().forEach(k => {
+        const rc = allRaces[k];
+        if (!rc) return;
+        const v = normaliseVenue(rc.venue);
+        if (!m[v]) m[v] = [];
+        if (!m[v].find(r => String(r.raceNum) === String(rc.num))) {
+          m[v].push({ raceNum: rc.num, results: null });
+        }
+      });
+    }
     Object.values(m).forEach(arr => arr.sort((a, b) => a.raceNum - b.raceNum));
     return m;
-  }, [grouped, allRaces, allVenues]);
+  }, [grouped, allRaces, allVenues, selectedDate]);
 
   const venueNames = Object.keys(meetings);
   const meetingRaces = selectedMeeting ? (meetings[selectedMeeting] || []) : [];
