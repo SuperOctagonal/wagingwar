@@ -371,6 +371,7 @@ export default function ResultsPage() {
   const [selectedDate, setSelectedDate] = useState(() => new Date().toLocaleDateString('sv-SE'));
   const [selectedMeeting, setSelectedMeeting] = useState(null);
   const [selectedRace, setSelectedRace] = useState(null);
+  const [sidePanel, setSidePanel] = useState('model');
   const weights = useMemo(() => getDefaultWeights(), []);
 
   useEffect(() => {
@@ -387,6 +388,7 @@ export default function ResultsPage() {
     setLoading(true);
     setSelectedMeeting(null);
     setSelectedRace(null);
+    setSidePanel('model');
     setVenueAbandoned(new Set());
     const hdrs = (SURL && SKEY) ? { apikey: SKEY, Authorization: `Bearer ${SKEY}` } : null;
     const scrFetch = hdrs
@@ -611,7 +613,7 @@ export default function ResultsPage() {
             </div>
 
             {/* Race tab pills */}
-            <div style={{ display:'flex', gap:4, flexWrap:'wrap', marginBottom:12, position:'relative', zIndex:10 }}>
+            <div style={{ display:'flex', gap:4, flexWrap:'wrap', marginBottom:12 }}>
               {meetingRaces.map(r => {
                 const resulted = !!r.results;
                 const isActive = selectedRace != null && Number(r.raceNum) === Number(selectedRace);
@@ -635,7 +637,7 @@ export default function ResultsPage() {
             <div style={{ display:'flex', gap:10, alignItems:'flex-start', flexDirection: isMobile ? 'column' : 'row' }}>
 
               {/* Left — race results */}
-              <div style={{ flex:1, minWidth:0 }}>
+              <div style={{ flex:1, minWidth:0, overflow:'auto' }}>
                 <ResultsDetail
                   meeting={activeRaceData}
                   venue={selectedMeeting}
@@ -646,20 +648,33 @@ export default function ResultsPage() {
                 />
               </div>
 
-              {/* Right — analysis panels stacked */}
+              {/* Right — analysis panels (pill-switched) */}
               <div style={{ flex:1, minWidth:0, display:'flex', flexDirection:'column', gap:10 }}>
-                <SidePanel icon="ti-chart-bar" label="Model">
-                  <ModelPerfPanel data={modelPerf} />
-                </SidePanel>
-                <SidePanel icon="ti-layout-columns" label="Barriers">
-                  <BarrierPanel data={barrierBias} hasCsv={hasCsv} />
-                </SidePanel>
-                <SidePanel icon="ti-bolt" label="Upsets">
-                  <UpsetsPanel data={biggestUpsets} hasCsv={hasCsv} />
-                </SidePanel>
-                <SidePanel icon="ti-users" label="Trainer / Jockey">
-                  <StaffPanel data={staffForm} />
-                </SidePanel>
+                <div style={{ display:'flex', gap:4, flexWrap:'wrap' }}>
+                  {[
+                    { key:'model',   label:'Model',    icon:'ti-chart-bar'      },
+                    { key:'barrier', label:'Barriers',  icon:'ti-layout-columns' },
+                    { key:'upsets',  label:'Upsets',    icon:'ti-bolt'           },
+                    { key:'staff',   label:'T/J',       icon:'ti-users'          },
+                  ].map(p => {
+                    const active = sidePanel === p.key;
+                    return (
+                      <button
+                        key={p.key}
+                        type="button"
+                        onClick={() => setSidePanel(p.key)}
+                        style={{ display:'flex', alignItems:'center', gap:3, padding:'3px 8px', borderRadius:16, fontSize:10, fontWeight:600, cursor:'pointer', fontFamily:'inherit', border:'0.5px solid', background: active ? '#1e2936' : '#fff', color: active ? '#fff' : '#374151', borderColor: active ? '#1e2936' : '#e5e7eb' }}
+                      >
+                        <i className={`ti ${p.icon}`} style={{ fontSize:10 }} />
+                        {p.label}
+                      </button>
+                    );
+                  })}
+                </div>
+                {sidePanel === 'model'   && <SidePanel icon="ti-chart-bar"      label="Model"><ModelPerfPanel data={modelPerf} /></SidePanel>}
+                {sidePanel === 'barrier' && <SidePanel icon="ti-layout-columns" label="Barriers"><BarrierPanel data={barrierBias} hasCsv={hasCsv} /></SidePanel>}
+                {sidePanel === 'upsets'  && <SidePanel icon="ti-bolt"           label="Upsets"><UpsetsPanel data={biggestUpsets} hasCsv={hasCsv} /></SidePanel>}
+                {sidePanel === 'staff'   && <SidePanel icon="ti-users"          label="Trainer / Jockey"><StaffPanel data={staffForm} /></SidePanel>}
               </div>
 
             </div>
