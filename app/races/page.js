@@ -9,7 +9,7 @@ import useIsMobile from '@/hooks/useIsMobile';
 import UpgradeModal from '@/components/UpgradeModal';
 import BottomSheet from '@/components/BottomSheet';
 import { awardPoints } from '@/lib/points';
-import { normaliseVenue, stripSponsorPrefix, SPONSOR_PREFIXES, VENUE_NORMALISE } from '@/lib/venues';
+import { normaliseVenue, stripSponsorPrefix, SPONSOR_PREFIXES } from '@/lib/venues';
 
 const SURL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SKEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;

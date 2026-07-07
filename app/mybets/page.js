@@ -61,25 +61,6 @@ async function patchBet(id, fields) {
 
 function normName(n) { return (n || '').toUpperCase().replace(/[^A-Z0-9]/g, ''); }
 
-const BET_VENUE_NORMALISE = {
-  'BELMONT PARK':                  'BELMONT',
-  'SANDOWN-HILLSIDE':              'SANDOWN',
-  'SANDOWN HILLSIDE':              'SANDOWN',
-  'SPORTSBET SANDOWN HILLSIDE':    'SANDOWN',
-  'SANDOWN-LAKESIDE':              'SANDOWN LAKESIDE',
-  'SPORTSBET SANDOWN LAKESIDE':    'SANDOWN LAKESIDE',
-  'ROSEHILL GARDENS':              'ROSEHILL GARDENS',
-  'ROSEHILL GARDENS RACECOURSE':   'ROSEHILL GARDENS',
-  'AQUIS PARK GOLD COAST':         'GOLD COAST',
-  'THOMAS FARMS RC MURRAY BRIDGE': 'MURRAY BRIDGE',
-  'THOMAS FARMS MURRAY BRIDGE':    'MURRAY BRIDGE',
-  'RC MURRAY BRIDGE':              'MURRAY BRIDGE',
-  'BALLARAT SYN':                  'BALLARAT SYNTHETIC',
-};
-function normVenueName(v) {
-  const upper = (v || '').toUpperCase().trim();
-  return BET_VENUE_NORMALISE[upper] || upper;
-}
 
 function ordinal(n) { if (!n) return ''; const s = ['th','st','nd','rd']; const v = n % 100; return n + (s[(v-20)%10] || s[v] || s[0]); }
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
@@ -547,11 +528,11 @@ export default function MybetsPage() {
         if (!Array.isArray(rows) || !rows.length) return;
         const updates = {};
         for (const b of needsTime) {
-          const betVenue = normName(normVenueName(b.track || b.venue || ''));
+          const betVenue = normName(normaliseVenue(b.track || b.venue || ''));
           const betNum   = String(+(b.race_number ?? b.race_num ?? 0));
           const match = rows.find(r =>
             r.date === b.date &&
-            normName(normVenueName(r.venue)) === betVenue &&
+            normName(normaliseVenue(r.venue)) === betVenue &&
             String(+r.race_num) === betNum
           );
           if (match) updates[b.id] = match.post_time;
@@ -633,7 +614,7 @@ export default function MybetsPage() {
         if (!Array.isArray(rows) || !rows.length) return;
         const match = rows.find(r =>
           String(+r.race_num) === String(+qlRace) &&
-          normName(normVenueName(r.venue)) === normName(normVenueName(qlMeeting))
+          normName(normaliseVenue(r.venue)) === normName(normaliseVenue(qlMeeting))
         );
         if (match?.post_time) setQlRaceTime(match.post_time);
       });
@@ -653,14 +634,7 @@ export default function MybetsPage() {
     }
     setQlSaving(true);
 
-    const QL_VENUE_NORMALISE = {
-      'SANDOWN-HILLSIDE': 'SANDOWN', 'SANDOWN HILLSIDE': 'SANDOWN',
-      'ROSEHILL GARDENS': 'ROSEHILL', 'ROSEHILL GARDENS RACECOURSE': 'ROSEHILL',
-      'AQUIS PARK GOLD COAST': 'GOLD COAST', 'AQUIS PARK GOLD COAST POLY': 'GOLD COAST POLY',
-      'THOMAS FARMS RC MURRAY BRIDGE': 'MURRAY BRIDGE', 'THOMAS FARMS MURRAY BRIDGE': 'MURRAY BRIDGE',
-      'RC MURRAY BRIDGE': 'MURRAY BRIDGE', 'SPORTSBET SANDOWN HILLSIDE': 'SANDOWN',
-    };
-    const normVenue = QL_VENUE_NORMALISE[(qlMeeting || '').toUpperCase()] || qlMeeting || null;
+    const normVenue = normaliseVenue(qlMeeting || '') || null;
 
     const insertBody = {
       clerk_id:    user.id,
@@ -979,7 +953,7 @@ export default function MybetsPage() {
         const secsToRace = (timeMins - nowMins) * 60 - nowSecs;
         if (secsToRace < -240) return null;
         const rawV = (b.track || b.venue || '').toUpperCase().trim();
-        const normed = BET_VENUE_NORMALISE[rawV] || rawV;
+        const normed = normaliseVenue(rawV);
         const abbr = normed.split(/\s+/).map(w => w.slice(0, 3)).join(' ');
         return { id: b.id, horse: b.horse_name || '—', odds: b.odds, abbr, timeMins, secsToRace };
       })
