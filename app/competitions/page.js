@@ -7,6 +7,7 @@ import useIsMobile from '@/hooks/useIsMobile';
 import UpgradeModal from '@/components/UpgradeModal';
 import { parseCSV, buildRaces } from '@/lib/csvParser';
 import { scoreHorse, getDefaultWeights } from '@/lib/scoring';
+import { normaliseVenue } from '@/lib/venues';
 
 const SURL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SKEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -19,18 +20,8 @@ const METRO_VENUES = new Set([
   'GOLD COAST','MORPHETTVILLE','MORPHETTVILLE PARKS','ASCOT','BELMONT','BELMONT PARK',
 ]);
 
-const VENUE_NORM = {
-  'SANDOWN-HILLSIDE':'SANDOWN','SANDOWN HILLSIDE':'SANDOWN',
-  'ROSEHILL GARDENS':'ROSEHILL GARDENS','ROSEHILL GARDENS RACECOURSE':'ROSEHILL GARDENS',
-  'AQUIS PARK GOLD COAST':'GOLD COAST','AQUIS PARK GOLD COAST POLY':'GOLD COAST POLY',
-  'THOMAS FARMS RC MURRAY BRIDGE':'MURRAY BRIDGE','THOMAS FARMS MURRAY BRIDGE':'MURRAY BRIDGE',
-  'RC MURRAY BRIDGE':'MURRAY BRIDGE','SPORTSBET SANDOWN HILLSIDE':'SANDOWN',
-  'BELMONT PARK':'BELMONT','BALLARAT SYN':'BALLARAT SYNTHETIC',
-};
-
-function nv(v) { const u = (v || '').toUpperCase().trim(); return VENUE_NORM[u] || u; }
 function aestISO() { return new Date().toLocaleDateString('sv-SE', { timeZone: 'Australia/Brisbane' }); }
-function rk(venue, num) { return `${nv(venue)}||${num}`; }
+function rk(venue, num) { return `${normaliseVenue(venue||'')}||${num}`; }
 
 async function sbFetch(path, opts = {}) {
   if (!SURL || !SKEY) return null;
@@ -90,7 +81,7 @@ function fmtMs(ms) {
 function pickMeetings(allRaces) {
   const pv = {};
   Object.values(allRaces).forEach(race => {
-    const v = (race.venue || '').toUpperCase().trim();
+    const v = normaliseVenue(race.venue||'');
     if (!v || v === 'UNKNOWN') return;
     const p = parseFloat((race.prize || '0').replace(/[^0-9.]/g, '')) || 0;
     pv[v] = (pv[v] || 0) + p;
@@ -105,7 +96,7 @@ function getCompRaces(allRaces, selV) {
   const set = new Set(selV);
   const byV = {};
   Object.values(allRaces).forEach(race => {
-    const v = (race.venue || '').toUpperCase().trim();
+    const v = normaliseVenue(race.venue||'');
     if (!set.has(v)) return;
     if (!byV[v]) byV[v] = [];
     byV[v].push(race);
@@ -197,7 +188,7 @@ export default function CompetitionsPage() {
         if (results[key] && results[key].toLowerCase() === horse.toLowerCase()) score += 1;
       }
       for (const v of selVenues) {
-        const mRaces = compRaces.filter(r => (r.venue || '').toUpperCase().trim() === v);
+        const mRaces = compRaces.filter(r => normaliseVenue(r.venue||'') === v);
         if (mRaces.length < 4) continue;
         const allOk = mRaces.every(r => {
           const k = rk(r.venue, r.num);
@@ -217,7 +208,7 @@ export default function CompetitionsPage() {
       if (results[key] && results[key].toLowerCase() === horse.toLowerCase()) s += 1;
     }
     for (const v of selVenues) {
-      const mRaces = compRaces.filter(r => (r.venue || '').toUpperCase().trim() === v);
+      const mRaces = compRaces.filter(r => normaliseVenue(r.venue||'') === v);
       if (mRaces.length < 4) continue;
       if (mRaces.every(r => { const k = rk(r.venue, r.num); return results[k] && picks[k] && results[k].toLowerCase() === picks[k].toLowerCase(); })) s += 3;
     }
@@ -239,7 +230,7 @@ export default function CompetitionsPage() {
     const m = {};
     if (!csvRaces) return m;
     Object.values(csvRaces.allRaces).forEach(race => {
-      const v = (race.venue || '').toUpperCase().trim();
+      const v = normaliseVenue(race.venue||'');
       if (!selVenues.includes(v)) return;
       const p = parseFloat((race.prize || '0').replace(/[^0-9.]/g, '')) || 0;
       m[v] = (m[v] || 0) + p;
@@ -258,7 +249,7 @@ export default function CompetitionsPage() {
 
   const racesByVenue = useMemo(() => {
     const m = {};
-    for (const v of selVenues) m[v] = compRaces.filter(r => (r.venue || '').toUpperCase().trim() === v);
+    for (const v of selVenues) m[v] = compRaces.filter(r => normaliseVenue(r.venue||'') === v);
     return m;
   }, [compRaces, selVenues]);
 
@@ -370,7 +361,7 @@ export default function CompetitionsPage() {
     await sbFetch('comp_picks?on_conflict=clerk_id,comp_date,venue,race_num', {
       method: 'POST',
       prefer: 'resolution=merge-duplicates,return=minimal',
-      body: { clerk_id: user.id, comp_date: today, venue: nv(race.venue), race_num: +race.num, horse_name: horseName, username: uname },
+      body: { clerk_id: user.id, comp_date: today, venue: normaliseVenue(race.venue||''), race_num: +race.num, horse_name: horseName, username: uname },
     });
     setSavingKey(null);
   }
@@ -386,7 +377,7 @@ export default function CompetitionsPage() {
       const res = await sbFetch('comp_picks?on_conflict=clerk_id,comp_date,venue,race_num', {
         method: 'POST',
         prefer: 'resolution=merge-duplicates,return=minimal',
-        body: { clerk_id: user.id, comp_date: today, venue: nv(race.venue), race_num: +race.num, horse_name: horse, username: uname },
+        body: { clerk_id: user.id, comp_date: today, venue: normaliseVenue(race.venue||''), race_num: +race.num, horse_name: horse, username: uname },
       });
       if (res === null) allOk = false;
     }

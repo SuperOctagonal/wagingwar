@@ -425,7 +425,7 @@ function RightRail({ allRaces, allVenues, selectedRaceKey, onSelect, isPro, user
       .then(rows => {
         const m = {};
         (Array.isArray(rows) ? rows : []).forEach(r => {
-          const k = `${(r.venue||'').toUpperCase()}||${String(r.race_number)}`;
+          const k = `${normaliseVenue(r.venue||'')}||${String(r.race_number)}`;
           if (!m[k]) m[k] = r.horse_name;
         });
         setTodayBets(m);

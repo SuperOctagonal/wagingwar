@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { parseCSV, buildRaces } from '@/lib/csvParser';
+import { normaliseVenue } from '@/lib/venues';
 import { scoreGroup, calculateMatrixOdds, formatRacingOdds, getDefaultWeights, GRP_KEYS } from '@/lib/scoring';
 import ProfileRail from '@/components/ProfileRail';
 import useIsMobile from '@/hooks/useIsMobile';
@@ -21,9 +22,9 @@ async function fetchTodayResults(dateStr) {
     const rows = await res.json();
     const g = {};
     rows.forEach(row => {
-      const key = `${(row.venue||'').toUpperCase()}||${row.race_num}`;
+      const key = `${normaliseVenue(row.venue||'')}||${row.race_num}`;
       if (!g[key]) g[key] = {
-        venue: (row.venue||'').toUpperCase(), raceNum: row.race_num,
+        venue: normaliseVenue(row.venue||''), raceNum: row.race_num,
         raceTime: row.race_time || '', trackCond: row.track_cond || '',
         runners: []
       };
@@ -53,7 +54,7 @@ function getTopPicks(allRaces, allVenues, weights, dbScratchings = new Set()) {
     keys.forEach(k => {
       const rc = allRaces[k];
       if (!rc || !rc.horses) return;
-      const rcVN = normName(rc.venue || '');
+      const rcVN = normaliseVenue(rc.venue || '');
       const active = rc.horses.filter(h => !h.scratched && !dbScratchings.has(`${rcVN}||${rc.num}||${normName(h.name||'')}`) );
       if (!active.length) return;
       const scored = active.map(h => {
@@ -219,7 +220,7 @@ export default function TodayPage() {
         headers: { apikey: SKEY, Authorization: `Bearer ${SKEY}` }
       }).then(r => r.ok ? r.json() : []).then(rows => {
         const s = new Set();
-        (rows || []).forEach(row => { s.add(`${normName(row.venue||'')}||${row.race_num}||${normName(row.horse_name||'')}`); });
+        (rows || []).forEach(row => { s.add(`${normaliseVenue(row.venue||'')}||${row.race_num}||${normName(row.horse_name||'')}`); });
         setDbScratchings(s);
       }).catch(() => {});
     }
@@ -305,7 +306,7 @@ export default function TodayPage() {
                       {keys.map(k => {
                         const rc = allRaces[k];
                         if (!rc) return null;
-                        const resKey = `${venue.toUpperCase()}||${rc.num}`;
+                        const resKey = `${normaliseVenue(venue)}||${rc.num}`;
                         const res = results[resKey];
                         const resulted = !!res;
                         return (

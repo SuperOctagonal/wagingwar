@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
+import { normaliseVenue } from '@/lib/venues';
 import { useUser } from '@clerk/nextjs';
 import useIsPro from '@/hooks/useIsPro';
 
@@ -227,7 +228,7 @@ export default function InsightsPage() {
 
   const resultMap = useMemo(() => {
     const m = {};
-    results.forEach(r => { m[`${r.date}||${(r.venue || '').toUpperCase().trim()}||${r.race_num}`] = r; });
+    results.forEach(r => { m[`${r.date}||${normaliseVenue(r.venue||'')}||${r.race_num}`] = r; });
     return m;
   }, [results]);
 
@@ -238,12 +239,12 @@ export default function InsightsPage() {
     const sr     = settled.length > 0 ? wins.length / settled.length * 100 : 0;
     const avgOdds = settled.length > 0 ? settled.reduce((s, b) => s + +b.odds, 0) / settled.length : 0;
     const clvBets = settled.filter(b => {
-      const r = resultMap[`${b.date}||${(b.venue||'').toUpperCase().trim()}||${b.race_num}`];
+      const r = resultMap[`${b.date}||${normaliseVenue(b.venue||'')}||${b.race_num}`];
       return r?.sp && +r.sp > 0;
     });
     const avgClv = clvBets.length > 0
       ? clvBets.reduce((s, b) => {
-          const r = resultMap[`${b.date}||${(b.venue||'').toUpperCase().trim()}||${b.race_num}`];
+          const r = resultMap[`${b.date}||${normaliseVenue(b.venue||'')}||${b.race_num}`];
           return s + (+b.odds - +r.sp) / +r.sp * 100;
         }, 0) / clvBets.length
       : null;
@@ -280,7 +281,7 @@ export default function InsightsPage() {
   const clvByRank = useMemo(() => {
     return ['R1', 'R2', 'R3+', 'All'].map(label => {
       const bs = settled.filter(b => {
-        const r = resultMap[`${b.date}||${(b.venue||'').toUpperCase().trim()}||${b.race_num}`];
+        const r = resultMap[`${b.date}||${normaliseVenue(b.venue||'')}||${b.race_num}`];
         if (!r?.sp || +r.sp <= 0) return false;
         const mr = +(b.rank || 99);
         if (label === 'R1')  return mr === 1;
@@ -290,7 +291,7 @@ export default function InsightsPage() {
       });
       if (!bs.length) return { label, avgClv: 0, beatPct: 0, n: 0 };
       const vals = bs.map(b => {
-        const r = resultMap[`${b.date}||${(b.venue||'').toUpperCase().trim()}||${b.race_num}`];
+        const r = resultMap[`${b.date}||${normaliseVenue(b.venue||'')}||${b.race_num}`];
         return (+b.odds - +r.sp) / +r.sp * 100;
       });
       return {
@@ -359,7 +360,7 @@ export default function InsightsPage() {
   const venueData = useMemo(() => {
     const vm = {};
     settled.forEach(b => {
-      const v = (b.venue || 'Unknown').toUpperCase().trim();
+      const v = normaliseVenue(b.venue||'') || 'Unknown';
       if (!vm[v]) vm[v] = [];
       vm[v].push(b);
     });
