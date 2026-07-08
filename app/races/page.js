@@ -270,6 +270,7 @@ function LeftRail({ allVenues, allRaces, selectedRaceKey, onSelect, trackConds, 
     if ((raceResults||{})[`${normV}||${String(rc.num)}`]) return 'resulted';
     const s = countdownSecs(rc, now);
     if (s !== null && s >= -240 && s <= 30) return 'now';
+    if (s !== null && s < -240) return 'passed';
     return 'upcoming';
   };
 
@@ -369,6 +370,7 @@ function LeftRail({ allVenues, allRaces, selectedRaceKey, onSelect, trackConds, 
                   width: '100%', height: 12, borderRadius: 2,
                   background: status === 'resulted' ? '#4ade80'
                             : status === 'now'      ? '#fbbf24'
+                            : status === 'passed'   ? '#f97316'
                             :                         'rgba(255,255,255,0.18)',
                 }} />
               </div>
