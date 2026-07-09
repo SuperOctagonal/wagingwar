@@ -149,7 +149,7 @@ function CatBadge({ section }) {
 
 // ─── post table ──────────────────────────────────────────────────────────────
 
-function PostTable({ posts, section, loading, onNavigate }) {
+function PostTable({ posts, section, loading, onNavigate, isMobile = false }) {
   let rows;
   if (section === 'all') {
     const map = {};
@@ -169,22 +169,22 @@ function PostTable({ posts, section, loading, onNavigate }) {
           <th style={{ padding: '8px 12px', textAlign: 'left', fontSize: 10, fontWeight: 700, color: '#EAF3DE', textTransform: 'uppercase', letterSpacing: '.05em', borderRight: '1px solid #2d5a1b' }}>Thread</th>
           <th style={{ padding: '8px 6px', textAlign: 'center', fontSize: 10, fontWeight: 700, color: '#EAF3DE', textTransform: 'uppercase', letterSpacing: '.05em', borderRight: '1px solid #2d5a1b', width: 44 }}>Up</th>
           <th style={{ padding: '8px 6px', textAlign: 'center', fontSize: 10, fontWeight: 700, color: '#EAF3DE', textTransform: 'uppercase', letterSpacing: '.05em', borderRight: '1px solid #2d5a1b', width: 44 }}>Re</th>
-          <th style={{ padding: '8px 6px', textAlign: 'center', fontSize: 10, fontWeight: 700, color: '#EAF3DE', textTransform: 'uppercase', letterSpacing: '.05em', borderRight: '1px solid #2d5a1b', width: 56 }}>Views</th>
-          <th style={{ padding: '8px 12px', textAlign: 'right', fontSize: 10, fontWeight: 700, color: '#EAF3DE', textTransform: 'uppercase', letterSpacing: '.05em', width: 150, whiteSpace: 'nowrap' }}>Last Activity</th>
+          {!isMobile && <th style={{ padding: '8px 6px', textAlign: 'center', fontSize: 10, fontWeight: 700, color: '#EAF3DE', textTransform: 'uppercase', letterSpacing: '.05em', borderRight: '1px solid #2d5a1b', width: 56 }}>Views</th>}
+          {!isMobile && <th style={{ padding: '8px 12px', textAlign: 'right', fontSize: 10, fontWeight: 700, color: '#EAF3DE', textTransform: 'uppercase', letterSpacing: '.05em', width: 150, whiteSpace: 'nowrap' }}>Last Activity</th>}
         </tr>
       </thead>
       <tbody>
         {loading && (
-          <tr><td colSpan={5} style={{ padding: 24, textAlign: 'center', color: '#9CA3AF' }}>Loading…</td></tr>
+          <tr><td colSpan={isMobile ? 3 : 5} style={{ padding: 24, textAlign: 'center', color: '#9CA3AF' }}>Loading…</td></tr>
         )}
         {!loading && rows.length === 0 && (
-          <tr><td colSpan={5} style={{ padding: 24, textAlign: 'center', color: '#9CA3AF' }}>No posts yet — be the first to post!</td></tr>
+          <tr><td colSpan={isMobile ? 3 : 5} style={{ padding: 24, textAlign: 'center', color: '#9CA3AF' }}>No posts yet — be the first to post!</td></tr>
         )}
         {!loading && rows.map(row => {
           if (row.type === 'cat') {
             return (
               <tr key={row.key}>
-                <td colSpan={5} style={{ padding: '5px 12px', background: '#FAFAF8', borderTop: '1px solid #E5E7EB', borderBottom: '1px solid #E5E7EB' }}>
+                <td colSpan={isMobile ? 3 : 5} style={{ padding: '5px 12px', background: '#FAFAF8', borderTop: '1px solid #E5E7EB', borderBottom: '1px solid #E5E7EB' }}>
                   <span style={{ fontSize: 9, fontWeight: 700, color: '#374151', textTransform: 'uppercase', letterSpacing: '.07em' }}>{row.label}</span>
                 </td>
               </tr>
@@ -204,11 +204,13 @@ function PostTable({ posts, section, loading, onNavigate }) {
               </td>
               <td style={{ padding: '9px 6px', textAlign: 'center', fontWeight: 700, color: '#374151', borderRight: '1px solid #E5E7EB' }}>{p.votes || 0}</td>
               <td style={{ padding: '9px 6px', textAlign: 'center', fontWeight: 700, color: '#374151', borderRight: '1px solid #E5E7EB' }}>{p.reply_count || 0}</td>
-              <td style={{ padding: '9px 6px', textAlign: 'center', color: '#9CA3AF', borderRight: '1px solid #E5E7EB' }}>—</td>
-              <td style={{ padding: '9px 12px', textAlign: 'right' }}>
-                <div style={{ fontSize: 11, color: '#374151', fontWeight: 600 }}>{timeAgo(p.created_at)}</div>
-                <div style={{ fontSize: 10, color: '#6B7280' }}>by {p.author?.display_name || 'Anonymous'}</div>
-              </td>
+              {!isMobile && <td style={{ padding: '9px 6px', textAlign: 'center', color: '#9CA3AF', borderRight: '1px solid #E5E7EB' }}>—</td>}
+              {!isMobile && (
+                <td style={{ padding: '9px 12px', textAlign: 'right' }}>
+                  <div style={{ fontSize: 11, color: '#374151', fontWeight: 600 }}>{timeAgo(p.created_at)}</div>
+                  <div style={{ fontSize: 10, color: '#6B7280' }}>by {p.author?.display_name || 'Anonymous'}</div>
+                </td>
+              )}
             </tr>
           );
         })}
@@ -1097,6 +1099,7 @@ function CommunityPageInner() {
             section={section}
             loading={loading}
             onNavigate={id => router.push(`/community/post/${id}`)}
+            isMobile={isMobile}
           />
         </div>
       </div>
