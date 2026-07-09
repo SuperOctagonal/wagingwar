@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { normaliseVenue } from '@/lib/venues';
 import { useUser } from '@clerk/nextjs';
 import useIsPro from '@/hooks/useIsPro';
+import useIsMobile from '@/hooks/useIsMobile';
 
 const SURL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SKEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -184,6 +185,7 @@ const ODDS_HEAT  = ['$2-4', '$4-8', '$8-15', '$15+'];
 export default function InsightsPage() {
   const { user, isLoaded } = useUser();
   const isPro = useIsPro();
+  const isMobile = useIsMobile();
   const [bets, setBets] = useState([]);
   const [results, setResults] = useState([]);
   const [userSettings, setUserSettings] = useState({});
@@ -492,7 +494,7 @@ export default function InsightsPage() {
 
           {/* 1. HERO BAR */}
           <Card>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6,1fr)' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2,1fr)' : 'repeat(6,1fr)' }}>
               {[
                 ['Total P&L',    hero.pnl !== 0 ? fmt$(hero.pnl) : '$0', hero.pnl > 0, `${hero.n} settled`, 'Total profit/loss from all settled bets. Win bets: (odds − 1) × stake. Losing bets: −stake.'],
                 ['ROI %',        fmtPct(hero.roi), hero.roi > 0, null, 'Return on investment: P&L ÷ total staked × 100. Positive = profitable long-term.'],
@@ -501,7 +503,7 @@ export default function InsightsPage() {
                 ['Avg Odds',     hero.avgOdds > 0 ? hero.avgOdds.toFixed(2) : '—', null, null, 'Average decimal odds taken across all settled bets.'],
                 ['Max Drawdown', hero.dd !== 0 ? fmt$(hero.dd) : '$0', false, null, 'Largest peak-to-trough drop in your running P&L — the most you\'ve been "down" at any point.'],
               ].map(([label, value, pos, sub, tip], i) => (
-                <div key={i} style={{ textAlign: 'center', padding: '10px 6px', borderRight: i < 5 ? '1px solid #f3f4f6' : 'none' }}>
+                <div key={i} style={{ textAlign: 'center', padding: '10px 6px', borderRight: isMobile ? (i % 2 === 0 ? '1px solid #f3f4f6' : 'none') : (i < 5 ? '1px solid #f3f4f6' : 'none'), borderBottom: isMobile && i < 4 ? '1px solid #f3f4f6' : 'none' }}>
                   <div style={{ fontSize: 10, color: '#9ca3af', marginBottom: 4, textTransform: 'uppercase', letterSpacing: 0.5, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{label}<InfoTip text={tip} /></div>
                   <div style={{ ...MONO, fontSize: 19, fontWeight: 700, color: pos === true ? G : pos === false ? RED : '#111' }}>{value}</div>
                   {sub && <div style={{ fontSize: 10, color: '#9ca3af', marginTop: 2 }}>{sub}</div>}
@@ -527,7 +529,7 @@ export default function InsightsPage() {
           )}
 
           {/* 3+4. CLV + ROI by rank */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 12 }}>
             <Card title="CLV Tracker" info="Closing Line Value — compares your taken odds to the final market price at jump time. Consistently beating the SP means you have a real edge. 50% beat rate = no edge.">
               {clvByRank.every(r => r.n === 0) ? (
                 <EmptyState msg="No SP data in race_results yet" />
@@ -640,31 +642,33 @@ export default function InsightsPage() {
           </Card>
 
           {/* 6+8. TRACK CONDITIONS + TOP VENUES */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 12 }}>
             <Card title="Track Condition Breakdown" info="Record (Starts-Wins-2nds-3rds), ROI, and P&L split by track condition. Some punters have a real edge on certain surfaces — this reveals it.">
               {condData.every(c => c.n === 0) ? (
                 <EmptyState msg="No track_condition data in bet log" />
               ) : (
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
-                  <thead>
-                    <tr style={{ color: '#9ca3af', borderBottom: '1px solid #e5e7eb' }}>
-                      {['Condition','Record','ROI','SR','P&L'].map((h, i) => (
-                        <th key={h} style={{ textAlign: i === 0 ? 'left' : 'right', fontWeight: 500, paddingBottom: 8 }}>{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {condData.map(c => (
-                      <tr key={c.label} style={{ borderTop: '1px solid #f3f4f6' }}>
-                        <td style={{ padding: '7px 0', fontWeight: 500 }}>{c.label}</td>
-                        <td style={{ ...MONO, textAlign: 'right', fontSize: 11 }}>{c.n ? `${c.n}-${c.firsts}-${c.seconds}-${c.thirds}` : '—'}</td>
-                        <td style={{ ...MONO, textAlign: 'right', color: c.n ? (c.roi >= 0 ? G : RED) : '#9ca3af' }}>{c.n ? fmtPct(c.roi) : '—'}</td>
-                        <td style={{ ...MONO, textAlign: 'right' }}>{c.n ? `${c.sr.toFixed(0)}%` : '—'}</td>
-                        <td style={{ ...MONO, textAlign: 'right', color: c.n ? (c.pnl >= 0 ? G : RED) : '#9ca3af' }}>{c.n ? fmt$(c.pnl) : '—'}</td>
+                <div style={{ overflowX: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                    <thead>
+                      <tr style={{ color: '#9ca3af', borderBottom: '1px solid #e5e7eb' }}>
+                        {['Condition','Record','ROI','SR','P&L'].map((h, i) => (
+                          <th key={h} style={{ textAlign: i === 0 ? 'left' : 'right', fontWeight: 500, paddingBottom: 8 }}>{h}</th>
+                        ))}
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      {condData.map(c => (
+                        <tr key={c.label} style={{ borderTop: '1px solid #f3f4f6' }}>
+                          <td style={{ padding: '7px 0', fontWeight: 500 }}>{c.label}</td>
+                          <td style={{ ...MONO, textAlign: 'right', fontSize: 11 }}>{c.n ? `${c.n}-${c.firsts}-${c.seconds}-${c.thirds}` : '—'}</td>
+                          <td style={{ ...MONO, textAlign: 'right', color: c.n ? (c.roi >= 0 ? G : RED) : '#9ca3af' }}>{c.n ? fmtPct(c.roi) : '—'}</td>
+                          <td style={{ ...MONO, textAlign: 'right' }}>{c.n ? `${c.sr.toFixed(0)}%` : '—'}</td>
+                          <td style={{ ...MONO, textAlign: 'right', color: c.n ? (c.pnl >= 0 ? G : RED) : '#9ca3af' }}>{c.n ? fmt$(c.pnl) : '—'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               )}
             </Card>
 
@@ -680,34 +684,36 @@ export default function InsightsPage() {
                 ))}
               </div>
               {venueData.length === 0 ? <EmptyState msg="No settled bets yet" /> : (
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
-                  <thead>
-                    <tr style={{ color: '#9ca3af', borderBottom: '1px solid #e5e7eb' }}>
-                      {['Venue','Record','Strike','ROI','P&L'].map((h, i) => (
-                        <th key={h} style={{ textAlign: i === 0 ? 'left' : 'right', fontWeight: 500, paddingBottom: 8 }}>{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {venueData.slice(0, 15).map(v => (
-                      <tr key={v.venue} style={{ borderTop: '1px solid #f3f4f6' }}>
-                        <td style={{ padding: '7px 0', fontWeight: 500 }}>
-                          {v.venue.toLowerCase().replace(/\b\w/g, c => c.toUpperCase())}
-                        </td>
-                        <td style={{ ...MONO, textAlign: 'right', fontSize: 11 }}>{v.n}-{v.firsts}-{v.seconds}-{v.thirds}</td>
-                        <td style={{ ...MONO, textAlign: 'right' }}>{v.sr.toFixed(1)}%</td>
-                        <td style={{ ...MONO, textAlign: 'right', color: v.roi >= 0 ? G : RED }}>{fmtPct(v.roi)}</td>
-                        <td style={{ ...MONO, textAlign: 'right', color: v.pnl >= 0 ? G : RED }}>{fmt$(v.pnl)}</td>
+                <div style={{ overflowX: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                    <thead>
+                      <tr style={{ color: '#9ca3af', borderBottom: '1px solid #e5e7eb' }}>
+                        {['Venue','Record','Strike','ROI','P&L'].map((h, i) => (
+                          <th key={h} style={{ textAlign: i === 0 ? 'left' : 'right', fontWeight: 500, paddingBottom: 8 }}>{h}</th>
+                        ))}
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      {venueData.slice(0, 15).map(v => (
+                        <tr key={v.venue} style={{ borderTop: '1px solid #f3f4f6' }}>
+                          <td style={{ padding: '7px 0', fontWeight: 500 }}>
+                            {v.venue.toLowerCase().replace(/\b\w/g, c => c.toUpperCase())}
+                          </td>
+                          <td style={{ ...MONO, textAlign: 'right', fontSize: 11 }}>{v.n}-{v.firsts}-{v.seconds}-{v.thirds}</td>
+                          <td style={{ ...MONO, textAlign: 'right' }}>{v.sr.toFixed(1)}%</td>
+                          <td style={{ ...MONO, textAlign: 'right', color: v.roi >= 0 ? G : RED }}>{fmtPct(v.roi)}</td>
+                          <td style={{ ...MONO, textAlign: 'right', color: v.pnl >= 0 ? G : RED }}>{fmt$(v.pnl)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               )}
             </Card>
           </div>
 
           {/* 7+9. KELLY + STAKING */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 12 }}>
             <Card title="Kelly Criterion Advisor" info="Uses your historical win rate and average odds in each zone to calculate the optimal stake size. Over-betting shrinks your bankroll; under-betting leaves profit on the table. Set your bankroll in Settings first.">
               {!bankroll ? (
                 <div style={{ fontSize: 12, color: '#6b7280', lineHeight: 1.6 }}>
