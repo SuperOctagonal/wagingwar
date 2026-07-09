@@ -6,6 +6,9 @@ import { useUser, useClerk } from '@clerk/nextjs';
 import { useState, useEffect, useRef } from 'react';
 import useIsPro from '@/hooks/useIsPro';
 
+const SURL = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const SKEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
 const NAV_LINKS = [
   { id: 'races',        label: 'Races',        href: '/races',        public: true },
   { id: 'today',        label: 'Today',        href: '/today' },
@@ -39,6 +42,7 @@ export default function TopNav() {
   const [showLearnMenu, setShowLearnMenu] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [navRefreshing, setNavRefreshing] = useState(false);
+  const [pendingCount, setPendingCount] = useState(0);
   const dropdownRef = useRef(null);
 
   // Derive current page id from pathname
@@ -59,6 +63,32 @@ export default function TopNav() {
     }
     router.push(href);
   }
+
+  // Pending bet count for "My Bets" badge
+  useEffect(() => {
+    if (!user?.id || !SURL || !SKEY) { setPendingCount(0); return; }
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const res = await fetch(
+          `${SURL}/rest/v1/bet_log?clerk_id=eq.${encodeURIComponent(user.id)}&or=(status.is.null,status.eq.pending)&select=id`,
+          { headers: { apikey: SKEY, Authorization: `Bearer ${SKEY}` } }
+        );
+        if (res.ok && !cancelled) {
+          const rows = await res.json();
+          setPendingCount(Array.isArray(rows) ? rows.length : 0);
+        }
+      } catch {}
+    };
+    load();
+    window.addEventListener('ww:refresh', load);
+    window.addEventListener('ww:profile:refresh', load);
+    return () => {
+      cancelled = true;
+      window.removeEventListener('ww:refresh', load);
+      window.removeEventListener('ww:profile:refresh', load);
+    };
+  }, [user?.id]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -176,8 +206,13 @@ export default function TopNav() {
                   currentPage === link.id
                     ? 'text-white'
                     : 'text-white/55 group-hover:bg-white group-hover:text-brand',
-                ].join(' ')}>
+                ].join(' ')} style={link.id === 'mybets' && pendingCount > 0 ? { position: 'relative' } : {}}>
                   {link.label}
+                  {link.id === 'mybets' && pendingCount > 0 && (
+                    <span style={{ position: 'absolute', top: -6, right: -8, background: '#ef4444', color: '#fff', borderRadius: '50%', minWidth: 16, height: 16, fontSize: 9, fontWeight: 700, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '0 2px', lineHeight: 1, pointerEvents: 'none' }}>
+                      {pendingCount > 99 ? '99+' : pendingCount}
+                    </span>
+                  )}
                 </span>
               </button>
             );
@@ -324,6 +359,11 @@ export default function TopNav() {
                   }}
                 >
                   {link.label}
+                  {link.id === 'mybets' && pendingCount > 0 && (
+                    <span style={{ marginLeft: 'auto', background: '#ef4444', color: '#fff', borderRadius: 10, padding: '1px 7px', fontSize: 10, fontWeight: 700, flexShrink: 0 }}>
+                      {pendingCount > 99 ? '99+' : pendingCount}
+                    </span>
+                  )}
                 </button>
               ))}
             </div>
@@ -361,7 +401,7 @@ export default function TopNav() {
             key={tab.id}
             onClick={() => navigate(`/${tab.id}`, tab.public)}
             className={[
-              'flex-1 min-w-[52px] flex flex-col items-center justify-center',
+              'flex-1 min-w-[52px] flex flex-col items-center justify-center relative',
               'font-space text-[9px] font-semibold whitespace-nowrap border-t-2 transition-colors',
               currentPage === tab.id
                 ? 'text-amber-400 border-amber-400'
@@ -370,6 +410,11 @@ export default function TopNav() {
           >
             <i className={`ti ti-${tab.icon} text-[15px] mb-0.5`} />
             {tab.label}
+            {tab.id === 'mybets' && pendingCount > 0 && (
+              <span style={{ position: 'absolute', top: 4, right: 6, background: '#ef4444', color: '#fff', borderRadius: '50%', minWidth: 14, height: 14, fontSize: 8, fontWeight: 700, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '0 2px', lineHeight: 1, pointerEvents: 'none' }}>
+                {pendingCount > 99 ? '99+' : pendingCount}
+              </span>
+            )}
           </button>
         ))}
       </div>
