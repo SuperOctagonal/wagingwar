@@ -22,7 +22,7 @@ async function fetchResultsForDate(dateStr) {
   } catch { return []; }
 }
 
-function normName(n) { return (n || '').toUpperCase().replace(/[^A-Z0-9]/g, ''); }
+function normName(n) { return (n || '').replace(/\s*\([A-Z]{2,4}\)\s*$/i, '').trim().toUpperCase().replace(/[^A-Z0-9]/g, ''); }
 
 function getSysRanks(allRaces, allVenues, venue, raceNum, weights, dbScratchings = []) {
   const normVenue = normaliseVenue(venue);

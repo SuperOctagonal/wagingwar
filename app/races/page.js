@@ -915,7 +915,7 @@ function buildPopupHTML(h) {
 // ─── race result modal ────────────────────────────────────────────────────────
 
 function RaceResultModal({ result, results, onClose }) {
-  const norm = n => (n||'').toUpperCase().replace(/[^A-Z0-9]/g,'');
+  const norm = n => (n||'').replace(/\s*\([A-Z]{2,4}\)\s*$/i,'').trim().toUpperCase().replace(/[^A-Z0-9]/g,'');
   const sysRankMap = {};
   results.forEach((r, i) => { sysRankMap[norm(r.name)] = i + 1; });
   const placePs = p => {
