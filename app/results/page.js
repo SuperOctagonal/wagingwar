@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { parseCSV, buildRaces } from '@/lib/csvParser';
-import { scoreGroup, getDefaultWeights, GRP_KEYS } from '@/lib/scoring';
+import { scoreGroup, getDefaultWeights, GRP_KEYS, calcPaceMap } from '@/lib/scoring';
 import { normaliseVenue } from '@/lib/venues';
 import ProfileRail from '@/components/ProfileRail';
 import useIsMobile from '@/hooks/useIsMobile';
@@ -61,6 +61,25 @@ function getBarrierFromCSV(allRaces, allVenues, venue, raceNum, horseName) {
       if (String(rc.num) !== String(raceNum)) continue;
       const h = (rc.horses || []).find(h => normName(h.name) === normName(horseName));
       if (h) return h.BP ?? h.barrier ?? h.bar ?? null;
+    }
+  }
+  return null;
+}
+
+function getSysHorses(allRaces, allVenues, venue, raceNum, dbScratchings = []) {
+  const normVenue = normaliseVenue(venue);
+  const dbScrNames = new Set(
+    dbScratchings
+      .filter(r => normaliseVenue(r.venue) === normVenue && String(r.race_num) === String(raceNum))
+      .map(r => normName(r.horse_name || ''))
+  );
+  for (const keys of Object.values(allVenues)) {
+    for (const k of keys) {
+      const rc = allRaces[k];
+      if (!rc) continue;
+      if (normaliseVenue(rc.venue) !== normVenue) continue;
+      if (String(rc.num) !== String(raceNum)) continue;
+      return (rc.horses || []).filter(h => !h.scratched && !dbScrNames.has(normName(h.name || '')));
     }
   }
   return null;
@@ -269,6 +288,90 @@ function StaffPanel({ data }) {
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+function WeightClassPanel({ data }) {
+  if (!data) return <NoCsvMsg />;
+  const fmt = v => v != null ? (+v).toFixed(1) : '—';
+  return (
+    <div style={{ overflowY:'auto', flex:1, padding:'8px 10px' }}>
+      <table style={{ width:'100%', borderCollapse:'collapse', fontSize:10 }}>
+        <thead>
+          <tr style={{ borderBottom:'1px solid #e5e7eb' }}>
+            <th style={{ padding:'3px 4px', textAlign:'left', color:'#6b7280', fontWeight:600, fontSize:9 }}>R</th>
+            <th style={{ padding:'3px 4px', textAlign:'left', color:'#6b7280', fontWeight:600, fontSize:9 }}>Winner</th>
+            <th style={{ padding:'3px 4px', textAlign:'right', color:'#6b7280', fontWeight:600, fontSize:9 }}>Wt</th>
+            <th style={{ padding:'3px 4px', textAlign:'right', color:'#6b7280', fontWeight:600, fontSize:9 }}>Avg</th>
+            <th style={{ padding:'3px 4px', textAlign:'right', color:'#6b7280', fontWeight:600, fontSize:9 }}>Rtg</th>
+            <th style={{ padding:'3px 4px', textAlign:'right', color:'#6b7280', fontWeight:600, fontSize:9 }}>Avg</th>
+          </tr>
+        </thead>
+        <tbody>
+          {data.map(row => {
+            const dWt  = row.winnerWeight != null && row.fieldAvgWeight != null ? +row.winnerWeight - row.fieldAvgWeight : null;
+            const dRtg = row.winnerWrat  != null && row.fieldAvgWrat  != null ? +row.winnerWrat  - row.fieldAvgWrat  : null;
+            return (
+              <tr key={row.raceNum} style={{ borderBottom:'0.5px solid #f3f4f6' }}>
+                <td style={{ padding:'4px 4px', color:'#111827', fontWeight:700 }}>R{row.raceNum}</td>
+                <td style={{ padding:'4px 4px', color:'#111827', maxWidth:80, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{row.winner}</td>
+                <td style={{ padding:'4px 4px', textAlign:'right', color:'#111827' }}>
+                  {fmt(row.winnerWeight)}
+                  {dWt != null && <span style={{ fontSize:8, marginLeft:2, color: dWt <= 0 ? '#16a34a' : '#dc2626' }}>{dWt > 0 ? '+' : ''}{dWt.toFixed(1)}</span>}
+                </td>
+                <td style={{ padding:'4px 4px', textAlign:'right', color:'#6b7280' }}>{fmt(row.fieldAvgWeight)}</td>
+                <td style={{ padding:'4px 4px', textAlign:'right', color:'#111827' }}>
+                  {fmt(row.winnerWrat)}
+                  {dRtg != null && <span style={{ fontSize:8, marginLeft:2, color: dRtg >= 0 ? '#16a34a' : '#dc2626' }}>{dRtg > 0 ? '+' : ''}{dRtg.toFixed(1)}</span>}
+                </td>
+                <td style={{ padding:'4px 4px', textAlign:'right', color:'#6b7280' }}>{fmt(row.fieldAvgWrat)}</td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+      <div style={{ fontSize:9, color:'#9ca3af', paddingTop:6, lineHeight:1.4 }}>Wt = carried weight (kg). Rtg = speed rating. Δ shown vs field average.</div>
+    </div>
+  );
+}
+
+const PACE_COLORS = { Leader:'#00b050', Presser:'#7ec820', Midfield:'#ffc000', Closer:'#ff8000', Backmarker:'#dc3545' };
+
+function TrackBiasPanel({ data }) {
+  if (!data) return <NoCsvMsg />;
+  const rows = Object.entries(data);
+  const maxTotal = Math.max(...rows.map(([, v]) => v.total), 1);
+  const hasData = rows.some(([, v]) => v.total > 0);
+  if (!hasData) return (
+    <div style={{ padding:'24px 10px', textAlign:'center', color:'#6b7280', fontSize:10 }}>No pace data for this meeting yet.</div>
+  );
+  return (
+    <div style={{ overflowY:'auto', flex:1, padding:'8px 10px' }}>
+      {rows.map(([role, { wins, total }]) => {
+        const pct = total > 0 ? Math.round(wins / total * 100) : 0;
+        const barW = total > 0 ? Math.round(total / maxTotal * 100) : 0;
+        const color = PACE_COLORS[role] || '#374151';
+        return (
+          <div key={role} style={{ marginBottom:8 }}>
+            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:2 }}>
+              <div style={{ display:'flex', alignItems:'center', gap:5 }}>
+                <span style={{ width:8, height:8, borderRadius:'50%', background:color, display:'inline-block', flexShrink:0 }} />
+                <span style={{ fontSize:10, color:'#111827', fontWeight:600 }}>{role}</span>
+              </div>
+              <div style={{ display:'flex', gap:10, fontSize:10, color:'#111827' }}>
+                <span style={{ minWidth:18, textAlign:'right', fontWeight:700 }}>{wins}W</span>
+                <span style={{ minWidth:22, textAlign:'right' }}>{total}R</span>
+                <span style={{ minWidth:28, textAlign:'right', fontWeight:700 }}>{pct}%</span>
+              </div>
+            </div>
+            <div style={{ background:'#f3f4f6', borderRadius:3, height:6, overflow:'hidden' }}>
+              <div style={{ width:`${barW}%`, height:'100%', background:color, borderRadius:3, transition:'width .3s' }} />
+            </div>
+          </div>
+        );
+      })}
+      <div style={{ fontSize:9, color:'#9ca3af', paddingTop:4, lineHeight:1.4 }}>Pace role from early speed data. Today&apos;s meeting only.</div>
     </div>
   );
 }
@@ -593,6 +696,49 @@ export default function ResultsPage() {
     };
   }, [meetingResulted]);
 
+  const weightClass = useMemo(() => {
+    if (!hasCsv) return null;
+    const rows = [];
+    meetingResulted.forEach(({ raceNum, results }) => {
+      const horses = getSysHorses(effectiveRaces, effectiveVenues, selectedMeeting, raceNum, dbScratchings);
+      if (!horses || !horses.length) return;
+      const winner = (results.runners || []).find(r => r.place === 1);
+      if (!winner) return;
+      const wh = horses.find(h => normName(h.name) === normName(winner.name));
+      const allW = horses.map(h => h['Weight']).filter(v => v != null && !isNaN(+v));
+      const allR = horses.map(h => h['Wrat']).filter(v => v != null && !isNaN(+v));
+      rows.push({
+        raceNum,
+        winner: winner.name,
+        winnerWeight:   wh?.['Weight'] ?? null,
+        fieldAvgWeight: allW.length ? allW.reduce((a, b) => a + (+b), 0) / allW.length : null,
+        winnerWrat:     wh?.['Wrat'] ?? null,
+        fieldAvgWrat:   allR.length ? allR.reduce((a, b) => a + (+b), 0) / allR.length : null,
+      });
+    });
+    return rows.length ? rows : null;
+  }, [meetingResulted, effectiveRaces, effectiveVenues, selectedMeeting, dbScratchings, hasCsv]);
+
+  const trackBias = useMemo(() => {
+    if (!hasCsv) return null;
+    const roles = { Leader: { wins:0, total:0 }, Presser: { wins:0, total:0 }, Midfield: { wins:0, total:0 }, Closer: { wins:0, total:0 }, Backmarker: { wins:0, total:0 } };
+    meetingResulted.forEach(({ raceNum, results }) => {
+      const horses = getSysHorses(effectiveRaces, effectiveVenues, selectedMeeting, raceNum, dbScratchings);
+      if (!horses || !horses.length) return;
+      const dist = parseInt(results.dist, 10) || 0;
+      const tc   = results.trackCond || 'good';
+      (results.runners || []).forEach(runner => {
+        const fh = horses.find(h => normName(h.name) === normName(runner.name));
+        if (!fh) return;
+        const { role } = calcPaceMap(fh, selectedMeeting, dist, tc);
+        if (!roles[role]) return;
+        roles[role].total++;
+        if (runner.place === 1) roles[role].wins++;
+      });
+    });
+    return roles;
+  }, [meetingResulted, effectiveRaces, effectiveVenues, selectedMeeting, dbScratchings, hasCsv]);
+
   return (
     <div style={{ display:'flex', flex:1, overflow:'hidden' }}>
       <ProfileRail />
@@ -692,6 +838,8 @@ export default function ResultsPage() {
                     { key:'barrier', label:'Barriers',  icon:'ti-layout-columns' },
                     { key:'upsets',  label:'Upsets',    icon:'ti-bolt'           },
                     { key:'staff',   label:'T/J',       icon:'ti-users'          },
+                    { key:'weight',  label:'Wt/Cls',    icon:'ti-scale'          },
+                    { key:'bias',    label:'Pace Bias', icon:'ti-trending-up'    },
                   ].map(p => {
                     const active = sidePanel === p.key;
                     return (
@@ -711,6 +859,8 @@ export default function ResultsPage() {
                 {sidePanel === 'barrier' && <SidePanel icon="ti-layout-columns" label="Barriers"><BarrierPanel data={barrierBias} hasCsv={hasCsv} /></SidePanel>}
                 {sidePanel === 'upsets'  && <SidePanel icon="ti-bolt"           label="Upsets"><UpsetsPanel data={biggestUpsets} hasCsv={hasCsv} /></SidePanel>}
                 {sidePanel === 'staff'   && <SidePanel icon="ti-users"          label="Trainer / Jockey"><StaffPanel data={staffForm} /></SidePanel>}
+                {sidePanel === 'weight'  && <SidePanel icon="ti-scale"          label="Weight & Class"><WeightClassPanel data={weightClass} /></SidePanel>}
+                {sidePanel === 'bias'    && <SidePanel icon="ti-trending-up"    label="Pace Bias"><TrackBiasPanel data={trackBias} /></SidePanel>}
               </div>
 
             </div>
