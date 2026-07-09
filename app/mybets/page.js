@@ -1738,7 +1738,7 @@ export default function MybetsPage() {
                         <ResponsiveContainer width="100%" height={204} role="img" aria-label="ROI percentage by odds range">
                           <BarChart data={data} margin={{ top: 4, right: 8, bottom: 0, left: 0 }}>
                             <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
-                            <XAxis dataKey="label" tick={{ fontSize: 10, fill: '#374151' }} />
+                            <XAxis dataKey="label" tick={{ fontSize: 10, fill: '#111827' }} />
                             <YAxis tick={{ fontSize: 9, fill: '#9ca3af' }} tickFormatter={v => `${v}%`} />
                             <Tooltip formatter={(v, n, p) => p.payload.smallSample ? ['< 5 bets', 'Small sample'] : [`${v}%`, 'ROI']} />
                             <Bar dataKey="roi" radius={[3, 3, 0, 0]}>
@@ -1766,11 +1766,11 @@ export default function MybetsPage() {
                         <ResponsiveContainer width="100%" height={204} role="img" aria-label="Total profit and loss by venue">
                           <BarChart data={data} margin={{ top: 4, right: 8, bottom: 24, left: 0 }}>
                             <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
-                            <XAxis dataKey="label" tick={{ fontSize: 9, fill: '#374151' }} angle={-30} textAnchor="end" interval={0} />
+                            <XAxis dataKey="label" tick={{ fontSize: 9, fill: '#111827' }} angle={-30} textAnchor="end" interval={0} />
                             <YAxis tick={{ fontSize: 9, fill: '#9ca3af' }} tickFormatter={v => `$${v}`} />
-                            <Tooltip formatter={(v, n, p) => p.payload.smallSample ? ['< 5 bets', 'P&L'] : [`$${v}`, 'P&L']} />
+                            <Tooltip formatter={v => [`$${v}`, 'P&L']} />
                             <Bar dataKey="pnl" radius={[3, 3, 0, 0]}>
-                              {data.map((d, i) => <Cell key={i} fill={d.smallSample ? '#d1d5db' : d.pnl >= 0 ? CG : CR} />)}
+                              {data.map((d, i) => <Cell key={i} fill={d.pnl >= 0 ? CG : CR} />)}
                             </Bar>
                           </BarChart>
                         </ResponsiveContainer>
@@ -1794,7 +1794,7 @@ export default function MybetsPage() {
                         <ResponsiveContainer width="100%" height={204} role="img" aria-label="ROI by track condition">
                           <BarChart data={data} margin={{ top: 4, right: 8, bottom: 0, left: 0 }}>
                             <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
-                            <XAxis dataKey="label" tick={{ fontSize: 10, fill: '#374151' }} />
+                            <XAxis dataKey="label" tick={{ fontSize: 10, fill: '#111827' }} />
                             <YAxis tick={{ fontSize: 9, fill: '#9ca3af' }} tickFormatter={v => `${v}%`} />
                             <Tooltip formatter={(v, n, p) => p.payload.smallSample ? ['< 5 bets', 'Small sample'] : [`${v}%`, 'ROI']} />
                             <Bar dataKey="roi" radius={[3, 3, 0, 0]}>
@@ -1821,7 +1821,7 @@ export default function MybetsPage() {
                         <ResponsiveContainer width="100%" height={204} role="img" aria-label="ROI by model rank">
                           <BarChart data={data} margin={{ top: 4, right: 8, bottom: 0, left: 0 }}>
                             <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
-                            <XAxis dataKey="label" tick={{ fontSize: 10, fill: '#374151' }} />
+                            <XAxis dataKey="label" tick={{ fontSize: 10, fill: '#111827' }} />
                             <YAxis tick={{ fontSize: 9, fill: '#9ca3af' }} tickFormatter={v => `${v}%`} />
                             <Tooltip formatter={(v, n, p) => p.payload.smallSample ? ['< 5 bets', 'Small sample'] : [`${v}%`, 'ROI']} />
                             <Bar dataKey="roi" radius={[3, 3, 0, 0]}>
