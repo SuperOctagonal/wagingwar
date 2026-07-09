@@ -71,12 +71,12 @@ export default function TopNav() {
     const load = async () => {
       try {
         const res = await fetch(
-          `${SURL}/rest/v1/bet_log?clerk_id=eq.${encodeURIComponent(user.id)}&or=(status.is.null,status.eq.pending)&select=id`,
+          `${SURL}/rest/v1/bet_log?clerk_id=eq.${encodeURIComponent(user.id)}&select=id,status`,
           { headers: { apikey: SKEY, Authorization: `Bearer ${SKEY}` } }
         );
         if (res.ok && !cancelled) {
           const rows = await res.json();
-          setPendingCount(Array.isArray(rows) ? rows.length : 0);
+          setPendingCount(Array.isArray(rows) ? rows.filter(r => !r.status || r.status === 'pending').length : 0);
         }
       } catch {}
     };
