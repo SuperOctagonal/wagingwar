@@ -236,7 +236,7 @@ function periodFilter(period, todayISO) {
 }
 
 function calcRow(bets) {
-  const settled = bets.filter(b => b.status && b.status !== 'pending' && b.status !== 'scratched');
+  const settled = bets.filter(b => b.status && b.status !== 'pending' && b.status !== 'scratched' && b.status !== 'unresolved');
   const wins = settled.filter(b => b.status === 'win').length;
   const totalStaked = settled.reduce((s, b) => s + (b.stake || 0), 0);
   const totalRet = settled.reduce((s, b) => s + (b.return_amt || 0), 0);
@@ -424,7 +424,7 @@ export default function MybetsPage() {
       setLoading(false);
 
       // Seed SP map from race_results for all already-resulted bets
-      const resultedLoaded = loaded.filter(b => b.status && b.status !== 'pending');
+      const resultedLoaded = loaded.filter(b => b.status && b.status !== 'pending' && b.status !== 'unresolved');
       if (resultedLoaded.length > 0) {
         const combos = {};
         for (const b of resultedLoaded) {
@@ -451,7 +451,7 @@ export default function MybetsPage() {
         if (Object.keys(initSpMap).length > 0) setResultSpMap(prev => ({ ...prev, ...initSpMap }));
       }
 
-      const pending = loaded.filter(b => !b.status || b.status === 'pending');
+      const pending = loaded.filter(b => !b.status || b.status === 'pending' || b.status === 'unresolved');
       if (pending.length > 0) {
         setMatchingResults(true);
         const { spMap, anyUpdated } = await matchAndUpdateBets(pending);
@@ -706,7 +706,7 @@ export default function MybetsPage() {
     ['Today', 'This week', 'This month', 'All time'].map(p => ({ label: p, ...calcRow(bets.filter(periodFilter(p, todayISO))) }))
   ), [bets, todayISO]);
 
-  const resultedBets     = useMemo(() => bets.filter(b => b.status && b.status !== 'pending' && b.status !== 'scratched'), [bets]);
+  const resultedBets     = useMemo(() => bets.filter(b => b.status && b.status !== 'pending' && b.status !== 'scratched' && b.status !== 'unresolved'), [bets]);
   const filteredResulted = useMemo(() => {
     if (activeTab === 'all') return resultedBets;
     if (activeTab === 'win') return resultedBets.filter(b => b.status === 'win');
@@ -722,7 +722,7 @@ export default function MybetsPage() {
     return resultedBets;
   }, [resultedBets, activeTab, todayISO]);
 
-  const pendingBets = useMemo(() => bets.filter(b => !b.status || b.status === 'pending'), [bets]);
+  const pendingBets = useMemo(() => bets.filter(b => !b.status || b.status === 'pending' || b.status === 'unresolved'), [bets]);
 
   const filteredBets = useMemo(() => {
     const base = bets.filter(b => b.status !== 'scratched');
@@ -773,7 +773,7 @@ export default function MybetsPage() {
   }, [bets, dateRange, customStart, customEnd, todayISO]);
 
   const dateResulted = useMemo(() =>
-    dateFilteredBets.filter(b => b.status && b.status !== 'pending' && b.status !== 'scratched'),
+    dateFilteredBets.filter(b => b.status && b.status !== 'pending' && b.status !== 'scratched' && b.status !== 'unresolved'),
   [dateFilteredBets]);
 
   const dateStats = useMemo(() => calcRow(dateFilteredBets), [dateFilteredBets]);
@@ -785,13 +785,13 @@ export default function MybetsPage() {
       win:      base.filter(b => b.status === 'win').length,
       place:    base.filter(b => b.status === 'place').length,
       loss:     base.filter(b => b.status === 'loss').length,
-      upcoming: base.filter(b => !b.status || b.status === 'pending').length,
-      resulted: base.filter(b => b.status && b.status !== 'pending').length,
+      upcoming: base.filter(b => !b.status || b.status === 'pending' || b.status === 'unresolved').length,
+      resulted: base.filter(b => b.status && b.status !== 'pending' && b.status !== 'unresolved').length,
     };
   }, [dateFilteredBets]);
 
   const avgOdds = useMemo(() => {
-    const settled = dateFilteredBets.filter(b => b.status && b.status !== 'pending' && b.status !== 'scratched' && +(b.odds || 0) > 1);
+    const settled = dateFilteredBets.filter(b => b.status && b.status !== 'pending' && b.status !== 'scratched' && b.status !== 'unresolved' && +(b.odds || 0) > 1);
     if (!settled.length) return '—';
     return '$' + (settled.reduce((s, b) => s + +(b.odds || 0), 0) / settled.length).toFixed(2);
   }, [dateFilteredBets]);
@@ -850,7 +850,7 @@ export default function MybetsPage() {
       const d = new Date(today);
       d.setDate(today.getDate() - (6 - i));
       const iso = d.toISOString().slice(0, 10);
-      const dayBets = bets.filter(b => b.date === iso && b.status && b.status !== 'pending' && b.status !== 'scratched');
+      const dayBets = bets.filter(b => b.date === iso && b.status && b.status !== 'pending' && b.status !== 'scratched' && b.status !== 'unresolved');
       const pnl = dayBets.reduce((s, b) => s + (b.profit_loss || 0), 0);
       return { day: iso.slice(5), pnl: Math.round(pnl * 100) / 100 };
     });
@@ -859,8 +859,8 @@ export default function MybetsPage() {
   const ledgerFilteredBets = useMemo(() => {
     const base = dateFilteredBets.filter(b => b.status !== 'scratched');
     if (activeTab === 'all') return base;
-    if (activeTab === 'upcoming') return base.filter(b => !b.status || b.status === 'pending');
-    if (activeTab === 'resulted') return base.filter(b => b.status && b.status !== 'pending');
+    if (activeTab === 'upcoming') return base.filter(b => !b.status || b.status === 'pending' || b.status === 'unresolved');
+    if (activeTab === 'resulted') return base.filter(b => b.status && b.status !== 'pending' && b.status !== 'unresolved');
     return base.filter(b => b.status === activeTab);
   }, [dateFilteredBets, activeTab]);
 
@@ -1291,9 +1291,10 @@ export default function MybetsPage() {
                         const hasPnl = pnl !== null;
                         const pos = b.position;
                         const isPending = !b.status || b.status === 'pending';
+                        const isUnresolved = b.status === 'unresolved';
                         const isScratched = b.status === 'scratched';
                         const isAbandoned = b.status === 'abandoned';
-                        const pnlColor = !hasPnl || isPending || isAbandoned ? '#6b7280' : pnl >= 0 ? '#4ade80' : '#f87171';
+                        const pnlColor = !hasPnl || isPending || isUnresolved || isAbandoned ? '#6b7280' : pnl >= 0 ? '#4ade80' : '#f87171';
                         const resultColor = pos === 1 ? '#4ade80' : (pos === 2 || pos === 3) ? '#60a5fa' : '#f87171';
                         const raceNum = b.race_number ?? b.race_num;
                         const venue = b.track || b.venue || '—';
@@ -1310,10 +1311,10 @@ export default function MybetsPage() {
                             <td style={{ ...cs, color: '#fff', textAlign: 'right', fontFamily: 'monospace', whiteSpace: 'nowrap' }}>${(+(b.stake || 0)).toFixed(0)}</td>
                             <td style={{ ...cs, color: '#fff', textAlign: 'right', fontFamily: 'monospace', whiteSpace: 'nowrap' }}>${Number(b.odds || 0).toFixed(2)}</td>
                             <td style={{ ...cs, textAlign: 'right', fontWeight: 700, fontFamily: 'monospace', color: pnlColor, whiteSpace: 'nowrap' }}>
-                              {isPending || isAbandoned ? '—' : hasPnl ? (pnl >= 0 ? '+$' : '-$') + Math.abs(pnl).toFixed(2) : '—'}
+                              {isPending || isUnresolved || isAbandoned ? '—' : hasPnl ? (pnl >= 0 ? '+$' : '-$') + Math.abs(pnl).toFixed(2) : '—'}
                             </td>
-                            <td style={{ ...cs, textAlign: 'right', fontWeight: 700, color: isAbandoned ? '#6b7280' : isPending ? '#f97316' : isScratched ? '#6b7280' : (pos ? resultColor : '#6b7280'), whiteSpace: 'nowrap' }}>
-                              {isAbandoned ? 'ABND' : isPending ? 'PND' : isScratched ? 'SCR' : pos ? String(pos) : '—'}
+                            <td style={{ ...cs, textAlign: 'right', fontWeight: 700, color: isAbandoned ? '#6b7280' : isUnresolved ? '#6b7280' : isPending ? '#f97316' : isScratched ? '#6b7280' : (pos ? resultColor : '#6b7280'), whiteSpace: 'nowrap' }}>
+                              {isAbandoned ? 'ABND' : isUnresolved ? 'NR' : isPending ? 'PND' : isScratched ? 'SCR' : pos ? String(pos) : '—'}
                             </td>
                             <td style={{ ...cs, textAlign: 'right', color: '#9ca3af', fontFamily: 'monospace', whiteSpace: 'nowrap' }}>
                               {b.margin || '—'}
@@ -1390,9 +1391,10 @@ export default function MybetsPage() {
                             const hasPnl = pnl !== null;
                             const pos = b.position;
                             const isPending = !b.status || b.status === 'pending';
+                            const isUnresolved = b.status === 'unresolved';
                             const isScratched = b.status === 'scratched';
                             const isAbandoned = b.status === 'abandoned';
-                            const pnlColor = !hasPnl || isPending || isAbandoned ? '#6b7280' : pnl >= 0 ? '#4ade80' : '#f87171';
+                            const pnlColor = !hasPnl || isPending || isUnresolved || isAbandoned ? '#6b7280' : pnl >= 0 ? '#4ade80' : '#f87171';
                             const raceNum = b.race_number ?? b.race_num;
                             const venue = b.track || b.venue || '—';
                             const cs = { border: '1px solid #1a3a25', padding: '4px 6px', whiteSpace: 'nowrap' };
@@ -1437,10 +1439,10 @@ export default function MybetsPage() {
                                   {isEditing && !isLocked ? <input type="number" value={editOdds} onChange={e => setEditOdds(e.target.value)} style={{ width: 40, fontSize: 10, textAlign: 'right', border: '1px solid #4ade80', background: '#1a3a25', color: '#fff', borderRadius: 3, padding: '1px 3px' }} /> : `$${Number(b.odds || 0).toFixed(2)}`}
                                 </td>
                                 <td style={{ ...cs, textAlign: 'right', fontWeight: 700, fontFamily: 'monospace', color: pnlColor, whiteSpace: 'nowrap' }}>
-                                  {isPending || isAbandoned ? '—' : hasPnl ? (pnl >= 0 ? '+$' : '-$') + Math.abs(pnl).toFixed(2) : '—'}
+                                  {isPending || isUnresolved || isAbandoned ? '—' : hasPnl ? (pnl >= 0 ? '+$' : '-$') + Math.abs(pnl).toFixed(2) : '—'}
                                 </td>
-                                <td style={{ ...cs, textAlign: 'right', fontWeight: 700, color: isAbandoned ? '#6b7280' : isPending ? '#f97316' : isScratched ? '#6b7280' : (pos === 1 ? '#4ade80' : (pos === 2 || pos === 3) ? '#60a5fa' : pos ? '#f87171' : '#6b7280') }}>
-                                  {isAbandoned ? 'ABND' : isPending ? 'PND' : isScratched ? 'SCR' : pos ? String(pos) : '—'}
+                                <td style={{ ...cs, textAlign: 'right', fontWeight: 700, color: isAbandoned ? '#6b7280' : isUnresolved ? '#6b7280' : isPending ? '#f97316' : isScratched ? '#6b7280' : (pos === 1 ? '#4ade80' : (pos === 2 || pos === 3) ? '#60a5fa' : pos ? '#f87171' : '#6b7280') }}>
+                                  {isAbandoned ? 'ABND' : isUnresolved ? 'NR' : isPending ? 'PND' : isScratched ? 'SCR' : pos ? String(pos) : '—'}
                                 </td>
                                 <td style={{ ...cs, textAlign: 'right', color: '#9ca3af', fontFamily: 'monospace' }}>
                                   {b.margin || '—'}
@@ -1615,7 +1617,7 @@ export default function MybetsPage() {
             {!loading && sortedLedgerBets.length > 0 && (
               <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '4px 10px', background: '#0D1C13', borderTop: '1px solid #1a3a25' }}>
                 <span style={{ fontSize: 10, color: '#fff', fontFamily: 'monospace' }}>
-                  {sortedLedgerBets.length} bets · {sortedLedgerBets.filter(b => b.status && b.status !== 'pending' && b.status !== 'scratched' && b.status !== 'abandoned').length} settled · {sortedLedgerBets.filter(b => b.status === 'abandoned').length} abandoned
+                  {sortedLedgerBets.length} bets · {sortedLedgerBets.filter(b => b.status && b.status !== 'pending' && b.status !== 'scratched' && b.status !== 'abandoned' && b.status !== 'unresolved').length} settled · {sortedLedgerBets.filter(b => b.status === 'abandoned').length} abandoned
                 </span>
                 {tabStats.pnl !== null && (
                   <span style={{ fontSize: 11, fontWeight: 700, fontFamily: 'monospace', color: tabStats.pnl >= 0 ? '#4ade80' : '#f87171' }}>

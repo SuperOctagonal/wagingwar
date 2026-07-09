@@ -76,7 +76,7 @@ export default function TopNav() {
         );
         if (res.ok && !cancelled) {
           const rows = await res.json();
-          setPendingCount(Array.isArray(rows) ? rows.filter(r => !r.status || r.status === 'pending').length : 0);
+          setPendingCount(Array.isArray(rows) ? rows.filter(r => !r.status || r.status === 'pending' || r.status === 'unresolved').length : 0);
         }
       } catch {}
     };
