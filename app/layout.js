@@ -1,6 +1,8 @@
 import { ClerkProvider } from '@clerk/nextjs';
 import { Space_Grotesk, Bebas_Neue, JetBrains_Mono } from 'next/font/google';
+import Script from 'next/script';
 import TopNav from '@/components/TopNav';
+import CookieBanner from '@/components/CookieBanner';
 import './globals.css';
 
 const spaceGrotesk = Space_Grotesk({ subsets:['latin'], variable:'--font-space-grotesk', weight:['400','500','600','700'], display:'swap' });
@@ -46,6 +48,17 @@ export default function RootLayout({ children }) {
               Help: 1800&nbsp;858&nbsp;858
             </a>
           </div>
+          <CookieBanner />
+          <Script
+            src="https://www.googletagmanager.com/gtag/js?id=G-65VN0H3ECY"
+            strategy="afterInteractive"
+          />
+          <Script id="ga-init" strategy="afterInteractive">{`
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){dataLayer.push(arguments);}
+            gtag('js', new Date());
+            gtag('config', 'G-65VN0H3ECY');
+          `}</Script>
         </body>
       </html>
     </ClerkProvider>
