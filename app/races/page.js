@@ -1343,11 +1343,11 @@ function MobileRunnerCard({ runner, rank, rc, trackCond, onLogBet, isResulted, b
         </div>
         <div style={{ display: 'flex', gap: 3, flexShrink: 0 }}>
           <button onClick={() => !betBlocked && !isResulted && onLogBet(runner, rank)} disabled={betBlocked || isResulted}
-            style={{ fontSize: 8, fontWeight: 600, padding: '2px 6px', borderRadius: 7, border: '1px solid #e5e7eb', background: '#fff', color: betBlocked || isResulted ? '#9ca3af' : '#374151', cursor: betBlocked || isResulted ? 'default' : 'pointer', whiteSpace: 'nowrap' }}>
+            style={{ fontSize: 12, fontWeight: 600, padding: '8px 12px', borderRadius: 7, border: '1px solid #e5e7eb', background: '#fff', color: betBlocked || isResulted ? '#9ca3af' : '#374151', cursor: betBlocked || isResulted ? 'default' : 'pointer', whiteSpace: 'nowrap' }}>
             + Log bet
           </button>
           <button onClick={() => isPro ? window.__addToBlackbook?.(bbPayload) : onUpgrade()}
-            style={{ fontSize: 8, fontWeight: 600, padding: '2px 6px', borderRadius: 7, border: '1px solid #e5e7eb', background: '#fff', color: '#374151', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+            style={{ fontSize: 12, fontWeight: 600, padding: '8px 12px', borderRadius: 7, border: '1px solid #e5e7eb', background: '#fff', color: '#374151', cursor: 'pointer', whiteSpace: 'nowrap' }}>
             🔖 Blackbook
           </button>
         </div>
@@ -1808,7 +1808,8 @@ function FormCard({ runner: r, rank, onLogBet, isResulted, betBlocked = false, r
 
       {/* Run history table */}
       {runRows.length > 0 && (
-        <table style={{ width:'100%', borderCollapse:'collapse', border:'0.5px solid #e5e7eb', borderTop:'none', background:'#fff', tableLayout:'fixed' }}>
+        <div style={{ overflowX: 'auto' }}>
+        <table style={{ borderCollapse:'collapse', border:'0.5px solid #e5e7eb', borderTop:'none', background:'#fff' }}>
           <thead>
             <tr style={{ background:'#f1f5f9' }}>
               <th style={{ width:90,  padding:'4px 6px', fontSize:9, fontWeight:700, color:'#9ca3af', textTransform:'uppercase', textAlign:'left',   borderBottom:'0.5px solid #e5e7eb' }}>Date</th>
@@ -1824,6 +1825,7 @@ function FormCard({ runner: r, rank, onLogBet, isResulted, betBlocked = false, r
           </thead>
           <tbody>{runRows}</tbody>
         </table>
+        </div>
       )}
 
       {/* Stats footer */}
