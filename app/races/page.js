@@ -2587,7 +2587,7 @@ function RacesPageInner() {
                             key={key}
                             onClick={() => setSelectedKey(key)}
                             style={{
-                              minWidth:28, height:26, fontSize:11, fontWeight: active ? 700 : 500,
+                              minWidth:28, height:40, fontSize:12, fontWeight: active ? 700 : 500,
                               borderRadius:5, border: active ? '1.5px solid #1D9E75' : '1px solid #d1d5db',
                               background: active ? '#1D9E75' : '#fff', color: active ? '#fff' : '#374151',
                               cursor:'pointer', flexShrink:0, padding:'0 5px',

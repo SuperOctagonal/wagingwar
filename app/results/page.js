@@ -811,7 +811,7 @@ export default function ResultsPage() {
                     key={r.raceNum}
                     type="button"
                     onClick={(e) => { e.stopPropagation(); e.preventDefault(); setSelectedRace(Number(r.raceNum)); }}
-                    style={{ padding:'3px 6px', borderRadius:5, fontSize:10, fontWeight:700, cursor:'pointer', background:bg, color, border:`0.5px solid ${border}`, fontFamily:'inherit' }}
+                    style={{ padding:'8px 12px', borderRadius:5, fontSize:12, fontWeight:700, cursor:'pointer', background:bg, color, border:`0.5px solid ${border}`, fontFamily:'inherit' }}
                   >
                     R{r.raceNum}{resulted ? ' ✓' : ''}
                   </button>
@@ -853,7 +853,7 @@ export default function ResultsPage() {
                         key={p.key}
                         type="button"
                         onClick={() => setSidePanel(p.key)}
-                        style={{ display:'flex', alignItems:'center', gap:3, padding:'3px 8px', borderRadius:16, fontSize:10, fontWeight:600, cursor:'pointer', fontFamily:'inherit', border:'0.5px solid', background: active ? '#1e2936' : '#fff', color: active ? '#fff' : '#374151', borderColor: active ? '#1e2936' : '#e5e7eb' }}
+                        style={{ display:'flex', alignItems:'center', gap:3, padding:'8px 12px', borderRadius:16, fontSize:12, fontWeight:600, cursor:'pointer', fontFamily:'inherit', border:'0.5px solid', background: active ? '#1e2936' : '#fff', color: active ? '#fff' : '#374151', borderColor: active ? '#1e2936' : '#e5e7eb' }}
                       >
                         <i className={`ti ${p.icon}`} style={{ fontSize:10 }} />
                         {p.label}

@@ -1239,7 +1239,7 @@ export default function MybetsPage() {
               const key = t.toLowerCase();
               return (
                 <button key={t} onClick={() => setActiveTab(key)}
-                  style={{ padding: '2px 8px', fontSize: 9, fontWeight: activeTab === key ? 700 : 400,
+                  style={{ padding: '8px 12px', fontSize: 11, fontWeight: activeTab === key ? 700 : 400,
                     color: activeTab === key ? '#0B1F14' : '#fff',
                     background: activeTab === key ? '#4ade80' : 'transparent',
                     border: activeTab === key ? 'none' : '1px solid #1a3a25',
