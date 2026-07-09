@@ -2,6 +2,7 @@ const MONTHLY_URL = process.env.NEXT_PUBLIC_STRIPE_MONTHLY_URL || '#upgrade';
 const ANNUAL_URL  = process.env.NEXT_PUBLIC_STRIPE_ANNUAL_URL  || '#upgrade';
 
 const STATUS = {
+  live:    { emoji: '✅', label: 'Live',            bg: '#dcfce7', color: '#15803d' },
   dev:     { emoji: '🔨', label: 'In Development', bg: '#fef3c7', color: '#92400e' },
   soon:    { emoji: '🔜', label: 'Coming Soon',    bg: '#dbeafe', color: '#1e40af' },
   planned: { emoji: '💡', label: 'Planned',         bg: '#f3f4f6', color: '#374151' },
@@ -12,17 +13,16 @@ const SECTIONS = [
     title: 'Data & Automation',
     icon: 'ti-database',
     features: [
-      { icon: 'ti-calendar-event', title: 'Auto-loaded daily race fields',  desc: 'Race fields load automatically each morning — no more manual CSV uploads.',                          status: 'dev',     subscriber: true  },
-      { icon: 'ti-bell-ringing',   title: 'Real-time scratchings alerts',   desc: 'Get notified instantly when a horse is scratched from a race you\'re tracking.',                      status: 'dev',     subscriber: true  },
-      { icon: 'ti-cloud',          title: 'Track condition auto-updates',   desc: 'Track conditions update automatically throughout the day as official reports come in.',                status: 'soon',    subscriber: false },
-      { icon: 'ti-notification',   title: 'Push notifications',             desc: 'Browser and mobile push notifications for race times, scratchings and results.',                      status: 'soon',    subscriber: true  },
+      { icon: 'ti-calendar-event', title: 'Auto-loaded daily race fields',  desc: 'Race fields load automatically each morning — no more manual CSV uploads.',                          status: 'live',    subscriber: true  },
+      { icon: 'ti-bell-ringing',   title: 'Live scratchings display',       desc: 'See scratched horses marked instantly on every race card as they come in.',                          status: 'live',    subscriber: true  },
+      { icon: 'ti-cloud',          title: 'Track condition auto-updates',   desc: 'Track conditions update automatically throughout the day as official reports come in.',                status: 'dev',     subscriber: false },
     ],
   },
   {
     title: 'Mobile App',
     icon: 'ti-device-mobile',
     features: [
-      { icon: 'ti-brand-android', title: 'Android app',   desc: 'Native Android app with full access to race analysis, blackbook and community.',               status: 'dev',     subscriber: false },
+      { icon: 'ti-brand-android', title: 'Android app',   desc: 'Native Android app with full access to race analysis, blackbook and community.',               status: 'planned', subscriber: false },
       { icon: 'ti-brand-apple',   title: 'iOS app',       desc: 'Native iPhone and iPad app — designed for quick race-day decisions on the go.',                status: 'soon',    subscriber: false },
       { icon: 'ti-wifi-off',      title: 'Offline mode',  desc: 'Download race fields ahead of time and use the app without an internet connection.',           status: 'planned', subscriber: true  },
     ],
@@ -41,9 +41,9 @@ const SECTIONS = [
     title: 'Analytics & Results',
     icon: 'ti-chart-bar',
     features: [
-      { icon: 'ti-flag-check',   title: 'Auto-populated results',                  desc: 'Race results flow in automatically after each race — no manual entry required.',                            status: 'soon',    subscriber: false },
+      { icon: 'ti-flag-check',   title: 'Auto-populated results',                  desc: 'Race results flow in automatically after each race — no manual entry required.',                            status: 'live',    subscriber: false },
       { icon: 'ti-chart-line',   title: 'Performance breakdown by jockey/trainer', desc: 'Filter your results by jockey, trainer, and track to find your strongest angles.',                        status: 'soon',    subscriber: true  },
-      { icon: 'ti-target',       title: 'Model accuracy tracking',                 desc: 'See how often our model\'s top-ranked horse wins across different race types and conditions.',             status: 'planned', subscriber: false },
+      { icon: 'ti-target',       title: 'Model accuracy tracking',                 desc: 'See how often our model\'s top-ranked horse wins across different race types and conditions.',             status: 'live',    subscriber: false },
       { icon: 'ti-users-group',  title: 'Tipster comparison',                      desc: 'Compare your ROI against other members and public tipsters on the platform leaderboard.',                  status: 'planned', subscriber: false },
     ],
   },
@@ -52,9 +52,9 @@ const SECTIONS = [
     icon: 'ti-users',
     features: [
       { icon: 'ti-messages', title: 'Live race day chat',        desc: 'Real-time chat room active during race meetings — discuss races as they happen.',    status: 'soon', subscriber: true  },
-      { icon: 'ti-trophy',   title: 'Tipping competitions',      desc: 'Weekly and monthly competitions where members tip races for points and prizes.',     status: 'soon', subscriber: false },
+      { icon: 'ti-trophy',   title: 'Tipping competitions',      desc: 'Weekly and monthly competitions where members tip races for points and prizes.',     status: 'live', subscriber: false },
       { icon: 'ti-podium',   title: 'Weekly P&L leaderboard',   desc: 'See the top performing bettors each week ranked by profit and loss.',               status: 'soon', subscriber: false },
-      { icon: 'ti-badge',    title: 'Verified subscriber badge', desc: 'A gold badge on your community profile showing you\'re a paying subscriber.',       status: 'dev',  subscriber: true  },
+      { icon: 'ti-badge',    title: 'Verified subscriber badge', desc: 'A gold badge on your community profile showing you\'re a paying subscriber.',       status: 'planned', subscriber: true  },
     ],
   },
   {
