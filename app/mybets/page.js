@@ -1786,7 +1786,7 @@ export default function MybetsPage() {
                   /* ── 5. By condition (bar ROI%) ── */
                   if (chartType === 'condition') {
                     const condMap = {};
-                    dateResulted.forEach(b => { const c = b.condition || 'Unknown'; if (!condMap[c]) condMap[c] = []; condMap[c].push(b); });
+                    dateResulted.forEach(b => { const c = b.track_condition || 'Unknown'; if (!condMap[c]) condMap[c] = []; condMap[c].push(b); });
                     const data = Object.entries(condMap).map(([label, arr]) => ({ label, ...calcGroupData(arr) })).sort((a, b) => b.bets - a.bets);
                     return (
                       <>
@@ -1904,7 +1904,7 @@ export default function MybetsPage() {
                 } else if (edgeZoneTab === 'rank') {
                   ezRows = [['R1',1,1],['R2',2,2],['R3',3,3],['R4+',4,9999]].map(([label,lo,hi]) => ({ label, ...calcGroupExt(dateResulted.filter(b => b.rank>=lo&&b.rank<=hi)) }));
                 } else if (edgeZoneTab === 'condition') {
-                  const m = {}; dateResulted.forEach(b => { const c=b.condition||'Unknown'; if(!m[c])m[c]=[]; m[c].push(b); });
+                  const m = {}; dateResulted.forEach(b => { const c=b.track_condition||'Unknown'; if(!m[c])m[c]=[]; m[c].push(b); });
                   ezRows = Object.entries(m).map(([label,arr]) => ({ label, ...calcGroupExt(arr) })).sort((a,b)=>b.bets-a.bets);
                 } else {
                   const m = {}; dateResulted.forEach(b => { const v=b.track||b.venue||'Unknown'; if(!m[v])m[v]=[]; m[v].push(b); });
