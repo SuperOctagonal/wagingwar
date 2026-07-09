@@ -191,7 +191,7 @@ function BarrierPanel({ data, hasCsv }) {
               <tr key={g.label} style={{ borderBottom: '0.5px solid #f3f4f6' }}>
                 <td style={{ padding: '3px 5px', fontWeight: 700, color: '#111827' }}>{g.label}</td>
                 <td style={{ padding: '3px 5px', textAlign: 'center', fontFamily: 'JetBrains Mono, monospace', color: '#111827' }}>{g.wins}</td>
-                <td style={{ padding: '3px 5px', textAlign: 'center', color: '#6b7280' }}>{g.total}</td>
+                <td style={{ padding: '3px 5px', textAlign: 'center', color: '#111827' }}>{g.total}</td>
                 <td style={{ padding: '3px 5px', textAlign: 'center', fontWeight: 700, fontFamily: 'JetBrains Mono, monospace', color: '#111827' }}>
                   {g.total ? Math.round(pct * 100) : 0}%
                 </td>
@@ -219,12 +219,13 @@ function UpsetsPanel({ data, hasCsv }) {
   const medals = ['🥇', '🥈', '🥉'];
   return (
     <div style={{ paddingTop: 8, display: 'flex', flexDirection: 'column', gap: 5 }}>
+      <div style={{ fontSize: 9, color: '#6b7280', paddingBottom: 4, lineHeight: 1.4 }}>Winners our model ranked lower than 1st — a bigger rank gap = a bigger upset.</div>
       {data.map((u, i) => (
         <div key={`${u.raceNum}-${u.horse}`} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 8px', background: '#f8fafc', borderRadius: 5, border: '0.5px solid #e5e7eb' }}>
           <span style={{ fontSize: 14, flexShrink: 0 }}>{medals[i]}</span>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontWeight: 700, fontSize: 11, color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{u.horse}</div>
-            <div style={{ fontSize: 9, color: '#6b7280', marginTop: 1 }}>R{u.raceNum} · rank #{u.rank} · ${Number(u.sp || 0).toFixed(2)}</div>
+            <div style={{ fontSize: 9, color: '#111827', marginTop: 1 }}>R{u.raceNum} · rank #{u.rank} · ${Number(u.sp || 0).toFixed(2)}</div>
           </div>
           <div style={{ padding: '1px 6px', borderRadius: 3, background: '#fef3c7', color: '#92400e', fontSize: 9, fontWeight: 700, flexShrink: 0 }}>
             #{u.rank}
@@ -248,22 +249,22 @@ function StaffPanel({ data }) {
     <div style={{ paddingTop: 8, display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'flex-start' }}>
       {trainers.length > 0 && (
         <div style={{ flex: 1, minWidth: 100 }}>
-          <div style={{ fontSize: 9, fontWeight: 700, color: '#374151', textTransform: 'uppercase', letterSpacing: '.4px', marginBottom: 5 }}>Trainers</div>
-          {trainers.map(([name, wins]) => (
+          <div style={{ fontSize: 9, fontWeight: 700, color: '#111827', textTransform: 'uppercase', letterSpacing: '.4px', marginBottom: 5 }}>Trainers</div>
+          {trainers.map(([name, wins, runs]) => (
             <div key={name} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '2px 0', borderBottom: '0.5px solid #f3f4f6', fontSize: 10 }}>
               <span style={{ color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginRight: 4 }}>{name}</span>
-              <span style={{ fontWeight: 700, color: '#111827', fontFamily: 'JetBrains Mono, monospace', flexShrink: 0 }}>{wins}W</span>
+              <span style={{ fontWeight: 700, color: '#111827', fontFamily: 'JetBrains Mono, monospace', flexShrink: 0 }}>{wins}W / {runs}R</span>
             </div>
           ))}
         </div>
       )}
       {jockeys.length > 0 && (
         <div style={{ flex: 1, minWidth: 100 }}>
-          <div style={{ fontSize: 9, fontWeight: 700, color: '#374151', textTransform: 'uppercase', letterSpacing: '.4px', marginBottom: 5 }}>Jockeys</div>
-          {jockeys.map(([name, wins]) => (
+          <div style={{ fontSize: 9, fontWeight: 700, color: '#111827', textTransform: 'uppercase', letterSpacing: '.4px', marginBottom: 5 }}>Jockeys</div>
+          {jockeys.map(([name, wins, runs]) => (
             <div key={name} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '2px 0', borderBottom: '0.5px solid #f3f4f6', fontSize: 10 }}>
               <span style={{ color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginRight: 4 }}>{name}</span>
-              <span style={{ fontWeight: 700, color: '#111827', fontFamily: 'JetBrains Mono, monospace', flexShrink: 0 }}>{wins}W</span>
+              <span style={{ fontWeight: 700, color: '#111827', fontFamily: 'JetBrains Mono, monospace', flexShrink: 0 }}>{wins}W / {runs}R</span>
             </div>
           ))}
         </div>
@@ -534,8 +535,10 @@ export default function ResultsPage() {
 
   const barrierBias = useMemo(() => {
     const groups = [
-      { label: '1–4', min: 1, max: 4,        wins: 0, total: 0 },
-      { label: '5–8', min: 5, max: 8,        wins: 0, total: 0 },
+      { label: '1–2', min: 1, max: 2,        wins: 0, total: 0 },
+      { label: '3–4', min: 3, max: 4,        wins: 0, total: 0 },
+      { label: '5–6', min: 5, max: 6,        wins: 0, total: 0 },
+      { label: '7–8', min: 7, max: 8,        wins: 0, total: 0 },
       { label: '9+',  min: 9, max: Infinity, wins: 0, total: 0 },
     ];
     meetingResulted.forEach(({ raceNum, results }) => {
@@ -571,17 +574,22 @@ export default function ResultsPage() {
   }, [meetingResulted, effectiveRaces, effectiveVenues, selectedMeeting, weights, dbScratchings, hasCsv]);
 
   const staffForm = useMemo(() => {
-    const tMap = {}, jMap = {};
+    const tWins = {}, jWins = {}, tRuns = {}, jRuns = {};
     meetingResulted.forEach(({ results }) => {
       (results.runners || []).forEach(runner => {
-        if (runner.place !== 1) return;
-        if (runner.trainer) tMap[runner.trainer] = (tMap[runner.trainer] || 0) + 1;
-        if (runner.jockey)  jMap[runner.jockey]  = (jMap[runner.jockey]  || 0) + 1;
+        if (runner.trainer) {
+          tRuns[runner.trainer] = (tRuns[runner.trainer] || 0) + 1;
+          if (runner.place === 1) tWins[runner.trainer] = (tWins[runner.trainer] || 0) + 1;
+        }
+        if (runner.jockey) {
+          jRuns[runner.jockey] = (jRuns[runner.jockey] || 0) + 1;
+          if (runner.place === 1) jWins[runner.jockey] = (jWins[runner.jockey] || 0) + 1;
+        }
       });
     });
     return {
-      trainers: Object.entries(tMap).sort((a, b) => b[1] - a[1]),
-      jockeys:  Object.entries(jMap).sort((a, b) => b[1] - a[1]),
+      trainers: Object.entries(tWins).sort((a, b) => b[1] - a[1]).map(([n, w]) => [n, w, tRuns[n] || 0]),
+      jockeys:  Object.entries(jWins).sort((a, b) => b[1] - a[1]).map(([n, w]) => [n, w, jRuns[n] || 0]),
     };
   }, [meetingResulted]);
 
