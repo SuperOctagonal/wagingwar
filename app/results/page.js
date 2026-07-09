@@ -269,23 +269,29 @@ function StaffPanel({ data }) {
       {trainers.length > 0 && (
         <div style={{ flex: 1, minWidth: 100 }}>
           <div style={{ fontSize: 9, fontWeight: 700, color: '#111827', textTransform: 'uppercase', letterSpacing: '.4px', marginBottom: 5 }}>Trainers</div>
-          {trainers.map(([name, wins, runs]) => (
-            <div key={name} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '2px 0', borderBottom: '0.5px solid #f3f4f6', fontSize: 10 }}>
-              <span style={{ color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginRight: 4 }}>{name}</span>
-              <span style={{ fontWeight: 700, color: '#111827', fontFamily: 'JetBrains Mono, monospace', flexShrink: 0 }}>{wins}W / {runs}R</span>
-            </div>
-          ))}
+          {trainers.map(([name, wins, runs]) => {
+            const pct = runs > 0 ? Math.round(wins / runs * 100) : 0;
+            return (
+              <div key={name} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '2px 0', borderBottom: '0.5px solid #f3f4f6', fontSize: 10 }}>
+                <span style={{ color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginRight: 4 }}>{name}</span>
+                <span style={{ fontWeight: 700, color: '#111827', fontFamily: 'JetBrains Mono, monospace', flexShrink: 0 }}>{wins}W / {runs}R ({pct}%)</span>
+              </div>
+            );
+          })}
         </div>
       )}
       {jockeys.length > 0 && (
         <div style={{ flex: 1, minWidth: 100 }}>
           <div style={{ fontSize: 9, fontWeight: 700, color: '#111827', textTransform: 'uppercase', letterSpacing: '.4px', marginBottom: 5 }}>Jockeys</div>
-          {jockeys.map(([name, wins, runs]) => (
-            <div key={name} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '2px 0', borderBottom: '0.5px solid #f3f4f6', fontSize: 10 }}>
-              <span style={{ color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginRight: 4 }}>{name}</span>
-              <span style={{ fontWeight: 700, color: '#111827', fontFamily: 'JetBrains Mono, monospace', flexShrink: 0 }}>{wins}W / {runs}R</span>
-            </div>
-          ))}
+          {jockeys.map(([name, wins, runs]) => {
+            const pct = runs > 0 ? Math.round(wins / runs * 100) : 0;
+            return (
+              <div key={name} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '2px 0', borderBottom: '0.5px solid #f3f4f6', fontSize: 10 }}>
+                <span style={{ color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginRight: 4 }}>{name}</span>
+                <span style={{ fontWeight: 700, color: '#111827', fontFamily: 'JetBrains Mono, monospace', flexShrink: 0 }}>{wins}W / {runs}R ({pct}%)</span>
+              </div>
+            );
+          })}
         </div>
       )}
     </div>
