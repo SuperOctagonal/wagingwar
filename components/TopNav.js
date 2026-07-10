@@ -18,9 +18,7 @@ const NAV_LINKS = [
   { id: 'insights',     label: 'Insights',     href: '/insights' },
   { id: 'community',    label: 'Community',    href: '/community' },
   { id: 'competitions', label: 'Competitions', href: '/competitions' },
-  { id: 'leaderboard',  label: 'Leaderboard', href: '/leaderboard',  public: true },
   { id: 'blackbook',    label: 'Blackbook',    href: '/blackbook' },
-  { id: 'upcoming',     label: 'Upcoming',     href: '/upcoming',     public: true },
   { id: 'learn',        label: 'Learn',        href: '/learn' },
 ];
 
@@ -146,6 +144,16 @@ export default function TopNav() {
                   </button>
                   {showLearnMenu && (
                     <div style={{ position: 'absolute', top: '100%', left: 0, zIndex: 200, background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, boxShadow: '0 8px 24px rgba(0,0,0,0.12)', width: 460, padding: '8px 0' }}>
+                      <button onClick={() => { setShowLearnMenu(false); navigate('/upcoming', true); }}
+                        style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 16px', cursor: 'pointer', background: 'none', border: 'none', borderBottom: '1px solid #f3f4f6', width: '100%', textAlign: 'left' }}
+                        onMouseEnter={e => e.currentTarget.style.background = '#f9fafb'}
+                        onMouseLeave={e => e.currentTarget.style.background = 'none'}>
+                        <i className="ti ti-calendar-event" style={{ fontSize: 16, color: '#00471b', width: 20, flexShrink: 0 }} />
+                        <div>
+                          <div style={{ fontSize: 12, fontWeight: 600, color: '#111827' }}>Upcoming races</div>
+                          <div style={{ fontSize: 10, color: '#6b7280', marginTop: 1 }}>Future race schedules &amp; fields</div>
+                        </div>
+                      </button>
                       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 0 }}>
                         <div>
                           <div style={{ fontSize: 10, fontWeight: 500, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.5px', padding: '4px 16px 6px' }}>Races page</div>
