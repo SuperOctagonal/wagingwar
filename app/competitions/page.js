@@ -201,6 +201,7 @@ export default function CompetitionsPage() {
   const [upgradeOpen, setUpgradeOpen] = useState(false);
 
   const [csvRaces, setCsvRaces]       = useState(null);
+  const [csvStaleDate, setCsvStaleDate] = useState(null);
   const [picks, setPicks]             = useState({});
   const [savingKey, setSavingKey]     = useState(null);
   const [popularData, setPopularData] = useState([]);
@@ -212,6 +213,7 @@ export default function CompetitionsPage() {
   const [now, setNow]                 = useState(Date.now());
   const [submitting, setSubmitting]   = useState(false);
   const [submitToast, setSubmitToast] = useState(null);
+  const [hasSubmitted, setHasSubmitted] = useState(false);
 
   const [lbTab, setLbTab]           = useState('alltime');
   const [lbRows, setLbRows]         = useState([]);
@@ -225,7 +227,7 @@ export default function CompetitionsPage() {
   const [historicalRaceSps, setHistoricalRaceSps]     = useState([]);
   const [todayRaceResultsData, setTodayRaceResultsData] = useState([]);
 
-  const today = useMemo(() => aestISO(), []);
+  const [today, setToday] = useState(() => aestISO());
   const uname = user ? (user.fullName || user.username || user.firstName || 'Anon') : 'Anon';
   const initials = user
     ? (((user.firstName?.[0] || '') + (user.lastName?.[0] || '')) || uname[0] || '?').toUpperCase()
@@ -307,6 +309,26 @@ export default function CompetitionsPage() {
     lbPrevRanked.forEach(u => { m[u.clerk_id] = u.rank; });
     return m;
   }, [lbPrevRanked]);
+
+  // Per-user last-10 form strips for leaderboard table
+  const lbUserForms = useMemo(() => {
+    if (!lbRows.length) return {};
+    const byDate = {};
+    lbRows.forEach(r => {
+      if (!byDate[r.comp_date]) byDate[r.comp_date] = [];
+      byDate[r.comp_date].push(r);
+    });
+    const forms = {};
+    for (const dateKey of Object.keys(byDate).sort()) {
+      const ranked = applyLbRanks(aggregateLb(byDate[dateKey]));
+      ranked.forEach(u => {
+        if (!forms[u.clerk_id]) forms[u.clerk_id] = [];
+        forms[u.clerk_id].push(u.rank);
+      });
+    }
+    for (const k of Object.keys(forms)) forms[k] = forms[k].slice(-10);
+    return forms;
+  }, [lbRows]);
 
   const scratchAlerts = useMemo(() => compRaces.filter(r => {
     const key = rk(r.venue, r.num);
@@ -458,10 +480,31 @@ export default function CompetitionsPage() {
   }
 
   // ─── Existing useEffects ──────────────────────────────────────────────────────
+
+  // Update today at midnight without needing a page refresh
+  useEffect(() => {
+    const id = setInterval(() => {
+      setToday(prev => { const d = aestISO(); return d !== prev ? d : prev; });
+    }, 60000);
+    return () => clearInterval(id);
+  }, []);
+
   useEffect(() => {
     try {
       const saved = localStorage.getItem('ww_csv');
-      if (saved) { const parsed = parseCSV(saved); setCsvRaces(buildRaces(parsed)); }
+      if (!saved) return;
+      const parsed = parseCSV(saved);
+      const built  = buildRaces(parsed);
+      const races  = Object.values(built.allRaces);
+      if (races.length > 0) {
+        const sample = races[0].date || '';
+        const parts  = sample.split('/');
+        const csvISO = parts.length === 3 && parts[2].length === 4
+          ? `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`
+          : /^\d{4}-\d{2}-\d{2}$/.test(sample) ? sample : null;
+        if (csvISO && csvISO !== aestISO()) { setCsvStaleDate(csvISO); return; }
+      }
+      setCsvRaces(built);
     } catch { }
   }, []);
 
@@ -473,6 +516,7 @@ export default function CompetitionsPage() {
         const p = {};
         rows.forEach(r => { p[rk(r.venue, r.race_num)] = r.horse_name; });
         setPicks(p);
+        if (rows.length > 0) setHasSubmitted(true);
       });
   }, [user?.id, today]);
 
@@ -627,8 +671,14 @@ export default function CompetitionsPage() {
     const rows = await sbFetch(`comp_picks?comp_date=eq.${today}&select=clerk_id,username,venue,race_num,horse_name`);
     if (Array.isArray(rows)) setAllPicksData(rows);
     setSubmitting(false);
-    setSubmitToast(allOk ? 'success' : 'error');
-    setTimeout(() => setSubmitToast(null), 3000);
+    if (allOk) {
+      setHasSubmitted(true);
+      setSubmitToast('success');
+      setTimeout(() => setSubmitToast(null), 4000);
+    } else {
+      setSubmitToast('error');
+      setTimeout(() => setSubmitToast(null), 4000);
+    }
   }
 
   // ─── Pro gate ─────────────────────────────────────────────────────────────────
@@ -768,6 +818,24 @@ export default function CompetitionsPage() {
     const allLocked = compRaces.length > 0 && compRaces.every(r => isLocked(r));
     const plStr = (todayPL >= 0 ? '+$' : '-$') + Math.abs(todayPL).toFixed(2);
     const plColor = todayPL >= 0 ? '#4ade80' : '#f87171';
+
+    let btnBg, btnColor, btnLabel, btnDisabled;
+    if (allLocked) {
+      btnBg = DK_LINE; btnColor = '#374151'; btnLabel = 'Picks locked'; btnDisabled = true;
+    } else if (submitting) {
+      btnBg = DK_LINE; btnColor = '#9ca3af'; btnLabel = 'Saving…'; btnDisabled = true;
+    } else if (submitToast === 'success') {
+      btnBg = '#166534'; btnColor = '#4ade80'; btnLabel = `✓ ${pickedCount} picks locked in`; btnDisabled = true;
+    } else if (submitToast === 'error') {
+      btnBg = '#7f1d1d'; btnColor = '#f87171'; btnLabel = '✗ Save failed — retry'; btnDisabled = false;
+    } else if (hasSubmitted) {
+      btnBg = '#14532d'; btnColor = '#86efac'; btnLabel = 'Picks submitted ✓'; btnDisabled = false;
+    } else if (pickedCount > 0) {
+      btnBg = '#16a34a'; btnColor = '#fff'; btnLabel = 'Submit picks'; btnDisabled = false;
+    } else {
+      btnBg = DK_LINE; btnColor = '#374151'; btnLabel = 'Submit picks'; btnDisabled = true;
+    }
+
     return (
       <div style={{ background: DK_HDR, borderTop: `1px solid ${DK_LINE}`, padding: compact ? '5px 12px' : '6px 12px', display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
         <div style={{ flex: 1, fontSize: 10, color: DK_TEXT, fontFamily: MONO, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
@@ -778,19 +846,18 @@ export default function CompetitionsPage() {
           <span>$1 P&amp;L today: <span style={{ color: plColor, fontWeight: 700 }}>{plStr}</span></span>
         </div>
         <button
-          onClick={allLocked ? undefined : submitAllPicks}
-          disabled={submitting || (!allLocked && pickedCount === 0)}
+          onClick={btnDisabled || allLocked ? undefined : submitAllPicks}
+          disabled={btnDisabled}
           style={{
             padding: compact ? '5px 10px' : '6px 12px', borderRadius: 5, fontSize: 11, fontWeight: 700,
             border: 'none', flexShrink: 0,
-            cursor: (allLocked || pickedCount === 0) ? 'default' : 'pointer',
+            cursor: btnDisabled ? 'default' : 'pointer',
             whiteSpace: 'nowrap',
-            background: allLocked ? DK_LINE : submitToast === 'success' ? '#166534' : submitToast === 'error' ? '#7f1d1d' : pickedCount > 0 ? '#16a34a' : DK_LINE,
-            color: allLocked ? '#374151' : submitToast === 'success' ? '#4ade80' : submitToast === 'error' ? '#f87171' : pickedCount > 0 ? '#fff' : '#374151',
+            background: btnBg, color: btnColor,
             opacity: submitting ? 0.7 : 1,
           }}
         >
-          {allLocked ? 'Picks locked' : submitting ? 'Saving…' : submitToast === 'success' ? '✓ Done!' : submitToast === 'error' ? '✗ Failed' : 'Submit picks'}
+          {btnLabel}
         </button>
       </div>
     );
@@ -871,7 +938,14 @@ export default function CompetitionsPage() {
   const centrePanel = (
     <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: '#fff' }}>
       <div style={{ flex: 1, overflowY: 'auto', overflowX: 'auto' }}>
-        {!csvRaces && (
+        {csvStaleDate && (
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 48, gap: 10, textAlign: 'center' }}>
+            <div style={{ fontSize: 28 }}>📅</div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: '#374151' }}>CSV is from a previous day</div>
+            <div style={{ fontSize: 11, color: CT_MUT, maxWidth: 280, lineHeight: 1.6 }}>The loaded CSV is from {csvStaleDate}. Please upload today&apos;s CSV on the Races page to enable the competition.</div>
+          </div>
+        )}
+        {!csvRaces && !csvStaleDate && (
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 48, gap: 10, textAlign: 'center' }}>
             <div style={{ fontSize: 28 }}>📋</div>
             <div style={{ fontSize: 13, fontWeight: 700, color: '#374151' }}>No race data loaded</div>
@@ -1044,35 +1118,44 @@ export default function CompetitionsPage() {
 
         {!lbLoading && lbRanked.length > 0 && (
           <>
-            <div style={{ display: 'flex', gap: 10, marginBottom: 24, flexWrap: isMobile ? 'wrap' : 'nowrap' }}>
+            {/* Compact top-3 podium strips */}
+            <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, overflow: 'hidden', marginBottom: 12 }}>
               {lbTop3.map((u, i) => {
                 const isMe = u.clerk_id === user?.id;
+                const form = lbUserForms[u.clerk_id] || [];
+                const padded = Array(Math.max(0, 10 - form.length)).fill(null).concat(form);
                 return (
-                  <div key={u.clerk_id}
-                    style={{
-                      flex: 1, minWidth: isMobile ? 'calc(50% - 5px)' : 140,
-                      background: MEDAL_BG[i], border: `1.5px solid ${MEDAL_BORDER[i]}`,
-                      borderRadius: 12, padding: '14px 16px',
-                    }}>
-                    <div style={{ fontSize: 26, lineHeight: 1, marginBottom: 6 }}>{MEDAL_ICON[i]}</div>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: '#111827' }}>{u.username}</div>
-                    {isMe && <div style={{ fontSize: 8, fontWeight: 700, color: '#1d4ed8', letterSpacing: '0.5px', marginTop: 1 }}>YOU</div>}
-                    <div style={{ fontSize: 30, fontWeight: 800, color: G, fontFamily: MONO, lineHeight: 1, marginTop: 8 }}>{u.score}</div>
-                    <div style={{ fontSize: 10, color: '#6b7280', marginTop: 5, fontFamily: MONO }}>
-                      {u.hitPct.toFixed(1)}% hit · {u.streak > 0 ? `${u.streak}🔥` : '—'}
+                  <div key={u.clerk_id} style={{
+                    display: 'flex', alignItems: 'center', gap: 10, padding: '7px 12px',
+                    background: isMe ? '#eff6ff' : i === 0 ? '#fffbeb' : '#fff',
+                    borderBottom: i < 2 ? '1px solid #f3f4f6' : 'none',
+                  }}>
+                    <span style={{ fontSize: 16, lineHeight: 1, width: 22, flexShrink: 0 }}>{MEDAL_ICON[i]}</span>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: isMe ? '#1d4ed8' : '#111827', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {u.username}{isMe && <span style={{ fontSize: 8, fontWeight: 700, color: '#1d4ed8', marginLeft: 6, background: '#dbeafe', padding: '1px 4px', borderRadius: 3 }}>YOU</span>}
+                    </span>
+                    <div style={{ display: 'flex', gap: 2, flexShrink: 0 }}>
+                      {padded.map((r, j) => (
+                        <div key={j} style={{ width: 9, height: 9, borderRadius: 1, background: r === null ? '#f3f4f6' : r === 1 ? '#fbbf24' : r <= 3 ? '#9ca3af' : '#e5e7eb' }} />
+                      ))}
                     </div>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: RANK_COLOR[i], fontFamily: MONO, flexShrink: 0, width: 30, textAlign: 'right' }}>{u.score}</span>
+                    <span style={{ fontSize: 10, color: '#6b7280', fontFamily: MONO, flexShrink: 0, width: 38, textAlign: 'right' }}>{u.hitPct.toFixed(1)}%</span>
+                    <span style={{ fontSize: 10, color: '#6b7280', fontFamily: MONO, flexShrink: 0 }}>{u.streak > 0 ? `${u.streak}🔥` : '—'}</span>
                   </div>
                 );
               })}
             </div>
 
-            <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 10, overflow: 'hidden' }}>
+            <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, overflow: 'hidden' }}>
               <div style={{ overflowX: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 480 }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 520 }}>
                   <thead>
                     <tr style={{ background: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
-                      {['#', 'Tipster', 'Pts', 'Hit%', 'Streak', '7-day'].map((h, hi) => (
-                        <th key={h} style={{ padding: '8px 12px', fontSize: 9, fontWeight: 700, color: '#6b7280', textAlign: hi === 0 ? 'center' : 'left', textTransform: 'uppercase', letterSpacing: '0.5px', whiteSpace: 'nowrap' }}>{h}</th>
+                      {[['#', 32, 'center'], ['Tipster', null, 'left'], ['Pts', 48, 'right'], ['Hit%', 48, 'right'], ['Streak', 54, 'left'], ['7-day', 54, 'left'], ['Last 10', 116, 'left']].map(([h, w, align]) => (
+                        <th key={h} style={{ padding: '4px 8px', fontSize: 9, fontWeight: 700, color: '#6b7280', textAlign: align, textTransform: 'uppercase', letterSpacing: '0.5px', whiteSpace: 'nowrap', width: w || undefined }}>
+                          {h}
+                        </th>
                       ))}
                     </tr>
                   </thead>
@@ -1080,40 +1163,49 @@ export default function CompetitionsPage() {
                     {lbRanked.map(u => {
                       const isMe = u.clerk_id === user?.id;
                       const mv   = lbMvmt(u);
+                      const form = lbUserForms[u.clerk_id] || [];
+                      const padded = Array(Math.max(0, 10 - form.length)).fill(null).concat(form);
                       return (
                         <tr key={u.clerk_id} style={{ background: isMe ? '#eff6ff' : '#fff', borderBottom: '1px solid #f3f4f6' }}>
-                          <td style={{ padding: '9px 12px', textAlign: 'center', width: 40 }}>
-                            <span style={{ fontSize: 12, fontWeight: 700, fontFamily: MONO, color: u.rank <= 3 ? RANK_COLOR[u.rank - 1] : '#9ca3af' }}>{u.rank}</span>
+                          <td style={{ padding: '4px 8px', textAlign: 'center' }}>
+                            <span style={{ fontSize: 11, fontWeight: 700, fontFamily: MONO, color: u.rank <= 3 ? RANK_COLOR[u.rank - 1] : '#9ca3af' }}>{u.rank}</span>
                           </td>
-                          <td style={{ padding: '9px 12px' }}>
-                            <span style={{ fontSize: 12, fontWeight: isMe ? 700 : 500, color: isMe ? '#1d4ed8' : '#111827' }}>{u.username}</span>
-                            {isMe && <span style={{ fontSize: 8, fontWeight: 700, color: '#1d4ed8', marginLeft: 6, background: '#dbeafe', padding: '1px 5px', borderRadius: 3 }}>YOU</span>}
+                          <td style={{ padding: '4px 8px' }}>
+                            <span style={{ fontSize: 11, fontWeight: isMe ? 700 : 500, color: isMe ? '#1d4ed8' : '#111827' }}>{u.username}</span>
+                            {isMe && <span style={{ fontSize: 8, fontWeight: 700, color: '#1d4ed8', marginLeft: 5, background: '#dbeafe', padding: '1px 4px', borderRadius: 3 }}>YOU</span>}
                           </td>
-                          <td style={{ padding: '9px 12px', fontFamily: MONO, fontWeight: 700, fontSize: 13, color: '#111827' }}>{u.score}</td>
-                          <td style={{ padding: '9px 12px', fontFamily: MONO, fontSize: 12, color: '#6b7280' }}>{u.hitPct.toFixed(1)}%</td>
-                          <td style={{ padding: '9px 12px', fontFamily: MONO, fontSize: 12, color: '#111827' }}>{u.streak > 0 ? `${u.streak}🔥` : '—'}</td>
-                          <td style={{ padding: '9px 12px', fontSize: 11, fontFamily: MONO }}>
+                          <td style={{ padding: '4px 8px', fontFamily: MONO, fontWeight: 700, fontSize: 11, color: '#111827', textAlign: 'right' }}>{u.score}</td>
+                          <td style={{ padding: '4px 8px', fontFamily: MONO, fontSize: 11, color: '#6b7280', textAlign: 'right' }}>{u.hitPct.toFixed(1)}%</td>
+                          <td style={{ padding: '4px 8px', fontFamily: MONO, fontSize: 11, color: '#111827' }}>{u.streak > 0 ? `${u.streak}🔥` : '—'}</td>
+                          <td style={{ padding: '4px 8px', fontSize: 11, fontFamily: MONO }}>
                             {mv === null ? <span style={{ color: '#d1d5db' }}>—</span>
                               : mv > 0 ? <span style={{ color: '#16a34a', fontWeight: 700 }}>▲{mv}</span>
                               : mv < 0 ? <span style={{ color: '#dc2626', fontWeight: 700 }}>▼{Math.abs(mv)}</span>
                               : <span style={{ color: '#9ca3af' }}>—</span>}
                           </td>
+                          <td style={{ padding: '4px 8px' }}>
+                            <div style={{ display: 'flex', gap: 2 }}>
+                              {padded.map((r, j) => (
+                                <div key={j} style={{ width: 9, height: 9, borderRadius: 1, background: r === null ? '#f3f4f6' : r === 1 ? '#fbbf24' : r <= 3 ? '#9ca3af' : '#e5e7eb' }} />
+                              ))}
+                            </div>
+                          </td>
                         </tr>
                       );
                     })}
                     <tr style={{ background: '#f9fafb', borderTop: '2px solid #e5e7eb' }}>
-                      <td style={{ padding: '9px 12px', textAlign: 'center' }}><span style={{ fontSize: 10, color: '#d1d5db' }}>—</span></td>
-                      <td style={{ padding: '9px 12px' }}>
+                      <td style={{ padding: '4px 8px', textAlign: 'center' }}><span style={{ fontSize: 10, color: '#d1d5db' }}>—</span></td>
+                      <td style={{ padding: '4px 8px' }}>
                         <span style={{ fontSize: 11, fontWeight: 600, color: '#6b7280' }}>⚡ SP-fav benchmark</span>
                         <span title="Tracks the starting-price favourite as a model-performance proxy. Data accumulates from today forward." style={{ fontSize: 9, color: '#9ca3af', marginLeft: 6, cursor: 'help', textDecoration: 'underline dotted' }}>what&apos;s this?</span>
                       </td>
-                      <td colSpan={4} style={{ padding: '9px 12px', fontSize: 10, color: '#9ca3af', fontStyle: 'italic' }}>Tracking starts from today — accumulates over coming race days</td>
+                      <td colSpan={5} style={{ padding: '4px 8px', fontSize: 10, color: '#9ca3af', fontStyle: 'italic' }}>Tracking starts from today — accumulates over coming race days</td>
                     </tr>
                   </tbody>
                 </table>
               </div>
             </div>
-            <div style={{ marginTop: 14, fontSize: 10, color: '#9ca3af', textAlign: 'center' }}>
+            <div style={{ marginTop: 10, fontSize: 10, color: '#9ca3af', textAlign: 'center' }}>
               Tie-break: equal points sorted by hit % descending · Scores recalculated after every race day
             </div>
           </>
@@ -1147,7 +1239,14 @@ export default function CompetitionsPage() {
           ))}
         </div>
       )}
-      {!csvRaces && (
+      {csvStaleDate && (
+        <div style={{ padding: 32, textAlign: 'center' }}>
+          <div style={{ fontSize: 24, marginBottom: 8 }}>📅</div>
+          <div style={{ fontSize: 12, fontWeight: 600, color: '#374151' }}>CSV is from a previous day</div>
+          <div style={{ fontSize: 10, color: CT_MUT, marginTop: 4, lineHeight: 1.6 }}>Loaded CSV is from {csvStaleDate}. Upload today&apos;s CSV on the Races page.</div>
+        </div>
+      )}
+      {!csvRaces && !csvStaleDate && (
         <div style={{ padding: 32, textAlign: 'center' }}>
           <div style={{ fontSize: 24, marginBottom: 8 }}>📋</div>
           <div style={{ fontSize: 12, fontWeight: 600, color: '#374151' }}>No CSV loaded</div>
