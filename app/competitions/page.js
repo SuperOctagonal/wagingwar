@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
 import { useUser } from '@clerk/nextjs';
 import useIsPro from '@/hooks/useIsPro';
 import useIsMobile from '@/hooks/useIsMobile';
@@ -129,6 +130,7 @@ export default function CompetitionsPage() {
   const { user } = useUser();
   const isPro = useIsPro();
   const isMobile = useIsMobile();
+  const router = useRouter();
   const [upgradeOpen, setUpgradeOpen] = useState(false);
 
   const [csvRaces, setCsvRaces] = useState(null);
@@ -389,7 +391,7 @@ export default function CompetitionsPage() {
   }
 
   // ─── Pro gate ─────────────────────────────────────────────────────────────────
-  if (!isPro) {
+  if (isPro === false) {
     return (
       <main style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 32, background: '#f3f4f6' }}>
         <div style={{ background: '#fff', borderRadius: 14, padding: '32px 28px', maxWidth: 420, width: '100%', textAlign: 'center', border: '1px solid #e5e7eb', boxShadow: '0 4px 24px rgba(0,0,0,0.07)' }}>
@@ -407,13 +409,17 @@ export default function CompetitionsPage() {
     );
   }
 
-  // ─── Dark theme constants ─────────────────────────────────────────────────────
+  // ─── Dark theme constants (used only in main header bar + mobile profile strip) ─
   const DK_BG  = '#0B1F14';
   const DK_HDR = '#0D1C13';
   const DK_LINE = '#1a3a25';
   const DK_TEXT = '#e2e8f0';
   const DK_MUT  = '#6b7280';
-  const CELL = { borderBottom: `1px solid ${DK_LINE}`, borderRight: `1px solid ${DK_LINE}`, verticalAlign: 'middle', padding: '5px 8px' };
+  // Light content theme (race table, mobile race cards)
+  const CT_LINE = '#e5e7eb';
+  const CT_TEXT = '#111827';
+  const CT_MUT  = '#6b7280';
+  const CELL = { borderBottom: `1px solid ${CT_LINE}`, borderRight: `1px solid ${CT_LINE}`, verticalAlign: 'middle', padding: '5px 8px' };
 
   // ─── Render helpers ───────────────────────────────────────────────────────────
   const WEEK_DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -437,42 +443,42 @@ export default function CompetitionsPage() {
     if (results[key]) {
       jumpCell = (
         <div>
-          <div style={{ fontSize: 9, fontWeight: 600, color: DK_TEXT, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 90, marginBottom: 1 }}>{titleCase(results[key])}</div>
-          {status === 'won'    && <span style={{ fontSize: 8, fontWeight: 700, color: '#4ade80' }}>✓ WON</span>}
-          {status === 'lost'   && <span style={{ fontSize: 8, fontWeight: 700, color: '#f87171' }}>✗ LOST</span>}
-          {status === 'nopick' && <span style={{ fontSize: 8, color: DK_MUT }}>no pick</span>}
+          <div style={{ fontSize: 9, fontWeight: 600, color: CT_TEXT, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 90, marginBottom: 1 }}>{titleCase(results[key])}</div>
+          {status === 'won'    && <span style={{ fontSize: 8, fontWeight: 700, color: '#16a34a' }}>✓ WON</span>}
+          {status === 'lost'   && <span style={{ fontSize: 8, fontWeight: 700, color: '#dc2626' }}>✗ LOST</span>}
+          {status === 'nopick' && <span style={{ fontSize: 8, color: CT_MUT }}>no pick</span>}
         </div>
       );
     } else if (status === 'racing') {
-      jumpCell = <span style={{ fontSize: 9, fontWeight: 700, color: '#fbbf24' }}>Racing</span>;
+      jumpCell = <span style={{ fontSize: 9, fontWeight: 700, color: '#d97706' }}>Racing</span>;
     } else if (msToJump !== null) {
       const underTen = msToJump < 600000;
       jumpCell = (
-        <span style={{ fontSize: 10, fontWeight: underTen ? 700 : 400, color: underTen ? '#fbbf24' : DK_MUT, fontFamily: 'monospace', fontVariantNumeric: 'tabular-nums' }}>
+        <span style={{ fontSize: 10, fontWeight: underTen ? 700 : 400, color: underTen ? '#d97706' : CT_MUT, fontFamily: 'monospace', fontVariantNumeric: 'tabular-nums' }}>
           {fmtMs(msToJump) || 'Now'}
         </span>
       );
     } else {
-      jumpCell = <span style={{ fontSize: 9, color: DK_LINE }}>—</span>;
+      jumpCell = <span style={{ fontSize: 9, color: CT_MUT }}>—</span>;
     }
 
     return (
       <>
         {isScratched && (
           <tr key={`${key}-alert`}>
-            <td colSpan={5} style={{ padding: '4px 10px', background: '#1a0808', borderBottom: `1px solid ${DK_LINE}` }}>
-              <span style={{ fontSize: 9, color: '#f87171', fontWeight: 700 }}>⚠ {pick} scratched — please re-pick below</span>
+            <td colSpan={5} style={{ padding: '4px 10px', background: '#fff5f5', borderBottom: `1px solid ${CT_LINE}` }}>
+              <span style={{ fontSize: 9, color: '#dc2626', fontWeight: 700 }}>⚠ {pick} scratched — please re-pick below</span>
             </td>
           </tr>
         )}
-        <tr key={key} style={{ background: DK_BG }}>
+        <tr key={key} style={{ background: '#fff' }}>
           <td style={{ ...CELL, minWidth: 90 }}>
-            <div style={{ fontSize: 11, fontWeight: 700, color: DK_TEXT }}>R{race.num}</div>
-            <div style={{ fontSize: 9, color: DK_MUT, fontFamily: 'monospace', marginTop: 1 }}>{race.time || '—'}</div>
+            <div style={{ fontSize: 11, fontWeight: 700, color: CT_TEXT }}>R{race.num}</div>
+            <div style={{ fontSize: 9, color: CT_MUT, fontFamily: 'monospace', marginTop: 1 }}>{race.time || '—'}</div>
           </td>
           <td style={{ ...CELL, minWidth: 130 }}>
             {locked && !isScratched ? (
-              <span style={{ fontSize: 10, fontWeight: 600, color: status === 'won' ? '#4ade80' : status === 'lost' ? '#f87171' : pick ? DK_TEXT : DK_MUT }}>
+              <span style={{ fontSize: 10, fontWeight: 600, color: status === 'won' ? '#16a34a' : status === 'lost' ? '#dc2626' : pick ? CT_TEXT : CT_MUT }}>
                 {pick || 'No pick'}
               </span>
             ) : (
@@ -482,27 +488,27 @@ export default function CompetitionsPage() {
                   onChange={e => savePick(race, e.target.value)}
                   style={{
                     fontSize: 10, padding: '4px 5px', borderRadius: 4, width: '100%', maxWidth: 145,
-                    border: `1px solid ${isScratched ? '#dc2626' : pick ? '#16a34a' : DK_LINE}`,
-                    background: DK_HDR,
-                    color: isScratched ? '#f87171' : pick ? '#4ade80' : '#4b5563',
+                    border: `1px solid ${isScratched ? '#dc2626' : pick ? '#16a34a' : CT_LINE}`,
+                    background: '#fff',
+                    color: isScratched ? '#dc2626' : pick ? '#16a34a' : '#6b7280',
                     cursor: 'pointer', boxSizing: 'border-box', outline: 'none',
                   }}
                 >
                   <option value="">Pick horse…</option>
                   {activeHorses.map(h => <option key={h.name} value={h.name}>{h.name}</option>)}
                 </select>
-                {savingKey === key && <div style={{ fontSize: 8, color: DK_MUT, marginTop: 2 }}>Saving…</div>}
+                {savingKey === key && <div style={{ fontSize: 8, color: CT_MUT, marginTop: 2 }}>Saving…</div>}
               </div>
             )}
           </td>
           <td style={{ ...CELL, minWidth: 100 }}>
             {topPop ? (
               <div>
-                <div style={{ fontSize: 10, fontWeight: 600, color: DK_TEXT, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 110 }}>{topPop.horse}</div>
-                <div style={{ fontSize: 8, color: DK_MUT, marginTop: 1 }}>{topPop.pct}% of {topPop.total}</div>
+                <div style={{ fontSize: 10, fontWeight: 600, color: CT_TEXT, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 110 }}>{topPop.horse}</div>
+                <div style={{ fontSize: 8, color: CT_MUT, marginTop: 1 }}>{topPop.pct}% of {topPop.total}</div>
               </div>
             ) : (
-              <span style={{ fontSize: 9, color: DK_LINE }}>—</span>
+              <span style={{ fontSize: 9, color: CT_MUT }}>—</span>
             )}
           </td>
           <td style={{ ...CELL, minWidth: 90 }}>
@@ -605,21 +611,21 @@ export default function CompetitionsPage() {
         </div>
         <div style={{ fontSize: 9, color: '#9ca3af', marginTop: 1 }}>correct in a row</div>
       </div>
-      <button onClick={() => setMainTab('alltime')} style={{ padding: '7px 0', background: 'none', border: '1px solid #e5e7eb', borderRadius: 6, fontSize: 11, fontWeight: 600, color: '#6b7280', cursor: 'pointer', width: '100%' }}>
-        View history
+      <button onClick={() => router.push('/leaderboard')} style={{ padding: '7px 0', background: 'none', border: '1px solid #e5e7eb', borderRadius: 6, fontSize: 11, fontWeight: 600, color: '#6b7280', cursor: 'pointer', width: '100%' }}>
+        All-time →
       </button>
     </div>
   );
 
   // ─── Centre panel ─────────────────────────────────────────────────────────────
   const centrePanel = (
-    <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: DK_BG }}>
+    <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: '#fff' }}>
       <div style={{ flex: 1, overflowY: 'auto', overflowX: 'auto' }}>
         {!csvRaces && (
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 48, gap: 10, textAlign: 'center' }}>
             <div style={{ fontSize: 28 }}>📋</div>
-            <div style={{ fontSize: 13, fontWeight: 700, color: '#94a3b8' }}>No race data loaded</div>
-            <div style={{ fontSize: 11, color: DK_MUT, maxWidth: 260 }}>Upload today&apos;s CSV on the Races page to enable the competition.</div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: '#374151' }}>No race data loaded</div>
+            <div style={{ fontSize: 11, color: CT_MUT, maxWidth: 260 }}>Upload today&apos;s CSV on the Races page to enable the competition.</div>
           </div>
         )}
         {csvRaces && compRaces.length === 0 && (
@@ -629,11 +635,11 @@ export default function CompetitionsPage() {
           </div>
         )}
         {csvRaces && compRaces.length > 0 && (
-          <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 480, background: DK_BG }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 480, background: '#fff' }}>
             <thead>
-              <tr style={{ background: DK_HDR }}>
+              <tr style={{ background: '#f9fafb' }}>
                 {[['RACE', 90], ['YOUR PICK', 130], ['POPULAR', 100], ['MODEL #1', 90], ['JUMP', 80]].map(([h, w], i) => (
-                  <th key={h} style={{ padding: '5px 8px', fontSize: 9, fontWeight: 700, color: '#4b5563', textAlign: 'left', textTransform: 'uppercase', letterSpacing: '0.8px', whiteSpace: 'nowrap', borderBottom: `1px solid ${DK_LINE}`, borderRight: i < 4 ? `1px solid ${DK_LINE}` : 'none', minWidth: w }}>
+                  <th key={h} style={{ padding: '5px 8px', fontSize: 9, fontWeight: 700, color: '#6b7280', textAlign: 'left', textTransform: 'uppercase', letterSpacing: '0.8px', whiteSpace: 'nowrap', borderBottom: `1px solid ${CT_LINE}`, borderRight: i < 4 ? `1px solid ${CT_LINE}` : 'none', minWidth: w }}>
                     {h}
                   </th>
                 ))}
@@ -643,8 +649,8 @@ export default function CompetitionsPage() {
               {selVenues.map(v => (
                 <>
                   <tr key={`${v}-hdr`}>
-                    <td colSpan={5} style={{ background: DK_HDR, borderTop: `2px solid ${DK_LINE}`, borderBottom: `1px solid ${DK_LINE}`, padding: '5px 10px' }}>
-                      <span style={{ fontSize: 10, fontWeight: 700, color: '#86efac', letterSpacing: '0.8px', textTransform: 'uppercase' }}>
+                    <td colSpan={5} style={{ background: '#f0fdf4', borderTop: '2px solid #d1fae5', borderBottom: `1px solid ${CT_LINE}`, padding: '5px 10px' }}>
+                      <span style={{ fontSize: 10, fontWeight: 700, color: '#00471b', letterSpacing: '0.8px', textTransform: 'uppercase' }}>
                         {v} · ${((meetingPrize[v] || 0) / 1000).toFixed(0)}k
                       </span>
                     </td>
@@ -733,8 +739,8 @@ export default function CompetitionsPage() {
         >
           Copy my picks
         </button>
-        <button onClick={() => setMainTab('alltime')} style={{ padding: '6px 0', border: '1px solid #e5e7eb', borderRadius: 5, fontSize: 10, fontWeight: 600, color: '#374151', background: '#fff', cursor: 'pointer' }}>
-          Past comps
+        <button onClick={() => router.push('/leaderboard')} style={{ padding: '6px 0', border: '1px solid #e5e7eb', borderRadius: 5, fontSize: 10, fontWeight: 600, color: '#374151', background: '#fff', cursor: 'pointer' }}>
+          All-time
         </button>
         <button
           onClick={() => {
@@ -763,7 +769,7 @@ export default function CompetitionsPage() {
 
   // ─── Mobile today view ────────────────────────────────────────────────────────
   const mobileTodayPanel = (
-    <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', background: DK_BG }}>
+    <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', background: '#f8fafc' }}>
       <div style={{ background: DK_HDR, borderBottom: `1px solid ${DK_LINE}`, padding: '8px 14px', display: 'flex', alignItems: 'center', gap: 10 }}>
         <div style={{ width: 30, height: 30, borderRadius: '50%', background: G, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 800, color: '#fff', flexShrink: 0 }}>{initials}</div>
         <div style={{ flex: 1 }}>
@@ -771,12 +777,12 @@ export default function CompetitionsPage() {
           <div style={{ fontSize: 9, color: DK_MUT }}>Score: <b style={{ color: '#4ade80' }}>{userScore} pts</b> {userRank ? `· #${userRank}` : ''}</div>
         </div>
         <div style={{ fontSize: 9, color: DK_MUT }}>{entrantCount} entrants</div>
-        <button onClick={() => setMainTab('alltime')} style={{ fontSize: 9, color: DK_MUT, background: 'none', border: `1px solid ${DK_LINE}`, borderRadius: 4, padding: '3px 7px', cursor: 'pointer' }}>History</button>
+        <button onClick={() => router.push('/leaderboard')} style={{ fontSize: 9, color: DK_MUT, background: 'none', border: `1px solid ${DK_LINE}`, borderRadius: 4, padding: '3px 7px', cursor: 'pointer' }}>All-time</button>
       </div>
       {scratchAlerts.length > 0 && (
-        <div style={{ background: '#1a0808', borderBottom: `1px solid #7f1d1d`, padding: '6px 14px' }}>
+        <div style={{ background: '#fff5f5', borderBottom: '1px solid #fecaca', padding: '6px 14px' }}>
           {scratchAlerts.map(race => (
-            <div key={rk(race.venue, race.num)} style={{ fontSize: 10, color: '#f87171', fontWeight: 600 }}>
+            <div key={rk(race.venue, race.num)} style={{ fontSize: 10, color: '#dc2626', fontWeight: 600 }}>
               ⚠ {picks[rk(race.venue, race.num)]} scratched in {titleCase(race.venue)} R{race.num} — re-pick below
             </div>
           ))}
@@ -785,14 +791,14 @@ export default function CompetitionsPage() {
       {!csvRaces && (
         <div style={{ padding: 32, textAlign: 'center' }}>
           <div style={{ fontSize: 24, marginBottom: 8 }}>📋</div>
-          <div style={{ fontSize: 12, fontWeight: 600, color: '#94a3b8' }}>No CSV loaded</div>
-          <div style={{ fontSize: 10, color: DK_MUT, marginTop: 4 }}>Upload today&apos;s CSV on the Races page first.</div>
+          <div style={{ fontSize: 12, fontWeight: 600, color: '#374151' }}>No CSV loaded</div>
+          <div style={{ fontSize: 10, color: CT_MUT, marginTop: 4 }}>Upload today&apos;s CSV on the Races page first.</div>
         </div>
       )}
       {csvRaces && selVenues.map(v => (
         <div key={v}>
-          <div style={{ background: DK_HDR, borderTop: `2px solid ${DK_LINE}`, borderBottom: `1px solid ${DK_LINE}`, padding: '5px 14px' }}>
-            <span style={{ fontSize: 10, fontWeight: 700, color: '#86efac', letterSpacing: '0.8px', textTransform: 'uppercase' }}>
+          <div style={{ background: '#f0fdf4', borderTop: '2px solid #d1fae5', borderBottom: `1px solid ${CT_LINE}`, padding: '5px 14px' }}>
+            <span style={{ fontSize: 10, fontWeight: 700, color: '#00471b', letterSpacing: '0.8px', textTransform: 'uppercase' }}>
               {v} · ${((meetingPrize[v] || 0) / 1000).toFixed(0)}k
             </span>
           </div>
@@ -810,40 +816,40 @@ export default function CompetitionsPage() {
             const activeHorses = (race.horses || []).filter(h => !h.scratched && !scratchings.has(`${key}||${(h.name || '').toUpperCase()}`));
             const underTen = msToJump !== null && msToJump < 600000 && !results[key] && status !== 'racing';
             return (
-              <div key={key} style={{ padding: '8px 14px', borderBottom: `1px solid ${DK_LINE}`, background: DK_BG }}>
+              <div key={key} style={{ padding: '8px 14px', borderBottom: `1px solid ${CT_LINE}`, background: '#fff' }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 5 }}>
                   <div>
-                    <span style={{ fontSize: 11, fontWeight: 700, color: DK_TEXT }}>R{race.num}</span>
-                    <span style={{ fontSize: 9, color: DK_MUT, fontFamily: 'monospace', marginLeft: 6 }}>{race.time}</span>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: CT_TEXT }}>R{race.num}</span>
+                    <span style={{ fontSize: 9, color: CT_MUT, fontFamily: 'monospace', marginLeft: 6 }}>{race.time}</span>
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 1 }}>
-                    {results[key] && <span style={{ fontSize: 9, fontWeight: 600, color: DK_TEXT }}>{titleCase(results[key])}</span>}
-                    {status === 'won'    && <span style={{ fontSize: 8, fontWeight: 700, color: '#4ade80' }}>✓ WON</span>}
-                    {status === 'lost'   && <span style={{ fontSize: 8, fontWeight: 700, color: '#f87171' }}>✗ LOST</span>}
-                    {status === 'racing' && <span style={{ fontSize: 9, fontWeight: 700, color: '#fbbf24' }}>Racing</span>}
+                    {results[key] && <span style={{ fontSize: 9, fontWeight: 600, color: CT_TEXT }}>{titleCase(results[key])}</span>}
+                    {status === 'won'    && <span style={{ fontSize: 8, fontWeight: 700, color: '#16a34a' }}>✓ WON</span>}
+                    {status === 'lost'   && <span style={{ fontSize: 8, fontWeight: 700, color: '#dc2626' }}>✗ LOST</span>}
+                    {status === 'racing' && <span style={{ fontSize: 9, fontWeight: 700, color: '#d97706' }}>Racing</span>}
                     {status === 'pending' && msToJump !== null && (
-                      <span style={{ fontSize: 9, fontWeight: underTen ? 700 : 400, color: underTen ? '#fbbf24' : DK_MUT, fontFamily: 'monospace' }}>
+                      <span style={{ fontSize: 9, fontWeight: underTen ? 700 : 400, color: underTen ? '#d97706' : CT_MUT, fontFamily: 'monospace' }}>
                         {fmtMs(msToJump) || 'Now'}
                       </span>
                     )}
                   </div>
                 </div>
-                {isScratched && <div style={{ fontSize: 9, color: '#f87171', fontWeight: 600, marginBottom: 4 }}>⚠ {pick} scratched — re-pick</div>}
+                {isScratched && <div style={{ fontSize: 9, color: '#dc2626', fontWeight: 600, marginBottom: 4 }}>⚠ {pick} scratched — re-pick</div>}
                 {locked && !isScratched ? (
-                  <div style={{ fontSize: 11, fontWeight: 600, padding: '4px 8px', borderRadius: 4, border: `1px solid ${DK_LINE}`, color: status === 'won' ? '#4ade80' : status === 'lost' ? '#f87171' : pick ? DK_TEXT : DK_MUT, background: DK_HDR }}>
+                  <div style={{ fontSize: 11, fontWeight: 600, padding: '4px 8px', borderRadius: 4, border: `1px solid ${CT_LINE}`, color: status === 'won' ? '#16a34a' : status === 'lost' ? '#dc2626' : pick ? CT_TEXT : CT_MUT, background: '#f9fafb' }}>
                     {pick || 'No pick'}
                   </div>
                 ) : (
                   <select value={pick || ''} onChange={e => savePick(race, e.target.value)}
-                    style={{ width: '100%', fontSize: 12, padding: '7px 8px', borderRadius: 5, border: `1px solid ${isScratched ? '#dc2626' : pick ? '#16a34a' : DK_LINE}`, background: DK_HDR, color: isScratched ? '#f87171' : pick ? '#4ade80' : '#4b5563', outline: 'none' }}>
+                    style={{ width: '100%', fontSize: 12, padding: '7px 8px', borderRadius: 5, border: `1px solid ${isScratched ? '#dc2626' : pick ? '#16a34a' : CT_LINE}`, background: '#fff', color: isScratched ? '#dc2626' : pick ? '#16a34a' : '#374151', outline: 'none' }}>
                     <option value="">Pick horse…</option>
                     {activeHorses.map(h => <option key={h.name} value={h.name}>{h.name}</option>)}
                   </select>
                 )}
                 {(topPop || rank1) && (
                   <div style={{ display: 'flex', gap: 10, marginTop: 5 }}>
-                    {topPop && <div style={{ fontSize: 9, color: DK_MUT }}>Popular: <b style={{ color: '#94a3b8' }}>{topPop.horse}</b> {topPop.pct}%</div>}
-                    {rank1  && <div style={{ fontSize: 9, color: DK_MUT }}>Model: <b style={{ color: '#94a3b8' }}>{rank1}</b></div>}
+                    {topPop && <div style={{ fontSize: 9, color: CT_MUT }}>Popular: <b style={{ color: '#374151' }}>{topPop.horse}</b> {topPop.pct}%</div>}
+                    {rank1  && <div style={{ fontSize: 9, color: CT_MUT }}>Model: <b style={{ color: '#374151' }}>{rank1}</b></div>}
                   </div>
                 )}
               </div>
@@ -852,13 +858,13 @@ export default function CompetitionsPage() {
         </div>
       ))}
       {todayLeaderboard.length > 0 && (
-        <div style={{ background: DK_HDR, margin: '8px 0 0', padding: '10px 14px', borderTop: `1px solid ${DK_LINE}` }}>
-          <div style={{ fontSize: 9, fontWeight: 700, color: '#4b5563', marginBottom: 7, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Leaderboard</div>
+        <div style={{ background: '#fff', margin: '8px 0 0', padding: '10px 14px', borderTop: `1px solid ${CT_LINE}` }}>
+          <div style={{ fontSize: 9, fontWeight: 700, color: '#374151', marginBottom: 7, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Leaderboard</div>
           {[...top5, ...(showUserSep ? [userEntry] : [])].map(e => (
-            <div key={e.clerk_id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 0', borderBottom: `1px solid ${DK_LINE}` }}>
-              <span style={{ fontSize: 9, color: DK_MUT, width: 18 }}>#{e.rank}</span>
-              <span style={{ fontSize: 10, flex: 1, fontWeight: e.isMe ? 700 : 400, color: e.isMe ? '#93c5fd' : '#94a3b8' }}>{e.uname}</span>
-              <span style={{ fontSize: 12, fontWeight: 800, color: e.isMe ? '#93c5fd' : '#4ade80' }}>{e.score}</span>
+            <div key={e.clerk_id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 0', borderBottom: `1px solid ${CT_LINE}` }}>
+              <span style={{ fontSize: 9, color: CT_MUT, width: 18 }}>#{e.rank}</span>
+              <span style={{ fontSize: 10, flex: 1, fontWeight: e.isMe ? 700 : 400, color: e.isMe ? '#1d4ed8' : '#374151' }}>{e.uname}</span>
+              <span style={{ fontSize: 12, fontWeight: 800, color: e.isMe ? '#1d4ed8' : G }}>{e.score}</span>
             </div>
           ))}
         </div>
@@ -869,7 +875,7 @@ export default function CompetitionsPage() {
 
   // ─── Main render ──────────────────────────────────────────────────────────────
   return (
-    <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: DK_BG }}>
+    <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: '#f8fafc' }}>
       <div style={{ background: DK_HDR, borderBottom: `1px solid ${DK_LINE}`, padding: '7px 14px', display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0, flexWrap: 'wrap' }}>
         <div style={{ fontSize: 12, fontWeight: 800, color: DK_TEXT }}>{headerDateStr}</div>
         <div style={{ fontSize: 9, color: DK_MUT, display: 'flex', gap: 6, alignItems: 'center' }}>
@@ -877,7 +883,7 @@ export default function CompetitionsPage() {
           {closingTime && (
             <>
               <span style={{ opacity: 0.4 }}>·</span>
-              <span>Closes <span style={{ color: '#fbbf24', fontWeight: 600 }}>{closingTime}</span></span>
+              <span>Closes <span style={{ color: '#fbbf24', fontWeight: 600 }}>{closingTime} AEST</span></span>
             </>
           )}
           {compRaces.length > 0 && (
@@ -891,7 +897,7 @@ export default function CompetitionsPage() {
         </div>
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 2 }}>
           {[{ id: 'today', label: 'Today' }, { id: 'alltime', label: 'All-time' }].map(t => (
-            <button key={t.id} onClick={() => setMainTab(t.id)}
+            <button key={t.id} onClick={() => t.id === 'alltime' ? router.push('/leaderboard') : setMainTab(t.id)}
               style={{ padding: '4px 10px', fontSize: 10, fontWeight: 700, border: 'none', borderRadius: 4, cursor: 'pointer', background: mainTab === t.id ? 'rgba(255,255,255,0.10)' : 'transparent', color: mainTab === t.id ? DK_TEXT : '#374151' }}>
               {t.label}
             </button>

@@ -18,6 +18,7 @@ const NAV_LINKS = [
   { id: 'insights',     label: 'Insights',     href: '/insights' },
   { id: 'community',    label: 'Community',    href: '/community' },
   { id: 'competitions', label: 'Competitions', href: '/competitions' },
+  { id: 'leaderboard',  label: 'Leaderboard', href: '/leaderboard',  public: true },
   { id: 'blackbook',    label: 'Blackbook',    href: '/blackbook' },
   { id: 'upcoming',     label: 'Upcoming',     href: '/upcoming',     public: true },
   { id: 'learn',        label: 'Learn',        href: '/learn' },
