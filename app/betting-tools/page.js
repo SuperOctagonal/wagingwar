@@ -262,7 +262,7 @@ function ToolEWDutch({ st, set, onClear, locked, onUpgrade }) {
         <Inp label="Total E/W stake ($)" value={st.stake} onChange={v => set({ ...st, stake:v })} placeholder="200" type="number" />
         <div style={{ paddingBottom:2 }}><ClearBtn onClick={onClear} /></div>
       </div>
-      <div style={{ fontSize:11, color:'#6b7280', marginBottom:12 }}>Uses standard 1/4 odds, 3 places. Win and place stakes dutch'd separately.</div>
+      <div style={{ fontSize:11, color:'#6b7280', marginBottom:12 }}>Uses standard 1/4 odds, 3 places. Win and place stakes dutch&apos;d separately.</div>
       <div style={{ overflowX:'auto', marginBottom:12 }}>
         <div style={{ display:'grid', gridTemplateColumns:'1fr 80px 90px 100px 110px 32px', gap:6, marginBottom:6, fontSize:9, fontWeight:600, color:'#9ca3af', textTransform:'uppercase', minWidth:480 }}>
           <span>Win odds</span><span>Place odds</span><span>E/W stake</span><span>Win return</span><span>Place return</span><span />
