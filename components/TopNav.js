@@ -150,8 +150,8 @@ export default function TopNav() {
                         onMouseLeave={e => e.currentTarget.style.background = 'none'}>
                         <i className="ti ti-calendar-event" style={{ fontSize: 16, color: '#00471b', width: 20, flexShrink: 0 }} />
                         <div>
-                          <div style={{ fontSize: 12, fontWeight: 600, color: '#111827' }}>Upcoming races</div>
-                          <div style={{ fontSize: 10, color: '#6b7280', marginTop: 1 }}>Future race schedules &amp; fields</div>
+                          <div style={{ fontSize: 12, fontWeight: 600, color: '#111827' }}>Product roadmap</div>
+                          <div style={{ fontSize: 10, color: '#6b7280', marginTop: 1 }}>What&apos;s coming to Waging War</div>
                         </div>
                       </button>
                       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 0 }}>
