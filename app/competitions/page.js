@@ -476,7 +476,8 @@ export default function CompetitionsPage() {
     }
     const jt = jumpDate(race.time, race.date);
     if (!jt) return 'pending';
-    return jt.getTime() <= now ? 'racing' : 'pending';
+    if (jt.getTime() > now) return 'pending';
+    return (now - jt.getTime()) > 3 * 60 * 60 * 1000 ? 'result_pending' : 'racing';
   }
 
   // ─── Existing useEffects ──────────────────────────────────────────────────────
@@ -740,6 +741,8 @@ export default function CompetitionsPage() {
       }
     } else if (status === 'racing') {
       resultCell = <span style={{ fontSize: 9, fontWeight: 700, color: '#d97706' }}>Racing</span>;
+    } else if (status === 'result_pending') {
+      resultCell = <span style={{ fontSize: 9, color: CT_MUT }}>Result pending</span>;
     } else if (msToJump !== null) {
       const underTen = msToJump < 600000;
       resultCell = (
@@ -1290,6 +1293,7 @@ export default function CompetitionsPage() {
                     })()}
                     {results[key] && !pick && <span style={{ fontSize: 9, color: '#9ca3af' }}>no pick</span>}
                     {!results[key] && status === 'racing' && <span style={{ fontSize: 9, fontWeight: 700, color: '#d97706' }}>Racing</span>}
+                    {!results[key] && status === 'result_pending' && <span style={{ fontSize: 9, color: CT_MUT }}>Result pending</span>}
                     {!results[key] && status === 'pending' && msToJump !== null && (
                       <span style={{ fontSize: 9, fontWeight: underTen ? 700 : 400, color: underTen ? '#d97706' : CT_MUT, fontFamily: 'monospace' }}>
                         {fmtMs(msToJump) || 'Now'}
@@ -1346,7 +1350,7 @@ export default function CompetitionsPage() {
           {closingTime && (
             <>
               <span style={{ opacity: 0.4 }}>·</span>
-              <span>Closes <span style={{ color: '#fbbf24', fontWeight: 600 }}>{closingTime} AEST</span></span>
+              <span>First jump <span style={{ color: '#fbbf24', fontWeight: 600 }}>{closingTime} AEST</span></span>
             </>
           )}
           {compRaces.length > 0 && (
