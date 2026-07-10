@@ -282,7 +282,7 @@ export default function LeaderboardPage() {
                         <span
                           title="Tracks the starting-price favourite as a model-performance proxy. Data accumulates from today forward."
                           style={{ fontSize: 9, color: '#9ca3af', marginLeft: 6, cursor: 'help', textDecoration: 'underline dotted' }}>
-                          what's this?
+                          what&apos;s this?
                         </span>
                       </td>
                       <td colSpan={4} style={{ padding: '9px 12px', fontSize: 10, color: '#9ca3af', fontStyle: 'italic' }}>
