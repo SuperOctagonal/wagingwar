@@ -200,23 +200,30 @@ export default function CompetitionsPage() {
   const router = useRouter();
   const [upgradeOpen, setUpgradeOpen] = useState(false);
 
-  const [csvRaces, setCsvRaces] = useState(null);
-  const [picks, setPicks] = useState({});
-  const [savingKey, setSavingKey] = useState(null);
+  const [csvRaces, setCsvRaces]       = useState(null);
+  const [picks, setPicks]             = useState({});
+  const [savingKey, setSavingKey]     = useState(null);
   const [popularData, setPopularData] = useState([]);
   const [allPicksData, setAllPicksData] = useState([]);
-  const [results, setResults] = useState({});
+  const [results, setResults]         = useState({});
   const [scratchings, setScratchings] = useState(new Set());
   const [allTimePoints, setAllTimePoints] = useState(null);
-  const [mainTab, setMainTab] = useState('today');
-  const [now, setNow] = useState(Date.now());
-  const [submitting, setSubmitting] = useState(false);
+  const [mainTab, setMainTab]         = useState('today');
+  const [now, setNow]                 = useState(Date.now());
+  const [submitting, setSubmitting]   = useState(false);
   const [submitToast, setSubmitToast] = useState(null);
 
-  const [lbTab, setLbTab]       = useState('alltime');
-  const [lbRows, setLbRows]     = useState([]);
+  const [lbTab, setLbTab]           = useState('alltime');
+  const [lbRows, setLbRows]         = useState([]);
   const [lbPrevRows, setLbPrevRows] = useState([]);
   const [lbLoading, setLbLoading]   = useState(false);
+
+  // Record + P&L state
+  const [allCompScoresData, setAllCompScoresData]     = useState([]);
+  const [userAllPicksData, setUserAllPicksData]       = useState([]);
+  const [allCompResultsData, setAllCompResultsData]   = useState([]);
+  const [historicalRaceSps, setHistoricalRaceSps]     = useState([]);
+  const [todayRaceResultsData, setTodayRaceResultsData] = useState([]);
 
   const today = useMemo(() => aestISO(), []);
   const uname = user ? (user.fullName || user.username || user.firstName || 'Anon') : 'Anon';
@@ -289,13 +296,12 @@ export default function CompetitionsPage() {
     return s;
   }, [picks, results, compRaces, selVenues]);
 
-  const userRank = useMemo(() => todayLeaderboard.find(e => e.isMe)?.rank ?? null, [todayLeaderboard]);
+  const userRank     = useMemo(() => todayLeaderboard.find(e => e.isMe)?.rank ?? null, [todayLeaderboard]);
   const entrantCount = useMemo(() => new Set(allPicksData.map(r => r.clerk_id)).size, [allPicksData]);
-  const pickedCount = useMemo(() => compRaces.filter(r => picks[rk(r.venue, r.num)]).length, [compRaces, picks]);
-  const leaderScore = useMemo(() => todayLeaderboard[0]?.score ?? 0, [todayLeaderboard]);
+  const pickedCount  = useMemo(() => compRaces.filter(r => picks[rk(r.venue, r.num)]).length, [compRaces, picks]);
 
-  const lbRanked     = useMemo(() => applyLbRanks(aggregateLb(lbRows)),     [lbRows]);
-  const lbPrevRanked = useMemo(() => applyLbRanks(aggregateLb(lbPrevRows)), [lbPrevRows]);
+  const lbRanked      = useMemo(() => applyLbRanks(aggregateLb(lbRows)),     [lbRows]);
+  const lbPrevRanked  = useMemo(() => applyLbRanks(aggregateLb(lbPrevRows)), [lbPrevRows]);
   const lbPrevRankMap = useMemo(() => {
     const m = {};
     lbPrevRanked.forEach(u => { m[u.clerk_id] = u.rank; });
@@ -335,10 +341,104 @@ export default function CompetitionsPage() {
     return m;
   }, [compRaces, selVenues]);
 
-  const todayDayIdx = useMemo(() => {
-    const d = new Date(new Date().toLocaleString('en-US', { timeZone: 'Australia/Brisbane' }));
-    return (d.getDay() + 6) % 7;
-  }, []);
+  // ─── Record + P&L memos ───────────────────────────────────────────────────────
+
+  // Rank ALL users per comp_date, find this user's daily placement
+  const userRecord = useMemo(() => {
+    if (!user?.id || !allCompScoresData.length) return null;
+    const byDate = {};
+    allCompScoresData.forEach(r => {
+      if (!byDate[r.comp_date]) byDate[r.comp_date] = [];
+      byDate[r.comp_date].push(r);
+    });
+    let comps = 0, wins = 0, seconds = 0, thirds = 0;
+    const form = [];
+    for (const dateKey of Object.keys(byDate).sort()) {
+      const ranked = applyLbRanks(aggregateLb(byDate[dateKey]));
+      const me = ranked.find(u => u.clerk_id === user.id);
+      if (!me) continue;
+      comps++;
+      if (me.rank === 1) wins++;
+      else if (me.rank === 2) seconds++;
+      else if (me.rank === 3) thirds++;
+      form.push(me.rank);
+    }
+    return { comps, wins, seconds, thirds, form: form.slice(-10) };
+  }, [allCompScoresData, user?.id]);
+
+  const bestStreak = useMemo(() => {
+    if (!user?.id || !allCompScoresData.length) return 0;
+    return Math.max(0, ...allCompScoresData.filter(r => r.clerk_id === user.id).map(r => r.streak || 0));
+  }, [allCompScoresData, user?.id]);
+
+  const hitRate = useMemo(() => {
+    if (!userAllPicksData.length) return null;
+    const winnerMap = {};
+    allCompResultsData.forEach(r => {
+      winnerMap[`${r.comp_date}||${normaliseVenue(r.venue||'')}||${r.race_num}`] = r.winner;
+    });
+    let settled = 0, correct = 0;
+    userAllPicksData.forEach(p => {
+      const winner = winnerMap[`${p.comp_date}||${normaliseVenue(p.venue||'')}||${p.race_num}`];
+      if (!winner) return;
+      settled++;
+      if (winner.toLowerCase() === (p.horse_name || '').toLowerCase()) correct++;
+    });
+    return settled > 0 ? correct / settled * 100 : null;
+  }, [userAllPicksData, allCompResultsData]);
+
+  // Winning pick with no SP is excluded from P&L entirely (not counted as profit or loss)
+  const allTimePL = useMemo(() => {
+    if (!userAllPicksData.length) return null;
+    const winnerMap = {};
+    allCompResultsData.forEach(r => {
+      winnerMap[`${r.comp_date}||${normaliseVenue(r.venue||'')}||${r.race_num}`] = (r.winner || '').toLowerCase();
+    });
+    const spMap = {};
+    historicalRaceSps.forEach(r => {
+      spMap[`${r.date}||${normaliseVenue(r.venue||'')}||${r.race_num}||${(r.horse_name||'').toUpperCase()}`] = r.sp;
+    });
+    let pl = 0;
+    for (const p of userAllPicksData) {
+      const winner = winnerMap[`${p.comp_date}||${normaliseVenue(p.venue||'')}||${p.race_num}`];
+      if (winner === undefined) continue; // unsettled race
+      const isWin = winner === (p.horse_name || '').toLowerCase();
+      if (isWin) {
+        const sp = spMap[`${p.comp_date}||${normaliseVenue(p.venue||'')}||${p.race_num}||${(p.horse_name||'').toUpperCase()}`];
+        if (sp != null) pl += sp - 1; // no SP → exclude entirely
+      } else {
+        pl -= 1;
+      }
+    }
+    return Math.round(pl * 100) / 100;
+  }, [userAllPicksData, allCompResultsData, historicalRaceSps]);
+
+  // Today finish positions + SP (polled live for result pills)
+  const todayFinishPos = useMemo(() => {
+    const m = {};
+    todayRaceResultsData.forEach(r => {
+      m[`${normaliseVenue(r.venue||'')}||${r.race_num}||${(r.horse_name||'').toUpperCase()}`] = { pos: r.finish_pos, sp: r.sp };
+    });
+    return m;
+  }, [todayRaceResultsData]);
+
+  // Today P&L for bottom bar (same SP-exclusion rule as allTimePL)
+  const todayPL = useMemo(() => {
+    let pl = 0;
+    for (const [key, horse] of Object.entries(picks)) {
+      const winner = results[key];
+      if (!winner) continue;
+      const isWin = winner.toLowerCase() === horse.toLowerCase();
+      if (isWin) {
+        const [vn, rn] = key.split('||');
+        const rr = todayFinishPos[`${vn}||${rn}||${horse.toUpperCase()}`];
+        if (rr?.sp != null) pl += rr.sp - 1;
+      } else {
+        pl -= 1;
+      }
+    }
+    return Math.round(pl * 100) / 100;
+  }, [picks, results, todayFinishPos]);
 
   function isLocked(race) {
     const jt = jumpDate(race.time, race.date);
@@ -357,6 +457,7 @@ export default function CompetitionsPage() {
     return jt.getTime() <= now ? 'racing' : 'pending';
   }
 
+  // ─── Existing useEffects ──────────────────────────────────────────────────────
   useEffect(() => {
     try {
       const saved = localStorage.getItem('ww_csv');
@@ -453,6 +554,46 @@ export default function CompetitionsPage() {
     return () => { cancelled = true; };
   }, [mainTab, lbTab]);
 
+  // ─── New useEffects for record + P&L data ────────────────────────────────────
+  useEffect(() => {
+    if (!SURL || !SKEY) return;
+    sbFetch('comp_scores?select=comp_date,clerk_id,username,correct,total,score,streak')
+      .then(rows => { if (Array.isArray(rows)) setAllCompScoresData(rows); });
+  }, []);
+
+  useEffect(() => {
+    if (!user?.id || !SURL || !SKEY) return;
+    sbFetch(`comp_picks?clerk_id=eq.${encodeURIComponent(user.id)}&select=comp_date,venue,race_num,horse_name`)
+      .then(rows => { if (Array.isArray(rows)) setUserAllPicksData(rows); });
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (!SURL || !SKEY) return;
+    sbFetch('comp_results?select=comp_date,venue,race_num,winner')
+      .then(rows => { if (Array.isArray(rows)) setAllCompResultsData(rows); });
+  }, []);
+
+  // Two-phase: fires after userAllPicksData resolves; fetches SP + finish_pos for all pick dates
+  useEffect(() => {
+    if (!userAllPicksData.length || !SURL || !SKEY) return;
+    const dates = [...new Set(userAllPicksData.map(p => p.comp_date))];
+    if (!dates.length) return;
+    sbFetch(`race_results?date=in.(${dates.join(',')})&select=date,venue,race_num,horse_name,sp,finish_pos`)
+      .then(rows => { if (Array.isArray(rows)) setHistoricalRaceSps(rows); });
+  }, [userAllPicksData]);
+
+  // Today race_results polled for live finish positions in result pills
+  useEffect(() => {
+    if (!SURL || !SKEY) return;
+    function loadTodayRR() {
+      sbFetch(`race_results?date=eq.${today}&select=venue,race_num,horse_name,sp,finish_pos`)
+        .then(rows => { if (Array.isArray(rows)) setTodayRaceResultsData(rows); });
+    }
+    loadTodayRR();
+    const id = setInterval(loadTodayRR, 60000);
+    return () => clearInterval(id);
+  }, [today]);
+
   async function savePick(race, horseName) {
     if (!horseName) return;
     const key = rk(race.venue, race.num);
@@ -509,23 +650,18 @@ export default function CompetitionsPage() {
     );
   }
 
-  // ─── Dark theme constants (used only in main header bar + mobile profile strip) ─
-  const DK_BG  = '#0B1F14';
-  const DK_HDR = '#0D1C13';
+  const DK_BG   = '#0B1F14';
+  const DK_HDR  = '#0D1C13';
   const DK_LINE = '#1a3a25';
   const DK_TEXT = '#e2e8f0';
   const DK_MUT  = '#6b7280';
-  // Light content theme (race table, mobile race cards)
   const CT_LINE = '#e5e7eb';
-  const CT_TEXT = '#111827';
   const CT_MUT  = '#6b7280';
-  const CELL = { borderBottom: `1px solid ${CT_LINE}`, borderRight: `1px solid ${CT_LINE}`, verticalAlign: 'middle', padding: '5px 8px' };
+  const CELL = { borderBottom: `1px solid ${CT_LINE}`, borderRight: `1px solid ${CT_LINE}`, verticalAlign: 'middle', padding: '3px 7px' };
 
-  // ─── Render helpers ───────────────────────────────────────────────────────────
-  const WEEK_DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
   const headerDateStr = new Date().toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'Australia/Brisbane' });
-  const pct = compRaces.length > 0 ? (pickedCount / compRaces.length) * 100 : 0;
 
+  // ─── Race row renderer ────────────────────────────────────────────────────────
   function renderRaceRow(race) {
     const key = rk(race.venue, race.num);
     const locked = isLocked(race);
@@ -539,46 +675,50 @@ export default function CompetitionsPage() {
     const isScratched = pick && scratchings.has(`${key}||${pick.toUpperCase()}`);
     const activeHorses = (race.horses || []).filter(h => !h.scratched && !scratchings.has(`${key}||${(h.name || '').toUpperCase()}`));
 
-    let jumpCell;
+    let resultCell;
     if (results[key]) {
-      jumpCell = (
-        <div>
-          <div style={{ fontSize: 9, fontWeight: 600, color: CT_TEXT, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 90, marginBottom: 1 }}>{titleCase(results[key])}</div>
-          {status === 'won'    && <span style={{ fontSize: 8, fontWeight: 700, color: '#16a34a' }}>✓ WON</span>}
-          {status === 'lost'   && <span style={{ fontSize: 8, fontWeight: 700, color: '#dc2626' }}>✗ LOST</span>}
-          {status === 'nopick' && <span style={{ fontSize: 8, color: CT_MUT }}>no pick</span>}
-        </div>
-      );
+      const winner = results[key];
+      if (!pick) {
+        resultCell = <span style={{ fontSize: 9, color: '#9ca3af' }}>no pick</span>;
+      } else if (winner.toLowerCase() === pick.toLowerCase()) {
+        resultCell = <span style={{ fontSize: 9, fontWeight: 700, color: '#16a34a', background: '#f0fdf4', padding: '2px 6px', borderRadius: 4, whiteSpace: 'nowrap' }}>WON ✓</span>;
+      } else {
+        const posKey = `${normaliseVenue(race.venue||'')}||${race.num}||${(pick||'').toUpperCase()}`;
+        const rr = todayFinishPos[posKey];
+        const posLabel = rr?.pos ? `${rr.pos}th` : '';
+        resultCell = <span style={{ fontSize: 9, fontWeight: 700, color: '#dc2626', background: '#fff1f2', padding: '2px 6px', borderRadius: 4, whiteSpace: 'nowrap' }}>{posLabel ? `${posLabel} ✗` : 'LOST ✗'}</span>;
+      }
     } else if (status === 'racing') {
-      jumpCell = <span style={{ fontSize: 9, fontWeight: 700, color: '#d97706' }}>Racing</span>;
+      resultCell = <span style={{ fontSize: 9, fontWeight: 700, color: '#d97706' }}>Racing</span>;
     } else if (msToJump !== null) {
       const underTen = msToJump < 600000;
-      jumpCell = (
+      resultCell = (
         <span style={{ fontSize: 10, fontWeight: underTen ? 700 : 400, color: underTen ? '#d97706' : CT_MUT, fontFamily: 'monospace', fontVariantNumeric: 'tabular-nums' }}>
           {fmtMs(msToJump) || 'Now'}
         </span>
       );
     } else {
-      jumpCell = <span style={{ fontSize: 9, color: CT_MUT }}>—</span>;
+      resultCell = <span style={{ fontSize: 9, color: CT_MUT }}>—</span>;
     }
 
     return (
       <>
         {isScratched && (
           <tr key={`${key}-alert`}>
-            <td colSpan={5} style={{ padding: '4px 10px', background: '#fff5f5', borderBottom: `1px solid ${CT_LINE}` }}>
+            <td colSpan={5} style={{ padding: '3px 10px', background: '#fff5f5', borderBottom: `1px solid ${CT_LINE}` }}>
               <span style={{ fontSize: 9, color: '#dc2626', fontWeight: 700 }}>⚠ {pick} scratched — please re-pick below</span>
             </td>
           </tr>
         )}
         <tr key={key} style={{ background: '#fff' }}>
-          <td style={{ ...CELL, minWidth: 90 }}>
-            <div style={{ fontSize: 11, fontWeight: 700, color: CT_TEXT }}>R{race.num}</div>
-            <div style={{ fontSize: 9, color: CT_MUT, fontFamily: 'monospace', marginTop: 1 }}>{race.time || '—'}</div>
+          <td style={{ ...CELL, minWidth: 85 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: '#111827', fontFamily: MONO, whiteSpace: 'nowrap' }}>
+              R{race.num} <span style={{ fontWeight: 400, fontSize: 10, color: CT_MUT }}>{race.time || ''}</span>
+            </div>
           </td>
           <td style={{ ...CELL, minWidth: 130 }}>
             {locked && !isScratched ? (
-              <span style={{ fontSize: 10, fontWeight: 600, color: status === 'won' ? '#16a34a' : status === 'lost' ? '#dc2626' : pick ? CT_TEXT : CT_MUT }}>
+              <span style={{ fontSize: 10, fontWeight: 600, color: status === 'won' ? '#16a34a' : status === 'lost' ? '#dc2626' : pick ? '#111827' : CT_MUT }}>
                 {pick || 'No pick'}
               </span>
             ) : (
@@ -587,7 +727,7 @@ export default function CompetitionsPage() {
                   value={pick || ''}
                   onChange={e => savePick(race, e.target.value)}
                   style={{
-                    fontSize: 10, padding: '4px 5px', borderRadius: 4, width: '100%', maxWidth: 145,
+                    fontSize: 10, padding: '3px 5px', borderRadius: 4, width: '100%', maxWidth: 145,
                     border: `1px solid ${isScratched ? '#dc2626' : pick ? '#16a34a' : CT_LINE}`,
                     background: '#fff',
                     color: isScratched ? '#dc2626' : pick ? '#16a34a' : '#6b7280',
@@ -597,14 +737,14 @@ export default function CompetitionsPage() {
                   <option value="">Pick horse…</option>
                   {activeHorses.map(h => <option key={h.name} value={h.name}>{h.name}</option>)}
                 </select>
-                {savingKey === key && <div style={{ fontSize: 8, color: CT_MUT, marginTop: 2 }}>Saving…</div>}
+                {savingKey === key && <div style={{ fontSize: 8, color: CT_MUT, marginTop: 1 }}>Saving…</div>}
               </div>
             )}
           </td>
           <td style={{ ...CELL, minWidth: 100 }}>
             {topPop ? (
               <div>
-                <div style={{ fontSize: 10, fontWeight: 600, color: CT_TEXT, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 110 }}>{topPop.horse}</div>
+                <div style={{ fontSize: 10, fontWeight: 600, color: '#111827', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 110 }}>{topPop.horse}</div>
                 <div style={{ fontSize: 8, color: CT_MUT, marginTop: 1 }}>{topPop.pct}% of {topPop.total}</div>
               </div>
             ) : (
@@ -615,103 +755,113 @@ export default function CompetitionsPage() {
             <span style={{ fontSize: 10, fontWeight: 500, color: '#94a3b8' }}>{rank1 || '—'}</span>
           </td>
           <td style={{ ...CELL, borderRight: 'none', minWidth: 80 }}>
-            {jumpCell}
+            {resultCell}
           </td>
         </tr>
       </>
     );
   }
 
-  // ─── Submit footer (shared) ───────────────────────────────────────────────────
+  // ─── Bottom status bar ────────────────────────────────────────────────────────
   function SubmitFooter({ compact }) {
+    const decidedCount = compRaces.filter(r => results[rk(r.venue, r.num)]).length;
+    const allLocked = compRaces.length > 0 && compRaces.every(r => isLocked(r));
+    const plStr = (todayPL >= 0 ? '+$' : '-$') + Math.abs(todayPL).toFixed(2);
+    const plColor = todayPL >= 0 ? '#4ade80' : '#f87171';
     return (
-      <div style={{ background: DK_HDR, borderTop: `1px solid ${DK_LINE}`, padding: compact ? '7px 14px' : '8px 12px', display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 2, flexShrink: 0 }}>
-          <span style={{ fontSize: compact ? 9 : 10, color: DK_TEXT, fontWeight: 600, whiteSpace: 'nowrap' }}>
-            {pickedCount} of {compRaces.length} picked{!compact && ` · ${compRaces.length - pickedCount} remaining`}
-          </span>
-          <span style={{ fontSize: 8, color: '#374151' }}>Correct +1 · Perfect meeting +3</span>
-        </div>
-        <div style={{ flex: 1, height: 4, background: DK_LINE, borderRadius: 2, overflow: 'hidden', minWidth: 30 }}>
-          <div style={{ height: '100%', width: `${pct}%`, background: '#16a34a', borderRadius: 2, transition: 'width 0.3s ease' }} />
+      <div style={{ background: DK_HDR, borderTop: `1px solid ${DK_LINE}`, padding: compact ? '5px 12px' : '6px 12px', display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
+        <div style={{ flex: 1, fontSize: 10, color: DK_TEXT, fontFamily: MONO, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+          <span>Running score: {decidedCount}/{compRaces.length} decided</span>
+          <span style={{ margin: '0 5px', opacity: 0.4 }}>·</span>
+          <span style={{ color: '#4ade80', fontWeight: 700 }}>+{userScore} pts</span>
+          <span style={{ margin: '0 5px', opacity: 0.4 }}>·</span>
+          <span>$1 P&amp;L today: <span style={{ color: plColor, fontWeight: 700 }}>{plStr}</span></span>
         </div>
         <button
-          onClick={submitAllPicks}
-          disabled={submitting || pickedCount === 0}
+          onClick={allLocked ? undefined : submitAllPicks}
+          disabled={submitting || (!allLocked && pickedCount === 0)}
           style={{
-            padding: compact ? '6px 12px' : '7px 14px', borderRadius: 5, fontSize: 11, fontWeight: 700,
-            border: 'none', flexShrink: 0, cursor: pickedCount === 0 ? 'default' : 'pointer', whiteSpace: 'nowrap',
-            background: submitToast === 'success' ? '#166534' : submitToast === 'error' ? '#7f1d1d' : pickedCount > 0 ? '#16a34a' : DK_LINE,
-            color: submitToast === 'success' ? '#4ade80' : submitToast === 'error' ? '#f87171' : pickedCount > 0 ? '#fff' : '#374151',
+            padding: compact ? '5px 10px' : '6px 12px', borderRadius: 5, fontSize: 11, fontWeight: 700,
+            border: 'none', flexShrink: 0,
+            cursor: (allLocked || pickedCount === 0) ? 'default' : 'pointer',
+            whiteSpace: 'nowrap',
+            background: allLocked ? DK_LINE : submitToast === 'success' ? '#166534' : submitToast === 'error' ? '#7f1d1d' : pickedCount > 0 ? '#16a34a' : DK_LINE,
+            color: allLocked ? '#374151' : submitToast === 'success' ? '#4ade80' : submitToast === 'error' ? '#f87171' : pickedCount > 0 ? '#fff' : '#374151',
             opacity: submitting ? 0.7 : 1,
           }}
         >
-          {submitting ? 'Saving…' : submitToast === 'success' ? '✓ Done!' : submitToast === 'error' ? '✗ Failed' : 'Submit picks'}
+          {allLocked ? 'Picks locked' : submitting ? 'Saving…' : submitToast === 'success' ? '✓ Done!' : submitToast === 'error' ? '✗ Failed' : 'Submit picks'}
         </button>
       </div>
     );
   }
 
-  // ─── Left panel ───────────────────────────────────────────────────────────────
+  // ─── Left panel — career record card ─────────────────────────────────────────
+  const plDisplay = allTimePL !== null
+    ? { str: (allTimePL >= 0 ? '+$' : '-$') + Math.abs(allTimePL).toFixed(2), color: allTimePL >= 0 ? '#16a34a' : '#dc2626' }
+    : { str: '—', color: '#9ca3af' };
+
   const leftPanel = (
-    <div style={{ width: 150, flexShrink: 0, background: '#fff', borderRight: '1px solid #e5e7eb', display: 'flex', flexDirection: 'column', padding: '10px 10px', boxSizing: 'border-box', overflowY: 'auto' }}>
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, paddingBottom: 8, borderBottom: '1px solid #f3f4f6', marginBottom: 8 }}>
-        <div style={{ width: 36, height: 36, borderRadius: '50%', background: G, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 800, color: '#fff' }}>{initials}</div>
-        <div style={{ fontSize: 10, fontWeight: 700, color: '#111827', textAlign: 'center', lineHeight: 1.3, wordBreak: 'break-word' }}>{uname}</div>
-      </div>
-      <div style={{ paddingBottom: 8, borderBottom: '1px solid #f3f4f6', marginBottom: 8 }}>
-        <div style={{ fontSize: 8, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 4 }}>Today</div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3 }}>
-          <span style={{ fontSize: 10, color: '#6b7280' }}>Rank</span>
-          <span style={{ fontSize: 12, fontWeight: 800, color: G }}>{userRank ? `#${userRank}` : '—'}</span>
-        </div>
-        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-          <span style={{ fontSize: 10, color: '#6b7280' }}>Score</span>
-          <span style={{ fontSize: 12, fontWeight: 800, color: '#111827' }}>{userScore} pts</span>
+    <div style={{ width: 160, flexShrink: 0, background: '#fff', borderRight: '1px solid #e5e7eb', display: 'flex', flexDirection: 'column', padding: '10px', boxSizing: 'border-box', overflowY: 'auto' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, paddingBottom: 8, borderBottom: '1px solid #f3f4f6', marginBottom: 8 }}>
+        <div style={{ width: 30, height: 30, borderRadius: '50%', background: G, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 800, color: '#fff', flexShrink: 0 }}>{initials}</div>
+        <div style={{ minWidth: 0 }}>
+          <div style={{ fontSize: 10, fontWeight: 700, color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{uname}</div>
+          <div style={{ fontSize: 9, color: G, fontWeight: 600 }}>{userRank ? `#${userRank} today` : userScore > 0 ? `${userScore} pts` : 'Not ranked'}</div>
         </div>
       </div>
+
       <div style={{ paddingBottom: 8, borderBottom: '1px solid #f3f4f6', marginBottom: 8 }}>
-        <div style={{ fontSize: 8, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 4 }}>All-time</div>
-        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-          <span style={{ fontSize: 10, color: '#6b7280' }}>Points</span>
-          <span style={{ fontSize: 12, fontWeight: 700, color: '#111827' }}>{allTimePoints !== null ? allTimePoints : '—'}</span>
-        </div>
+        <div style={{ fontSize: 7, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 3 }}>Career record</div>
+        {userRecord ? (
+          <>
+            <div style={{ fontSize: 20, fontWeight: 800, fontFamily: MONO, color: '#111827', lineHeight: 1 }}>
+              {userRecord.comps}: {userRecord.wins}-{userRecord.seconds}-{userRecord.thirds}
+            </div>
+            <div style={{ fontSize: 8, color: '#6b7280', marginTop: 3, lineHeight: 1.4 }}>
+              {userRecord.comps} comps · {userRecord.wins}W · {userRecord.seconds}nd · {userRecord.thirds}rd
+            </div>
+          </>
+        ) : (
+          <div style={{ fontSize: 10, color: '#9ca3af' }}>Loading…</div>
+        )}
       </div>
-      <div style={{ paddingBottom: 8, borderBottom: '1px solid #f3f4f6', marginBottom: 8 }}>
-        <div style={{ fontSize: 8, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 4 }}>This week</div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', gap: 2 }}>
-          {WEEK_DAYS.map((d, i) => {
-            const isToday = i === todayDayIdx;
-            const isPast = i < todayDayIdx;
-            return (
-              <div key={d} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
-                <span style={{ fontSize: 7, color: '#9ca3af' }}>{d[0]}</span>
-                <div style={{ width: 17, height: 17, borderRadius: 3, background: isToday ? G : isPast ? '#f3f4f6' : '#f9fafb', border: `1px solid ${isToday ? G : '#e5e7eb'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 7, fontWeight: 700, color: isToday ? '#fff' : '#9ca3af' }}>
-                  {isToday ? userScore : ''}
-                </div>
-              </div>
-            );
-          })}
-        </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px', paddingBottom: 8, borderBottom: '1px solid #f3f4f6', marginBottom: 8 }}>
+        {[
+          { label: '$1 P&L', value: plDisplay.str, color: plDisplay.color },
+          { label: 'Hit %',  value: hitRate !== null ? `${hitRate.toFixed(1)}%` : '—', color: '#111827' },
+          { label: 'All-time pts', value: allTimePoints !== null ? String(allTimePoints) : '—', color: '#111827' },
+          { label: 'Best streak',  value: bestStreak ? String(bestStreak) : '—', color: '#111827' },
+        ].map(({ label, value, color }) => (
+          <div key={label} style={{ background: '#f9fafb', borderRadius: 4, padding: '4px 5px' }}>
+            <div style={{ fontSize: 7, color: '#9ca3af', marginBottom: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{label}</div>
+            <div style={{ fontSize: 12, fontWeight: 800, fontFamily: MONO, color }}>{value}</div>
+          </div>
+        ))}
       </div>
+
       <div style={{ paddingBottom: 8, borderBottom: '1px solid #f3f4f6', marginBottom: 8 }}>
-        <div style={{ fontSize: 8, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 3 }}>Best streak</div>
-        <div style={{ fontSize: 20, fontWeight: 800, color: '#111827', lineHeight: 1 }}>
+        <div style={{ fontSize: 7, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 4 }}>Last 10</div>
+        <div style={{ display: 'flex', gap: 2 }}>
           {(() => {
-            let streak = 0, best = 0;
-            for (const race of compRaces) {
-              const key = rk(race.venue, race.num);
-              const winner = results[key];
-              if (!winner) { streak = 0; continue; }
-              if (picks[key] && winner.toLowerCase() === picks[key].toLowerCase()) { streak++; if (streak > best) best = streak; }
-              else streak = 0;
-            }
-            return best;
+            const form = userRecord?.form || [];
+            const padded = Array(Math.max(0, 10 - form.length)).fill(null).concat(form);
+            return padded.map((placement, i) => (
+              <div key={i} style={{
+                width: 11, height: 11, borderRadius: 2, flexShrink: 0,
+                background: placement === null ? '#f3f4f6'
+                  : placement === 1 ? '#fbbf24'
+                  : placement <= 3 ? '#9ca3af'
+                  : '#e5e7eb',
+              }} />
+            ));
           })()}
         </div>
-        <div style={{ fontSize: 9, color: '#9ca3af', marginTop: 1 }}>correct in a row</div>
+        <div style={{ fontSize: 7, color: '#9ca3af', marginTop: 3 }}>🟡 W · ■ 2/3 · □ entered</div>
       </div>
-      <button onClick={() => setMainTab('alltime')} style={{ padding: '7px 0', background: 'none', border: '1px solid #e5e7eb', borderRadius: 6, fontSize: 11, fontWeight: 600, color: '#6b7280', cursor: 'pointer', width: '100%' }}>
+
+      <button onClick={() => setMainTab('alltime')} style={{ padding: '6px 0', background: 'none', border: '1px solid #e5e7eb', borderRadius: 6, fontSize: 10, fontWeight: 600, color: '#6b7280', cursor: 'pointer', width: '100%' }}>
         Leaderboard →
       </button>
     </div>
@@ -738,8 +888,8 @@ export default function CompetitionsPage() {
           <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 480, background: '#fff' }}>
             <thead>
               <tr style={{ background: '#f9fafb' }}>
-                {[['RACE', 90], ['YOUR PICK', 130], ['POPULAR', 100], ['MODEL #1', 90], ['JUMP', 80]].map(([h, w], i) => (
-                  <th key={h} style={{ padding: '5px 8px', fontSize: 9, fontWeight: 700, color: '#6b7280', textAlign: 'left', textTransform: 'uppercase', letterSpacing: '0.8px', whiteSpace: 'nowrap', borderBottom: `1px solid ${CT_LINE}`, borderRight: i < 4 ? `1px solid ${CT_LINE}` : 'none', minWidth: w }}>
+                {[['RACE', 85], ['YOUR PICK', 130], ['POPULAR', 100], ['MODEL #1', 90], ['RESULT', 80]].map(([h, w], i) => (
+                  <th key={h} style={{ padding: '4px 7px', fontSize: 9, fontWeight: 700, color: '#6b7280', textAlign: 'left', textTransform: 'uppercase', letterSpacing: '0.8px', whiteSpace: 'nowrap', borderBottom: `1px solid ${CT_LINE}`, borderRight: i < 4 ? `1px solid ${CT_LINE}` : 'none', minWidth: w }}>
                     {h}
                   </th>
                 ))}
@@ -749,7 +899,7 @@ export default function CompetitionsPage() {
               {selVenues.map(v => (
                 <>
                   <tr key={`${v}-hdr`}>
-                    <td colSpan={5} style={{ background: '#f0fdf4', borderTop: '2px solid #d1fae5', borderBottom: `1px solid ${CT_LINE}`, padding: '5px 10px' }}>
+                    <td colSpan={5} style={{ background: '#f0fdf4', borderTop: '2px solid #d1fae5', borderBottom: `1px solid ${CT_LINE}`, padding: '3px 10px' }}>
                       <span style={{ fontSize: 10, fontWeight: 700, color: '#00471b', letterSpacing: '0.8px', textTransform: 'uppercase' }}>
                         {v} · ${((meetingPrize[v] || 0) / 1000).toFixed(0)}k
                       </span>
@@ -772,56 +922,56 @@ export default function CompetitionsPage() {
   const showUserSep = userEntry && !top5.some(e => e.isMe);
 
   const rightPanel = (
-    <div style={{ width: 170, flexShrink: 0, background: '#fff', borderLeft: '1px solid #e5e7eb', display: 'flex', flexDirection: 'column', overflowY: 'auto' }}>
-      <div style={{ padding: '8px 10px 0' }}>
-        <div style={{ fontSize: 9, fontWeight: 700, color: '#111827', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Today&apos;s leaderboard</div>
+    <div style={{ width: 160, flexShrink: 0, background: '#fff', borderLeft: '1px solid #e5e7eb', display: 'flex', flexDirection: 'column', overflowY: 'auto' }}>
+      <div style={{ padding: '6px 8px 0' }}>
+        <div style={{ fontSize: 8, fontWeight: 700, color: '#111827', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Today&apos;s leaderboard</div>
         {todayLeaderboard.length === 0 && (
-          <div style={{ fontSize: 10, color: '#9ca3af', textAlign: 'center', padding: '8px 0 12px' }}>No picks submitted yet</div>
+          <div style={{ fontSize: 9, color: '#9ca3af', textAlign: 'center', padding: '6px 0 10px' }}>No picks submitted yet</div>
         )}
         {[...top5, ...(showUserSep ? [userEntry] : [])].map((e, i) => (
           <div key={e.clerk_id} style={{
-            display: 'flex', alignItems: 'center', gap: 5, padding: '4px 6px', borderRadius: 5, marginBottom: 2,
+            display: 'flex', alignItems: 'center', gap: 4, padding: '2px 5px', borderRadius: 4, marginBottom: 1,
             background: e.isMe ? '#eff6ff' : 'transparent',
             border: e.isMe ? '1px solid #bfdbfe' : '1px solid transparent',
-            ...(showUserSep && i === top5.length ? { marginTop: 6, borderTop: '1px dashed #e5e7eb', borderRadius: 0, paddingTop: 8 } : {}),
+            ...(showUserSep && i === top5.length ? { marginTop: 5, borderTop: '1px dashed #e5e7eb', borderRadius: 0, paddingTop: 6 } : {}),
           }}>
-            <span style={{ fontSize: 9, fontWeight: 700, color: '#9ca3af', width: 14, textAlign: 'center', flexShrink: 0 }}>#{e.rank}</span>
-            <div style={{ width: 22, height: 22, borderRadius: '50%', background: e.isMe ? '#1d4ed8' : G, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 8, fontWeight: 800, color: '#fff', flexShrink: 0 }}>
+            <span style={{ fontSize: 8, fontWeight: 700, color: '#9ca3af', width: 12, textAlign: 'center', flexShrink: 0 }}>#{e.rank}</span>
+            <div style={{ width: 18, height: 18, borderRadius: '50%', background: e.isMe ? '#1d4ed8' : G, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 7, fontWeight: 800, color: '#fff', flexShrink: 0 }}>
               {(e.uname || '?')[0].toUpperCase()}
             </div>
-            <span style={{ fontSize: 10, fontWeight: e.isMe ? 700 : 500, color: e.isMe ? '#1d4ed8' : '#374151', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.uname}</span>
-            <span style={{ fontSize: 12, fontWeight: 800, color: e.isMe ? '#1d4ed8' : G, flexShrink: 0 }}>{e.score}</span>
+            <span style={{ fontSize: 9, fontWeight: e.isMe ? 700 : 500, color: e.isMe ? '#1d4ed8' : '#374151', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.uname}</span>
+            <span style={{ fontSize: 11, fontWeight: 800, fontFamily: MONO, color: e.isMe ? '#1d4ed8' : G, flexShrink: 0 }}>{e.score}</span>
           </div>
         ))}
       </div>
-      <div style={{ height: 1, background: '#f3f4f6', margin: '7px 0' }} />
-      <div style={{ padding: '0 10px 8px' }}>
-        <div style={{ fontSize: 9, fontWeight: 700, color: '#111827', marginBottom: 5, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Scoring</div>
+      <div style={{ height: 1, background: '#f3f4f6', margin: '5px 0' }} />
+      <div style={{ padding: '0 8px 6px' }}>
+        <div style={{ fontSize: 8, fontWeight: 700, color: '#111827', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Scoring</div>
         {[['Correct pick', '+1 pt'], ['Perfect 4/4 per meeting', '+3 bonus']].map(([label, val]) => (
-          <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-            <span style={{ fontSize: 10, color: '#6b7280', lineHeight: 1.3 }}>{label}</span>
-            <span style={{ fontSize: 11, fontWeight: 700, color: G, marginLeft: 6, flexShrink: 0 }}>{val}</span>
+          <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 3 }}>
+            <span style={{ fontSize: 9, color: '#6b7280', lineHeight: 1.3 }}>{label}</span>
+            <span style={{ fontSize: 10, fontWeight: 700, color: G, marginLeft: 4, flexShrink: 0 }}>{val}</span>
           </div>
         ))}
       </div>
       <div style={{ height: 1, background: '#f3f4f6' }} />
-      <div style={{ padding: '7px 10px 8px' }}>
-        <div style={{ fontSize: 9, fontWeight: 700, color: '#111827', marginBottom: 5, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Today&apos;s meetings</div>
-        {selVenues.length === 0 && <div style={{ fontSize: 10, color: '#9ca3af' }}>Load CSV on Races page</div>}
+      <div style={{ padding: '5px 8px 6px' }}>
+        <div style={{ fontSize: 8, fontWeight: 700, color: '#111827', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Today&apos;s meetings</div>
+        {selVenues.length === 0 && <div style={{ fontSize: 9, color: '#9ca3af' }}>Load CSV on Races page</div>}
         {selVenues.map(v => (
-          <div key={v} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-            <span style={{ fontSize: 10, color: '#374151', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 100 }}>{titleCase(v)}</span>
-            <span style={{ fontSize: 9, fontWeight: 600, color: '#6b7280', flexShrink: 0 }}>${((meetingPrize[v] || 0) / 1000).toFixed(0)}k</span>
+          <div key={v} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 3 }}>
+            <span style={{ fontSize: 9, color: '#374151', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 90 }}>{titleCase(v)}</span>
+            <span style={{ fontSize: 8, fontWeight: 600, color: '#6b7280', flexShrink: 0 }}>${((meetingPrize[v] || 0) / 1000).toFixed(0)}k</span>
           </div>
         ))}
       </div>
       {scratchAlerts.length > 0 && (
         <>
           <div style={{ height: 1, background: '#f3f4f6' }} />
-          <div style={{ padding: '10px 12px 12px' }}>
-            <div style={{ fontSize: 9, fontWeight: 700, color: '#dc2626', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.5px' }}>⚠ Scratch alerts</div>
+          <div style={{ padding: '8px 10px 10px' }}>
+            <div style={{ fontSize: 8, fontWeight: 700, color: '#dc2626', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.5px' }}>⚠ Scratch alerts</div>
             {scratchAlerts.map(race => (
-              <div key={rk(race.venue, race.num)} style={{ fontSize: 10, color: '#991b1b', marginBottom: 3, lineHeight: 1.4 }}>
+              <div key={rk(race.venue, race.num)} style={{ fontSize: 9, color: '#991b1b', marginBottom: 2, lineHeight: 1.4 }}>
                 {titleCase(race.venue)} R{race.num}: {picks[rk(race.venue, race.num)]} scratched
               </div>
             ))}
@@ -829,17 +979,17 @@ export default function CompetitionsPage() {
         </>
       )}
       <div style={{ height: 1, background: '#f3f4f6' }} />
-      <div style={{ padding: '7px 10px 10px', display: 'flex', flexDirection: 'column', gap: 4 }}>
+      <div style={{ padding: '5px 8px 8px', display: 'flex', flexDirection: 'column', gap: 3 }}>
         <button
           onClick={() => {
             const text = compRaces.map(r => { const k = rk(r.venue, r.num); return `${titleCase(r.venue)} R${r.num}: ${picks[k] || '—'}`; }).join('\n');
             navigator.clipboard?.writeText(`My picks · ${today}\n${text}`).catch(() => { });
           }}
-          style={{ padding: '6px 0', border: '1px solid #e5e7eb', borderRadius: 5, fontSize: 10, fontWeight: 600, color: '#374151', background: '#fff', cursor: 'pointer' }}
+          style={{ padding: '4px 0', border: '1px solid #e5e7eb', borderRadius: 4, fontSize: 9, fontWeight: 600, color: '#374151', background: '#fff', cursor: 'pointer' }}
         >
           Copy my picks
         </button>
-        <button onClick={() => setMainTab('alltime')} style={{ padding: '6px 0', border: '1px solid #e5e7eb', borderRadius: 5, fontSize: 10, fontWeight: 600, color: '#374151', background: '#fff', cursor: 'pointer' }}>
+        <button onClick={() => setMainTab('alltime')} style={{ padding: '4px 0', border: '1px solid #e5e7eb', borderRadius: 4, fontSize: 9, fontWeight: 600, color: '#374151', background: '#fff', cursor: 'pointer' }}>
           Leaderboard
         </button>
         <button
@@ -847,7 +997,7 @@ export default function CompetitionsPage() {
             const msg = encodeURIComponent(`Check out Waging War's daily competition — pick winners from today's top races!`);
             window.open(`https://twitter.com/intent/tweet?text=${msg}`, '_blank', 'noopener');
           }}
-          style={{ padding: '6px 0', border: '1px solid #e5e7eb', borderRadius: 5, fontSize: 10, fontWeight: 600, color: '#374151', background: '#fff', cursor: 'pointer' }}
+          style={{ padding: '4px 0', border: '1px solid #e5e7eb', borderRadius: 4, fontSize: 9, fontWeight: 600, color: '#374151', background: '#fff', cursor: 'pointer' }}
         >
           Share
         </button>
@@ -855,7 +1005,7 @@ export default function CompetitionsPage() {
     </div>
   );
 
-  // ─── Leaderboard tab ──────────────────────────────────────────────────────────
+  // ─── Leaderboard tab — UNCHANGED ─────────────────────────────────────────────
   const lbTop3 = lbRanked.slice(0, 3);
   function lbMvmt(u) {
     const prev = lbPrevRankMap[u.clerk_id];
@@ -865,7 +1015,6 @@ export default function CompetitionsPage() {
 
   const allTimePanel = (
     <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-      {/* Timeframe sub-tabs */}
       <div style={{ borderBottom: '1px solid #e5e7eb', background: '#f9fafb', display: 'flex', gap: 2, padding: '0 20px', flexShrink: 0 }}>
         {LB_TABS.map(t => (
           <button key={t.id} onClick={() => setLbTab(t.id)}
@@ -895,7 +1044,6 @@ export default function CompetitionsPage() {
 
         {!lbLoading && lbRanked.length > 0 && (
           <>
-            {/* Podium */}
             <div style={{ display: 'flex', gap: 10, marginBottom: 24, flexWrap: isMobile ? 'wrap' : 'nowrap' }}>
               {lbTop3.map((u, i) => {
                 const isMe = u.clerk_id === user?.id;
@@ -918,7 +1066,6 @@ export default function CompetitionsPage() {
               })}
             </div>
 
-            {/* Full ranked table */}
             <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 10, overflow: 'hidden' }}>
               <div style={{ overflowX: 'auto' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 480 }}>
@@ -978,17 +1125,21 @@ export default function CompetitionsPage() {
   // ─── Mobile today view ────────────────────────────────────────────────────────
   const mobileTodayPanel = (
     <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', background: '#f8fafc' }}>
-      <div style={{ background: DK_HDR, borderBottom: `1px solid ${DK_LINE}`, padding: '8px 14px', display: 'flex', alignItems: 'center', gap: 10 }}>
-        <div style={{ width: 30, height: 30, borderRadius: '50%', background: G, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 800, color: '#fff', flexShrink: 0 }}>{initials}</div>
+      <div style={{ background: DK_HDR, borderBottom: `1px solid ${DK_LINE}`, padding: '6px 12px', display: 'flex', alignItems: 'center', gap: 8 }}>
+        <div style={{ width: 28, height: 28, borderRadius: '50%', background: G, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 800, color: '#fff', flexShrink: 0 }}>{initials}</div>
         <div style={{ flex: 1 }}>
           <div style={{ fontSize: 10, fontWeight: 700, color: DK_TEXT }}>{uname}</div>
-          <div style={{ fontSize: 9, color: DK_MUT }}>Score: <b style={{ color: '#4ade80' }}>{userScore} pts</b> {userRank ? `· #${userRank}` : ''}</div>
+          <div style={{ fontSize: 9, color: DK_MUT }}>
+            <b style={{ color: '#4ade80' }}>{userScore} pts</b>
+            {userRank ? ` · #${userRank}` : ''}
+            {userRecord ? ` · ${userRecord.wins}-${userRecord.seconds}-${userRecord.thirds}` : ''}
+          </div>
         </div>
         <div style={{ fontSize: 9, color: DK_MUT }}>{entrantCount} entrants</div>
-        <button onClick={() => setMainTab('alltime')} style={{ fontSize: 9, color: DK_MUT, background: 'none', border: `1px solid ${DK_LINE}`, borderRadius: 4, padding: '3px 7px', cursor: 'pointer' }}>Leaderboard</button>
+        <button onClick={() => setMainTab('alltime')} style={{ fontSize: 9, color: DK_MUT, background: 'none', border: `1px solid ${DK_LINE}`, borderRadius: 4, padding: '3px 7px', cursor: 'pointer' }}>Board</button>
       </div>
       {scratchAlerts.length > 0 && (
-        <div style={{ background: '#fff5f5', borderBottom: '1px solid #fecaca', padding: '6px 14px' }}>
+        <div style={{ background: '#fff5f5', borderBottom: '1px solid #fecaca', padding: '5px 12px' }}>
           {scratchAlerts.map(race => (
             <div key={rk(race.venue, race.num)} style={{ fontSize: 10, color: '#dc2626', fontWeight: 600 }}>
               ⚠ {picks[rk(race.venue, race.num)]} scratched in {titleCase(race.venue)} R{race.num} — re-pick below
@@ -1005,7 +1156,7 @@ export default function CompetitionsPage() {
       )}
       {csvRaces && selVenues.map(v => (
         <div key={v}>
-          <div style={{ background: '#f0fdf4', borderTop: '2px solid #d1fae5', borderBottom: `1px solid ${CT_LINE}`, padding: '5px 14px' }}>
+          <div style={{ background: '#f0fdf4', borderTop: '2px solid #d1fae5', borderBottom: `1px solid ${CT_LINE}`, padding: '4px 12px' }}>
             <span style={{ fontSize: 10, fontWeight: 700, color: '#00471b', letterSpacing: '0.8px', textTransform: 'uppercase' }}>
               {v} · ${((meetingPrize[v] || 0) / 1000).toFixed(0)}k
             </span>
@@ -1024,38 +1175,43 @@ export default function CompetitionsPage() {
             const activeHorses = (race.horses || []).filter(h => !h.scratched && !scratchings.has(`${key}||${(h.name || '').toUpperCase()}`));
             const underTen = msToJump !== null && msToJump < 600000 && !results[key] && status !== 'racing';
             return (
-              <div key={key} style={{ padding: '8px 14px', borderBottom: `1px solid ${CT_LINE}`, background: '#fff' }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 5 }}>
-                  <div>
-                    <span style={{ fontSize: 11, fontWeight: 700, color: CT_TEXT }}>R{race.num}</span>
-                    <span style={{ fontSize: 9, color: CT_MUT, fontFamily: 'monospace', marginLeft: 6 }}>{race.time}</span>
+              <div key={key} style={{ padding: '5px 12px', borderBottom: `1px solid ${CT_LINE}`, background: '#fff' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+                  <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: '#111827' }}>
+                    R{race.num} <span style={{ fontWeight: 400, fontSize: 10, color: CT_MUT }}>{race.time}</span>
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 1 }}>
-                    {results[key] && <span style={{ fontSize: 9, fontWeight: 600, color: CT_TEXT }}>{titleCase(results[key])}</span>}
-                    {status === 'won'    && <span style={{ fontSize: 8, fontWeight: 700, color: '#16a34a' }}>✓ WON</span>}
-                    {status === 'lost'   && <span style={{ fontSize: 8, fontWeight: 700, color: '#dc2626' }}>✗ LOST</span>}
-                    {status === 'racing' && <span style={{ fontSize: 9, fontWeight: 700, color: '#d97706' }}>Racing</span>}
-                    {status === 'pending' && msToJump !== null && (
+                    {results[key] && pick && results[key].toLowerCase() === pick.toLowerCase() && (
+                      <span style={{ fontSize: 9, fontWeight: 700, color: '#16a34a', background: '#f0fdf4', padding: '1px 5px', borderRadius: 3 }}>WON ✓</span>
+                    )}
+                    {results[key] && pick && results[key].toLowerCase() !== pick.toLowerCase() && (() => {
+                      const posKey = `${normaliseVenue(race.venue||'')}||${race.num}||${(pick||'').toUpperCase()}`;
+                      const rr = todayFinishPos[posKey];
+                      return <span style={{ fontSize: 9, fontWeight: 700, color: '#dc2626', background: '#fff1f2', padding: '1px 5px', borderRadius: 3 }}>{rr?.pos ? `${rr.pos}th ✗` : 'LOST ✗'}</span>;
+                    })()}
+                    {results[key] && !pick && <span style={{ fontSize: 9, color: '#9ca3af' }}>no pick</span>}
+                    {!results[key] && status === 'racing' && <span style={{ fontSize: 9, fontWeight: 700, color: '#d97706' }}>Racing</span>}
+                    {!results[key] && status === 'pending' && msToJump !== null && (
                       <span style={{ fontSize: 9, fontWeight: underTen ? 700 : 400, color: underTen ? '#d97706' : CT_MUT, fontFamily: 'monospace' }}>
                         {fmtMs(msToJump) || 'Now'}
                       </span>
                     )}
                   </div>
                 </div>
-                {isScratched && <div style={{ fontSize: 9, color: '#dc2626', fontWeight: 600, marginBottom: 4 }}>⚠ {pick} scratched — re-pick</div>}
+                {isScratched && <div style={{ fontSize: 9, color: '#dc2626', fontWeight: 600, marginBottom: 3 }}>⚠ {pick} scratched — re-pick</div>}
                 {locked && !isScratched ? (
-                  <div style={{ fontSize: 11, fontWeight: 600, padding: '4px 8px', borderRadius: 4, border: `1px solid ${CT_LINE}`, color: status === 'won' ? '#16a34a' : status === 'lost' ? '#dc2626' : pick ? CT_TEXT : CT_MUT, background: '#f9fafb' }}>
+                  <div style={{ fontSize: 11, fontWeight: 600, padding: '3px 8px', borderRadius: 4, border: `1px solid ${CT_LINE}`, color: status === 'won' ? '#16a34a' : status === 'lost' ? '#dc2626' : pick ? '#111827' : CT_MUT, background: '#f9fafb' }}>
                     {pick || 'No pick'}
                   </div>
                 ) : (
                   <select value={pick || ''} onChange={e => savePick(race, e.target.value)}
-                    style={{ width: '100%', fontSize: 12, padding: '7px 8px', borderRadius: 5, border: `1px solid ${isScratched ? '#dc2626' : pick ? '#16a34a' : CT_LINE}`, background: '#fff', color: isScratched ? '#dc2626' : pick ? '#16a34a' : '#374151', outline: 'none' }}>
+                    style={{ width: '100%', fontSize: 12, padding: '6px 8px', borderRadius: 5, border: `1px solid ${isScratched ? '#dc2626' : pick ? '#16a34a' : CT_LINE}`, background: '#fff', color: isScratched ? '#dc2626' : pick ? '#16a34a' : '#374151', outline: 'none' }}>
                     <option value="">Pick horse…</option>
                     {activeHorses.map(h => <option key={h.name} value={h.name}>{h.name}</option>)}
                   </select>
                 )}
                 {(topPop || rank1) && (
-                  <div style={{ display: 'flex', gap: 10, marginTop: 5 }}>
+                  <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
                     {topPop && <div style={{ fontSize: 9, color: CT_MUT }}>Popular: <b style={{ color: '#374151' }}>{topPop.horse}</b> {topPop.pct}%</div>}
                     {rank1  && <div style={{ fontSize: 9, color: CT_MUT }}>Model: <b style={{ color: '#374151' }}>{rank1}</b></div>}
                   </div>
@@ -1066,13 +1222,13 @@ export default function CompetitionsPage() {
         </div>
       ))}
       {todayLeaderboard.length > 0 && (
-        <div style={{ background: '#fff', margin: '8px 0 0', padding: '10px 14px', borderTop: `1px solid ${CT_LINE}` }}>
-          <div style={{ fontSize: 9, fontWeight: 700, color: '#374151', marginBottom: 7, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Leaderboard</div>
+        <div style={{ background: '#fff', margin: '8px 0 0', padding: '8px 12px', borderTop: `1px solid ${CT_LINE}` }}>
+          <div style={{ fontSize: 9, fontWeight: 700, color: '#374151', marginBottom: 5, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Leaderboard</div>
           {[...top5, ...(showUserSep ? [userEntry] : [])].map(e => (
-            <div key={e.clerk_id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 0', borderBottom: `1px solid ${CT_LINE}` }}>
+            <div key={e.clerk_id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '3px 0', borderBottom: `1px solid ${CT_LINE}` }}>
               <span style={{ fontSize: 9, color: CT_MUT, width: 18 }}>#{e.rank}</span>
               <span style={{ fontSize: 10, flex: 1, fontWeight: e.isMe ? 700 : 400, color: e.isMe ? '#1d4ed8' : '#374151' }}>{e.uname}</span>
-              <span style={{ fontSize: 12, fontWeight: 800, color: e.isMe ? '#1d4ed8' : G }}>{e.score}</span>
+              <span style={{ fontSize: 12, fontWeight: 800, fontFamily: MONO, color: e.isMe ? '#1d4ed8' : G }}>{e.score}</span>
             </div>
           ))}
         </div>
