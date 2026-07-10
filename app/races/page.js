@@ -2234,7 +2234,14 @@ function RacesPageInner() {
   const currentRace = selectedKey ? allRaces[selectedKey] : null;
   const trackCond = (currentRace && trackConds[currentRace.venue]) || 'good';
   const setTrackCond = useCallback(tc => {
-    if (currentRace) setTrackConds(prev => ({ ...prev, [currentRace.venue]: tc }));
+    if (!currentRace) return;
+    setTrackConds(prev => ({ ...prev, [currentRace.venue]: tc }));
+    const todayISO = new Date().toLocaleDateString('sv-SE', { timeZone: 'Australia/Brisbane' });
+    fetch('/api/set-track-condition', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ venue: normaliseVenue(currentRace.venue), date: todayISO, condition: tc }),
+    }).catch(e => console.error('[TC override]', e));
   }, [currentRace]);
 
   const handleLogBet = useCallback((runner, rank) => {
@@ -2399,7 +2406,7 @@ function RacesPageInner() {
     if (!SURL || !SKEY) return;
     const todayISO = new Date().toLocaleDateString('sv-SE', { timeZone: 'Australia/Brisbane' });
     fetch(
-      `${SURL}/rest/v1/today_meetings?date=eq.${todayISO}&select=venue,track_condition,is_abandoned`,
+      `${SURL}/rest/v1/today_meetings?date=eq.${todayISO}&select=venue,track_condition,condition_override,is_abandoned`,
       { headers: { apikey: SKEY, Authorization: `Bearer ${SKEY}` } }
     )
       .then(r => r.ok ? r.json() : r.text().then(t => Promise.reject(`HTTP ${r.status}: ${t}`)))
@@ -2407,7 +2414,8 @@ function RacesPageInner() {
         const tc = {}, aband = new Set();
         rows.forEach(r => {
           const norm = normaliseVenue(r.venue);
-          if (r.track_condition) tc[norm] = r.track_condition;
+          const effectiveCond = r.condition_override || r.track_condition;
+          if (effectiveCond) tc[norm] = effectiveCond;
           if (r.is_abandoned) aband.add(norm);
         });
         console.log('[today_meetings] track conds:', Object.keys(tc).length, 'abandoned:', [...aband]);
