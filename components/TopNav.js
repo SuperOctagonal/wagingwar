@@ -14,6 +14,7 @@ const NAV_LINKS = [
   { id: 'today',        label: 'Today',        href: '/today' },
   { id: 'results',      label: 'Results',      href: '/results' },
   { id: 'mybets',       label: 'My Bets',      href: '/mybets' },
+  { id: 'betting-tools', label: 'Tools',       href: '/betting-tools' },
   { id: 'insights',     label: 'Insights',     href: '/insights' },
   { id: 'community',    label: 'Community',    href: '/community' },
   { id: 'competitions', label: 'Competitions', href: '/competitions' },
