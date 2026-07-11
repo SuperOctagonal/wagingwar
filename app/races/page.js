@@ -352,7 +352,7 @@ function LeftRail({ allVenues, allRaces, selectedRaceKey, onSelect, trackConds, 
         </div>
 
         {/* Race buttons: label + bar merged for a larger tap target */}
-        <div style={{ display: 'flex', gap: 2, marginBottom: nextLabel && nextRc ? 5 : 0 }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 2, marginBottom: nextLabel && nextRc ? 5 : 0 }}>
           {raceKeys.map((k, i) => {
             const status = segStatus(venue, allRaces[k]);
             return (
@@ -362,13 +362,13 @@ function LeftRail({ allVenues, allRaces, selectedRaceKey, onSelect, trackConds, 
                 title={`R${allRaces[k]?.num}`}
                 onMouseEnter={e => { e.currentTarget.lastElementChild.style.boxShadow = 'inset 0 0 0 1px #fff'; }}
                 onMouseLeave={e => { e.currentTarget.lastElementChild.style.boxShadow = 'none'; }}
-                style={{ flex: 1, cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}
+                style={{ flex: 1, minWidth: 16, cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}
               >
-                <div style={{ fontSize: 14, color: '#fff', lineHeight: 1, overflow: 'hidden', textAlign: 'center', width: '100%' }}>
+                <div style={{ fontSize: 10, color: '#fff', lineHeight: 1, textAlign: 'center', width: '100%' }}>
                   R{allRaces[k]?.num}
                 </div>
                 <div style={{
-                  width: '100%', height: 12, borderRadius: 2,
+                  width: '100%', height: 10, borderRadius: 2,
                   background: status === 'resulted' ? '#4ade80'
                             : status === 'now'      ? '#fbbf24'
                             : status === 'passed'   ? '#f97316'
@@ -2616,20 +2616,22 @@ function RacesPageInner() {
             {/* Mobile race picker */}
             <MobileRacePicker allVenues={allVenues} allRaces={allRaces} selectedRaceKey={selectedKey} onSelect={handleSelectRace} />
 
-            {/* CSV toolbar */}
-            <div className="flex items-center gap-2 px-4 py-1.5 bg-white border-b border-gray-100 text-[10px] text-gray-500 flex-shrink-0">
-              <i className="ti ti-file-type-csv text-sm text-gray-400" />
-              <span className="font-medium text-gray-700">{fileName}</span>
-              <span className="text-gray-300">·</span>
-              <span>{raceKeys.length} races</span>
-              {meetingsSynced && <span style={{ color: '#059669', fontWeight: 600 }}>✓ Meetings synced</span>}
-              <button
-                onClick={() => { setAllRaces({}); setAllVenues({}); setRaceKeys([]); setSelectedKey(null); setFileName(''); setMeetingsSynced(false); }}
-                className="ml-auto text-[9px] font-semibold text-gray-400 hover:text-red-500 transition-colors flex items-center gap-1"
-              >
-                <i className="ti ti-x text-xs" /> Clear
-              </button>
-            </div>
+            {/* CSV toolbar — admin only */}
+            {user?.id === 'user_3ELAZyaOPUNLmkzOfuThRoCEHaG' && (
+              <div className="flex items-center gap-2 px-4 py-1.5 bg-white border-b border-gray-100 text-[10px] text-gray-500 flex-shrink-0">
+                <i className="ti ti-file-type-csv text-sm text-gray-400" />
+                <span className="font-medium text-gray-700">{fileName}</span>
+                <span className="text-gray-300">·</span>
+                <span>{raceKeys.length} races</span>
+                {meetingsSynced && <span style={{ color: '#059669', fontWeight: 600 }}>✓ Meetings synced</span>}
+                <button
+                  onClick={() => { setAllRaces({}); setAllVenues({}); setRaceKeys([]); setSelectedKey(null); setFileName(''); setMeetingsSynced(false); }}
+                  className="ml-auto text-[9px] font-semibold text-gray-400 hover:text-red-500 transition-colors flex items-center gap-1"
+                >
+                  <i className="ti ti-x text-xs" /> Clear
+                </button>
+              </div>
+            )}
 
             {currentRace ? (
               <div className="flex-1 flex flex-col overflow-hidden">
