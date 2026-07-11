@@ -245,6 +245,15 @@ export default function CompetitionsPage() {
     return m;
   }, [compRaces]);
 
+  // Primary winner source: race_results (finish_pos=1), polled every 60s via loadTodayRR
+  const liveWinnerMap = useMemo(() => {
+    const m = {};
+    todayRaceResultsData.forEach(r => {
+      if (r.finish_pos === 1) m[rk(r.venue, r.race_num)] = r.horse_name;
+    });
+    return m;
+  }, [todayRaceResultsData]);
+
   const popularPicks = useMemo(() => {
     const grouped = {};
     popularData.forEach(r => {
@@ -272,14 +281,16 @@ export default function CompetitionsPage() {
     const entries = Object.values(um).map(entry => {
       let score = 0;
       for (const [key, horse] of Object.entries(entry.picks)) {
-        if (results[key] && results[key].toLowerCase() === horse.toLowerCase()) score += 1;
+        const winner = liveWinnerMap[key] || results[key];
+        if (winner && winner.toLowerCase() === horse.toLowerCase()) score += 1;
       }
       for (const v of selVenues) {
         const mRaces = compRaces.filter(r => normaliseVenue(r.venue||'') === v);
         if (mRaces.length < 4) continue;
         const allOk = mRaces.every(r => {
           const k = rk(r.venue, r.num);
-          return results[k] && entry.picks[k] && results[k].toLowerCase() === entry.picks[k].toLowerCase();
+          const w = liveWinnerMap[k] || results[k];
+          return w && entry.picks[k] && w.toLowerCase() === entry.picks[k].toLowerCase();
         });
         if (allOk) score += 3;
       }
@@ -292,15 +303,16 @@ export default function CompetitionsPage() {
   const userScore = useMemo(() => {
     let s = 0;
     for (const [key, horse] of Object.entries(picks)) {
-      if (results[key] && results[key].toLowerCase() === horse.toLowerCase()) s += 1;
+      const winner = liveWinnerMap[key] || results[key];
+      if (winner && winner.toLowerCase() === horse.toLowerCase()) s += 1;
     }
     for (const v of selVenues) {
       const mRaces = compRaces.filter(r => normaliseVenue(r.venue||'') === v);
       if (mRaces.length < 4) continue;
-      if (mRaces.every(r => { const k = rk(r.venue, r.num); return results[k] && picks[k] && results[k].toLowerCase() === picks[k].toLowerCase(); })) s += 3;
+      if (mRaces.every(r => { const k = rk(r.venue, r.num); const w = liveWinnerMap[k] || results[k]; return w && picks[k] && w.toLowerCase() === picks[k].toLowerCase(); })) s += 3;
     }
     return s;
-  }, [picks, results, compRaces, selVenues]);
+  }, [picks, results, liveWinnerMap, compRaces, selVenues]);
 
   const userRank     = useMemo(() => todayLeaderboard.find(e => e.isMe)?.rank ?? null, [todayLeaderboard]);
   const entrantCount = useMemo(() => new Set(allPicksData.map(r => r.clerk_id)).size, [allPicksData]);
@@ -452,7 +464,7 @@ export default function CompetitionsPage() {
   const todayPL = useMemo(() => {
     let pl = 0;
     for (const [key, horse] of Object.entries(picks)) {
-      const winner = results[key];
+      const winner = liveWinnerMap[key] || results[key];
       if (!winner) continue;
       const isWin = winner.toLowerCase() === horse.toLowerCase();
       if (isWin) {
@@ -464,7 +476,7 @@ export default function CompetitionsPage() {
       }
     }
     return Math.round(pl * 100) / 100;
-  }, [picks, results, todayFinishPos]);
+  }, [picks, results, liveWinnerMap, todayFinishPos]);
 
   function isLocked(race) {
     const jt = jumpDate(race.time, race.date);
@@ -473,10 +485,11 @@ export default function CompetitionsPage() {
 
   function getStatus(race) {
     const key = rk(race.venue, race.num);
-    if (results[key]) {
+    const winner = liveWinnerMap[key] || results[key];
+    if (winner) {
       const pick = picks[key];
       if (!pick) return 'nopick';
-      return results[key].toLowerCase() === pick.toLowerCase() ? 'won' : 'lost';
+      return winner.toLowerCase() === pick.toLowerCase() ? 'won' : 'lost';
     }
     const jt = jumpDate(race.time, race.date);
     if (!jt) return 'pending';
@@ -571,11 +584,16 @@ export default function CompetitionsPage() {
 
   useEffect(() => {
     if (!user?.id || !isPro || !SURL || !SKEY) return;
-    sbFetch(`points_log?clerk_id=eq.${encodeURIComponent(user.id)}&select=points`)
-      .then(rows => {
-        if (!Array.isArray(rows)) return;
-        setAllTimePoints(rows.reduce((s, r) => s + (r.points || 0), 0));
-      });
+    function loadPoints() {
+      sbFetch(`points_log?clerk_id=eq.${encodeURIComponent(user.id)}&select=points`)
+        .then(rows => {
+          if (!Array.isArray(rows)) return;
+          setAllTimePoints(rows.reduce((s, r) => s + (r.points || 0), 0));
+        });
+    }
+    loadPoints();
+    const id = setInterval(loadPoints, 60000);
+    return () => clearInterval(id);
   }, [user?.id]);
 
   useEffect(() => {
@@ -593,21 +611,30 @@ export default function CompetitionsPage() {
   useEffect(() => {
     if (mainTab !== 'alltime' || !isPro) return;
     let cancelled = false;
+    function loadLb() {
+      const { start, end } = getLbDateRange(lbTab);
+      const prevEnd = dateMinusDays(end, 7);
+      Promise.all([fetchScores(start, end), fetchScores(start, prevEnd)])
+        .then(([cur, prev]) => {
+          if (!cancelled) { setLbRows(cur); setLbPrevRows(prev); setLbLoading(false); }
+        });
+    }
     setLbLoading(true);
-    const { start, end } = getLbDateRange(lbTab);
-    const prevEnd = dateMinusDays(end, 7);
-    Promise.all([fetchScores(start, end), fetchScores(start, prevEnd)])
-      .then(([cur, prev]) => {
-        if (!cancelled) { setLbRows(cur); setLbPrevRows(prev); setLbLoading(false); }
-      });
-    return () => { cancelled = true; };
+    loadLb();
+    const id = setInterval(loadLb, 60000);
+    return () => { cancelled = true; clearInterval(id); };
   }, [mainTab, lbTab]);
 
   // ─── New useEffects for record + P&L data ────────────────────────────────────
   useEffect(() => {
     if (!SURL || !SKEY || !isPro) return;
-    sbFetch('comp_scores?select=comp_date,clerk_id,username,correct,total,score,streak')
-      .then(rows => { if (Array.isArray(rows)) setAllCompScoresData(rows); });
+    function loadCompScores() {
+      sbFetch('comp_scores?select=comp_date,clerk_id,username,correct,total,score,streak')
+        .then(rows => { if (Array.isArray(rows)) setAllCompScoresData(rows); });
+    }
+    loadCompScores();
+    const id = setInterval(loadCompScores, 60000);
+    return () => clearInterval(id);
   }, []);
 
   useEffect(() => {
@@ -742,11 +769,11 @@ export default function CompetitionsPage() {
     const activeHorses = (race.horses || []).filter(h => !h.scratched && !scratchings.has(`${key}||${(h.name || '').toUpperCase()}`));
 
     let resultCell;
-    if (results[key]) {
-      const winner = results[key];
+    const liveWinner = liveWinnerMap[key] || results[key];
+    if (liveWinner) {
       if (!pick) {
         resultCell = <span style={{ fontSize: 9, color: '#9ca3af' }}>no pick</span>;
-      } else if (winner.toLowerCase() === pick.toLowerCase()) {
+      } else if (liveWinner.toLowerCase() === pick.toLowerCase()) {
         resultCell = <span style={{ fontSize: 9, fontWeight: 700, color: '#16a34a', background: '#f0fdf4', padding: '2px 6px', borderRadius: 4, whiteSpace: 'nowrap' }}>WON ✓</span>;
       } else {
         const posKey = `${normaliseVenue(race.venue||'')}||${race.num}||${(pick||'').toUpperCase()}`;
@@ -1318,7 +1345,7 @@ export default function CompetitionsPage() {
             const msToJump = jt ? jt.getTime() - now : null;
             const isScratched = pick && scratchings.has(`${key}||${pick.toUpperCase()}`);
             const activeHorses = (race.horses || []).filter(h => !h.scratched && !scratchings.has(`${key}||${(h.name || '').toUpperCase()}`));
-            const underTen = msToJump !== null && msToJump < 600000 && !results[key] && status !== 'racing';
+            const underTen = msToJump !== null && msToJump < 600000 && !(liveWinnerMap[key] || results[key]) && status !== 'racing';
             return (
               <div key={key} style={{ padding: '5px 12px', borderBottom: `1px solid ${CT_LINE}`, background: '#fff' }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
@@ -1326,18 +1353,21 @@ export default function CompetitionsPage() {
                     R{race.num} <span style={{ fontWeight: 400, fontSize: 10, color: CT_MUT }}>{race.time}</span>
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 1 }}>
-                    {results[key] && pick && results[key].toLowerCase() === pick.toLowerCase() && (
-                      <span style={{ fontSize: 9, fontWeight: 700, color: '#16a34a', background: '#f0fdf4', padding: '1px 5px', borderRadius: 3 }}>WON ✓</span>
-                    )}
-                    {results[key] && pick && results[key].toLowerCase() !== pick.toLowerCase() && (() => {
-                      const posKey = `${normaliseVenue(race.venue||'')}||${race.num}||${(pick||'').toUpperCase()}`;
-                      const rr = todayFinishPos[posKey];
-                      return <span style={{ fontSize: 9, fontWeight: 700, color: '#dc2626', background: '#fff1f2', padding: '1px 5px', borderRadius: 3 }}>{rr?.pos ? `${rr.pos}th ✗` : 'LOST ✗'}</span>;
+                    {(() => {
+                      const mw = liveWinnerMap[key] || results[key];
+                      if (mw && pick && mw.toLowerCase() === pick.toLowerCase())
+                        return <span style={{ fontSize: 9, fontWeight: 700, color: '#16a34a', background: '#f0fdf4', padding: '1px 5px', borderRadius: 3 }}>WON ✓</span>;
+                      if (mw && pick && mw.toLowerCase() !== pick.toLowerCase()) {
+                        const posKey = `${normaliseVenue(race.venue||'')}||${race.num}||${(pick||'').toUpperCase()}`;
+                        const rr = todayFinishPos[posKey];
+                        return <span style={{ fontSize: 9, fontWeight: 700, color: '#dc2626', background: '#fff1f2', padding: '1px 5px', borderRadius: 3 }}>{rr?.pos ? `${rr.pos}th ✗` : 'LOST ✗'}</span>;
+                      }
+                      if (mw && !pick) return <span style={{ fontSize: 9, color: '#9ca3af' }}>no pick</span>;
+                      return null;
                     })()}
-                    {results[key] && !pick && <span style={{ fontSize: 9, color: '#9ca3af' }}>no pick</span>}
-                    {!results[key] && status === 'racing' && <span style={{ fontSize: 9, fontWeight: 700, color: '#d97706' }}>Racing</span>}
-                    {!results[key] && status === 'result_pending' && <span style={{ fontSize: 9, color: CT_MUT }}>Result pending</span>}
-                    {!results[key] && status === 'pending' && msToJump !== null && (
+                    {!(liveWinnerMap[key] || results[key]) && status === 'racing' && <span style={{ fontSize: 9, fontWeight: 700, color: '#d97706' }}>Racing</span>}
+                    {!(liveWinnerMap[key] || results[key]) && status === 'result_pending' && <span style={{ fontSize: 9, color: CT_MUT }}>Result pending</span>}
+                    {!(liveWinnerMap[key] || results[key]) && status === 'pending' && msToJump !== null && (
                       <span style={{ fontSize: 9, fontWeight: underTen ? 700 : 400, color: underTen ? '#d97706' : CT_MUT, fontFamily: 'monospace' }}>
                         {fmtMs(msToJump) || 'Now'}
                       </span>
