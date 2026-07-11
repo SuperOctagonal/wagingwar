@@ -777,7 +777,7 @@ function GrpCell({ grpKey, grpScore, isBest, isWorst }) {
   const numColor = isBest ? info.color : isWorst ? '#b91c1c' : '#1e293b';
   return (
     <td
-      className={['px-[6px] py-[5px] text-right text-[11px] font-semibold tabular-nums relative cursor-default select-none min-w-[52px]',
+      className={['px-[3px] py-[5px] text-right text-[11px] font-semibold tabular-nums relative cursor-default select-none',
         isBest ? 'bg-emerald-50' : '', isWorst ? 'bg-red-50' : ''].join(' ')}
       onMouseEnter={() => setTip(true)}
       onMouseLeave={() => setTip(false)}
@@ -1465,7 +1465,7 @@ function RunnerRow({ runner, rank, rc, trackCond, onLogBet, onShowPopup, onHideP
   const wt   = runner['Weight'] ? `${runner['Weight']}kg` : '';
   const rankColor = rank===1?'#d97706':rank===2?'#6b7280':rank===3?'#b45309':'#9ca3af';
 
-  const td = 'px-[6px] py-[2px]';
+  const td = 'px-[3px] py-[2px]';
   return (
     <tr className="border-b border-gray-100 text-[11px]" style={{ background: isDbScratched ? '#fafafa' : (rank===1 ? '#fffbeb' : 'white'), opacity: isDbScratched ? 0.45 : 1 }}>
       <td className={`${td} text-center font-bold w-7`} style={{ color: rankColor }}>
@@ -1505,7 +1505,7 @@ function RunnerRow({ runner, rank, rc, trackCond, onLogBet, onShowPopup, onHideP
         </div>
       </td>
       {/* Career record */}
-      <td className={`${td} text-center text-[9px] font-mono whitespace-nowrap`} style={{ color: '#111827', paddingLeft: 14 }}>
+      <td className={`${td} text-center text-[9px] font-mono whitespace-nowrap`} style={{ color: '#111827', paddingLeft: 4 }}>
         {runner.starts}-{runner.wins}-{runner.seconds||0}-{runner.thirds||0}
       </td>
       {/* Group scores */}
@@ -1513,9 +1513,9 @@ function RunnerRow({ runner, rank, rc, trackCond, onLogBet, onShowPopup, onHideP
         if (!colVis[gk]) return null;
         return (
           isDbScratched
-            ? <td key={gk} className="px-[6px] py-[5px] text-right" />
+            ? <td key={gk} className="px-[3px] py-[5px] text-right" />
             : !isPro
-              ? <td key={gk} className="px-[6px] py-[5px] text-right"><LockBtn onClick={onUpgrade} /></td>
+              ? <td key={gk} className="px-[3px] py-[5px] text-right"><LockBtn onClick={onUpgrade} /></td>
               : <GrpCell key={gk} grpKey={gk} grpScore={runner.grpScores[gk]} isBest={runner._grpIsBest?.[gk]} isWorst={runner._grpIsWorst?.[gk]} />
         );
       })}
@@ -1552,7 +1552,7 @@ function RunnerRow({ runner, rank, rc, trackCond, onLogBet, onShowPopup, onHideP
         {pm && (
           <div className="flex items-center gap-1.5">
             <span className="text-[8px] font-bold w-6 flex-shrink-0" style={{ color: pm.color }}>{pm.role.slice(0,3).toUpperCase()}</span>
-            <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden" style={{ width: 55 }}>
+            <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden" style={{ width: 36 }}>
               <div className="h-full rounded-full transition-all" style={{ width: `${pm.pct}%`, background: pm.color }} />
             </div>
             <span className="text-[8px] font-semibold w-6 text-right" style={{ color: '#111827' }}>{crsLabel}</span>
@@ -1573,11 +1573,11 @@ function FieldView({ results, scratched, rc, trackCond, onLogBet, onShowPopup, o
   const mobDisplayResults = layers.pace
     ? [...activeResults].sort((a, b) => (+a['BP'] || +a.tab || 99) - (+b['BP'] || +b.tab || 99))
     : activeResults;
-  const th = { background: '#f8fafc', color: '#374151', letterSpacing: '0.5px', position: 'sticky', top: 0, zIndex: 1, padding: '4px 6px', fontSize: 9, fontWeight: 700, textTransform: 'uppercase', lineHeight: '1.3', borderBottom: '1px solid #e5e7eb' };
+  const th = { background: '#f8fafc', color: '#374151', letterSpacing: '0.5px', position: 'sticky', top: 0, zIndex: 1, padding: '3px 4px', fontSize: 9, fontWeight: 700, textTransform: 'uppercase', lineHeight: '1.3', borderBottom: '1px solid #e5e7eb' };
   return (
     <>
       {/* Desktop table */}
-      <div className="hidden md:block flex-1 overflow-y-auto overflow-x-auto">
+      <div className="hidden md:block flex-1 overflow-y-auto overflow-x-hidden">
         <table className="w-full border-collapse" style={{ tableLayout: 'auto' }}>
           <thead>
             <tr className="border-b border-gray-200">
@@ -1594,15 +1594,7 @@ function FieldView({ results, scratched, rc, trackCond, onLogBet, onShowPopup, o
               <th style={{ ...th, textAlign:'right', width:'6%' }}>Ref $</th>
               {colVis.value && <th style={{ ...th, textAlign:'right', width:'5%' }}>Value</th>}
               <th style={{ ...th, width:'8%' }} />
-              <th style={{ ...th, textAlign:'left', width:'16%' }}>
-                <span style={{marginRight:4}}>Pace</span>
-                {PACE_ROLES.map(r => (
-                  <span key={r.label} style={{display:'inline-flex',alignItems:'center',gap:2,fontSize:9,color:'#6b7280',marginRight:3}}>
-                    <span style={{width:5,height:5,borderRadius:1,background:r.color,flexShrink:0,display:'inline-block'}} />
-                    {r.label.slice(0,3)}
-                  </span>
-                ))}
-              </th>
+              <th style={{ ...th, textAlign:'left', width:'16%' }}>Pace / Crs</th>
             </tr>
           </thead>
           <tbody>
