@@ -6,6 +6,7 @@ import { parseCSV, buildRaces } from '@/lib/csvParser';
 import { scoreGroup, getDefaultWeights, GRP_KEYS, calcPaceMap } from '@/lib/scoring';
 import { normaliseVenue } from '@/lib/venues';
 import ProfileRail from '@/components/ProfileRail';
+import UpgradeModal from '@/components/UpgradeModal';
 import useIsMobile from '@/hooks/useIsMobile';
 import useIsPro from '@/hooks/useIsPro';
 
@@ -557,6 +558,7 @@ export default function ResultsPage() {
   const [selectedRace, setSelectedRace] = useState(null);
   const [sidePanel, setSidePanel] = useState('model');
   const [cardRows, setCardRows] = useState([]);
+  const [upgradeOpen, setUpgradeOpen] = useState(false);
   const todayAEST = new Date().toLocaleDateString('sv-SE', { timeZone: 'Australia/Brisbane' });
   const isToday = selectedDate === todayAEST;
   const weights = useMemo(() => getDefaultWeights(), []);
@@ -578,6 +580,7 @@ export default function ResultsPage() {
     setSidePanel('model');
     setVenueAbandoned(new Set());
     setCardRows([]);
+    setUpgradeOpen(false);
     const hdrs = (SURL && SKEY) ? { apikey: SKEY, Authorization: `Bearer ${SKEY}` } : null;
     const scrFetch = hdrs
       ? fetch(`${SURL}/rest/v1/scratchings?date=eq.${selectedDate}&select=venue,race_num,horse_name`, { headers: hdrs }).then(r => r.ok ? r.json() : [])
@@ -590,7 +593,10 @@ export default function ResultsPage() {
       : Promise.resolve(new Set());
     const todayCheck = new Date().toLocaleDateString('sv-SE', { timeZone: 'Australia/Brisbane' });
     const cardFetch = user?.id && selectedDate !== todayCheck
-      ? fetch(`/api/race-cards?date=${selectedDate}`).then(r => r.ok ? r.json() : [])
+      ? fetch(`/api/race-cards?date=${selectedDate}`).then(r => {
+          if (r.status === 403) { setUpgradeOpen(true); return []; }
+          return r.ok ? r.json() : [];
+        })
       : Promise.resolve([]);
     Promise.all([fetchResultsForDate(selectedDate), scrFetch, abandonedFetch, cardFetch]).then(([rows, scrRows, abandoned, cards]) => {
       setDbRows(rows || []);
@@ -1043,6 +1049,7 @@ export default function ResultsPage() {
         ))}
       </div>
       </main>
+      {upgradeOpen && <UpgradeModal onClose={() => setUpgradeOpen(false)} />}
     </div>
   );
 }
