@@ -104,6 +104,39 @@ function QuickLink({ href, icon, title, desc }) {
   );
 }
 
+function ManageSubButton() {
+  const [state, setState] = useState('idle'); // idle | loading | error
+
+  async function handleClick() {
+    setState('loading');
+    try {
+      const res = await fetch('/api/create-portal-session', { method: 'POST' });
+      const data = await res.json();
+      if (!res.ok || !data.url) {
+        setState('error');
+        setTimeout(() => setState('idle'), 4000);
+        return;
+      }
+      window.location.href = data.url;
+    } catch {
+      setState('error');
+      setTimeout(() => setState('idle'), 4000);
+    }
+  }
+
+  return (
+    <div>
+      <button
+        onClick={handleClick}
+        disabled={state === 'loading'}
+        style={{ display: 'inline-block', background: state === 'error' ? '#fee2e2' : '#f9fafb', border: `0.5px solid ${state === 'error' ? '#fca5a5' : '#e5e7eb'}`, color: state === 'error' ? '#dc2626' : '#374151', fontSize: 13, fontWeight: 700, padding: '10px 18px', borderRadius: 8, cursor: state === 'loading' ? 'default' : 'pointer', opacity: state === 'loading' ? 0.7 : 1 }}
+      >
+        {state === 'loading' ? 'Opening…' : state === 'error' ? 'Couldn\'t open billing portal — try again' : 'Manage Subscription'}
+      </button>
+    </div>
+  );
+}
+
 export default function AccountPage() {
   const { user, isLoaded } = useUser();
   const { signOut }        = useClerk();
@@ -332,9 +365,7 @@ export default function AccountPage() {
                     </div>
                   ))}
                 </div>
-                <a href="https://billing.stripe.com" style={{ display: 'inline-block', background: '#f9fafb', border: '0.5px solid #e5e7eb', color: '#374151', fontSize: 13, fontWeight: 700, padding: '10px 18px', borderRadius: 8, textDecoration: 'none' }}>
-                  Manage Subscription
-                </a>
+                <ManageSubButton />
               </Card>
             ) : (
               <Card title="Upgrade to Pro" icon="⚡">
@@ -496,9 +527,7 @@ export default function AccountPage() {
                   <div style={{ fontSize: 13, color: '#374151', marginBottom: 14, lineHeight: 1.6 }}>
                     You&apos;re on the <strong>Pro plan</strong>. Manage your billing and subscription details via Stripe.
                   </div>
-                  <a href="https://billing.stripe.com" style={{ display: 'inline-block', background: GREEN, color: '#fff', fontSize: 13, fontWeight: 700, padding: '10px 18px', borderRadius: 8, textDecoration: 'none' }}>
-                    Manage Subscription
-                  </a>
+                  <ManageSubButton />
                 </div>
               ) : (
                 <div>
