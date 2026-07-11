@@ -383,7 +383,7 @@ export default function SettingsPage() {
           </Field>
           <Field label="Avatar">
             <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-              {user?.imageUrl
+              {user?.hasImage
                 ? <img src={user.imageUrl} alt="avatar" style={{ width: 48, height: 48, borderRadius: '50%', objectFit: 'cover', border: '2px solid #e5e7eb', flexShrink: 0 }} />
                 : <div style={{ width: 48, height: 48, borderRadius: '50%', background: G, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 17, fontWeight: 700, letterSpacing: 1, flexShrink: 0 }}>{avatarInitials}</div>
               }
@@ -403,7 +403,7 @@ export default function SettingsPage() {
                 >
                   {avatarUploading ? 'Uploading…' : 'Upload photo'}
                 </button>
-                {user?.imageUrl && (
+                {user?.hasImage && (
                   <button
                     type="button"
                     onClick={handleAvatarRemove}
@@ -655,7 +655,6 @@ export default function SettingsPage() {
           <p style={{ fontSize: 13, color: '#374151', marginBottom: 20 }}>
             To hide your picks from the Most Popular percentages, go to <strong>Competition</strong> settings and disable &ldquo;Show my picks to other users&rdquo;.
           </p>
-          <SaveBt saving={saving} onClick={save} />
 
           <div style={{ marginTop: 32, paddingTop: 24, borderTop: '1px solid #e5e7eb' }}>
             <div style={{ fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 16 }}>Data management</div>

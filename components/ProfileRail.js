@@ -68,9 +68,10 @@ export default function ProfileRail({ children }) {
       <div style={{ padding: '14px 12px' }}>
         {/* Avatar + name + tier badge */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-          <div style={{ width: 40, height: 40, borderRadius: '50%', background: '#00471b', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 16, fontWeight: 700, color: '#fff' }}>
-            {initial}
-          </div>
+          {user.hasImage
+            ? <img src={user.imageUrl} alt="" style={{ width: 40, height: 40, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
+            : <div style={{ width: 40, height: 40, borderRadius: '50%', background: '#00471b', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 16, fontWeight: 700, color: '#fff' }}>{initial}</div>
+          }
           <div>
             <div style={{ fontSize: 12, fontWeight: 700, color: '#111827', marginBottom: 3 }}>{profile.display_name}</div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>

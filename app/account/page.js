@@ -257,14 +257,15 @@ export default function AccountPage() {
 
             {/* Left — avatar + name + email + badge */}
             <div className="flex flex-col items-center md:items-start flex-shrink-0">
-              <div style={{
-                width: 54, height: 54, borderRadius: '50%',
-                border: `2.5px solid ${GOLD}`, background: 'rgba(0,0,0,0.2)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                marginBottom: 8, fontSize: 20, fontWeight: 800, color: '#fff',
-              }}>
-                {initial}
-              </div>
+              {user.hasImage
+                ? <img src={user.imageUrl} alt="" style={{ width: 54, height: 54, borderRadius: '50%', objectFit: 'cover', border: `2.5px solid ${GOLD}`, marginBottom: 8, flexShrink: 0 }} />
+                : <div style={{
+                    width: 54, height: 54, borderRadius: '50%',
+                    border: `2.5px solid ${GOLD}`, background: 'rgba(0,0,0,0.2)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    marginBottom: 8, fontSize: 20, fontWeight: 800, color: '#fff',
+                  }}>{initial}</div>
+              }
               <div style={{ fontSize: 18, fontWeight: 800, color: '#fff', marginBottom: 2 }}>{displayName}</div>
               <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', marginBottom: 7 }}>{email}</div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>

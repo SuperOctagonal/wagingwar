@@ -259,9 +259,10 @@ export default function TopNav() {
             >
               {isLoaded && user ? (
                 <>
-                  <span className="w-[22px] h-[22px] rounded-full bg-amber-400 text-gray-900 flex items-center justify-center text-[11px] font-bold flex-shrink-0">
-                    {initial}
-                  </span>
+                  {user.hasImage
+                    ? <img src={user.imageUrl} alt="" style={{ width: 22, height: 22, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
+                    : <span className="w-[22px] h-[22px] rounded-full bg-amber-400 text-gray-900 flex items-center justify-center text-[11px] font-bold flex-shrink-0">{initial}</span>
+                  }
                   <span className="max-w-[80px] overflow-hidden text-ellipsis whitespace-nowrap">
                     {user.firstName || 'Account'}
                   </span>
@@ -382,9 +383,10 @@ export default function TopNav() {
             {user && (
               <div style={{ borderTop: '1px solid rgba(255,255,255,0.1)', padding: '12px 16px', flexShrink: 0 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
-                  <span style={{ width: 34, height: 34, borderRadius: '50%', background: '#fbbf24', color: '#111', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 14, flexShrink: 0 }}>
-                    {initial}
-                  </span>
+                  {user.hasImage
+                    ? <img src={user.imageUrl} alt="" style={{ width: 34, height: 34, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
+                    : <span style={{ width: 34, height: 34, borderRadius: '50%', background: '#fbbf24', color: '#111', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 14, flexShrink: 0 }}>{initial}</span>
+                  }
                   <div>
                     <div style={{ fontSize: 12, fontWeight: 700, color: '#fff', marginBottom: 3 }}>{user.firstName || 'Account'}</div>
                     <span style={{ fontSize: 9, fontWeight: 600, padding: '2px 7px', borderRadius: 4, background: isPro ? '#FAEEDA' : '#E1F5EE', color: isPro ? '#854F0B' : '#0F6E56' }}>
