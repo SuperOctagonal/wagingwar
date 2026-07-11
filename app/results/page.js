@@ -120,6 +120,76 @@ function NoCsvMsg() {
   );
 }
 
+function placeIcon(place) {
+  if (place === 1) return <span style={{ color: '#065f46', fontWeight: 700 }}>1st</span>;
+  if (place === 2) return <span style={{ color: '#374151', fontWeight: 700 }}>2nd</span>;
+  if (place === 3) return <span style={{ color: '#92400e', fontWeight: 700 }}>3rd</span>;
+  return <span style={{ color: '#9ca3af' }}>{place ? `${place}th` : '—'}</span>;
+}
+
+function TopPicksPanel({ data }) {
+  if (!data) return <NoCsvMsg />;
+  const { wins, places, total, roi, strikeRate, placeRate, avgPlace, details } = data;
+  const roiPct = total ? (roi / total) * 100 : 0;
+  const roiColor = roiPct >= 0 ? '#065f46' : '#991b1b';
+  const roiBg = roiPct >= 0 ? '#d1fae5' : '#fee2e2';
+  return (
+    <div style={{ paddingTop: 8 }}>
+      <div style={{ display: 'flex', gap: 6, marginBottom: 10, flexWrap: 'wrap' }}>
+        <div style={{ padding: '3px 6px', borderRadius: 5, background: '#f1f5f9', fontSize: 10 }}>
+          <span style={{ color: '#374151' }}>Win </span>
+          <span style={{ fontWeight: 700, color: '#111827', fontFamily: 'JetBrains Mono, monospace' }}>
+            {wins}/{total} ({total ? Math.round(strikeRate * 100) : 0}%)
+          </span>
+        </div>
+        <div style={{ padding: '3px 6px', borderRadius: 5, background: '#f1f5f9', fontSize: 10 }}>
+          <span style={{ color: '#374151' }}>Place </span>
+          <span style={{ fontWeight: 700, color: '#111827', fontFamily: 'JetBrains Mono, monospace' }}>
+            {places}/{total} ({total ? Math.round(placeRate * 100) : 0}%)
+          </span>
+        </div>
+        <div style={{ padding: '3px 6px', borderRadius: 5, background: roiBg, fontSize: 10 }}>
+          <span style={{ color: '#374151' }}>ROI </span>
+          <span style={{ fontWeight: 700, color: roiColor, fontFamily: 'JetBrains Mono, monospace' }}>
+            {roiPct >= 0 ? '+' : ''}{roiPct.toFixed(1)}%
+          </span>
+        </div>
+        <div style={{ padding: '3px 6px', borderRadius: 5, background: '#f1f5f9', fontSize: 10 }}>
+          <span style={{ color: '#374151' }}>Avg Finish </span>
+          <span style={{ fontWeight: 700, color: '#111827', fontFamily: 'JetBrains Mono, monospace' }}>
+            {avgPlace.toFixed(1)}
+          </span>
+        </div>
+      </div>
+      {details.length === 0 ? (
+        <div style={{ color: '#6b7280', fontSize: 10 }}>No model data yet.</div>
+      ) : (
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 10 }}>
+          <thead>
+            <tr style={{ background: '#f1f5f9', borderBottom: '1px solid #e5e7eb' }}>
+              <th style={{ padding: '2px 4px', textAlign: 'left',   fontWeight: 700, color: '#111827' }}>R#</th>
+              <th style={{ padding: '2px 4px', textAlign: 'left',   fontWeight: 700, color: '#111827' }}>Top Pick</th>
+              <th style={{ padding: '2px 4px', textAlign: 'center', fontWeight: 700, color: '#111827' }}>Finish</th>
+              <th style={{ padding: '2px 4px', textAlign: 'right',  fontWeight: 700, color: '#111827' }}>SP</th>
+            </tr>
+          </thead>
+          <tbody>
+            {details.map(d => (
+              <tr key={d.raceNum} style={{ borderBottom: '0.5px solid #f3f4f6' }}>
+                <td style={{ padding: '2px 4px', fontWeight: 700, color: '#111827' }}>{d.raceNum}</td>
+                <td style={{ padding: '2px 4px', color: '#111827', maxWidth: 90, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.horse}</td>
+                <td style={{ padding: '2px 4px', textAlign: 'center', fontSize: 9 }}>{placeIcon(d.place)}</td>
+                <td style={{ padding: '2px 4px', textAlign: 'right', fontFamily: 'JetBrains Mono, monospace' }}>${Number(d.sp || 0).toFixed(2)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+      <div style={{ marginTop: 6, fontSize: 8, color: '#9ca3af' }}>Model&apos;s #1 ranked runner each race — actual finish shown</div>
+    </div>
+  );
+}
+
 function ModelPerfPanel({ data }) {
   if (!data) return <NoCsvMsg />;
   const { hits, total, roi, strikeRate, details } = data;
@@ -642,6 +712,32 @@ export default function ResultsPage() {
     return { hits, total, roi, strikeRate: hits / total, details };
   }, [meetingResulted, effectiveRaces, effectiveVenues, selectedMeeting, weights, dbScratchings, hasCsv]);
 
+  const topPicksPerf = useMemo(() => {
+    if (!hasCsv || !meetingResulted.length) return null;
+    let wins = 0, places = 0, total = 0, roi = 0;
+    const details = [];
+    meetingResulted.forEach(({ raceNum, results }) => {
+      const rankMap = getSysRanks(effectiveRaces, effectiveVenues, selectedMeeting, raceNum, weights, dbScratchings) || {};
+      if (!Object.keys(rankMap).length) return;
+      const pickName = Object.keys(rankMap).find(n => rankMap[n] === 1);
+      if (!pickName) return;
+      const runner = (results.runners || []).find(r => normName(r.name) === pickName);
+      if (!runner) return;
+      const place = runner.place ?? null;
+      const sp = Number(runner.sp) || 0;
+      const win = place === 1;
+      const placed = place != null && place <= 3;
+      roi += win ? (sp - 1) : -1;
+      if (win) wins++;
+      if (placed) places++;
+      total++;
+      details.push({ raceNum, horse: runner.name, place, sp, win, placed });
+    });
+    if (total === 0) return null;
+    const avgPlace = details.reduce((a, d) => a + (d.place || 0), 0) / total;
+    return { wins, places, total, roi, strikeRate: wins / total, placeRate: places / total, avgPlace, details };
+  }, [meetingResulted, effectiveRaces, effectiveVenues, selectedMeeting, weights, dbScratchings, hasCsv]);
+
   const barrierBias = useMemo(() => {
     const groups = [
       { label: '1–2', min: 1, max: 2,        wins: 0, total: 0 },
@@ -846,6 +942,7 @@ export default function ResultsPage() {
                     { key:'staff',   label:'T/J',       icon:'ti-users'          },
                     { key:'weight',  label:'Wt/Cls',    icon:'ti-scale'          },
                     { key:'bias',    label:'Pace Bias', icon:'ti-trending-up'    },
+                    { key:'picks',   label:'Top Picks', icon:'ti-target'          },
                   ].map(p => {
                     const active = sidePanel === p.key;
                     return (
@@ -867,6 +964,7 @@ export default function ResultsPage() {
                 {sidePanel === 'staff'   && <SidePanel icon="ti-users"          label="Trainer / Jockey"><StaffPanel data={staffForm} /></SidePanel>}
                 {sidePanel === 'weight'  && <SidePanel icon="ti-scale"          label="Weight & Class"><WeightClassPanel data={weightClass} /></SidePanel>}
                 {sidePanel === 'bias'    && <SidePanel icon="ti-trending-up"    label="Pace Bias"><TrackBiasPanel data={trackBias} /></SidePanel>}
+                {sidePanel === 'picks'  && <SidePanel icon="ti-target"          label="Top Picks"><TopPicksPanel data={topPicksPerf} /></SidePanel>}
               </div>
 
             </div>
