@@ -239,6 +239,13 @@ export default function TopNav() {
           >
             <i className="ti ti-refresh" style={{ fontSize: 13, display: 'inline-block', animation: navRefreshing ? 'ww-spin 0.8s linear infinite' : 'none' }} />
           </button>
+          <button
+            onClick={() => router.push('/settings')}
+            title="Settings"
+            className="hidden sm:flex items-center justify-center w-7 h-7 rounded-full border border-white/20 text-white/70 hover:text-white hover:border-white/40 transition-colors"
+          >
+            <i className="ti ti-settings" style={{ fontSize: 13 }} />
+          </button>
 
           {/* Mobile hamburger */}
           <button

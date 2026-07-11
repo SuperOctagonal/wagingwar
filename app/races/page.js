@@ -452,7 +452,7 @@ function RightRail({ allRaces, allVenues, selectedRaceKey, onSelect, isPro, user
   const thS = { padding: '4px 8px', fontSize: 9, fontWeight: 600, color: 'rgba(255,255,255,0.70)', textTransform: 'uppercase', letterSpacing: '0.4px', borderBottom: '0.5px solid rgba(255,255,255,0.15)', background: 'transparent', textAlign: 'left', whiteSpace: 'nowrap' };
 
   return (
-    <aside style={{ width: 248, flexShrink: 0, background: '#fff', borderLeft: '0.5px solid #e5e7eb', overflowY: 'auto', overflowX: 'hidden', display: 'flex', flexDirection: 'column' }}>
+    <aside style={{ width: 200, flexShrink: 0, background: '#fff', borderLeft: '0.5px solid #e5e7eb', overflowY: 'auto', overflowX: 'hidden', display: 'flex', flexDirection: 'column' }}>
       {/* Header */}
       <div style={{ background: '#00471b', color: '#fff', fontSize: 10, fontWeight: 700, padding: '6px 10px', letterSpacing: '0.5px', textTransform: 'uppercase', flexShrink: 0 }}>
         Up Next
@@ -1577,7 +1577,7 @@ function FieldView({ results, scratched, rc, trackCond, onLogBet, onShowPopup, o
   return (
     <>
       {/* Desktop table */}
-      <div className="hidden md:block flex-1 overflow-y-auto overflow-x-hidden">
+      <div className="hidden md:block flex-1 overflow-y-auto overflow-x-auto">
         <table className="w-full border-collapse" style={{ tableLayout: 'auto' }}>
           <thead>
             <tr className="border-b border-gray-200">
