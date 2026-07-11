@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useUser } from '@clerk/nextjs';
 import useIsPro from '@/hooks/useIsPro';
@@ -128,6 +128,24 @@ function titleCase(str) {
   return (str || '').split(' ').map(w => w ? w[0].toUpperCase() + w.slice(1).toLowerCase() : '').join(' ');
 }
 
+// Shared scoring: Win=3pts, 2nd=2pts, 3rd=1pt, else 0. finish_pos may be a string; coerce before compare.
+function scorePick(finishPos) {
+  const p = typeof finishPos === 'string' ? parseInt(finishPos, 10) : +finishPos;
+  return p === 1 ? 3 : p === 2 ? 2 : p === 3 ? 1 : 0;
+}
+
+// Correct ordinals: 1st, 2nd, 3rd, 4th... 11th, 12th, 13th... 21st, 22nd, 23rd...
+function ordinal(n) {
+  const num = Math.abs(+n);
+  const mod100 = num % 100;
+  const mod10  = num % 10;
+  if (mod100 >= 11 && mod100 <= 13) return `${num}th`;
+  if (mod10 === 1) return `${num}st`;
+  if (mod10 === 2) return `${num}nd`;
+  if (mod10 === 3) return `${num}rd`;
+  return `${num}th`;
+}
+
 // ─── Leaderboard helpers ──────────────────────────────────────────────────────
 async function fetchScores(start, end) {
   if (!SURL || !SKEY) return [];
@@ -229,6 +247,8 @@ export default function CompetitionsPage() {
   const [allCompResultsData, setAllCompResultsData]   = useState([]);
   const [historicalRaceSps, setHistoricalRaceSps]     = useState([]);
   const [todayRaceResultsData, setTodayRaceResultsData] = useState([]);
+  const [prevTodayLbRanks, setPrevTodayLbRanks] = useState({});
+  const prevTodayLbRanksRef = useRef({});
 
   const [today, setToday] = useState(() => aestISO());
   const uname = user ? (user.fullName || user.username || user.firstName || 'Anon') : 'Anon';
@@ -279,32 +299,42 @@ export default function CompetitionsPage() {
       um[r.clerk_id].picks[rk(r.venue, r.race_num)] = r.horse_name;
     }
     const entries = Object.values(um).map(entry => {
-      let score = 0;
+      let score = 0, correct = 0, decided = 0;
       for (const [key, horse] of Object.entries(entry.picks)) {
         const winner = liveWinnerMap[key] || results[key];
-        if (winner && winner.toLowerCase() === horse.toLowerCase()) score += 1;
+        if (winner) {
+          decided++;
+          if (winner.toLowerCase() === horse.toLowerCase()) correct++;
+          const [vn, rn] = key.split('||');
+          const rr = todayFinishPos[`${vn}||${rn}||${horse.toUpperCase()}`];
+          score += rr?.pos != null ? scorePick(rr.pos) : (winner.toLowerCase() === horse.toLowerCase() ? 3 : 0);
+        }
       }
       for (const v of selVenues) {
         const mRaces = compRaces.filter(r => normaliseVenue(r.venue||'') === v);
         if (mRaces.length < 4) continue;
-        const allOk = mRaces.every(r => {
+        const allWon = mRaces.every(r => {
           const k = rk(r.venue, r.num);
           const w = liveWinnerMap[k] || results[k];
           return w && entry.picks[k] && w.toLowerCase() === entry.picks[k].toLowerCase();
         });
-        if (allOk) score += 3;
+        if (allWon) score += 3;
       }
-      return { ...entry, score, isMe: entry.clerk_id === user?.id };
+      return { ...entry, score, correct, decided, isMe: entry.clerk_id === user?.id };
     });
     entries.sort((a, b) => b.score - a.score);
     return entries.map((e, i) => ({ ...e, rank: i + 1 }));
-  }, [allPicksData, results, liveWinnerMap, compRaces, selVenues, user?.id, hiddenFromLb]);
+  }, [allPicksData, results, liveWinnerMap, compRaces, selVenues, user?.id, hiddenFromLb, todayFinishPos]);
 
   const userScore = useMemo(() => {
     let s = 0;
     for (const [key, horse] of Object.entries(picks)) {
       const winner = liveWinnerMap[key] || results[key];
-      if (winner && winner.toLowerCase() === horse.toLowerCase()) s += 1;
+      if (winner) {
+        const [vn, rn] = key.split('||');
+        const rr = todayFinishPos[`${vn}||${rn}||${horse.toUpperCase()}`];
+        s += rr?.pos != null ? scorePick(rr.pos) : (winner.toLowerCase() === horse.toLowerCase() ? 3 : 0);
+      }
     }
     for (const v of selVenues) {
       const mRaces = compRaces.filter(r => normaliseVenue(r.venue||'') === v);
@@ -312,11 +342,29 @@ export default function CompetitionsPage() {
       if (mRaces.every(r => { const k = rk(r.venue, r.num); const w = liveWinnerMap[k] || results[k]; return w && picks[k] && w.toLowerCase() === picks[k].toLowerCase(); })) s += 3;
     }
     return s;
-  }, [picks, results, liveWinnerMap, compRaces, selVenues]);
+  }, [picks, results, liveWinnerMap, compRaces, selVenues, todayFinishPos]);
 
   const userRank     = useMemo(() => todayLeaderboard.find(e => e.isMe)?.rank ?? null, [todayLeaderboard]);
   const entrantCount = useMemo(() => new Set(allPicksData.map(r => r.clerk_id)).size, [allPicksData]);
   const pickedCount  = useMemo(() => compRaces.filter(r => picks[rk(r.venue, r.num)]).length, [compRaces, picks]);
+
+  const decidedCount = useMemo(() => compRaces.filter(r => {
+    const k = rk(r.venue, r.num); return liveWinnerMap[k] || results[k];
+  }).length, [compRaces, liveWinnerMap, results]);
+
+  const nextRace = useMemo(() => compRaces
+    .filter(r => { const jt = jumpDate(r.time, r.date); return jt && jt.getTime() > now; })
+    .sort((a, b) => (jumpDate(a.time, a.date)?.getTime() || 0) - (jumpDate(b.time, b.date)?.getTime() || 0))[0] || null
+  , [compRaces, now]);
+
+  const raceStatuses = useMemo(() => compRaces.map(r => {
+    const k = rk(r.venue, r.num);
+    const winner = liveWinnerMap[k] || results[k];
+    const pick = picks[k];
+    if (winner) return !pick ? 'nopick' : winner.toLowerCase() === pick.toLowerCase() ? 'won' : 'lost';
+    const s = getStatus(r);
+    return s === 'racing' ? 'racing' : 'upcoming';
+  }), [compRaces, picks, results, liveWinnerMap, now]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const lbRanked      = useMemo(() => applyLbRanks(aggregateLb(lbRows.filter(r => !hiddenFromLb.has(r.clerk_id)))),     [lbRows, hiddenFromLb]);
   const lbPrevRanked  = useMemo(() => applyLbRanks(aggregateLb(lbPrevRows)), [lbPrevRows]);
@@ -670,6 +718,16 @@ export default function CompetitionsPage() {
     return () => clearInterval(id);
   }, [today, isPro]);
 
+  // Snapshot today's lb ranks before each change for ▲/▼ movement display
+  useEffect(() => {
+    if (!todayLeaderboard.length) return;
+    const prev = prevTodayLbRanksRef.current;
+    if (Object.keys(prev).length) setPrevTodayLbRanks(prev);
+    const snap = {};
+    todayLeaderboard.forEach(e => { snap[e.clerk_id] = e.rank; });
+    prevTodayLbRanksRef.current = snap;
+  }, [todayLeaderboard]);
+
   useEffect(() => {
     if (!SURL || !SKEY || !isPro) return;
     fetch(`${SURL}/rest/v1/user_profiles?hide_from_lb=eq.true&select=clerk_id`, {
@@ -760,40 +818,62 @@ export default function CompetitionsPage() {
     const locked = isLocked(race);
     const status = getStatus(race);
     const pick = picks[key];
-    const popular = popularPicks[key] || [];
-    const topPop = popular[0];
-    const rank1 = mr1Map[key];
+    const winner = liveWinnerMap[key] || results[key];
     const jt = jumpDate(race.time, race.date);
     const msToJump = jt ? jt.getTime() - now : null;
     const isScratched = pick && scratchings.has(`${key}||${pick.toUpperCase()}`);
     const activeHorses = (race.horses || []).filter(h => !h.scratched && !scratchings.has(`${key}||${(h.name || '').toUpperCase()}`));
 
-    let resultCell;
-    const liveWinner = liveWinnerMap[key] || results[key];
-    if (liveWinner) {
-      if (!pick) {
-        resultCell = <span style={{ fontSize: 9, color: '#9ca3af' }}>no pick</span>;
-      } else if (liveWinner.toLowerCase() === pick.toLowerCase()) {
-        resultCell = <span style={{ fontSize: 9, fontWeight: 700, color: '#16a34a', background: '#f0fdf4', padding: '2px 6px', borderRadius: 4, whiteSpace: 'nowrap' }}>WON ✓</span>;
-      } else {
-        const posKey = `${normaliseVenue(race.venue||'')}||${race.num}||${(pick||'').toUpperCase()}`;
-        const rr = todayFinishPos[posKey];
-        const posLabel = rr?.pos ? `${rr.pos}th` : '';
-        resultCell = <span style={{ fontSize: 9, fontWeight: 700, color: '#dc2626', background: '#fff1f2', padding: '2px 6px', borderRadius: 4, whiteSpace: 'nowrap' }}>{posLabel ? `${posLabel} ✗` : 'LOST ✗'}</span>;
-      }
+    // Row background: signal via tint, not text colour
+    let rowBg = '#fff';
+    if (winner) {
+      if (pick && winner.toLowerCase() === pick.toLowerCase()) rowBg = '#f0fdf4';
+      else if (pick) rowBg = '#fff1f2';
     } else if (status === 'racing') {
-      resultCell = <span style={{ fontSize: 9, fontWeight: 700, color: '#d97706' }}>Racing</span>;
+      rowBg = '#fffbeb';
+    }
+
+    // WINNER cell
+    let winnerCell;
+    if (winner) {
+      winnerCell = <span style={{ fontSize: 10, fontWeight: 600, color: '#111827' }}>{winner}</span>;
+    } else if (status === 'racing') {
+      winnerCell = <span style={{ fontSize: 9, fontWeight: 700, color: '#d97706' }}>Racing now</span>;
     } else if (status === 'result_pending') {
-      resultCell = <span style={{ fontSize: 9, color: CT_MUT }}>Result pending</span>;
-    } else if (msToJump !== null) {
+      winnerCell = <span style={{ fontSize: 9, color: CT_MUT }}>Result pending</span>;
+    } else if (msToJump !== null && msToJump > 0) {
       const underTen = msToJump < 600000;
-      resultCell = (
-        <span style={{ fontSize: 10, fontWeight: underTen ? 700 : 400, color: underTen ? '#d97706' : CT_MUT, fontFamily: 'monospace', fontVariantNumeric: 'tabular-nums' }}>
-          {fmtMs(msToJump) || 'Now'}
+      winnerCell = (
+        <span style={{ fontSize: 10, fontWeight: underTen ? 700 : 400, color: underTen ? '#d97706' : CT_MUT, fontFamily: 'monospace' }}>
+          {race.time}{fmtMs(msToJump) ? ` (${fmtMs(msToJump)})` : ''}
         </span>
       );
     } else {
-      resultCell = <span style={{ fontSize: 9, color: CT_MUT }}>—</span>;
+      winnerCell = <span style={{ fontSize: 9, color: '#d1d5db' }}>—</span>;
+    }
+
+    // FINISH cell: pick's ordinal position only when decided and didn't win
+    let finishCell = <span style={{ fontSize: 9, color: '#e5e7eb' }}>—</span>;
+    if (winner && pick && winner.toLowerCase() !== pick.toLowerCase()) {
+      const [vn, rn] = key.split('||');
+      const rr = todayFinishPos[`${vn}||${rn}||${pick.toUpperCase()}`];
+      if (rr?.pos) finishCell = <span style={{ fontSize: 10, color: '#6b7280' }}>{ordinal(rr.pos)}</span>;
+    }
+
+    // PTS cell
+    let ptsCell;
+    if (winner) {
+      let pts = 0;
+      if (pick) {
+        const [vn, rn] = key.split('||');
+        const rr = todayFinishPos[`${vn}||${rn}||${pick.toUpperCase()}`];
+        pts = rr?.pos != null ? scorePick(rr.pos) : (winner.toLowerCase() === pick.toLowerCase() ? 3 : 0);
+      }
+      const ptsColor = pts === 3 ? '#15803d' : pts === 2 ? '#166534' : pts === 1 ? '#4b5563' : '#9ca3af';
+      const ptsBg   = pts === 3 ? '#dcfce7' : pts === 2 ? '#f0fdf4' : pts === 1 ? '#f9fafb' : 'transparent';
+      ptsCell = <span style={{ fontSize: 11, fontWeight: 700, color: ptsColor, background: ptsBg, padding: pts > 0 ? '1px 5px' : 0, borderRadius: 4 }}>{pts > 0 ? `+${pts}` : '0'}</span>;
+    } else {
+      ptsCell = <span style={{ fontSize: 10, color: '#d1d5db' }}>·</span>;
     }
 
     return (
@@ -805,7 +885,7 @@ export default function CompetitionsPage() {
             </td>
           </tr>
         )}
-        <tr key={key} style={{ background: '#fff' }}>
+        <tr key={key} style={{ background: rowBg }}>
           <td style={{ ...CELL, minWidth: 85 }}>
             <div style={{ fontSize: 11, fontWeight: 700, color: '#111827', fontFamily: MONO, whiteSpace: 'nowrap' }}>
               R{race.num} <span style={{ fontWeight: 400, fontSize: 10, color: CT_MUT }}>{race.time || ''}</span>
@@ -813,8 +893,8 @@ export default function CompetitionsPage() {
           </td>
           <td style={{ ...CELL, minWidth: 130 }}>
             {locked && !isScratched ? (
-              <span style={{ fontSize: 10, fontWeight: 600, color: status === 'won' ? '#16a34a' : status === 'lost' ? '#dc2626' : pick ? '#111827' : CT_MUT }}>
-                {pick || 'No pick'}
+              <span style={{ fontSize: 10, fontWeight: 600, color: '#111827' }}>
+                {pick || <span style={{ color: CT_MUT }}>No pick</span>}
               </span>
             ) : (
               <div>
@@ -836,21 +916,14 @@ export default function CompetitionsPage() {
               </div>
             )}
           </td>
-          <td style={{ ...CELL, minWidth: 100 }}>
-            {topPop ? (
-              <div>
-                <div style={{ fontSize: 10, fontWeight: 600, color: '#111827', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 110 }}>{topPop.horse}</div>
-                <div style={{ fontSize: 8, color: CT_MUT, marginTop: 1 }}>{topPop.pct}% of {topPop.total}</div>
-              </div>
-            ) : (
-              <span style={{ fontSize: 9, color: CT_MUT }}>—</span>
-            )}
+          <td style={{ ...CELL, minWidth: 110 }}>
+            {winnerCell}
           </td>
-          <td style={{ ...CELL, minWidth: 90 }}>
-            <span style={{ fontSize: 10, fontWeight: 500, color: '#94a3b8' }}>{rank1 || '—'}</span>
+          <td style={{ ...CELL, minWidth: 60, textAlign: 'center' }}>
+            {finishCell}
           </td>
-          <td style={{ ...CELL, borderRight: 'none', minWidth: 80 }}>
-            {resultCell}
+          <td style={{ ...CELL, borderRight: 'none', minWidth: 50, textAlign: 'center' }}>
+            {ptsCell}
           </td>
         </tr>
       </>
@@ -859,7 +932,6 @@ export default function CompetitionsPage() {
 
   // ─── Bottom status bar ────────────────────────────────────────────────────────
   function SubmitFooter({ compact }) {
-    const decidedCount = compRaces.filter(r => results[rk(r.venue, r.num)]).length;
     const allLocked = compRaces.length > 0 && compRaces.every(r => isLocked(r));
     const plStr = (todayPL >= 0 ? '+$' : '-$') + Math.abs(todayPL).toFixed(2);
     const plColor = todayPL >= 0 ? '#4ade80' : '#f87171';
@@ -1007,8 +1079,8 @@ export default function CompetitionsPage() {
           <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 480, background: '#fff' }}>
             <thead>
               <tr style={{ background: '#f9fafb' }}>
-                {[['RACE', 85], ['YOUR PICK', 130], ['POPULAR', 100], ['MODEL #1', 90], ['RESULT', 80]].map(([h, w], i) => (
-                  <th key={h} style={{ padding: '4px 7px', fontSize: 9, fontWeight: 700, color: '#6b7280', textAlign: 'left', textTransform: 'uppercase', letterSpacing: '0.8px', whiteSpace: 'nowrap', borderBottom: `1px solid ${CT_LINE}`, borderRight: i < 4 ? `1px solid ${CT_LINE}` : 'none', minWidth: w }}>
+                {[['RACE', 85], ['YOUR PICK', 130], ['WINNER', 110], ['FINISH', 60], ['PTS', 50]].map(([h, w], i) => (
+                  <th key={h} style={{ padding: '4px 7px', fontSize: 9, fontWeight: 700, color: '#6b7280', textAlign: i >= 3 ? 'center' : 'left', textTransform: 'uppercase', letterSpacing: '0.8px', whiteSpace: 'nowrap', borderBottom: `1px solid ${CT_LINE}`, borderRight: i < 4 ? `1px solid ${CT_LINE}` : 'none', minWidth: w }}>
                     {h}
                   </th>
                 ))}
@@ -1020,7 +1092,7 @@ export default function CompetitionsPage() {
                   <tr key={`${v}-hdr`}>
                     <td colSpan={5} style={{ background: '#f0fdf4', borderTop: '2px solid #d1fae5', borderBottom: `1px solid ${CT_LINE}`, padding: '3px 10px' }}>
                       <span style={{ fontSize: 10, fontWeight: 700, color: '#00471b', letterSpacing: '0.8px', textTransform: 'uppercase' }}>
-                        {v} · ${((meetingPrize[v] || 0) / 1000).toFixed(0)}k
+                        {v}
                       </span>
                     </td>
                   </tr>
@@ -1041,35 +1113,47 @@ export default function CompetitionsPage() {
   const showUserSep = userEntry && !top5.some(e => e.isMe);
 
   const rightPanel = (
-    <div style={{ width: 160, flexShrink: 0, background: '#fff', borderLeft: '1px solid #e5e7eb', display: 'flex', flexDirection: 'column', overflowY: 'auto' }}>
+    <div style={{ width: 168, flexShrink: 0, background: '#fff', borderLeft: '1px solid #e5e7eb', display: 'flex', flexDirection: 'column', overflowY: 'auto' }}>
       <div style={{ padding: '6px 8px 0' }}>
         <div style={{ fontSize: 8, fontWeight: 700, color: '#111827', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Today&apos;s leaderboard</div>
         {todayLeaderboard.length === 0 && (
           <div style={{ fontSize: 9, color: '#9ca3af', textAlign: 'center', padding: '6px 0 10px' }}>No picks submitted yet</div>
         )}
-        {[...top5, ...(showUserSep ? [userEntry] : [])].map((e, i) => (
-          <div key={e.clerk_id} style={{
-            display: 'flex', alignItems: 'center', gap: 4, padding: '2px 5px', borderRadius: 4, marginBottom: 1,
-            background: e.isMe ? '#eff6ff' : 'transparent',
-            border: e.isMe ? '1px solid #bfdbfe' : '1px solid transparent',
-            ...(showUserSep && i === top5.length ? { marginTop: 5, borderTop: '1px dashed #e5e7eb', borderRadius: 0, paddingTop: 6 } : {}),
-          }}>
-            <span style={{ fontSize: 8, fontWeight: 700, color: '#9ca3af', width: 12, textAlign: 'center', flexShrink: 0 }}>#{e.rank}</span>
-            <div style={{ width: 18, height: 18, borderRadius: '50%', background: e.isMe ? '#1d4ed8' : G, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 7, fontWeight: 800, color: '#fff', flexShrink: 0 }}>
-              {(e.uname || '?')[0].toUpperCase()}
+        {[...top5, ...(showUserSep ? [userEntry] : [])].map((e, i) => {
+          const prevRank = prevTodayLbRanks[e.clerk_id];
+          const mv = prevRank != null ? prevRank - e.rank : null;
+          return (
+            <div key={e.clerk_id} style={{
+              display: 'flex', alignItems: 'center', gap: 3, padding: '2px 4px', borderRadius: 4, marginBottom: 1,
+              background: e.isMe ? '#eff6ff' : 'transparent',
+              border: e.isMe ? '1px solid #bfdbfe' : '1px solid transparent',
+              ...(showUserSep && i === top5.length ? { marginTop: 5, borderTop: '1px dashed #e5e7eb', borderRadius: 0, paddingTop: 6 } : {}),
+            }}>
+              <span style={{ fontSize: 8, fontWeight: 700, color: '#9ca3af', width: 14, textAlign: 'center', flexShrink: 0 }}>#{e.rank}</span>
+              <div style={{ width: 16, height: 16, borderRadius: '50%', background: e.isMe ? '#1d4ed8' : G, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 7, fontWeight: 800, color: '#fff', flexShrink: 0 }}>
+                {(e.uname || '?')[0].toUpperCase()}
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 9, fontWeight: e.isMe ? 700 : 500, color: e.isMe ? '#1d4ed8' : '#374151', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.uname}</div>
+                {e.decided > 0 && <div style={{ fontSize: 7, color: '#9ca3af' }}>{e.correct}/{e.decided} correct</div>}
+              </div>
+              <span style={{ fontSize: 11, fontWeight: 800, fontFamily: MONO, color: e.isMe ? '#1d4ed8' : G, flexShrink: 0 }}>{e.score}</span>
+              {mv !== null && mv !== 0 && (
+                <span style={{ fontSize: 8, width: 16, textAlign: 'right', flexShrink: 0, fontWeight: 700, color: mv > 0 ? '#16a34a' : '#dc2626' }}>
+                  {mv > 0 ? `▲${mv}` : `▼${Math.abs(mv)}`}
+                </span>
+              )}
             </div>
-            <span style={{ fontSize: 9, fontWeight: e.isMe ? 700 : 500, color: e.isMe ? '#1d4ed8' : '#374151', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.uname}</span>
-            <span style={{ fontSize: 11, fontWeight: 800, fontFamily: MONO, color: e.isMe ? '#1d4ed8' : G, flexShrink: 0 }}>{e.score}</span>
-          </div>
-        ))}
+          );
+        })}
       </div>
       <div style={{ height: 1, background: '#f3f4f6', margin: '5px 0' }} />
       <div style={{ padding: '0 8px 6px' }}>
         <div style={{ fontSize: 8, fontWeight: 700, color: '#111827', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Scoring</div>
-        {[['Correct pick', '+1 pt'], ['Perfect 4/4 per meeting', '+3 bonus']].map(([label, val]) => (
-          <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 3 }}>
-            <span style={{ fontSize: 9, color: '#6b7280', lineHeight: 1.3 }}>{label}</span>
-            <span style={{ fontSize: 10, fontWeight: 700, color: G, marginLeft: 4, flexShrink: 0 }}>{val}</span>
+        {[['Win', '+3 pts'], ['2nd place', '+2 pts'], ['3rd place', '+1 pt'], ['All 4 winners at a meeting', '+3 bonus']].map(([label, val]) => (
+          <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 2 }}>
+            <span style={{ fontSize: 8, color: '#6b7280', lineHeight: 1.3 }}>{label}</span>
+            <span style={{ fontSize: 9, fontWeight: 700, color: G, marginLeft: 4, flexShrink: 0 }}>{val}</span>
           </div>
         ))}
       </div>
@@ -1078,9 +1162,8 @@ export default function CompetitionsPage() {
         <div style={{ fontSize: 8, fontWeight: 700, color: '#111827', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Today&apos;s meetings</div>
         {selVenues.length === 0 && <div style={{ fontSize: 9, color: '#9ca3af' }}>Load CSV on Races page</div>}
         {selVenues.map(v => (
-          <div key={v} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 3 }}>
-            <span style={{ fontSize: 9, color: '#374151', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 90 }}>{titleCase(v)}</span>
-            <span style={{ fontSize: 8, fontWeight: 600, color: '#6b7280', flexShrink: 0 }}>${((meetingPrize[v] || 0) / 1000).toFixed(0)}k</span>
+          <div key={v} style={{ marginBottom: 2 }}>
+            <span style={{ fontSize: 9, color: '#374151' }}>{titleCase(v)}</span>
           </div>
         ))}
       </div>
@@ -1330,7 +1413,7 @@ export default function CompetitionsPage() {
         <div key={v}>
           <div style={{ background: '#f0fdf4', borderTop: '2px solid #d1fae5', borderBottom: `1px solid ${CT_LINE}`, padding: '4px 12px' }}>
             <span style={{ fontSize: 10, fontWeight: 700, color: '#00471b', letterSpacing: '0.8px', textTransform: 'uppercase' }}>
-              {v} · ${((meetingPrize[v] || 0) / 1000).toFixed(0)}k
+              {v}
             </span>
           </div>
           {(racesByVenue[v] || []).map(race => {
@@ -1338,36 +1421,53 @@ export default function CompetitionsPage() {
             const locked = isLocked(race);
             const status = getStatus(race);
             const pick = picks[key];
-            const popular = popularPicks[key] || [];
-            const topPop = popular[0];
-            const rank1 = mr1Map[key];
+            const winner = liveWinnerMap[key] || results[key];
             const jt = jumpDate(race.time, race.date);
             const msToJump = jt ? jt.getTime() - now : null;
             const isScratched = pick && scratchings.has(`${key}||${pick.toUpperCase()}`);
             const activeHorses = (race.horses || []).filter(h => !h.scratched && !scratchings.has(`${key}||${(h.name || '').toUpperCase()}`));
-            const underTen = msToJump !== null && msToJump < 600000 && !(liveWinnerMap[key] || results[key]) && status !== 'racing';
+            const underTen = msToJump !== null && msToJump < 600000 && !winner && status !== 'racing';
+
+            // Row tint
+            let rowBg = '#fff';
+            if (winner) {
+              if (pick && winner.toLowerCase() === pick.toLowerCase()) rowBg = '#f0fdf4';
+              else if (pick) rowBg = '#fff1f2';
+            } else if (status === 'racing') rowBg = '#fffbeb';
+
+            // Points for this pick
+            let pts = null;
+            if (winner && pick) {
+              const [vn, rn] = key.split('||');
+              const rr = todayFinishPos[`${vn}||${rn}||${pick.toUpperCase()}`];
+              pts = rr?.pos != null ? scorePick(rr.pos) : (winner.toLowerCase() === pick.toLowerCase() ? 3 : 0);
+            }
+
             return (
-              <div key={key} style={{ padding: '5px 12px', borderBottom: `1px solid ${CT_LINE}`, background: '#fff' }}>
+              <div key={key} style={{ padding: '5px 12px', borderBottom: `1px solid ${CT_LINE}`, background: rowBg }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
                   <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: '#111827' }}>
                     R{race.num} <span style={{ fontWeight: 400, fontSize: 10, color: CT_MUT }}>{race.time}</span>
                   </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 1 }}>
-                    {(() => {
-                      const mw = liveWinnerMap[key] || results[key];
-                      if (mw && pick && mw.toLowerCase() === pick.toLowerCase())
-                        return <span style={{ fontSize: 9, fontWeight: 700, color: '#16a34a', background: '#f0fdf4', padding: '1px 5px', borderRadius: 3 }}>WON ✓</span>;
-                      if (mw && pick && mw.toLowerCase() !== pick.toLowerCase()) {
-                        const posKey = `${normaliseVenue(race.venue||'')}||${race.num}||${(pick||'').toUpperCase()}`;
-                        const rr = todayFinishPos[posKey];
-                        return <span style={{ fontSize: 9, fontWeight: 700, color: '#dc2626', background: '#fff1f2', padding: '1px 5px', borderRadius: 3 }}>{rr?.pos ? `${rr.pos}th ✗` : 'LOST ✗'}</span>;
-                      }
-                      if (mw && !pick) return <span style={{ fontSize: 9, color: '#9ca3af' }}>no pick</span>;
-                      return null;
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    {winner && (
+                      <span style={{ fontSize: 9, color: '#374151' }}>
+                        W: <b>{winner}</b>
+                      </span>
+                    )}
+                    {winner && pick && winner.toLowerCase() !== pick.toLowerCase() && (() => {
+                      const [vn, rn] = key.split('||');
+                      const rr = todayFinishPos[`${vn}||${rn}||${pick.toUpperCase()}`];
+                      return rr?.pos ? <span style={{ fontSize: 9, color: '#6b7280' }}>{ordinal(rr.pos)}</span> : null;
                     })()}
-                    {!(liveWinnerMap[key] || results[key]) && status === 'racing' && <span style={{ fontSize: 9, fontWeight: 700, color: '#d97706' }}>Racing</span>}
-                    {!(liveWinnerMap[key] || results[key]) && status === 'result_pending' && <span style={{ fontSize: 9, color: CT_MUT }}>Result pending</span>}
-                    {!(liveWinnerMap[key] || results[key]) && status === 'pending' && msToJump !== null && (
+                    {pts !== null && (
+                      <span style={{ fontSize: 10, fontWeight: 800, fontFamily: MONO, color: pts === 3 ? '#15803d' : pts === 2 ? '#166534' : pts === 1 ? '#4b5563' : '#9ca3af' }}>
+                        {pts > 0 ? `+${pts}` : '0'}
+                      </span>
+                    )}
+                    {!winner && status === 'racing' && <span style={{ fontSize: 9, fontWeight: 700, color: '#d97706' }}>Racing</span>}
+                    {!winner && status === 'result_pending' && <span style={{ fontSize: 9, color: CT_MUT }}>Result pending</span>}
+                    {!winner && status === 'pending' && msToJump !== null && (
                       <span style={{ fontSize: 9, fontWeight: underTen ? 700 : 400, color: underTen ? '#d97706' : CT_MUT, fontFamily: 'monospace' }}>
                         {fmtMs(msToJump) || 'Now'}
                       </span>
@@ -1376,8 +1476,8 @@ export default function CompetitionsPage() {
                 </div>
                 {isScratched && <div style={{ fontSize: 9, color: '#dc2626', fontWeight: 600, marginBottom: 3 }}>⚠ {pick} scratched — re-pick</div>}
                 {locked && !isScratched ? (
-                  <div style={{ fontSize: 11, fontWeight: 600, padding: '3px 8px', borderRadius: 4, border: `1px solid ${CT_LINE}`, color: status === 'won' ? '#16a34a' : status === 'lost' ? '#dc2626' : pick ? '#111827' : CT_MUT, background: '#f9fafb' }}>
-                    {pick || 'No pick'}
+                  <div style={{ fontSize: 11, fontWeight: 600, padding: '3px 8px', borderRadius: 4, border: `1px solid ${CT_LINE}`, color: '#111827', background: '#f9fafb' }}>
+                    {pick || <span style={{ color: CT_MUT }}>No pick</span>}
                   </div>
                 ) : (
                   <select value={pick || ''} onChange={e => savePick(race, e.target.value)}
@@ -1385,12 +1485,6 @@ export default function CompetitionsPage() {
                     <option value="">Pick horse…</option>
                     {activeHorses.map(h => <option key={h.name} value={h.name}>{h.name}</option>)}
                   </select>
-                )}
-                {(topPop || rank1) && (
-                  <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
-                    {topPop && <div style={{ fontSize: 9, color: CT_MUT }}>Popular: <b style={{ color: '#374151' }}>{topPop.horse}</b> {topPop.pct}%</div>}
-                    {rank1  && <div style={{ fontSize: 9, color: CT_MUT }}>Model: <b style={{ color: '#374151' }}>{rank1}</b></div>}
-                  </div>
                 )}
               </div>
             );
@@ -1450,9 +1544,52 @@ export default function CompetitionsPage() {
           ? mobileTodayPanel
           : (
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-              <div style={{ padding: '4px 14px', background: '#f9fafb', borderBottom: '1px solid #f3f4f6', fontSize: 10, color: '#6b7280', flexShrink: 0, lineHeight: 1.5 }}>
-                Pick a horse in every race today. Score points for correct picks, bonus points for a perfect meeting. Compare against other tipsters on the Leaderboard tab.
-              </div>
+              {/* Hero summary strip */}
+              {(() => {
+                const wins     = raceStatuses.filter(s => s === 'won').length;
+                const losses   = raceStatuses.filter(s => s === 'lost' || s === 'nopick').length;
+                const racing   = raceStatuses.filter(s => s === 'racing').length;
+                const total    = raceStatuses.length;
+                const plStr    = (todayPL >= 0 ? '+$' : '-$') + Math.abs(todayPL).toFixed(2);
+                const plColor  = todayPL > 0 ? '#4ade80' : todayPL < 0 ? '#f87171' : DK_TEXT;
+                const nrMs     = nextRace ? (jumpDate(nextRace.time, nextRace.date)?.getTime() || 0) - now : null;
+                const heroStats = [
+                  { label: 'Your points', main: String(userScore), sub: decidedCount > 0 ? `of ${decidedCount} decided` : 'no results yet' },
+                  { label: 'Rank', main: userRank ? `#${userRank}` : '—', sub: entrantCount ? `of ${entrantCount}` : '' },
+                  { label: '$1 P&L', main: plStr, mainColor: plColor, sub: decidedCount > 0 ? `${decidedCount} settled` : 'pending' },
+                  { label: 'Next race', main: nextRace ? `${titleCase(normaliseVenue(nextRace.venue||''))} R${nextRace.num}` : (total > 0 && wins + losses === total ? 'All done' : '—'), sub: nrMs !== null && nrMs > 0 ? fmtMs(nrMs) : nrMs !== null && nrMs <= 0 ? 'Now' : '', subColor: '#fbbf24' },
+                ];
+                return (
+                  <>
+                    <div style={{ background: DK_HDR, borderBottom: `1px solid ${DK_LINE}`, display: 'flex', flexShrink: 0 }}>
+                      {heroStats.map(({ label, main, mainColor, sub, subColor }) => (
+                        <div key={label} style={{ flex: 1, padding: '7px 12px', borderRight: `1px solid ${DK_LINE}` }}>
+                          <div style={{ fontSize: 7, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 2 }}>{label}</div>
+                          <div style={{ fontSize: 15, fontWeight: 800, fontFamily: MONO, color: mainColor || DK_TEXT, lineHeight: 1 }}>{main}</div>
+                          {sub && <div style={{ fontSize: 8, color: subColor || '#6b7280', marginTop: 2 }}>{sub}</div>}
+                        </div>
+                      ))}
+                    </div>
+                    {/* Day progress bar */}
+                    {total > 0 && (
+                      <div style={{ background: '#0B1F14', borderBottom: `1px solid ${DK_LINE}`, padding: '5px 12px', flexShrink: 0 }}>
+                        <div style={{ display: 'flex', height: 6, borderRadius: 3, overflow: 'hidden', gap: 1, marginBottom: 4 }}>
+                          {raceStatuses.map((s, i) => (
+                            <div key={i} style={{ flex: 1, background: s === 'won' ? '#4ade80' : s === 'lost' || s === 'nopick' ? '#f87171' : s === 'racing' ? '#fbbf24' : '#1a3a25', borderRadius: 1 }} />
+                          ))}
+                        </div>
+                        <div style={{ fontSize: 9, color: '#6b7280', fontFamily: MONO }}>
+                          <span style={{ color: '#4ade80', fontWeight: 700 }}>{wins}W</span>
+                          <span style={{ margin: '0 4px', opacity: 0.4 }}>·</span>
+                          <span style={{ color: '#f87171', fontWeight: 700 }}>{losses}L</span>
+                          {racing > 0 && <><span style={{ margin: '0 4px', opacity: 0.4 }}>·</span><span style={{ color: '#fbbf24', fontWeight: 700 }}>{racing} racing</span></>}
+                          {(total - wins - losses - racing) > 0 && <><span style={{ margin: '0 4px', opacity: 0.4 }}>·</span><span style={{ color: '#6b7280' }}>{total - wins - losses - racing} left</span></>}
+                        </div>
+                      </div>
+                    )}
+                  </>
+                );
+              })()}
               <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
                 {leftPanel}
                 {centrePanel}
