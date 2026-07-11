@@ -140,9 +140,15 @@ async function matchAndUpdateBets(pendingBets) {
     const pos   = row.finish_pos;
     const type  = (bet.bet_type || '').toLowerCase();
     const isEW = type === 'each-way' || type === 'each way';
+    const FF_CODES = ['FF','BD','UR','PU','DNF','DISQ','NP','FELL','REF'];
+    const isFF = row.result_status && FF_CODES.includes(row.result_status.toUpperCase());
 
     let status, returnAmt, profitLoss;
-    if (isEW) {
+    if (isFF) {
+      status     = 'loss';
+      returnAmt  = 0;
+      profitLoss = isEW ? -(2 * stake) : -stake;
+    } else if (isEW) {
       if (pos === 1) {
         status     = 'win';
         profitLoss = (stake * odds) - stake + (stake * (odds / 4)) - stake;
@@ -173,9 +179,11 @@ async function matchAndUpdateBets(pendingBets) {
 
     spMap[bet.id] = sp || null;
 
-    const winMargin = pos === 1
-      ? (rows.find(r => +r.race_num === betRaceNum && r.finish_pos === 2)?.margin || null)
-      : (row.margin || null);
+    const winMargin = isFF
+      ? (row.result_status || row.margin || null)
+      : pos === 1
+        ? (rows.find(r => +r.race_num === betRaceNum && r.finish_pos === 2)?.margin || null)
+        : (row.margin || null);
 
     const hasExistingPnl = bet.profit_loss !== null && bet.profit_loss !== undefined;
     const fields = {
@@ -562,7 +570,7 @@ export default function MybetsPage() {
   useEffect(() => {
     if (!racePopup) { setRacePopupData([]); return; }
     sbFetch(
-      `race_results?venue=eq.${encodeURIComponent(racePopup.venue)}&race_num=eq.${racePopup.race_num}&date=eq.${racePopup.date}&order=finish_pos.asc&select=horse_name,finish_pos,sp`
+      `race_results?venue=eq.${encodeURIComponent(racePopup.venue)}&race_num=eq.${racePopup.race_num}&date=eq.${racePopup.date}&order=finish_pos.asc.nullslast&select=horse_name,finish_pos,sp,result_status,margin`
     ).then(data => setRacePopupData(Array.isArray(data) ? data : []));
   }, [racePopup]);
 
@@ -1313,6 +1321,8 @@ export default function MybetsPage() {
                         const isUnresolved = b.status === 'unresolved';
                         const isScratched = b.status === 'scratched';
                         const isAbandoned = b.status === 'abandoned';
+                        const FF_DISP = ['FF','BD','UR','PU','DNF','DISQ','NP','FELL','REF'];
+                        const isFF = b.status === 'loss' && b.margin && FF_DISP.includes((b.margin || '').toUpperCase());
                         const pnlColor = !hasPnl || isPending || isUnresolved || isAbandoned ? '#6b7280' : pnl >= 0 ? '#4ade80' : '#f87171';
                         const resultColor = pos === 1 ? '#4ade80' : (pos === 2 || pos === 3) ? '#60a5fa' : '#f87171';
                         const raceNum = b.race_number ?? b.race_num;
@@ -1332,11 +1342,11 @@ export default function MybetsPage() {
                             <td style={{ ...cs, textAlign: 'right', fontWeight: 700, fontFamily: 'monospace', color: pnlColor, whiteSpace: 'nowrap' }}>
                               {isPending || isUnresolved || isAbandoned ? '—' : hasPnl ? (pnl >= 0 ? '+$' : '-$') + Math.abs(pnl).toFixed(2) : '—'}
                             </td>
-                            <td style={{ ...cs, textAlign: 'right', fontWeight: 700, color: isAbandoned ? '#6b7280' : isUnresolved ? '#6b7280' : isPending ? '#f97316' : isScratched ? '#6b7280' : (pos ? resultColor : '#6b7280'), whiteSpace: 'nowrap' }}>
-                              {isAbandoned ? 'ABND' : isUnresolved ? 'NR' : isPending ? 'PND' : isScratched ? 'SCR' : pos ? String(pos) : '—'}
+                            <td style={{ ...cs, textAlign: 'right', fontWeight: 700, color: isAbandoned ? '#6b7280' : isUnresolved ? '#6b7280' : isPending ? '#f97316' : isScratched ? '#6b7280' : isFF ? '#f87171' : (pos ? resultColor : '#6b7280'), whiteSpace: 'nowrap' }}>
+                              {isAbandoned ? 'ABND' : isUnresolved ? 'NR' : isPending ? 'PND' : isScratched ? 'SCR' : isFF ? (b.margin || 'FF') : pos ? String(pos) : '—'}
                             </td>
                             <td style={{ ...cs, textAlign: 'right', color: '#9ca3af', fontFamily: 'monospace', whiteSpace: 'nowrap' }}>
-                              {b.margin || '—'}
+                              {isFF ? '—' : b.margin || '—'}
                             </td>
                             <td style={{ ...cs, textAlign: 'center', padding: '2px 4px', width: 32 }}>
                               <button onClick={() => { setMobileMenuId(b.id); setEditStake(String(b.stake || '')); setEditOdds(String(b.odds || '')); }} style={{ background: 'none', border: 'none', color: '#9ca3af', fontSize: 14, cursor: 'pointer', padding: '1px 4px', lineHeight: 1 }}>⋯</button>
@@ -1413,6 +1423,8 @@ export default function MybetsPage() {
                             const isUnresolved = b.status === 'unresolved';
                             const isScratched = b.status === 'scratched';
                             const isAbandoned = b.status === 'abandoned';
+                            const FF_DISP = ['FF','BD','UR','PU','DNF','DISQ','NP','FELL','REF'];
+                            const isFF = b.status === 'loss' && b.margin && FF_DISP.includes((b.margin || '').toUpperCase());
                             const pnlColor = !hasPnl || isPending || isUnresolved || isAbandoned ? '#6b7280' : pnl >= 0 ? '#4ade80' : '#f87171';
                             const raceNum = b.race_number ?? b.race_num;
                             const venue = b.track || b.venue || '—';
@@ -1460,11 +1472,11 @@ export default function MybetsPage() {
                                 <td style={{ ...cs, textAlign: 'right', fontWeight: 700, fontFamily: 'monospace', color: pnlColor, whiteSpace: 'nowrap' }}>
                                   {isPending || isUnresolved || isAbandoned ? '—' : hasPnl ? (pnl >= 0 ? '+$' : '-$') + Math.abs(pnl).toFixed(2) : '—'}
                                 </td>
-                                <td style={{ ...cs, textAlign: 'right', fontWeight: 700, color: isAbandoned ? '#6b7280' : isUnresolved ? '#6b7280' : isPending ? '#f97316' : isScratched ? '#6b7280' : (pos === 1 ? '#4ade80' : (pos === 2 || pos === 3) ? '#60a5fa' : pos ? '#f87171' : '#6b7280') }}>
-                                  {isAbandoned ? 'ABND' : isUnresolved ? 'NR' : isPending ? 'PND' : isScratched ? 'SCR' : pos ? String(pos) : '—'}
+                                <td style={{ ...cs, textAlign: 'right', fontWeight: 700, color: isAbandoned ? '#6b7280' : isUnresolved ? '#6b7280' : isPending ? '#f97316' : isScratched ? '#6b7280' : isFF ? '#f87171' : (pos === 1 ? '#4ade80' : (pos === 2 || pos === 3) ? '#60a5fa' : pos ? '#f87171' : '#6b7280') }}>
+                                  {isAbandoned ? 'ABND' : isUnresolved ? 'NR' : isPending ? 'PND' : isScratched ? 'SCR' : isFF ? (b.margin || 'FF') : pos ? String(pos) : '—'}
                                 </td>
                                 <td style={{ ...cs, textAlign: 'right', color: '#9ca3af', fontFamily: 'monospace' }}>
-                                  {b.margin || '—'}
+                                  {isFF ? '—' : b.margin || '—'}
                                 </td>
                                 <td style={{ ...cs, textAlign: 'center', padding: '2px 4px', width: 48 }}>
                                   {isEditing && !isLocked ? (
@@ -2056,6 +2068,8 @@ export default function MybetsPage() {
                     <tr><td colSpan={3} style={{ padding: 16, textAlign: 'center', color: '#9ca3af' }}>Loading…</td></tr>
                   ) : racePopupData.map((r, i) => {
                     const pos = r.finish_pos;
+                    const ffCodes = ['FF','BD','UR','PU','DNF','DISQ','NP','FELL','REF'];
+                    const isFFRow = r.result_status && ffCodes.includes(r.result_status.toUpperCase());
                     const rowStyle = pos === 1
                       ? { background: '#fef9c3', color: '#854d0e' }
                       : pos === 2 ? { background: '#f3f4f6', color: '#374151' }
@@ -2063,7 +2077,7 @@ export default function MybetsPage() {
                       : { background: i % 2 === 0 ? '#fff' : '#fafafa', color: '#9ca3af' };
                     return (
                       <tr key={i} style={rowStyle}>
-                        <td style={{ padding: '4px 6px', fontWeight: pos <= 3 ? 700 : 400 }}>{pos ? ordinal(pos) : '—'}</td>
+                        <td style={{ padding: '4px 6px', fontWeight: pos <= 3 ? 700 : 400 }}>{isFFRow ? (r.result_status || 'FF') : pos ? ordinal(pos) : '—'}</td>
                         <td style={{ padding: '4px 6px', fontWeight: pos <= 3 ? 600 : 400 }}>{r.horse_name || '—'}</td>
                         <td style={{ padding: '4px 6px', textAlign: 'right', fontFamily: 'monospace' }}>{r.sp ? `$${Number(r.sp).toFixed(2)}` : '—'}</td>
                       </tr>
