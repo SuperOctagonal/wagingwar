@@ -5,6 +5,7 @@ import { useUser } from '@clerk/nextjs';
 import ProfileRail from '@/components/ProfileRail';
 import useIsPro from '@/hooks/useIsPro';
 import useIsMobile from '@/hooks/useIsMobile';
+import useUserSettings from '@/hooks/useUserSettings';
 import UpgradeModal from '@/components/UpgradeModal';
 import { awardPoints } from '@/lib/points';
 import { parseCSV, buildRaces } from '@/lib/csvParser';
@@ -367,6 +368,8 @@ export default function MybetsPage() {
   const { user } = useUser();
   const isPro    = useIsPro();
   const isMobile = useIsMobile();
+  const { settings, loading: settingsLoading } = useUserSettings();
+  const settingsApplied = useRef(false);
 
   const [upgradeOpen,      setUpgradeOpen]      = useState(false);
   const [bets,             setBets]             = useState([]);
@@ -416,6 +419,20 @@ export default function MybetsPage() {
 
   const todayISO = new Date().toLocaleDateString('en-CA', { timeZone: 'Australia/Sydney' });
   const [now, setNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    if (settingsLoading || settingsApplied.current) return;
+    settingsApplied.current = true;
+    const rangeMap = { 'Today': 'today', 'This week': 'this_week', 'This month': 'this_month', 'All time': 'all_time' };
+    const viewMap  = { 'Table': 'table', 'Terminal': 'terminal', 'Sessions': 'sessions', 'Kanban': 'kanban' };
+    const mappedRange = rangeMap[settings.mybetsRange];
+    const mappedView  = viewMap[settings.mybetsView];
+    if (mappedRange) setDateRange(mappedRange);
+    if (mappedView)  setBetView(mappedView);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [settingsLoading]);
+
+  const showScratched = settings.mybetsShowScratched !== false;
 
   useEffect(() => {
     if (!user?.id) { setLoading(false); return; }
@@ -857,12 +874,14 @@ export default function MybetsPage() {
   }, [bets, todayISO]);
 
   const ledgerFilteredBets = useMemo(() => {
-    const base = dateFilteredBets.filter(b => b.status !== 'scratched');
+    const base = showScratched
+      ? dateFilteredBets
+      : dateFilteredBets.filter(b => b.status !== 'scratched');
     if (activeTab === 'all') return base;
     if (activeTab === 'upcoming') return base.filter(b => !b.status || b.status === 'pending' || b.status === 'unresolved');
     if (activeTab === 'resulted') return base.filter(b => b.status && b.status !== 'pending' && b.status !== 'unresolved');
     return base.filter(b => b.status === activeTab);
-  }, [dateFilteredBets, activeTab]);
+  }, [dateFilteredBets, activeTab, showScratched]);
 
   const tabStats = useMemo(() => calcRow(ledgerFilteredBets), [ledgerFilteredBets]);
 

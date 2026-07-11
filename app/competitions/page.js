@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useUser } from '@clerk/nextjs';
 import useIsPro from '@/hooks/useIsPro';
 import useIsMobile from '@/hooks/useIsMobile';
+import useUserSettings from '@/hooks/useUserSettings';
 import UpgradeModal from '@/components/UpgradeModal';
 import { parseCSV, buildRaces } from '@/lib/csvParser';
 import { scoreHorse, getDefaultWeights } from '@/lib/scoring';
@@ -198,7 +199,9 @@ export default function CompetitionsPage() {
   const isPro = useIsPro();
   const isMobile = useIsMobile();
   const router = useRouter();
+  const { settings } = useUserSettings();
   const [upgradeOpen, setUpgradeOpen] = useState(false);
+  const [hiddenFromLb, setHiddenFromLb] = useState(new Set());
 
   const [csvRaces, setCsvRaces]       = useState(null);
   const [csvStaleDate, setCsvStaleDate] = useState(null);
@@ -262,6 +265,7 @@ export default function CompetitionsPage() {
   const todayLeaderboard = useMemo(() => {
     const um = {};
     for (const r of allPicksData) {
+      if (hiddenFromLb.has(r.clerk_id)) continue;
       if (!um[r.clerk_id]) um[r.clerk_id] = { clerk_id: r.clerk_id, uname: r.username || 'User', picks: {} };
       um[r.clerk_id].picks[rk(r.venue, r.race_num)] = r.horse_name;
     }
@@ -283,7 +287,7 @@ export default function CompetitionsPage() {
     });
     entries.sort((a, b) => b.score - a.score);
     return entries.map((e, i) => ({ ...e, rank: i + 1 }));
-  }, [allPicksData, results, compRaces, selVenues, user?.id]);
+  }, [allPicksData, results, compRaces, selVenues, user?.id, hiddenFromLb]);
 
   const userScore = useMemo(() => {
     let s = 0;
@@ -302,7 +306,7 @@ export default function CompetitionsPage() {
   const entrantCount = useMemo(() => new Set(allPicksData.map(r => r.clerk_id)).size, [allPicksData]);
   const pickedCount  = useMemo(() => compRaces.filter(r => picks[rk(r.venue, r.num)]).length, [compRaces, picks]);
 
-  const lbRanked      = useMemo(() => applyLbRanks(aggregateLb(lbRows)),     [lbRows]);
+  const lbRanked      = useMemo(() => applyLbRanks(aggregateLb(lbRows.filter(r => !hiddenFromLb.has(r.clerk_id)))),     [lbRows, hiddenFromLb]);
   const lbPrevRanked  = useMemo(() => applyLbRanks(aggregateLb(lbPrevRows)), [lbPrevRows]);
   const lbPrevRankMap = useMemo(() => {
     const m = {};
@@ -639,6 +643,16 @@ export default function CompetitionsPage() {
     return () => clearInterval(id);
   }, [today]);
 
+  useEffect(() => {
+    if (!SURL || !SKEY) return;
+    fetch(`${SURL}/rest/v1/user_profiles?hide_from_lb=eq.true&select=clerk_id`, {
+      headers: { apikey: SKEY, Authorization: `Bearer ${SKEY}` },
+    })
+      .then(r => r.ok ? r.json() : [])
+      .then(rows => { if (Array.isArray(rows)) setHiddenFromLb(new Set(rows.map(r => r.clerk_id))); })
+      .catch(() => {});
+  }, []);
+
   async function savePick(race, horseName) {
     if (!horseName) return;
     const key = rk(race.venue, race.num);
@@ -649,7 +663,7 @@ export default function CompetitionsPage() {
     await sbFetch('comp_picks?on_conflict=clerk_id,comp_date,venue,race_num', {
       method: 'POST',
       prefer: 'resolution=merge-duplicates,return=minimal',
-      body: { clerk_id: user.id, comp_date: today, venue: normaliseVenue(race.venue||''), race_num: +race.num, horse_name: horseName, username: uname },
+      body: { clerk_id: user.id, comp_date: today, venue: normaliseVenue(race.venue||''), race_num: +race.num, horse_name: horseName, username: uname, hide_picks: settings.compShowPicks === false },
     });
     setSavingKey(null);
   }
@@ -665,7 +679,7 @@ export default function CompetitionsPage() {
       const res = await sbFetch('comp_picks?on_conflict=clerk_id,comp_date,venue,race_num', {
         method: 'POST',
         prefer: 'resolution=merge-duplicates,return=minimal',
-        body: { clerk_id: user.id, comp_date: today, venue: normaliseVenue(race.venue||''), race_num: +race.num, horse_name: horse, username: uname },
+        body: { clerk_id: user.id, comp_date: today, venue: normaliseVenue(race.venue||''), race_num: +race.num, horse_name: horse, username: uname, hide_picks: settings.compShowPicks === false },
       });
       if (res === null) allOk = false;
     }

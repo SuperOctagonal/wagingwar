@@ -6,6 +6,7 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import { useUser } from '@clerk/nextjs';
 import useIsPro from '@/hooks/useIsPro';
 import useIsMobile from '@/hooks/useIsMobile';
+import useUserSettings from '@/hooks/useUserSettings';
 import UpgradeModal from '@/components/UpgradeModal';
 import BottomSheet from '@/components/BottomSheet';
 import { awardPoints } from '@/lib/points';
@@ -1443,7 +1444,9 @@ function LockBtn({ onClick }) {
   );
 }
 
-function RunnerRow({ runner, rank, rc, trackCond, onLogBet, onShowPopup, onHidePopup, isResulted, betBlocked = false, isPro, onUpgrade, isDbScratched }) {
+const DEFAULT_COL_VIS = { form: true, speed: true, cond: true, conn: true, score: true, edge: true, value: true };
+
+function RunnerRow({ runner, rank, rc, trackCond, onLogBet, onShowPopup, onHidePopup, isResulted, betBlocked = false, isPro, onUpgrade, isDbScratched, colVis = DEFAULT_COL_VIS }) {
   const myO  = runner.myOdds;
   const mktO = runner.rawOdds;
   const pm   = calcPaceMap(runner, rc.venue, +rc.dist, trackCond);
@@ -1506,27 +1509,36 @@ function RunnerRow({ runner, rank, rc, trackCond, onLogBet, onShowPopup, onHideP
         {runner.starts}-{runner.wins}-{runner.seconds||0}-{runner.thirds||0}
       </td>
       {/* Group scores */}
-      {GRP_KEYS.map(gk => (
-        isDbScratched
-          ? <td key={gk} className="px-[6px] py-[5px] text-right" />
-          : !isPro
-            ? <td key={gk} className="px-[6px] py-[5px] text-right"><LockBtn onClick={onUpgrade} /></td>
-            : <GrpCell key={gk} grpKey={gk} grpScore={runner.grpScores[gk]} isBest={runner._grpIsBest?.[gk]} isWorst={runner._grpIsWorst?.[gk]} />
-      ))}
+      {GRP_KEYS.map(gk => {
+        if (!colVis[gk]) return null;
+        return (
+          isDbScratched
+            ? <td key={gk} className="px-[6px] py-[5px] text-right" />
+            : !isPro
+              ? <td key={gk} className="px-[6px] py-[5px] text-right"><LockBtn onClick={onUpgrade} /></td>
+              : <GrpCell key={gk} grpKey={gk} grpScore={runner.grpScores[gk]} isBest={runner._grpIsBest?.[gk]} isWorst={runner._grpIsWorst?.[gk]} />
+        );
+      })}
       {/* Total */}
-      <td className={`${td} text-right font-bold text-[12px] tabular-nums`} style={{ color: rankColor }}>
-        {isDbScratched ? '—' : !isPro ? <LockBtn onClick={onUpgrade} /> : runner.totalFromGroups.toFixed(1)}
-      </td>
+      {colVis.score && (
+        <td className={`${td} text-right font-bold text-[12px] tabular-nums`} style={{ color: rankColor }}>
+          {isDbScratched ? '—' : !isPro ? <LockBtn onClick={onUpgrade} /> : runner.totalFromGroups.toFixed(1)}
+        </td>
+      )}
       {/* Edge $ */}
-      <td className={`${td} text-right text-[11px] font-semibold text-emerald-600 tabular-nums whitespace-nowrap`}>
-        {!isPro ? <LockBtn onClick={onUpgrade} /> : (myO ? `$${formatRacingOdds(myO)}` : '—')}
-      </td>
+      {colVis.edge && (
+        <td className={`${td} text-right text-[11px] font-semibold text-emerald-600 tabular-nums whitespace-nowrap`}>
+          {!isPro ? <LockBtn onClick={onUpgrade} /> : (myO ? `$${formatRacingOdds(myO)}` : '—')}
+        </td>
+      )}
       {/* Ref $ */}
       <td className={`${td} text-right text-[11px] tabular-nums whitespace-nowrap`} style={{ color: '#111827' }}>{mktO ? `$${mktO.toFixed(2)}` : '—'}</td>
       {/* Value */}
-      <td className={`${td} text-right text-[10px] font-semibold tabular-nums whitespace-nowrap`} style={{ color: valColor }}>
-        {!isPro ? <LockBtn onClick={onUpgrade} /> : valStr}
-      </td>
+      {colVis.value && (
+        <td className={`${td} text-right text-[10px] font-semibold tabular-nums whitespace-nowrap`} style={{ color: valColor }}>
+          {!isPro ? <LockBtn onClick={onUpgrade} /> : valStr}
+        </td>
+      )}
       {/* Bet */}
       <td className={`${td} text-center`}>
         <button onClick={() => !betBlocked && onLogBet(runner, rank)} disabled={betBlocked}
@@ -1551,7 +1563,7 @@ function RunnerRow({ runner, rank, rc, trackCond, onLogBet, onShowPopup, onHideP
   );
 }
 
-function FieldView({ results, scratched, rc, trackCond, onLogBet, onShowPopup, onHidePopup, isResulted, betBlocked = false, isPro, onUpgrade, scratchingsSet = new Set() }) {
+function FieldView({ results, scratched, rc, trackCond, onLogBet, onShowPopup, onHidePopup, isResulted, betBlocked = false, isPro, onUpgrade, scratchingsSet = new Set(), colVis = DEFAULT_COL_VIS }) {
   const tcLabel = { good:'Good', soft:'Soft', heavy:'Heavy', synthetic:'Synth' }[trackCond] || 'Good';
   const scrKey = h => `${normaliseVenue(rc.venue)}||${rc.num}||${stripCountry(h.name).toUpperCase()}`;
   const activeResults = results.filter(h => !scratchingsSet.has(scrKey(h)));
@@ -1566,21 +1578,21 @@ function FieldView({ results, scratched, rc, trackCond, onLogBet, onShowPopup, o
     <>
       {/* Desktop table */}
       <div className="hidden md:block flex-1 overflow-y-auto overflow-x-hidden">
-        <table className="w-full border-collapse" style={{ tableLayout: 'fixed' }}>
+        <table className="w-full border-collapse" style={{ tableLayout: 'auto' }}>
           <thead>
             <tr className="border-b border-gray-200">
               <th style={{ ...th, textAlign:'center', width:'3%' }}>RANK</th>
               <th style={{ ...th, textAlign:'left', width:'18%' }}>Horse / Jockey / Trainer</th>
               <th style={{ ...th, textAlign:'center', width:'7%' }}>Last 4 →</th>
               <th style={{ ...th, textAlign:'center', width:'6%', paddingLeft: 14 }}>Record</th>
-              <th style={{ ...th, textAlign:'right', width:'5%', color: GRP_LABELS.form.color }}>Form</th>
-              <th style={{ ...th, textAlign:'right', width:'5%', color: GRP_LABELS.speed.color }}>Speed</th>
-              <th style={{ ...th, textAlign:'right', width:'5%', color: GRP_LABELS.cond.color }}>{tcLabel}</th>
-              <th style={{ ...th, textAlign:'right', width:'5%', color: GRP_LABELS.conn.color }}>Conn</th>
-              <th style={{ ...th, textAlign:'right', width:'5%' }}>Score</th>
-              <th style={{ ...th, textAlign:'right', width:'6%' }}>Edge $</th>
+              {colVis.form && <th style={{ ...th, textAlign:'right', width:'5%', color: GRP_LABELS.form.color }}>Form</th>}
+              {colVis.speed && <th style={{ ...th, textAlign:'right', width:'5%', color: GRP_LABELS.speed.color }}>Speed</th>}
+              {colVis.cond && <th style={{ ...th, textAlign:'right', width:'5%', color: GRP_LABELS.cond.color }}>{tcLabel}</th>}
+              {colVis.conn && <th style={{ ...th, textAlign:'right', width:'5%', color: GRP_LABELS.conn.color }}>Conn</th>}
+              {colVis.score && <th style={{ ...th, textAlign:'right', width:'5%' }}>Score</th>}
+              {colVis.edge && <th style={{ ...th, textAlign:'right', width:'6%' }}>Edge $</th>}
               <th style={{ ...th, textAlign:'right', width:'6%' }}>Ref $</th>
-              <th style={{ ...th, textAlign:'right', width:'5%' }}>Value</th>
+              {colVis.value && <th style={{ ...th, textAlign:'right', width:'5%' }}>Value</th>}
               <th style={{ ...th, width:'8%' }} />
               <th style={{ ...th, textAlign:'left', width:'16%' }}>
                 <span style={{marginRight:4}}>Pace</span>
@@ -1595,16 +1607,16 @@ function FieldView({ results, scratched, rc, trackCond, onLogBet, onShowPopup, o
           </thead>
           <tbody>
             {activeResults.map((r, i) => (
-              <RunnerRow key={r.tab || r.name} runner={r} rank={i+1} rc={rc} trackCond={trackCond} onLogBet={onLogBet} onShowPopup={onShowPopup} onHidePopup={onHidePopup} isResulted={isResulted} betBlocked={betBlocked} isPro={isPro} onUpgrade={onUpgrade} />
+              <RunnerRow key={r.tab || r.name} runner={r} rank={i+1} rc={rc} trackCond={trackCond} onLogBet={onLogBet} onShowPopup={onShowPopup} onHidePopup={onHidePopup} isResulted={isResulted} betBlocked={betBlocked} isPro={isPro} onUpgrade={onUpgrade} colVis={colVis} />
             ))}
             {dbScratched.map(r => (
-              <RunnerRow key={r.tab || r.name} runner={r} rank={null} rc={rc} trackCond={trackCond} onLogBet={onLogBet} onShowPopup={onShowPopup} onHidePopup={onHidePopup} isResulted={true} betBlocked isPro={isPro} onUpgrade={onUpgrade} isDbScratched />
+              <RunnerRow key={r.tab || r.name} runner={r} rank={null} rc={rc} trackCond={trackCond} onLogBet={onLogBet} onShowPopup={onShowPopup} onHidePopup={onHidePopup} isResulted={true} betBlocked isPro={isPro} onUpgrade={onUpgrade} isDbScratched colVis={colVis} />
             ))}
           </tbody>
           {scratched.length > 0 && (
             <tfoot>
               <tr>
-                <td colSpan={14} className="px-3 py-2 text-[10px] text-gray-400 border-t border-gray-100 bg-gray-50">
+                <td colSpan={20} className="px-3 py-2 text-[10px] text-gray-400 border-t border-gray-100 bg-gray-50">
                   Scratched: {scratched.map(h => h.name).join(' · ')}
                 </td>
               </tr>
@@ -2204,6 +2216,8 @@ function RacesPageInner() {
   const router       = useRouter();
   const { user }     = useUser();
   const isPro        = useIsPro();
+  const { settings: userSettings, loading: settingsLoading } = useUserSettings();
+  const preferredViewRef = useRef('field');
   console.log('[Tier] isPro:', isPro, 'plan:', user?.publicMetadata?.plan);
 
   const [allRaces,    setAllRaces]    = useState({});
@@ -2230,6 +2244,25 @@ function RacesPageInner() {
     const id = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(id);
   }, []);
+
+  useEffect(() => {
+    if (settingsLoading) return;
+    const map = { 'Field': 'field', 'Form': 'form', 'Pace Map': 'pacemap' };
+    const mapped = map[userSettings.racesTab] || 'field';
+    preferredViewRef.current = mapped;
+    if (!Object.keys(allRaces).length) setView(mapped);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [settingsLoading]);
+
+  const colVis = isPro ? {
+    form: userSettings.colForm !== false,
+    speed: userSettings.colSpeed !== false,
+    cond: userSettings.colConditions !== false,
+    conn: userSettings.colConnections !== false,
+    score: userSettings.colScore !== false,
+    edge: userSettings.colEdge !== false,
+    value: userSettings.colValue !== false,
+  } : { form: true, speed: true, cond: true, conn: true, score: true, edge: true, value: true };
 
   const currentRace = selectedKey ? allRaces[selectedKey] : null;
   const trackCond = (currentRace && trackConds[currentRace.venue]) || 'good';
@@ -2295,7 +2328,7 @@ function RacesPageInner() {
         return bestKey || rk[0];
       })();
       setSelectedKey(selectKey && rk.includes(selectKey) ? selectKey : defaultKey);
-      setFileName(name); setView('field');
+      setFileName(name); setView(preferredViewRef.current);
     } catch (err) { alert('Error parsing CSV: ' + err.message); }
   }, []);
 
@@ -2626,7 +2659,7 @@ function RacesPageInner() {
                         onShowPopup={showHorsePopup} onHidePopup={hideHorsePopup}
                         isResulted={!!currentRaceResult} betBlocked={betBlocked}
                         isPro={isPro} onUpgrade={() => setUpgradeOpen(true)}
-                        scratchingsSet={scratchingsSet} />
+                        scratchingsSet={scratchingsSet} colVis={colVis} />
                     </div>
                   )}
                   {view === 'form' && (

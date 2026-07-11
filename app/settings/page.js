@@ -56,11 +56,10 @@ const DEFAULTS = {
   racesTab: 'Field', racesGroup: 'All', racesMinRunners: 'None',
   colForm: true, colSpeed: true, colConditions: true, colConnections: true,
   colScore: true, colEdge: true, colValue: true,
-  mybetsRange: 'All time', mybetsView: 'Table', mybetsShowScratched: true, mybetsAutoSettle: false,
+  mybetsRange: 'All time', mybetsView: 'Table', mybetsShowScratched: true,
   insightsPeriod: 'All time', insightsMinBets: 5, kellyFraction: 'Half Kelly',
   compAutoEnter: false, compShowPicks: true, compLeaderboard: true,
   theme: 'Dark', density: 'Comfortable', fontSize: 'Medium', paceMapDefault: false,
-  optOutStats: false,
 };
 
 function initials(name) {
@@ -252,11 +251,18 @@ export default function SettingsPage() {
   async function save() {
     if (!user?.id) return;
     setSaving(true);
-    const res = await sbFetch('user_settings?on_conflict=clerk_id', {
-      method: 'POST',
-      prefer: 'return=minimal,resolution=merge-duplicates',
-      body: { clerk_id: user.id, settings: s, updated_at: new Date().toISOString() },
-    });
+    const [res] = await Promise.all([
+      sbFetch('user_settings?on_conflict=clerk_id', {
+        method: 'POST',
+        prefer: 'return=minimal,resolution=merge-duplicates',
+        body: { clerk_id: user.id, settings: s, updated_at: new Date().toISOString() },
+      }),
+      sbFetch(`user_profiles?clerk_id=eq.${encodeURIComponent(user.id)}`, {
+        method: 'PATCH',
+        prefer: 'return=minimal',
+        body: { hide_from_lb: s.compLeaderboard === false },
+      }),
+    ]);
     setSaving(false);
     showToast(res !== null ? 'saved' : 'error');
   }
@@ -368,8 +374,12 @@ export default function SettingsPage() {
             <Inp value={email} onChange={() => {}} readOnly />
           </Field>
           <Field label="State">
-            <Sel value={s.state} onChange={v => set('state', v)}
-              options={['QLD','NSW','VIC','SA','WA','TAS','ACT','NT']} />
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <div style={{ opacity: 0.4, pointerEvents: 'none' }}>
+                <Sel value={s.state} onChange={() => {}} options={['QLD','NSW','VIC','SA','WA','TAS','ACT','NT']} />
+              </div>
+              <CSoon />
+            </div>
           </Field>
           <Field label="Avatar">
             <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
@@ -468,13 +478,28 @@ export default function SettingsPage() {
               <Sel value={s.defBetType} onChange={v => set('defBetType', v)} options={['Win','Place','Each-way']} />
             </Field>
             <Field label="Odds format">
-              <Sel value={s.oddsFormat} onChange={v => set('oddsFormat', v)} options={['Decimal','Fractional']} />
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <div style={{ opacity: 0.4, pointerEvents: 'none' }}>
+                  <Sel value={s.oddsFormat} onChange={() => {}} options={['Decimal','Fractional']} />
+                </div>
+                <CSoon />
+              </div>
             </Field>
             <Field label="Bankroll ($)" hint="Used to calculate Kelly stake on the Insights page">
-              <Inp type="number" value={s.bankroll} onChange={v => set('bankroll', v)} placeholder="1000" />
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <div style={{ opacity: 0.4, pointerEvents: 'none' }}>
+                  <Inp type="number" value={s.bankroll} onChange={() => {}} placeholder="1000" />
+                </div>
+                <CSoon />
+              </div>
             </Field>
             <Field label="Staking alert threshold ($)" hint="Warn if a single bet exceeds this amount">
-              <Inp type="number" value={s.stakingAlert} onChange={v => set('stakingAlert', v)} placeholder="200" />
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <div style={{ opacity: 0.4, pointerEvents: 'none' }}>
+                  <Inp type="number" value={s.stakingAlert} onChange={() => {}} placeholder="200" />
+                </div>
+                <CSoon />
+              </div>
             </Field>
             <SaveBt saving={saving} onClick={save} />
           </>
@@ -489,11 +514,20 @@ export default function SettingsPage() {
               <Sel value={s.racesTab} onChange={v => set('racesTab', v)} options={['Field','Form','Pace Map']} />
             </Field>
             <Field label="Default scoring group">
-              <Sel value={s.racesGroup} onChange={v => set('racesGroup', v)}
-                options={['All','Speed','Form','Connections','Conditions']} />
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <div style={{ opacity: 0.4, pointerEvents: 'none' }}>
+                  <Sel value={s.racesGroup} onChange={() => {}} options={['All','Speed','Form','Connections','Conditions']} />
+                </div>
+                <CSoon />
+              </div>
             </Field>
             <Field label="Minimum runners filter">
-              <Sel value={s.racesMinRunners} onChange={v => set('racesMinRunners', v)} options={['None','4','6','8']} />
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <div style={{ opacity: 0.4, pointerEvents: 'none' }}>
+                  <Sel value={s.racesMinRunners} onChange={() => {}} options={['None','4','6','8']} />
+                </div>
+                <CSoon />
+              </div>
             </Field>
             <div style={{ marginBottom: 20 }}>
               <div style={{ fontSize: 13, fontWeight: 500, color: '#374151', marginBottom: 10 }}>Column visibility</div>
@@ -525,8 +559,9 @@ export default function SettingsPage() {
                 options={['Table','Terminal','Sessions','Kanban']} />
             </Field>
             <TRow label="Show scratched bets" on={s.mybetsShowScratched} onChange={v => set('mybetsShowScratched', v)} />
-            <TRow label="Auto-settle bets" hint="Automatically settle bets when results are available"
-              on={s.mybetsAutoSettle} onChange={v => set('mybetsAutoSettle', v)} />
+            <div style={{ fontSize: 12, color: '#6b7280', marginBottom: 16, padding: '10px 12px', background: '#f9fafb', borderRadius: 6, border: '1px solid #e5e7eb' }}>
+              Bets are automatically matched to results when you open the page.
+            </div>
             <SaveBt saving={saving} onClick={save} />
           </>
         </ProGate>
@@ -556,11 +591,13 @@ export default function SettingsPage() {
         <ProGate isPro={isPro}>
           <>
             <SecTitle>Competition</SecTitle>
-            <TRow
-              label="Auto-enter with model rank 1 picks"
-              hint="Automatically submit the model rank 1 horse as your pick before jump"
-              on={s.compAutoEnter} onChange={v => set('compAutoEnter', v)}
-            />
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, marginBottom: 16 }}>
+              <div style={{ opacity: 0.4, pointerEvents: 'none', marginTop: 1 }}><Toggle on={false} onChange={() => {}} /></div>
+              <div>
+                <div style={{ fontSize: 13, color: '#111' }}>Auto-enter with model rank 1 picks <CSoon /></div>
+                <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 2 }}>Automatically submit the model rank 1 horse as your pick before jump</div>
+              </div>
+            </div>
             <TRow
               label="Show my picks to other users"
               hint="Your picks count towards the Most Popular percentages"
@@ -589,13 +626,25 @@ export default function SettingsPage() {
             </div>
           </Field>
           <Field label="Table density">
-            <Sel value={s.density} onChange={v => set('density', v)} options={['Compact','Comfortable']} />
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <div style={{ opacity: 0.4, pointerEvents: 'none' }}>
+                <Sel value={s.density} onChange={() => {}} options={['Compact','Comfortable']} />
+              </div>
+              <CSoon />
+            </div>
           </Field>
           <Field label="Table font size">
-            <Sel value={s.fontSize} onChange={v => set('fontSize', v)}
-              options={['Small (11px)','Medium (12px)','Large (13px)']} />
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <div style={{ opacity: 0.4, pointerEvents: 'none' }}>
+                <Sel value={s.fontSize} onChange={() => {}} options={['Small (11px)','Medium (12px)','Large (13px)']} />
+              </div>
+              <CSoon />
+            </div>
           </Field>
-          <TRow label="Show pace map by default" on={s.paceMapDefault} onChange={v => set('paceMapDefault', v)} />
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, marginBottom: 16 }}>
+            <div style={{ opacity: 0.4, pointerEvents: 'none', marginTop: 1 }}><Toggle on={false} onChange={() => {}} /></div>
+            <div style={{ fontSize: 13, color: '#111' }}>Show pace map by default <CSoon /></div>
+          </div>
           <SaveBt saving={saving} onClick={save} />
         </>
       );
@@ -603,11 +652,9 @@ export default function SettingsPage() {
       case 'privacy': return (
         <>
           <SecTitle>Data &amp; privacy</SecTitle>
-          <TRow
-            label="Opt out of anonymous competition stats"
-            hint="Your picks won't count towards the Most Popular percentages"
-            on={s.optOutStats} onChange={v => set('optOutStats', v)}
-          />
+          <p style={{ fontSize: 13, color: '#374151', marginBottom: 20 }}>
+            To hide your picks from the Most Popular percentages, go to <strong>Competition</strong> settings and disable &ldquo;Show my picks to other users&rdquo;.
+          </p>
           <SaveBt saving={saving} onClick={save} />
 
           <div style={{ marginTop: 32, paddingTop: 24, borderTop: '1px solid #e5e7eb' }}>
