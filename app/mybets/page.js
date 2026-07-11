@@ -373,7 +373,7 @@ function BetCountdown({ bet, isFirst = false }) {
 // ─── Page ────────────────────────────────────────────────────────────────────
 
 export default function MybetsPage() {
-  const { user } = useUser();
+  const { user, isLoaded } = useUser();
   const isPro    = useIsPro();
   const isMobile = useIsMobile();
   const { settings, loading: settingsLoading } = useUserSettings();
@@ -443,7 +443,7 @@ export default function MybetsPage() {
   const showScratched = settings.mybetsShowScratched !== false;
 
   useEffect(() => {
-    if (!user?.id) { setLoading(false); return; }
+    if (!user?.id || !isPro) { setLoading(false); return; }
     loadBets(user.id).then(async loaded => {
       setBets(loaded);
       setLoading(false);
@@ -488,7 +488,7 @@ export default function MybetsPage() {
         }
       }
     });
-  }, [user?.id]);
+  }, [user?.id, isPro]);
 
   // Keep `now` fresh so countdown timers update (1s for live negative countdown)
   useEffect(() => { const id = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(id); }, []);
@@ -1084,6 +1084,29 @@ export default function MybetsPage() {
   const sbStreakLabel = heroStreak ? `${heroStreak.type}${heroStreak.count}` : '—';
   const sbStreakColor = heroStreak?.type === 'W' ? '#059669' : heroStreak?.type === 'L' ? '#dc2626' : '#9ca3af';
   const nextBetsPanel = null;
+
+  if (!isLoaded) return null;
+  if (isPro === false) {
+    return (
+      <div>
+        <div style={{ background: '#00471b', padding: '14px 24px' }}>
+          <div style={{ fontSize: 22, fontWeight: 800, color: '#fff', letterSpacing: 2, fontFamily: 'Bebas Neue, sans-serif' }}>My Bets</div>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 'calc(100vh - 56px)', background: '#f9fafb' }}>
+          <div style={{ textAlign: 'center', maxWidth: 380, padding: '0 24px' }}>
+            <div style={{ fontSize: 40, marginBottom: 16 }}>&#128196;</div>
+            <h2 style={{ fontSize: 18, fontWeight: 700, color: '#111', marginBottom: 8 }}>My Bets is a Pro feature</h2>
+            <p style={{ fontSize: 13, color: '#6b7280', lineHeight: 1.6, marginBottom: 24 }}>
+              Track your bets, monitor P&amp;L, analyse your edge and manage your war record.
+            </p>
+            <a href="/account" style={{ display: 'inline-block', background: '#00471b', color: '#fff', borderRadius: 8, padding: '11px 28px', fontSize: 14, fontWeight: 600, textDecoration: 'none' }}>
+              Upgrade to Pro
+            </a>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="mob-page" style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>

@@ -1,11 +1,16 @@
 import { NextResponse } from 'next/server';
+import { auth } from '@clerk/nextjs/server';
 
-const SURL = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const SKEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+const SURL  = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const SKEY  = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+const ADMIN = 'user_3ELAZyaOPUNLmkzOfuThRoCEHaG';
 
 const VALID = new Set(['good', 'soft', 'heavy', 'synthetic']);
 
 export async function POST(req) {
+  const { userId } = await auth();
+  if (!userId) return NextResponse.json({ error: 'Unauthenticated' }, { status: 401 });
+  if (userId !== ADMIN) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   const { venue, date, condition } = await req.json().catch(() => ({}));
 
   if (!venue || !date || !condition) {

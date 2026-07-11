@@ -1016,11 +1016,13 @@ function CommunityPageInner() {
 
   const handleNewPost = useCallback(async ({ section: sec, title, body }) => {
     if (!userId) return false;
-    const result = await sb('posts?select=*', {
+    const res = await fetch('/api/community/post', {
       method: 'POST',
-      body: { user_id: userId, section: sec, title, body, votes: 0, reply_count: 0 },
-      prefer: 'return=representation',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ section: sec, title, body }),
     });
+    if (!res.ok) return false;
+    const result = await res.json();
     if (result && result.length) {
       setPosts(ps => [{ ...result[0], author: profile }, ...ps]);
       window.dispatchEvent(new Event('ww:profile:refresh'));

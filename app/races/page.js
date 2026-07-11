@@ -2529,17 +2529,20 @@ function RacesPageInner() {
     const res = active.map(h => {
       const liveBarrier = barrierMap.get(h.name) ?? +h['BP'] ?? 99;
       const hScored = { ...h, 'BP': liveBarrier };
+      if (!isPro) return { ...hScored, grpScores: {}, totalFromGroups: 0, myOdds: null };
       const grpScores = {};
       GRP_KEYS.forEach(gk => { grpScores[gk] = scoreGroup(hScored, gk, weights, trackCond); });
       const totalFromGroups = GRP_KEYS.reduce((a, gk) => a + grpScores[gk].total, 0);
       return { ...hScored, grpScores, totalFromGroups };
     }).sort((a, b) => b.totalFromGroups - a.totalFromGroups);
 
-    const oddsArr = calculateMatrixOdds(res);
-    res.forEach((r, i) => { r.myOdds = oddsArr[i]; });
+    if (isPro) {
+      const oddsArr = calculateMatrixOdds(res);
+      res.forEach((r, i) => { r.myOdds = oddsArr[i]; });
+    }
 
     // Best/worst per group for cell highlighting
-    GRP_KEYS.forEach(gk => {
+    if (isPro) GRP_KEYS.forEach(gk => {
       const vals = res.map(r => r.grpScores[gk].total);
       const best = Math.max(...vals), worst = Math.min(...vals);
       res.forEach(r => {
@@ -2555,7 +2558,7 @@ function RacesPageInner() {
     const allHorsesForDisplay = [...res, ...dbScratchedOnly];
 
     return { results: res, scratched: scr, scratchingsSet: s, allHorsesForDisplay };
-  }, [currentRace, trackCond, weights, scratchedRows]);
+  }, [currentRace, trackCond, weights, scratchedRows, isPro]);
 
   const handleSelectRace = useCallback(key => {
     setSelectedKey(key);

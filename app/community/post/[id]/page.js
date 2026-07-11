@@ -192,19 +192,22 @@ export default function PostDetailPage() {
   const handleAddReply = useCallback(async () => {
     if (!replyText.trim() || !userId || !post) return;
     setSubmitting(true);
-    const result = await sb('replies?select=*', {
+    const res = await fetch('/api/community/reply', {
       method: 'POST',
-      body: { post_id: post.id, clerk_id: userId, content: replyText.trim(), votes: 0 },
-      prefer: 'return=representation',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ post_id: post.id, content: replyText.trim() }),
     });
-    if (result && result.length) {
-      setReplies(rs => [...rs, { ...result[0], author: userProfile }]);
-      const newCount = (post.reply_count || 0) + 1;
-      await sb(`posts?id=eq.${post.id}`, { method: 'PATCH', body: { reply_count: newCount }, prefer: 'return=minimal' });
-      setPost(p => ({ ...p, reply_count: newCount }));
-      setReplyText('');
-      window.dispatchEvent(new Event('ww:profile:refresh'));
-      awardPoints(userId, 'community_reply', replyText.trim().slice(0, 100)).catch(() => {});
+    if (res.ok) {
+      const result = await res.json();
+      if (result && result.length) {
+        setReplies(rs => [...rs, { ...result[0], author: userProfile }]);
+        const newCount = (post.reply_count || 0) + 1;
+        await sb(`posts?id=eq.${post.id}`, { method: 'PATCH', body: { reply_count: newCount }, prefer: 'return=minimal' });
+        setPost(p => ({ ...p, reply_count: newCount }));
+        setReplyText('');
+        window.dispatchEvent(new Event('ww:profile:refresh'));
+        awardPoints(userId, 'community_reply', replyText.trim().slice(0, 100)).catch(() => {});
+      }
     }
     setSubmitting(false);
   }, [replyText, userId, post, userProfile]);
