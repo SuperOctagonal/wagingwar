@@ -314,7 +314,7 @@ function LeftRail({ allVenues, allRaces, selectedRaceKey, onSelect, trackConds, 
         style={{
           position: 'relative',
           margin: '5px 8px',
-          padding: '8px 10px 7px',
+          padding: '8px 7px 7px',
           borderRadius: 6,
           background: isActive ? 'rgba(0,71,27,0.30)' : 'rgba(255,255,255,0.05)',
           border: '1px solid rgba(255,255,255,0.10)',
@@ -352,7 +352,7 @@ function LeftRail({ allVenues, allRaces, selectedRaceKey, onSelect, trackConds, 
         </div>
 
         {/* Race buttons: label + bar merged for a larger tap target */}
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 2, marginBottom: nextLabel && nextRc ? 5 : 0 }}>
+        <div style={{ display: 'flex', gap: 1, marginBottom: nextLabel && nextRc ? 5 : 0 }}>
           {raceKeys.map((k, i) => {
             const status = segStatus(venue, allRaces[k]);
             return (
@@ -362,9 +362,9 @@ function LeftRail({ allVenues, allRaces, selectedRaceKey, onSelect, trackConds, 
                 title={`R${allRaces[k]?.num}`}
                 onMouseEnter={e => { e.currentTarget.lastElementChild.style.boxShadow = 'inset 0 0 0 1px #fff'; }}
                 onMouseLeave={e => { e.currentTarget.lastElementChild.style.boxShadow = 'none'; }}
-                style={{ flex: 1, minWidth: 16, cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}
+                style={{ flex: 1, cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, minWidth: 0 }}
               >
-                <div style={{ fontSize: 10, color: '#fff', lineHeight: 1, textAlign: 'center', width: '100%' }}>
+                <div style={{ fontSize: 8, color: '#fff', lineHeight: 1, textAlign: 'center', width: '100%', overflow: 'hidden' }}>
                   R{allRaces[k]?.num}
                 </div>
                 <div style={{
