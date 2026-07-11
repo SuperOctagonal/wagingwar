@@ -271,7 +271,7 @@ export default function BlackbookPage() {
 
   useEffect(() => {
     if (!isLoaded) return;
-    if (!userId) { setLoading(false); return; }
+    if (!userId || !isPro) { setLoading(false); return; }
     sb(`blackbook?clerk_id=eq.${userId}&order=added_at.desc`).then(r => {
       setHorses(r || []);
       setLoading(false);
@@ -279,7 +279,7 @@ export default function BlackbookPage() {
   }, [isLoaded, userId]);
 
   useEffect(() => {
-    if (!isLoaded || !userId || horses.length === 0) return;
+    if (!isLoaded || !userId || !isPro || horses.length === 0) return;
     const since = new Date();
     since.setDate(since.getDate() - 7);
     const sinceDate = since.toISOString().slice(0, 10);
@@ -328,6 +328,7 @@ export default function BlackbookPage() {
   }, [horses, userId, isLoaded]);
 
   useEffect(() => {
+    if (!isPro) return;
     sb('blackbook?select=horse_name').then(all => {
       if (!all) return;
       const counts = {};
@@ -337,7 +338,7 @@ export default function BlackbookPage() {
   }, []);
 
   useEffect(() => {
-    if (!horses.length) return;
+    if (!horses.length || !isPro) return;
     horses.forEach(h => {
       if (!h.added_at) return;
       const normHorse = normName(h.horse_name);
@@ -368,7 +369,7 @@ export default function BlackbookPage() {
   }, [horses]);
 
   useEffect(() => {
-    if (!horses.length) return;
+    if (!horses.length || !isPro) return;
     horses.forEach(h => {
       const normHorse = normName(h.horse_name);
       sb(`race_results?horse_name=ilike.${encodeURIComponent(normHorse + '%')}&order=date.desc&limit=5&select=horse_name,date,trainer,jockey`)

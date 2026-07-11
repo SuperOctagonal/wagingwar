@@ -1,11 +1,13 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
+import { useUser } from '@clerk/nextjs';
 import { parseCSV, buildRaces } from '@/lib/csvParser';
 import { scoreGroup, getDefaultWeights, GRP_KEYS, calcPaceMap } from '@/lib/scoring';
 import { normaliseVenue } from '@/lib/venues';
 import ProfileRail from '@/components/ProfileRail';
 import useIsMobile from '@/hooks/useIsMobile';
+import useIsPro from '@/hooks/useIsPro';
 
 const SURL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SKEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -541,6 +543,8 @@ function ResultsDetail({ meeting, venue, allRaces, allVenues, weights, dbScratch
 
 export default function ResultsPage() {
   const isMobile = useIsMobile();
+  const { user } = useUser();
+  const isPro = useIsPro();
   const [allRaces, setAllRaces] = useState({});
   const [allVenues, setAllVenues] = useState({});
   const [dbRows, setDbRows] = useState([]);
@@ -585,8 +589,8 @@ export default function ResultsPage() {
           .catch(() => new Set())
       : Promise.resolve(new Set());
     const todayCheck = new Date().toLocaleDateString('sv-SE', { timeZone: 'Australia/Brisbane' });
-    const cardFetch = hdrs && selectedDate !== todayCheck
-      ? fetch(`${SURL}/rest/v1/race_cards?date=eq.${selectedDate}&select=*`, { headers: hdrs }).then(r => r.ok ? r.json() : [])
+    const cardFetch = user?.id && selectedDate !== todayCheck
+      ? fetch(`/api/race-cards?date=${selectedDate}`).then(r => r.ok ? r.json() : [])
       : Promise.resolve([]);
     Promise.all([fetchResultsForDate(selectedDate), scrFetch, abandonedFetch, cardFetch]).then(([rows, scrRows, abandoned, cards]) => {
       setDbRows(rows || []);
@@ -595,7 +599,7 @@ export default function ResultsPage() {
       setCardRows(cards || []);
       setLoading(false);
     });
-  }, [selectedDate]);
+  }, [selectedDate, user?.id]);
 
   const grouped = useMemo(() => {
     const g = {};

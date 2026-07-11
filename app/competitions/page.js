@@ -195,7 +195,7 @@ const MEDAL_ICON   = ['🥇', '🥈', '🥉'];
 const RANK_COLOR   = ['#d97706', '#6b7280', '#7c3aed'];
 
 export default function CompetitionsPage() {
-  const { user } = useUser();
+  const { user, isLoaded } = useUser();
   const isPro = useIsPro();
   const isMobile = useIsMobile();
   const router = useRouter();
@@ -514,7 +514,7 @@ export default function CompetitionsPage() {
   }, []);
 
   useEffect(() => {
-    if (!user?.id || !SURL || !SKEY) return;
+    if (!user?.id || !isPro || !SURL || !SKEY) return;
     sbFetch(`comp_picks?clerk_id=eq.${encodeURIComponent(user.id)}&comp_date=eq.${today}&select=venue,race_num,horse_name`)
       .then(rows => {
         if (!Array.isArray(rows)) return;
@@ -526,7 +526,7 @@ export default function CompetitionsPage() {
   }, [user?.id, today]);
 
   useEffect(() => {
-    if (!SURL || !SKEY) return;
+    if (!SURL || !SKEY || !isPro) return;
     function load() {
       sbFetch(`comp_results?comp_date=eq.${today}&select=venue,race_num,winner`)
         .then(rows => {
@@ -542,7 +542,7 @@ export default function CompetitionsPage() {
   }, [today]);
 
   useEffect(() => {
-    if (!SURL || !SKEY) return;
+    if (!SURL || !SKEY || !isPro) return;
     function loadScr() {
       sbFetch(`scratchings?date=eq.${today}&select=venue,race_num,horse_name`).then(rows => {
         if (!Array.isArray(rows)) return;
@@ -557,7 +557,7 @@ export default function CompetitionsPage() {
   }, [today]);
 
   useEffect(() => {
-    if (!SURL || !SKEY) return;
+    if (!SURL || !SKEY || !isPro) return;
     function loadAll() {
       sbFetch(`comp_picks_popular?comp_date=eq.${today}&select=venue,race_num,horse_name,pick_count`)
         .then(rows => { if (Array.isArray(rows)) setPopularData(rows); });
@@ -570,7 +570,7 @@ export default function CompetitionsPage() {
   }, [today]);
 
   useEffect(() => {
-    if (!user?.id || !SURL || !SKEY) return;
+    if (!user?.id || !isPro || !SURL || !SKEY) return;
     sbFetch(`points_log?clerk_id=eq.${encodeURIComponent(user.id)}&select=points`)
       .then(rows => {
         if (!Array.isArray(rows)) return;
@@ -591,7 +591,7 @@ export default function CompetitionsPage() {
   }, []);
 
   useEffect(() => {
-    if (mainTab !== 'alltime') return;
+    if (mainTab !== 'alltime' || !isPro) return;
     let cancelled = false;
     setLbLoading(true);
     const { start, end } = getLbDateRange(lbTab);
@@ -605,26 +605,26 @@ export default function CompetitionsPage() {
 
   // ─── New useEffects for record + P&L data ────────────────────────────────────
   useEffect(() => {
-    if (!SURL || !SKEY) return;
+    if (!SURL || !SKEY || !isPro) return;
     sbFetch('comp_scores?select=comp_date,clerk_id,username,correct,total,score,streak')
       .then(rows => { if (Array.isArray(rows)) setAllCompScoresData(rows); });
   }, []);
 
   useEffect(() => {
-    if (!user?.id || !SURL || !SKEY) return;
+    if (!user?.id || !isPro || !SURL || !SKEY) return;
     sbFetch(`comp_picks?clerk_id=eq.${encodeURIComponent(user.id)}&select=comp_date,venue,race_num,horse_name`)
       .then(rows => { if (Array.isArray(rows)) setUserAllPicksData(rows); });
   }, [user?.id]);
 
   useEffect(() => {
-    if (!SURL || !SKEY) return;
+    if (!SURL || !SKEY || !isPro) return;
     sbFetch('comp_results?select=comp_date,venue,race_num,winner')
       .then(rows => { if (Array.isArray(rows)) setAllCompResultsData(rows); });
   }, []);
 
   // Two-phase: fires after userAllPicksData resolves; fetches SP + finish_pos for all pick dates
   useEffect(() => {
-    if (!userAllPicksData.length || !SURL || !SKEY) return;
+    if (!userAllPicksData.length || !SURL || !SKEY || !isPro) return;
     const dates = [...new Set(userAllPicksData.map(p => p.comp_date))];
     if (!dates.length) return;
     sbFetch(`race_results?date=in.(${dates.join(',')})&select=date,venue,race_num,horse_name,sp,finish_pos`)
@@ -633,7 +633,7 @@ export default function CompetitionsPage() {
 
   // Today race_results polled for live finish positions in result pills
   useEffect(() => {
-    if (!SURL || !SKEY) return;
+    if (!SURL || !SKEY || !isPro) return;
     function loadTodayRR() {
       sbFetch(`race_results?date=eq.${today}&select=venue,race_num,horse_name,sp,finish_pos`)
         .then(rows => { if (Array.isArray(rows)) setTodayRaceResultsData(rows); });
@@ -644,7 +644,7 @@ export default function CompetitionsPage() {
   }, [today]);
 
   useEffect(() => {
-    if (!SURL || !SKEY) return;
+    if (!SURL || !SKEY || !isPro) return;
     fetch(`${SURL}/rest/v1/user_profiles?hide_from_lb=eq.true&select=clerk_id`, {
       headers: { apikey: SKEY, Authorization: `Bearer ${SKEY}` },
     })
@@ -697,6 +697,7 @@ export default function CompetitionsPage() {
   }
 
   // ─── Pro gate ─────────────────────────────────────────────────────────────────
+  if (!isLoaded) return null;
   if (isPro === false) {
     return (
       <main style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 32, background: '#f3f4f6' }}>
