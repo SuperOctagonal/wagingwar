@@ -6,38 +6,72 @@ export async function POST(req) {
   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
   const body = await req.text();
   const sig = req.headers.get('stripe-signature');
+
   let event;
   try {
     event = stripe.webhooks.constructEvent(body, sig, webhookSecret);
   } catch (err) {
     return new Response(`Webhook Error: ${err.message}`, { status: 400 });
   }
-  const subscription = event.data.object;
-  const customerId = subscription.customer;
-  const users = await clerkClient().users.getUserList({ limit: 100 });
-  const user = users.data.find(u => u.publicMetadata?.stripeCustomerId === customerId);
-  if (!user) {
-    const customer = await stripe.customers.retrieve(customerId);
-    const emailUsers = await clerkClient().users.getUserList({ emailAddress: [customer.email] });
-    const emailUser = emailUsers.data[0];
-    if (!emailUser) return new Response('User not found', { status: 200 });
-    await clerkClient().users.updateUserMetadata(emailUser.id, { publicMetadata: { stripeCustomerId: customerId } });
-    await updateUserPlan(emailUser.id, subscription);
-    return new Response('OK', { status: 200 });
+
+  switch (event.type) {
+    case 'checkout.session.completed':
+      await handleCheckoutCompleted(stripe, event.data.object);
+      break;
+    case 'customer.subscription.created':
+    case 'customer.subscription.updated':
+    case 'customer.subscription.deleted':
+      await handleSubscriptionChange(stripe, event.data.object);
+      break;
+    default:
+      break;
   }
-  await updateUserPlan(user.id, subscription);
+
   return new Response('OK', { status: 200 });
 }
 
-async function updateUserPlan(userId, subscription) {
-  const isActive = ['active', 'trialing'].includes(subscription.status);
-  const plan = isActive ? 'pro' : 'free';
-  await clerkClient().users.updateUserMetadata(userId, {
+// Targeted email lookup — no full-user-list scan.
+async function findClerkUserByCustomerId(stripe, customerId) {
+  const customer = await stripe.customers.retrieve(customerId);
+  if (customer.deleted || !customer.email) return null;
+  const result = await clerkClient().users.getUserList({ emailAddress: [customer.email] });
+  return result.data[0] ?? null;
+}
+
+async function handleCheckoutCompleted(stripe, session) {
+  const customerId = session.customer;
+  if (!customerId || !session.subscription) return;
+
+  const user = await findClerkUserByCustomerId(stripe, customerId);
+  if (!user) return;
+
+  // Fetch real subscription so we write accurate status, not session.status.
+  const sub = await stripe.subscriptions.retrieve(session.subscription);
+  const isActive = ['active', 'trialing'].includes(sub.status);
+
+  await clerkClient().users.updateUserMetadata(user.id, {
     publicMetadata: {
-      plan,
-      stripeCustomerId: subscription.customer,
+      stripeCustomerId: customerId,
+      plan: isActive ? 'pro' : 'free',
+      subscriptionStatus: sub.status,
+      subscriptionId: sub.id,
+    },
+  });
+}
+
+async function handleSubscriptionChange(stripe, subscription) {
+  const customerId = subscription.customer;
+  const user = await findClerkUserByCustomerId(stripe, customerId);
+  if (!user) return;
+
+  const isActive = ['active', 'trialing'].includes(subscription.status);
+
+  await clerkClient().users.updateUserMetadata(user.id, {
+    publicMetadata: {
+      stripeCustomerId: customerId,
+      plan: isActive ? 'pro' : 'free',
       subscriptionStatus: subscription.status,
       subscriptionId: subscription.id,
-    }
+    },
   });
 }
