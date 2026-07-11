@@ -2231,6 +2231,13 @@ function RacesPageInner() {
   const preferredViewRef = useRef('field');
   console.log('[Tier] isPro:', isPro, 'plan:', user?.publicMetadata?.plan);
 
+  const todayISO = new Date().toLocaleDateString('sv-SE', { timeZone: 'Australia/Brisbane' });
+  const [selectedDate, setSelectedDate] = useState(todayISO);
+  const [histLoading,  setHistLoading]  = useState(false);
+  const isHistoricalMode = selectedDate !== todayISO;
+  const wasHistoricalRef = useRef(false);
+  const dateInputRef     = useRef(null);
+
   const [csvLoading,  setCsvLoading]  = useState(true);
   const [allRaces,    setAllRaces]    = useState({});
   const [allVenues,   setAllVenues]   = useState({});
@@ -2426,6 +2433,54 @@ function RacesPageInner() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Historical date fetch — fires when selectedDate changes
+  useEffect(() => {
+    if (!isHistoricalMode) {
+      if (!wasHistoricalRef.current) return; // initial mount, handled above
+      wasHistoricalRef.current = false;
+      setScratchedRows([]);
+      setRaceResults({});
+      setTrackConds({});
+      const saved = localStorage.getItem('ww_csv');
+      const savedName = localStorage.getItem('ww_csv_name') || 'today.csv';
+      if (saved) loadCSV(saved, savedName, null);
+      return;
+    }
+    wasHistoricalRef.current = true;
+    setHistLoading(true);
+    setAllRaces({});
+    setAllVenues({});
+    setRaceKeys([]);
+    setSelectedKey(null);
+    setScratchedRows([]);
+    setRaceResults({});
+    setTrackConds({});
+    fetch(`/api/race-cards?date=${selectedDate}`)
+      .then(r => {
+        if (r.status === 403) { setUpgradeOpen(true); setSelectedDate(todayISO); return null; }
+        return r.ok ? r.json() : null;
+      })
+      .then(rows => {
+        setHistLoading(false);
+        if (!rows?.length) return;
+        const ar = {}, av = {};
+        rows.forEach(row => {
+          const key = `${row.venue}_R${row.race_num}`;
+          if (!ar[key]) ar[key] = { venue: row.venue, num: row.race_num, horses: [] };
+          if (row.form_data) ar[key].horses.push(row.form_data);
+          if (!av[row.venue]) av[row.venue] = [];
+          if (!av[row.venue].includes(key)) av[row.venue].push(key);
+        });
+        const rk = Object.values(av).flat();
+        setAllRaces(ar);
+        setAllVenues(av);
+        setRaceKeys(rk);
+        setSelectedKey(rk[0] || null);
+      })
+      .catch(() => setHistLoading(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedDate]);
+
   // Fetch race results and scratchings when allRaces loads
   useEffect(() => {
     const keys = Object.keys(allRaces);
@@ -2451,6 +2506,7 @@ function RacesPageInner() {
   // Fetch today_meetings for track conditions and abandoned status
   useEffect(() => {
     if (!SURL || !SKEY) return;
+    if (isHistoricalMode) return;
     const todayISO = new Date().toLocaleDateString('sv-SE', { timeZone: 'Australia/Brisbane' });
     fetch(
       `${SURL}/rest/v1/today_meetings?date=eq.${todayISO}&select=venue,track_condition,condition_override,is_abandoned`,
@@ -2470,10 +2526,11 @@ function RacesPageInner() {
         setVenueAbandoned(aband);
       })
       .catch(e => console.error('[today_meetings] fetch failed:', e));
-  }, [allRaces]);
+  }, [allRaces, isHistoricalMode]);
 
   // Auto-apply DB track conditions to scoring when venueTrackConds loads
   useEffect(() => {
+    if (isHistoricalMode) return;
     if (!Object.keys(venueTrackConds).length || !Object.keys(allRaces).length) return;
     setTrackConds(prev => {
       const next = { ...prev };
@@ -2490,7 +2547,7 @@ function RacesPageInner() {
       });
       return next;
     });
-  }, [venueTrackConds, allRaces]);
+  }, [venueTrackConds, allRaces, isHistoricalMode]);
 
   const hasData = raceKeys.length > 0;
 
@@ -2501,7 +2558,7 @@ function RacesPageInner() {
   })();
 
   const isRacePassed = !!currentRace && (parseRaceTime(currentRace.time, currentRace.date)?.getTime() ?? Infinity) <= now;
-  const betBlocked   = !!currentRaceResult || isRacePassed;
+  const betBlocked   = isHistoricalMode || !!currentRaceResult || isRacePassed;
 
   // Compute scored results once per race/trackCond/weights change
   const { results, scratched, scratchingsSet, allHorsesForDisplay } = useMemo(() => {
@@ -2603,6 +2660,36 @@ function RacesPageInner() {
 
       {/* Main */}
       <main className="flex-1 flex flex-col overflow-hidden bg-slate-50">
+        {/* Date picker bar */}
+        <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 8, padding: '4px 12px', background: '#fff', borderBottom: '1px solid #e5e7eb' }}>
+          <span style={{ fontSize: 9, color: '#9ca3af', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.4px' }}>Date</span>
+          <button
+            onClick={() => {
+              if (isPro !== true) { setUpgradeOpen(true); return; }
+              dateInputRef.current?.showPicker?.();
+            }}
+            style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 10, color: isHistoricalMode ? '#d97706' : '#374151', fontWeight: isHistoricalMode ? 700 : 400, background: 'none', border: '1px solid #e5e7eb', borderRadius: 4, padding: '2px 7px', cursor: 'pointer' }}
+          >
+            <i className="ti ti-calendar" style={{ fontSize: 9 }} />
+            {isHistoricalMode ? selectedDate : 'Today'}
+            {isPro !== true && <i className="ti ti-lock" style={{ fontSize: 7, color: '#9ca3af', marginLeft: 2 }} />}
+          </button>
+          {isHistoricalMode && (
+            <button onClick={() => setSelectedDate(todayISO)} style={{ fontSize: 9, color: '#059669', fontWeight: 600, background: 'none', border: 'none', cursor: 'pointer', padding: '2px 0' }}>
+              ← Today
+            </button>
+          )}
+          <input
+            ref={dateInputRef}
+            type="date"
+            value={selectedDate}
+            max={todayISO}
+            onChange={e => { if (e.target.value) setSelectedDate(e.target.value); }}
+            style={{ position: 'absolute', opacity: 0, pointerEvents: 'none', width: 0, height: 0 }}
+          />
+          {histLoading && <span style={{ fontSize: 9, color: '#9ca3af' }}>Loading…</span>}
+        </div>
+
         {!hasData ? (
           csvLoading ? (
             <div className="flex-1 flex items-center justify-center">
@@ -2638,6 +2725,16 @@ function RacesPageInner() {
 
             {currentRace ? (
               <div className="flex-1 flex flex-col overflow-hidden">
+                {isHistoricalMode && (
+                  <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 8, padding: '5px 12px', background: '#fef3c7', borderBottom: '1px solid #fde68a', fontSize: 10, color: '#92400e' }}>
+                    <i className="ti ti-history" style={{ fontSize: 11 }} />
+                    <span style={{ fontWeight: 700 }}>Historical mode</span>
+                    <span style={{ opacity: 0.5 }}>·</span>
+                    <span>{new Date(selectedDate + 'T12:00:00').toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}</span>
+                    <span style={{ opacity: 0.5 }}>· Live betting disabled</span>
+                    <button onClick={() => setSelectedDate(todayISO)} style={{ marginLeft: 'auto', fontSize: 9, color: '#059669', fontWeight: 700, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>← Back to today</button>
+                  </div>
+                )}
                 <RaceHeader rc={currentRace} trackCond={trackCond} setTrackCond={setTrackCond}
                   weights={weights} setWeights={setWeights} runnerCount={results.length}
                   onUpgrade={() => setUpgradeOpen(true)} />
@@ -2705,8 +2802,8 @@ function RacesPageInner() {
         )}
       </main>
 
-      {/* Right rail — desktop only */}
-      {hasData && (
+      {/* Right rail — desktop only, hidden in historical mode */}
+      {hasData && !isHistoricalMode && (
         <div className="hidden md:flex">
           <RightRail allRaces={allRaces} allVenues={allVenues} selectedRaceKey={selectedKey} onSelect={handleSelectRace} isPro={isPro} userId={user?.id} />
         </div>
