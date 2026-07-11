@@ -249,7 +249,7 @@ export default function CompetitionsPage() {
   const liveWinnerMap = useMemo(() => {
     const m = {};
     todayRaceResultsData.forEach(r => {
-      if (r.finish_pos === 1) m[rk(r.venue, r.race_num)] = r.horse_name;
+      if (r.finish_pos === 1 || r.finish_pos === '1') m[rk(r.venue, r.race_num)] = r.horse_name;
     });
     return m;
   }, [todayRaceResultsData]);
@@ -298,7 +298,7 @@ export default function CompetitionsPage() {
     });
     entries.sort((a, b) => b.score - a.score);
     return entries.map((e, i) => ({ ...e, rank: i + 1 }));
-  }, [allPicksData, results, compRaces, selVenues, user?.id, hiddenFromLb]);
+  }, [allPicksData, results, liveWinnerMap, compRaces, selVenues, user?.id, hiddenFromLb]);
 
   const userScore = useMemo(() => {
     let s = 0;
@@ -552,7 +552,7 @@ export default function CompetitionsPage() {
     load();
     const id = setInterval(load, 60000);
     return () => clearInterval(id);
-  }, [today]);
+  }, [today, isPro]);
 
   useEffect(() => {
     if (!SURL || !SKEY || !isPro) return;
@@ -567,7 +567,7 @@ export default function CompetitionsPage() {
     loadScr();
     const id = setInterval(loadScr, 60000);
     return () => clearInterval(id);
-  }, [today]);
+  }, [today, isPro]);
 
   useEffect(() => {
     if (!SURL || !SKEY || !isPro) return;
@@ -580,7 +580,7 @@ export default function CompetitionsPage() {
     loadAll();
     const id = setInterval(loadAll, 30000);
     return () => clearInterval(id);
-  }, [today]);
+  }, [today, isPro]);
 
   useEffect(() => {
     if (!user?.id || !isPro || !SURL || !SKEY) return;
@@ -635,7 +635,7 @@ export default function CompetitionsPage() {
     loadCompScores();
     const id = setInterval(loadCompScores, 60000);
     return () => clearInterval(id);
-  }, []);
+  }, [isPro]);
 
   useEffect(() => {
     if (!user?.id || !isPro || !SURL || !SKEY) return;
@@ -668,7 +668,7 @@ export default function CompetitionsPage() {
     loadTodayRR();
     const id = setInterval(loadTodayRR, 60000);
     return () => clearInterval(id);
-  }, [today]);
+  }, [today, isPro]);
 
   useEffect(() => {
     if (!SURL || !SKEY || !isPro) return;
