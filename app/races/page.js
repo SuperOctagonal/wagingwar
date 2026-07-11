@@ -2605,7 +2605,7 @@ function RacesPageInner() {
             <div className="flex-1 flex items-center justify-center">
               <div style={{ textAlign: 'center', color: '#9ca3af' }}>
                 <i className="ti ti-loader-2 text-3xl block mb-2" style={{ animation: 'spin 1s linear infinite' }} />
-                <div className="text-sm">Loading today's races…</div>
+                <div className="text-sm">Loading today&apos;s races…</div>
               </div>
             </div>
           ) : (
