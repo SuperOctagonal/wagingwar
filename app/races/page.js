@@ -528,7 +528,7 @@ const VIEW_TABS = [
   { id: 'sectionals', label: 'Sectionals', icon: 'ti-chart-line', locked: true },
 ];
 
-function ViewTabBar({ view, setView, runnerCount }) {
+function ViewTabBar({ view, setView, runnerCount, isHistoricalMode }) {
   return (
     <div className="flex items-center border-b border-gray-200 bg-white px-2 flex-shrink-0 h-10">
       {VIEW_TABS.map(t => (
@@ -550,13 +550,15 @@ function ViewTabBar({ view, setView, runnerCount }) {
           {t.premium && !t.locked && <span className="text-[8px] text-amber-500 font-bold">★</span>}
         </button>
       ))}
-      <button
-        onClick={() => window.location.reload()}
-        title="Refresh page"
-        className="ml-auto mr-2 flex items-center justify-center w-7 h-7 rounded hover:bg-gray-100 transition-colors text-gray-500 hover:text-gray-700"
-      >
-        <i className="ti ti-refresh text-[14px]" />
-      </button>
+      {!isHistoricalMode && (
+        <button
+          onClick={() => window.location.reload()}
+          title="Refresh page"
+          className="ml-auto mr-2 flex items-center justify-center w-7 h-7 rounded hover:bg-gray-100 transition-colors text-gray-500 hover:text-gray-700"
+        >
+          <i className="ti ti-refresh text-[14px]" />
+        </button>
+      )}
     </div>
   );
 }
@@ -2288,13 +2290,14 @@ function RacesPageInner() {
   const setTrackCond = useCallback(tc => {
     if (!currentRace) return;
     setTrackConds(prev => ({ ...prev, [currentRace.venue]: tc }));
+    if (isHistoricalMode) return; // local-only in historical mode — don't overwrite today's DB record
     const todayISO = new Date().toLocaleDateString('sv-SE', { timeZone: 'Australia/Brisbane' });
     fetch('/api/set-track-condition', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ venue: normaliseVenue(currentRace.venue), date: todayISO, condition: tc }),
     }).catch(e => console.error('[TC override]', e));
-  }, [currentRace]);
+  }, [currentRace, isHistoricalMode]);
 
   const handleLogBet = useCallback((runner, rank) => {
     const rc = allRaces[selectedKey];
@@ -2312,6 +2315,7 @@ function RacesPageInner() {
       setBbTarget(typeof data === 'string' ? { name: data } : data);
     };
     window.__logBet = (data) => {
+      if (isHistoricalMode) return; // popup log-bet blocked in historical mode
       if (!isPro) { setUpgradeOpen(true); return; }
       const rc = allRaces[selectedKey];
       const raceAt = rc ? parseRaceTime(rc.time, rc.date) : null;
@@ -2329,7 +2333,7 @@ function RacesPageInner() {
       });
     };
     return () => { delete window.__addToBlackbook; delete window.__logBet; };
-  }, [allRaces, selectedKey, trackCond, isPro]);
+  }, [allRaces, selectedKey, trackCond, isPro, isHistoricalMode]);
 
   const loadCSV = useCallback((text, name, selectKey) => {
     try {
@@ -2476,6 +2480,7 @@ function RacesPageInner() {
         setAllVenues(av);
         setRaceKeys(rk);
         setSelectedKey(rk[0] || null);
+        fetchRaceResultsForDate(selectedDate).then(setRaceResults);
       })
       .catch(() => setHistLoading(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -2691,11 +2696,22 @@ function RacesPageInner() {
         </div>
 
         {!hasData ? (
-          csvLoading ? (
+          (csvLoading || histLoading) ? (
             <div className="flex-1 flex items-center justify-center">
               <div style={{ textAlign: 'center', color: '#9ca3af' }}>
                 <i className="ti ti-loader-2 text-3xl block mb-2" style={{ animation: 'spin 1s linear infinite' }} />
-                <div className="text-sm">Loading today&apos;s races…</div>
+                <div className="text-sm">{histLoading ? 'Loading historical races…' : 'Loading today\'s races…'}</div>
+              </div>
+            </div>
+          ) : isHistoricalMode ? (
+            <div className="flex-1 flex items-center justify-center p-8">
+              <div style={{ textAlign: 'center', color: '#6b7280', maxWidth: 320 }}>
+                <i className="ti ti-calendar-off text-3xl block mb-3" style={{ color: '#d1d5db' }} />
+                <div style={{ fontSize: 14, fontWeight: 600, color: '#374151', marginBottom: 6 }}>
+                  No race cards available for {new Date(selectedDate + 'T12:00:00').toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'long', year: 'numeric' })}
+                </div>
+                <div style={{ fontSize: 12, color: '#9ca3af', marginBottom: 16 }}>Race cards are stored from the date the CSV is uploaded. Try a more recent date.</div>
+                <button onClick={() => setSelectedDate(todayISO)} style={{ fontSize: 12, fontWeight: 600, padding: '7px 18px', borderRadius: 6, background: '#00471b', color: '#fff', border: 'none', cursor: 'pointer' }}>← Back to today</button>
               </div>
             </div>
           ) : (
@@ -2706,8 +2722,8 @@ function RacesPageInner() {
             {/* Mobile race picker */}
             <MobileRacePicker allVenues={allVenues} allRaces={allRaces} selectedRaceKey={selectedKey} onSelect={handleSelectRace} />
 
-            {/* CSV toolbar — admin only */}
-            {user?.id === 'user_3ELAZyaOPUNLmkzOfuThRoCEHaG' && (
+            {/* CSV toolbar — admin only, hidden in historical mode */}
+            {user?.id === 'user_3ELAZyaOPUNLmkzOfuThRoCEHaG' && !isHistoricalMode && (
               <div className="flex items-center gap-2 px-4 py-1.5 bg-white border-b border-gray-100 text-[10px] text-gray-500 flex-shrink-0">
                 <i className="ti ti-file-type-csv text-sm text-gray-400" />
                 <span className="font-medium text-gray-700">{fileName}</span>
@@ -2764,7 +2780,7 @@ function RacesPageInner() {
                     </div>
                   );
                 })()}
-                <div className="hidden md:block"><ViewTabBar view={view} setView={setView} runnerCount={results.length} /></div>
+                <div className="hidden md:block"><ViewTabBar view={view} setView={setView} runnerCount={results.length} isHistoricalMode={isHistoricalMode} /></div>
                 {currentRaceResult && (
                   <div style={{ background:'#f0fdf4', borderBottom:'1px solid #86efac', padding:'5px 12px', display:'flex', alignItems:'center', gap:8 }}>
                     <i className="ti ti-flag-check" style={{ color:'#16a34a', fontSize:13 }} />
