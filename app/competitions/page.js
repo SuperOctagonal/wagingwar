@@ -291,6 +291,15 @@ export default function CompetitionsPage() {
     return out;
   }, [popularData]);
 
+  // Today finish positions + SP (polled live for result pills)
+  const todayFinishPos = useMemo(() => {
+    const m = {};
+    todayRaceResultsData.forEach(r => {
+      m[`${normaliseVenue(r.venue||'')}||${r.race_num}||${(r.horse_name||'').toUpperCase()}`] = { pos: r.finish_pos, sp: r.sp };
+    });
+    return m;
+  }, [todayRaceResultsData]);
+
   const todayLeaderboard = useMemo(() => {
     const um = {};
     for (const r of allPicksData) {
@@ -498,15 +507,6 @@ export default function CompetitionsPage() {
     }
     return Math.round(pl * 100) / 100;
   }, [userAllPicksData, allCompResultsData, historicalRaceSps]);
-
-  // Today finish positions + SP (polled live for result pills)
-  const todayFinishPos = useMemo(() => {
-    const m = {};
-    todayRaceResultsData.forEach(r => {
-      m[`${normaliseVenue(r.venue||'')}||${r.race_num}||${(r.horse_name||'').toUpperCase()}`] = { pos: r.finish_pos, sp: r.sp };
-    });
-    return m;
-  }, [todayRaceResultsData]);
 
   // Today P&L for bottom bar (same SP-exclusion rule as allTimePL)
   const todayPL = useMemo(() => {
