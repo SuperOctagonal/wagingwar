@@ -1119,100 +1119,128 @@ export default function CompetitionsPage() {
           </div>
         )}
 
-        {!lbLoading && lbRanked.length > 0 && (
-          <>
-            {/* Compact top-3 podium strips */}
-            <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, overflow: 'hidden', marginBottom: 12 }}>
-              {lbTop3.map((u, i) => {
-                const isMe = u.clerk_id === user?.id;
-                const form = lbUserForms[u.clerk_id] || [];
-                const padded = Array(Math.max(0, 10 - form.length)).fill(null).concat(form);
-                return (
-                  <div key={u.clerk_id} style={{
-                    display: 'flex', alignItems: 'center', gap: 10, padding: '7px 12px',
-                    background: isMe ? '#eff6ff' : i === 0 ? '#fffbeb' : '#fff',
-                    borderBottom: i < 2 ? '1px solid #f3f4f6' : 'none',
-                  }}>
-                    <span style={{ fontSize: 16, lineHeight: 1, width: 22, flexShrink: 0 }}>{MEDAL_ICON[i]}</span>
-                    <span style={{ fontSize: 12, fontWeight: 700, color: isMe ? '#1d4ed8' : '#111827', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {u.username}{isMe && <span style={{ fontSize: 8, fontWeight: 700, color: '#1d4ed8', marginLeft: 6, background: '#dbeafe', padding: '1px 4px', borderRadius: 3 }}>YOU</span>}
-                    </span>
-                    <div style={{ display: 'flex', gap: 2, flexShrink: 0 }}>
-                      {padded.map((r, j) => (
-                        <div key={j} style={{ width: 9, height: 9, borderRadius: 1, background: r === null ? '#f3f4f6' : r === 1 ? '#fbbf24' : r <= 3 ? '#9ca3af' : '#e5e7eb' }} />
-                      ))}
-                    </div>
-                    <span style={{ fontSize: 11, fontWeight: 700, color: RANK_COLOR[i], fontFamily: MONO, flexShrink: 0, width: 30, textAlign: 'right' }}>{u.score}</span>
-                    <span style={{ fontSize: 10, color: '#6b7280', fontFamily: MONO, flexShrink: 0, width: 38, textAlign: 'right' }}>{u.hitPct.toFixed(1)}%</span>
-                    <span style={{ fontSize: 10, color: '#6b7280', fontFamily: MONO, flexShrink: 0 }}>{u.streak > 0 ? `${u.streak}🔥` : '—'}</span>
+        {!lbLoading && lbRanked.length > 0 && (() => {
+          const lbMe = lbRanked.find(u => u.clerk_id === user?.id);
+          return (
+            <div style={{ maxWidth: 620, margin: '0 auto' }}>
+              {/* Your rank strip */}
+              {lbMe && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 8, padding: '8px 12px', marginBottom: 12 }}>
+                  <span style={{ fontSize: 18, lineHeight: 1, flexShrink: 0 }}>
+                    {lbMe.rank <= 3 ? MEDAL_ICON[lbMe.rank - 1] : `#${lbMe.rank}`}
+                  </span>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: '#1d4ed8', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{lbMe.username}</div>
+                    <div style={{ fontSize: 10, color: '#6b7280' }}>Rank {lbMe.rank} of {lbRanked.length} tipster{lbRanked.length !== 1 ? 's' : ''}</div>
                   </div>
-                );
-              })}
-            </div>
+                  <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                    <div style={{ fontSize: 14, fontWeight: 800, fontFamily: MONO, color: '#1d4ed8' }}>{lbMe.score} pts</div>
+                    <div style={{ fontSize: 10, color: '#6b7280', fontFamily: MONO }}>{lbMe.hitPct.toFixed(1)}% hit</div>
+                  </div>
+                </div>
+              )}
 
-            <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, overflow: 'hidden' }}>
-              <div style={{ overflowX: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 520 }}>
-                  <thead>
-                    <tr style={{ background: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
-                      {[['#', 32, 'center'], ['Tipster', null, 'left'], ['Pts', 48, 'right'], ['Hit%', 48, 'right'], ['Streak', 54, 'left'], ['7-day', 54, 'left'], ['Last 10', 116, 'left']].map(([h, w, align]) => (
-                        <th key={h} style={{ padding: '4px 8px', fontSize: 9, fontWeight: 700, color: '#6b7280', textAlign: align, textTransform: 'uppercase', letterSpacing: '0.5px', whiteSpace: 'nowrap', width: w || undefined }}>
-                          {h}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {lbRanked.map(u => {
-                      const isMe = u.clerk_id === user?.id;
-                      const mv   = lbMvmt(u);
-                      const form = lbUserForms[u.clerk_id] || [];
-                      const padded = Array(Math.max(0, 10 - form.length)).fill(null).concat(form);
-                      return (
-                        <tr key={u.clerk_id} style={{ background: isMe ? '#eff6ff' : '#fff', borderBottom: '1px solid #f3f4f6' }}>
-                          <td style={{ padding: '4px 8px', textAlign: 'center' }}>
-                            <span style={{ fontSize: 11, fontWeight: 700, fontFamily: MONO, color: u.rank <= 3 ? RANK_COLOR[u.rank - 1] : '#9ca3af' }}>{u.rank}</span>
-                          </td>
-                          <td style={{ padding: '4px 8px' }}>
-                            <span style={{ fontSize: 11, fontWeight: isMe ? 700 : 500, color: isMe ? '#1d4ed8' : '#111827' }}>{u.username}</span>
-                            {isMe && <span style={{ fontSize: 8, fontWeight: 700, color: '#1d4ed8', marginLeft: 5, background: '#dbeafe', padding: '1px 4px', borderRadius: 3 }}>YOU</span>}
-                          </td>
-                          <td style={{ padding: '4px 8px', fontFamily: MONO, fontWeight: 700, fontSize: 11, color: '#111827', textAlign: 'right' }}>{u.score}</td>
-                          <td style={{ padding: '4px 8px', fontFamily: MONO, fontSize: 11, color: '#6b7280', textAlign: 'right' }}>{u.hitPct.toFixed(1)}%</td>
-                          <td style={{ padding: '4px 8px', fontFamily: MONO, fontSize: 11, color: '#111827' }}>{u.streak > 0 ? `${u.streak}🔥` : '—'}</td>
-                          <td style={{ padding: '4px 8px', fontSize: 11, fontFamily: MONO }}>
-                            {mv === null ? <span style={{ color: '#d1d5db' }}>—</span>
-                              : mv > 0 ? <span style={{ color: '#16a34a', fontWeight: 700 }}>▲{mv}</span>
-                              : mv < 0 ? <span style={{ color: '#dc2626', fontWeight: 700 }}>▼{Math.abs(mv)}</span>
-                              : <span style={{ color: '#9ca3af' }}>—</span>}
-                          </td>
-                          <td style={{ padding: '4px 8px' }}>
-                            <div style={{ display: 'flex', gap: 2 }}>
-                              {padded.map((r, j) => (
-                                <div key={j} style={{ width: 9, height: 9, borderRadius: 1, background: r === null ? '#f3f4f6' : r === 1 ? '#fbbf24' : r <= 3 ? '#9ca3af' : '#e5e7eb' }} />
-                              ))}
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                    <tr style={{ background: '#f9fafb', borderTop: '2px solid #e5e7eb' }}>
-                      <td style={{ padding: '4px 8px', textAlign: 'center' }}><span style={{ fontSize: 10, color: '#d1d5db' }}>—</span></td>
-                      <td style={{ padding: '4px 8px' }}>
-                        <span style={{ fontSize: 11, fontWeight: 600, color: '#6b7280' }}>⚡ SP-fav benchmark</span>
-                        <span title="Tracks the starting-price favourite as a model-performance proxy. Data accumulates from today forward." style={{ fontSize: 9, color: '#9ca3af', marginLeft: 6, cursor: 'help', textDecoration: 'underline dotted' }}>what&apos;s this?</span>
-                      </td>
-                      <td colSpan={5} style={{ padding: '4px 8px', fontSize: 10, color: '#9ca3af', fontStyle: 'italic' }}>Tracking starts from today — accumulates over coming race days</td>
-                    </tr>
-                  </tbody>
-                </table>
+              {/* Compact top-3 podium strips */}
+              <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, overflow: 'hidden', marginBottom: 12 }}>
+                {lbTop3.map((u, i) => {
+                  const isMe = u.clerk_id === user?.id;
+                  const form = lbUserForms[u.clerk_id] || [];
+                  const padded = Array(Math.max(0, 10 - form.length)).fill(null).concat(form);
+                  return (
+                    <div key={u.clerk_id} style={{
+                      display: 'flex', alignItems: 'center', gap: 10, padding: '7px 12px',
+                      background: isMe ? '#eff6ff' : i === 0 ? '#fffbeb' : '#fff',
+                      borderBottom: i < 2 ? '1px solid #f3f4f6' : 'none',
+                    }}>
+                      <span style={{ fontSize: 16, lineHeight: 1, width: 22, flexShrink: 0 }}>{MEDAL_ICON[i]}</span>
+                      <span style={{ fontSize: 12, fontWeight: 700, color: isMe ? '#1d4ed8' : '#111827', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {u.username}{isMe && <span style={{ fontSize: 8, fontWeight: 700, color: '#1d4ed8', marginLeft: 6, background: '#dbeafe', padding: '1px 4px', borderRadius: 3 }}>YOU</span>}
+                      </span>
+                      <div style={{ display: 'flex', gap: 2, flexShrink: 0 }}>
+                        {padded.map((r, j) => (
+                          <div key={j} style={{ width: 9, height: 9, borderRadius: 1, background: r === null ? '#f3f4f6' : r === 1 ? '#fbbf24' : r <= 3 ? '#9ca3af' : '#e5e7eb' }} />
+                        ))}
+                      </div>
+                      <span style={{ fontSize: 11, fontWeight: 700, color: RANK_COLOR[i], fontFamily: MONO, flexShrink: 0, width: 30, textAlign: 'right' }}>{u.score}</span>
+                      <span style={{ fontSize: 10, color: '#6b7280', fontFamily: MONO, flexShrink: 0, width: 38, textAlign: 'right' }}>{u.hitPct.toFixed(1)}%</span>
+                      <span style={{ fontSize: 10, color: '#6b7280', fontFamily: MONO, flexShrink: 0 }}>{u.streak > 0 ? `${u.streak}🔥` : '—'}</span>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, overflow: 'hidden' }}>
+                <div style={{ overflowX: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 520 }}>
+                    <thead>
+                      <tr style={{ background: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
+                        {[
+                          { h: '#',       w: 32,  align: 'center', tip: null },
+                          { h: 'Tipster', w: null, align: 'left',  tip: null },
+                          { h: 'Pts',     w: 48,  align: 'right',  tip: 'Total points scored' },
+                          { h: 'Hit%',    w: 48,  align: 'right',  tip: '% of picks that won' },
+                          { h: 'Streak',  w: 54,  align: 'left',   tip: 'Consecutive correct picks' },
+                          { h: '7-day',   w: 54,  align: 'left',   tip: null },
+                          { h: 'Last 10', w: 116, align: 'left',   tip: null },
+                        ].map(({ h, w, align, tip }) => (
+                          <th key={h} title={tip || undefined} style={{ padding: '4px 8px', fontSize: 9, fontWeight: 700, color: '#6b7280', textAlign: align, textTransform: 'uppercase', letterSpacing: '0.5px', whiteSpace: 'nowrap', width: w || undefined, cursor: tip ? 'help' : undefined }}>
+                            {h}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {lbRanked.map(u => {
+                        const isMe = u.clerk_id === user?.id;
+                        const mv   = lbMvmt(u);
+                        const form = lbUserForms[u.clerk_id] || [];
+                        const padded = Array(Math.max(0, 10 - form.length)).fill(null).concat(form);
+                        return (
+                          <tr key={u.clerk_id} style={{ background: isMe ? '#eff6ff' : '#fff', borderBottom: '1px solid #f3f4f6' }}>
+                            <td style={{ padding: '4px 8px', textAlign: 'center' }}>
+                              <span style={{ fontSize: 11, fontWeight: 700, fontFamily: MONO, color: u.rank <= 3 ? RANK_COLOR[u.rank - 1] : '#9ca3af' }}>{u.rank}</span>
+                            </td>
+                            <td style={{ padding: '4px 8px' }}>
+                              <span style={{ fontSize: 11, fontWeight: isMe ? 700 : 500, color: isMe ? '#1d4ed8' : '#111827' }}>{u.username}</span>
+                              {isMe && <span style={{ fontSize: 8, fontWeight: 700, color: '#1d4ed8', marginLeft: 5, background: '#dbeafe', padding: '1px 4px', borderRadius: 3 }}>YOU</span>}
+                            </td>
+                            <td style={{ padding: '4px 8px', fontFamily: MONO, fontWeight: 700, fontSize: 11, color: '#111827', textAlign: 'right' }}>{u.score}</td>
+                            <td style={{ padding: '4px 8px', fontFamily: MONO, fontSize: 11, color: '#6b7280', textAlign: 'right' }}>{u.hitPct.toFixed(1)}%</td>
+                            <td style={{ padding: '4px 8px', fontFamily: MONO, fontSize: 11, color: '#111827' }}>{u.streak > 0 ? `${u.streak}🔥` : '—'}</td>
+                            <td style={{ padding: '4px 8px', fontSize: 11, fontFamily: MONO }}>
+                              {mv === null ? <span style={{ color: '#d1d5db' }}>—</span>
+                                : mv > 0 ? <span style={{ color: '#16a34a', fontWeight: 700 }}>▲{mv}</span>
+                                : mv < 0 ? <span style={{ color: '#dc2626', fontWeight: 700 }}>▼{Math.abs(mv)}</span>
+                                : <span style={{ color: '#9ca3af' }}>—</span>}
+                            </td>
+                            <td style={{ padding: '4px 8px' }}>
+                              <div style={{ display: 'flex', gap: 2 }}>
+                                {padded.map((r, j) => (
+                                  <div key={j} style={{ width: 9, height: 9, borderRadius: 1, background: r === null ? '#f3f4f6' : r === 1 ? '#fbbf24' : r <= 3 ? '#9ca3af' : '#e5e7eb' }} />
+                                ))}
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                      <tr style={{ background: '#f9fafb', borderTop: '2px solid #e5e7eb' }}>
+                        <td style={{ padding: '4px 8px', textAlign: 'center' }}><span style={{ fontSize: 10, color: '#d1d5db' }}>—</span></td>
+                        <td style={{ padding: '4px 8px' }}>
+                          <span style={{ fontSize: 11, fontWeight: 600, color: '#6b7280' }}>⚡ SP-fav benchmark</span>
+                          <span title="Tracks the starting-price favourite as a model-performance proxy. Data accumulates from today forward." style={{ fontSize: 9, color: '#9ca3af', marginLeft: 6, cursor: 'help', textDecoration: 'underline dotted' }}>what&apos;s this?</span>
+                        </td>
+                        <td colSpan={5} style={{ padding: '4px 8px', fontSize: 10, color: '#9ca3af', fontStyle: 'italic' }}>Tracking starts from today — accumulates over coming race days</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+              <div style={{ marginTop: 10, fontSize: 9, color: '#9ca3af', lineHeight: 1.6 }}>
+                Ties are broken by hit rate. Scores recalculate after each race day. SP-fav benchmark tracks what picking the favourite in every race would score, for comparison.
               </div>
             </div>
-            <div style={{ marginTop: 10, fontSize: 10, color: '#9ca3af', textAlign: 'center' }}>
-              Tie-break: equal points sorted by hit % descending · Scores recalculated after every race day
-            </div>
-          </>
-        )}
+          );
+        })()}
       </div>
     </div>
   );
@@ -1376,10 +1404,15 @@ export default function CompetitionsPage() {
         isMobile
           ? mobileTodayPanel
           : (
-            <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
-              {leftPanel}
-              {centrePanel}
-              {rightPanel}
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+              <div style={{ padding: '4px 14px', background: '#f9fafb', borderBottom: '1px solid #f3f4f6', fontSize: 10, color: '#6b7280', flexShrink: 0, lineHeight: 1.5 }}>
+                Pick a horse in every race today. Score points for correct picks, bonus points for a perfect meeting. Compare against other tipsters on the Leaderboard tab.
+              </div>
+              <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
+                {leftPanel}
+                {centrePanel}
+                {rightPanel}
+              </div>
             </div>
           )
       )}
