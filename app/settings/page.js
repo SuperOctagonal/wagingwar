@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
-import { useUser } from '@clerk/nextjs';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { useUser, useClerk } from '@clerk/nextjs';
 import useIsPro from '@/hooks/useIsPro';
 
 const SURL = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -215,6 +215,7 @@ function ProGate({ isPro, children }) {
 
 export default function SettingsPage() {
   const { user, isLoaded } = useUser();
+  const { signOut } = useClerk();
   const isPro = useIsPro();
   const [active, setActive] = useState('profile');
   const [s, setS] = useState(DEFAULTS);
@@ -222,6 +223,11 @@ export default function SettingsPage() {
   const [toast, setToast] = useState(null);
   const [clearStep, setClearStep] = useState(0);
   const [deleteStep, setDeleteStep] = useState(0);
+  const [deleteError, setDeleteError] = useState(null);
+  const [portalState, setPortalState] = useState('idle'); // idle | loading | error
+  const [avatarUploading, setAvatarUploading] = useState(false);
+  const [avatarError, setAvatarError] = useState(null);
+  const avatarInputRef = useRef(null);
 
   useEffect(() => {
     if (!user?.id) return;
@@ -268,23 +274,82 @@ export default function SettingsPage() {
     a.click();
   }
 
+  async function openPortal() {
+    setPortalState('loading');
+    try {
+      const res = await fetch('/api/create-portal-session', { method: 'POST' });
+      const data = await res.json();
+      if (!res.ok || !data.url) {
+        setPortalState('error');
+        setTimeout(() => setPortalState('idle'), 4000);
+        return;
+      }
+      window.location.href = data.url;
+    } catch {
+      setPortalState('error');
+      setTimeout(() => setPortalState('idle'), 4000);
+    }
+  }
+
   async function clearBets() {
     if (!user?.id) return;
     setClearStep(2);
-    await sbFetch(`bet_log?clerk_id=eq.${encodeURIComponent(user.id)}`, { method: 'DELETE' });
+    const res = await sbFetch(`bet_log?clerk_id=eq.${encodeURIComponent(user.id)}`, { method: 'DELETE' });
     setClearStep(0);
-    showToast('cleared');
+    showToast(res !== null ? 'cleared' : 'error');
   }
 
   async function deleteAccount() {
     if (!user?.id) return;
     setDeleteStep(2);
-    await Promise.all([
-      sbFetch(`bet_log?clerk_id=eq.${encodeURIComponent(user.id)}`, { method: 'DELETE' }),
-      sbFetch(`comp_picks?clerk_id=eq.${encodeURIComponent(user.id)}`, { method: 'DELETE' }),
-      sbFetch(`user_settings?clerk_id=eq.${encodeURIComponent(user.id)}`, { method: 'DELETE' }),
-    ]);
-    setDeleteStep(3);
+    setDeleteError(null);
+    try {
+      const res = await fetch('/api/delete-account', { method: 'POST' });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setDeleteStep(1);
+        setDeleteError(data.error || 'Deletion failed — try again or contact support');
+        return;
+      }
+      await signOut({ redirectUrl: '/' });
+    } catch {
+      setDeleteStep(1);
+      setDeleteError('Network error — check your connection and try again');
+    }
+  }
+
+  async function handleAvatarUpload(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) {
+      setAvatarError('Image must be under 5 MB');
+      setTimeout(() => setAvatarError(null), 4000);
+      return;
+    }
+    setAvatarUploading(true);
+    setAvatarError(null);
+    try {
+      await user.setProfileImage({ file });
+    } catch (err) {
+      setAvatarError(err?.message || 'Upload failed — try again');
+      setTimeout(() => setAvatarError(null), 4000);
+    } finally {
+      setAvatarUploading(false);
+      if (avatarInputRef.current) avatarInputRef.current.value = '';
+    }
+  }
+
+  async function handleAvatarRemove() {
+    setAvatarUploading(true);
+    setAvatarError(null);
+    try {
+      await user.setProfileImage({ file: null });
+    } catch (err) {
+      setAvatarError(err?.message || 'Remove failed — try again');
+      setTimeout(() => setAvatarError(null), 4000);
+    } finally {
+      setAvatarUploading(false);
+    }
   }
 
   const email = user?.emailAddresses?.[0]?.emailAddress || '';
@@ -307,11 +372,40 @@ export default function SettingsPage() {
               options={['QLD','NSW','VIC','SA','WA','TAS','ACT','NT']} />
           </Field>
           <Field label="Avatar">
-            <div style={{
-              width: 44, height: 44, borderRadius: '50%', background: G,
-              color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 16, fontWeight: 700, letterSpacing: 1,
-            }}>{avatarInitials}</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+              {user?.imageUrl
+                ? <img src={user.imageUrl} alt="avatar" style={{ width: 48, height: 48, borderRadius: '50%', objectFit: 'cover', border: '2px solid #e5e7eb', flexShrink: 0 }} />
+                : <div style={{ width: 48, height: 48, borderRadius: '50%', background: G, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 17, fontWeight: 700, letterSpacing: 1, flexShrink: 0 }}>{avatarInitials}</div>
+              }
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <input
+                  ref={avatarInputRef}
+                  type="file"
+                  accept="image/*"
+                  style={{ display: 'none' }}
+                  onChange={handleAvatarUpload}
+                />
+                <button
+                  type="button"
+                  onClick={() => avatarInputRef.current?.click()}
+                  disabled={avatarUploading}
+                  style={{ background: '#f9fafb', border: '1px solid #d1d5db', borderRadius: 6, padding: '6px 14px', fontSize: 12, fontWeight: 500, cursor: avatarUploading ? 'default' : 'pointer', opacity: avatarUploading ? 0.6 : 1 }}
+                >
+                  {avatarUploading ? 'Uploading…' : 'Upload photo'}
+                </button>
+                {user?.imageUrl && (
+                  <button
+                    type="button"
+                    onClick={handleAvatarRemove}
+                    disabled={avatarUploading}
+                    style={{ background: 'none', border: 'none', padding: 0, fontSize: 11, color: '#9ca3af', cursor: avatarUploading ? 'default' : 'pointer', textAlign: 'left', textDecoration: 'underline' }}
+                  >
+                    Remove photo
+                  </button>
+                )}
+                {avatarError && <div style={{ fontSize: 11, color: '#dc2626' }}>{avatarError}</div>}
+              </div>
+            </div>
           </Field>
           <SaveBt saving={saving} onClick={save} />
         </>
@@ -568,13 +662,14 @@ export default function SettingsPage() {
               {deleteStep === 1 && (
                 <div style={{ background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: 8, padding: 16 }}>
                   <div style={{ fontSize: 13, color: '#dc2626', fontWeight: 600, marginBottom: 6 }}>Delete your account?</div>
-                  <div style={{ fontSize: 12, color: '#6b7280', marginBottom: 12 }}>All your bets, picks, and settings will be permanently removed. This cannot be undone.</div>
+                  <div style={{ fontSize: 12, color: '#6b7280', marginBottom: 12 }}>Your Stripe subscription will be cancelled immediately. All your bets, picks, and settings will be permanently removed. This cannot be undone.</div>
+                  {deleteError && <div style={{ fontSize: 12, color: '#dc2626', marginBottom: 10, fontWeight: 600 }}>{deleteError}</div>}
                   <div style={{ display: 'flex', gap: 8 }}>
                     <button type="button" onClick={deleteAccount}
                       style={{ background: '#dc2626', color: '#fff', border: 'none', borderRadius: 6, padding: '8px 16px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
                       Yes, delete my account
                     </button>
-                    <button type="button" onClick={() => setDeleteStep(0)}
+                    <button type="button" onClick={() => { setDeleteStep(0); setDeleteError(null); }}
                       style={{ background: '#f3f4f6', border: 'none', borderRadius: 6, padding: '8px 16px', fontSize: 12, cursor: 'pointer' }}>
                       Cancel
                     </button>
@@ -582,12 +677,6 @@ export default function SettingsPage() {
                 </div>
               )}
               {deleteStep === 2 && <div style={{ fontSize: 13, color: '#6b7280' }}>Deleting account…</div>}
-              {deleteStep === 3 && (
-                <div style={{ background: '#f0fdf4', border: '1px solid #86efac', borderRadius: 8, padding: 16 }}>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: G, marginBottom: 4 }}>Account deleted</div>
-                  <div style={{ fontSize: 12, color: '#6b7280' }}>Your data has been removed. Sign out to complete the process.</div>
-                </div>
-              )}
             </div>
           </div>
         </>
@@ -638,14 +727,21 @@ export default function SettingsPage() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'flex-start' }}>
             {isPro ? (
               <>
-                <a href="/account" style={{
-                  display: 'inline-block', background: '#f9fafb', color: '#374151',
-                  border: '1px solid #d1d5db', borderRadius: 8, padding: '10px 24px',
-                  fontSize: 13, fontWeight: 600, textDecoration: 'none',
-                }}>Manage billing</a>
-                <button type="button" onClick={() => {}}
-                  style={{ background: 'transparent', border: 'none', color: '#9ca3af', fontSize: 12, cursor: 'pointer', padding: 0 }}>
-                  Cancel subscription
+                <button
+                  type="button"
+                  onClick={openPortal}
+                  disabled={portalState === 'loading'}
+                  style={{ background: '#f9fafb', color: portalState === 'error' ? '#dc2626' : '#374151', border: `1px solid ${portalState === 'error' ? '#fca5a5' : '#d1d5db'}`, borderRadius: 8, padding: '10px 24px', fontSize: 13, fontWeight: 600, cursor: portalState === 'loading' ? 'default' : 'pointer', opacity: portalState === 'loading' ? 0.7 : 1 }}
+                >
+                  {portalState === 'loading' ? 'Opening…' : portalState === 'error' ? 'Couldn\'t open portal — try again' : 'Manage billing'}
+                </button>
+                <button
+                  type="button"
+                  onClick={openPortal}
+                  disabled={portalState === 'loading'}
+                  style={{ background: 'transparent', border: 'none', color: '#9ca3af', fontSize: 12, cursor: portalState === 'loading' ? 'default' : 'pointer', padding: 0 }}
+                >
+                  Cancel via billing portal
                 </button>
               </>
             ) : (
@@ -712,7 +808,7 @@ export default function SettingsPage() {
           fontSize: 13, fontWeight: 600, zIndex: 9999, pointerEvents: 'none',
           boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
         }}>
-          {toast === 'saved' ? 'Settings saved' : toast === 'cleared' ? 'All bets cleared' : 'Failed to save — try again'}
+          {toast === 'saved' ? 'Settings saved' : toast === 'cleared' ? 'All bets cleared' : toast === 'error' ? 'Failed — try again' : 'Failed to save — try again'}
         </div>
       )}
     </div>
