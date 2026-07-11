@@ -877,8 +877,24 @@ function buildPopupHTML(h) {
   const jt = [jShort(h.jname), h.trainer].filter(Boolean).join(' · ');
   const bbPayload = encodeURIComponent(JSON.stringify({ name: h.name, venue: h._venue || '', raceNumber: h._raceNum || '', distance: h._dist || '', cls: h._cls || '' }));
 
+  const sire2 = h.sire || '';
+  const dam2 = h.dam || '';
+  const gsire2 = h.gsire || h.grandsire || '';
+  const winDists2 = Array.isArray(h.winDists) ? h.winDists.join(', ') : (h.winDists || '');
+  const breedParts2 = [];
+  if (sire2) breedParts2.push(`By ${sire2}`);
+  if (dam2) breedParts2.push(`Dam: ${dam2}`);
+  if (gsire2) breedParts2.push(`GSire: ${gsire2}`);
+  if (winDists2) breedParts2.push(`Win dists: ${winDists2}`);
+  const breedLine2 = breedParts2.join(' · ');
+  const avgPrize2 = h['Average Prizemoney'];
+  const avgPrizeFmt2 = avgPrize2 ? `$${Math.round(avgPrize2).toLocaleString('en-AU')}` : null;
+  const estCareer2 = avgPrize2 && h.starts ? Math.round(avgPrize2 * h.starts) : null;
+  const estCareerFmt2 = estCareer2 ? `$${estCareer2.toLocaleString('en-AU')}` : null;
+  const prizeStr2 = [avgPrizeFmt2 && `Avg: ${avgPrizeFmt2}`, estCareerFmt2 && `Career Prizemoney: ${estCareerFmt2}`].filter(Boolean).join(' · ');
+
   return `
-  <div style="background:#00471b;padding:5px 10px;display:flex;align-items:center;justify-content:space-between">
+  <div style="background:#00471b;padding:5px 10px 3px;display:flex;align-items:center;justify-content:space-between">
     <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
       ${bp?`<span style="background:rgba(29,78,216,0.7);color:white;font-size:8px;font-weight:700;padding:1px 4px;border-radius:3px">B${bp}</span>`:''}
       <span style="color:white;font-weight:700;font-size:12px">${h.name}</span>
@@ -891,6 +907,10 @@ function buildPopupHTML(h) {
       <span style="font-size:9px;font-weight:700;color:${plcColor}">${plcPct}% plc</span>
     </div>
   </div>
+  ${(breedLine2 || prizeStr2) ? `<div style="background:#00471b;padding:0 10px 5px;display:flex;gap:16px;flex-wrap:wrap">
+    ${breedLine2 ? `<span style="font-size:9px;color:rgba(255,255,255,0.55)">${breedLine2}</span>` : ''}
+    ${prizeStr2 ? `<span style="font-size:9px;color:rgba(255,255,255,0.55)">${prizeStr2}</span>` : ''}
+  </div>` : ''}
   <table border="0" cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse">
     <tr style="background:#f9fafb">
       <td style="padding:1px 5px;font-size:8px;color:#9ca3af;font-weight:700;text-transform:uppercase">Date</td>
@@ -1781,29 +1801,28 @@ function FormCard({ runner: r, rank, onLogBet, isResulted, betBlocked = false, r
           {(wt||allow) && <span style={{ fontSize:11, color:'rgba(255,255,255,0.75)', flexShrink:0 }}>{wt}{allow}</span>}
           {r.jname && <span style={{ fontSize:11, color:'rgba(255,255,255,0.75)', flexShrink:0 }}>· {jShort(r.jname)}</span>}
           {r.trainer && <span style={{ fontSize:11, color:'rgba(255,255,255,0.75)', flexShrink:0, overflow:'hidden', textOverflow:'ellipsis', maxWidth:140 }}>· {r.trainer}</span>}
-          <div style={{ marginLeft:'auto', display:'flex', flexDirection:'column', alignItems:'flex-end', flexShrink:0, gap:3 }}>
-            <div style={{ display:'flex', alignItems:'center', gap:6 }}>
-              {ageSex && <span style={{ fontSize:10, color:'rgba(255,255,255,0.75)' }}>{ageSex}</span>}
-              <span style={{ fontSize:10, color:'rgba(255,255,255,0.75)', fontFamily:'monospace' }}>{starts}-{wins}-{secs}-{thirds}</span>
-              <span style={{ fontSize:10, color:winPct>=25?'#6ee7b7':winPct>=12?'#fcd34d':'rgba(255,255,255,0.75)' }}>{winPct}%win</span>
-              {dslast!=null && <span style={{ fontSize:10, color:'rgba(255,255,255,0.75)' }}>{dslast}d</span>}
-              <button type="button" onClick={() => !betBlocked && !isResulted && onLogBet(r, rank)} disabled={betBlocked || isResulted}
-                style={{ fontSize:9, fontWeight:600, padding:'2px 8px', borderRadius:3, border:'1px solid rgba(255,255,255,0.25)', color:betBlocked||isResulted?'rgba(255,255,255,0.35)':'rgba(255,255,255,0.8)', background:'transparent', cursor:betBlocked||isResulted?'default':'pointer', flexShrink:0 }}>
-                {isResulted ? 'Resulted' : betBlocked ? 'Closed' : '+ Bet'}
-              </button>
-              <button type="button" onClick={() => { if (!isPro) { onUpgrade(); } else { window.__addToBlackbook && window.__addToBlackbook({ name: r.name, venue: rc?.venue || '', raceNumber: rc?.num || '', distance: rc?.dist || '', cls: rc?.cls || '' }); } }}
-                style={{ fontSize:9, fontWeight:600, padding:'2px 8px', borderRadius:3, border:'1px solid rgba(255,255,255,0.25)', color:'rgba(255,255,255,0.8)', background:'transparent', cursor:'pointer', flexShrink:0 }}>
-                🔖 Blackbook
-              </button>
-            </div>
-            {(avgPrizeFmt || estCareerFmt) && (
-              <div style={{ fontSize:9, color:'rgba(255,255,255,0.55)', display:'flex', gap:8 }}>
-                {avgPrizeFmt  && <span>Avg Prize: {avgPrizeFmt}</span>}
-                {estCareerFmt && <span>Est. Career Prize: {estCareerFmt}</span>}
-              </div>
-            )}
+          <div style={{ marginLeft:'auto', display:'flex', alignItems:'center', gap:6, flexShrink:0 }}>
+            {ageSex && <span style={{ fontSize:10, color:'rgba(255,255,255,0.75)' }}>{ageSex}</span>}
+            <span style={{ fontSize:10, color:'rgba(255,255,255,0.75)', fontFamily:'monospace' }}>{starts}-{wins}-{secs}-{thirds}</span>
+            <span style={{ fontSize:10, color:winPct>=25?'#6ee7b7':winPct>=12?'#fcd34d':'rgba(255,255,255,0.75)' }}>{winPct}%win</span>
+            {dslast!=null && <span style={{ fontSize:10, color:'rgba(255,255,255,0.75)' }}>{dslast}d</span>}
+            <button type="button" onClick={() => !betBlocked && !isResulted && onLogBet(r, rank)} disabled={betBlocked || isResulted}
+              style={{ fontSize:9, fontWeight:600, padding:'2px 8px', borderRadius:3, border:'1px solid rgba(255,255,255,0.25)', color:betBlocked||isResulted?'rgba(255,255,255,0.35)':'rgba(255,255,255,0.8)', background:'transparent', cursor:betBlocked||isResulted?'default':'pointer', flexShrink:0 }}>
+              {isResulted ? 'Resulted' : betBlocked ? 'Closed' : '+ Bet'}
+            </button>
+            <button type="button" onClick={() => { if (!isPro) { onUpgrade(); } else { window.__addToBlackbook && window.__addToBlackbook({ name: r.name, venue: rc?.venue || '', raceNumber: rc?.num || '', distance: rc?.dist || '', cls: rc?.cls || '' }); } }}
+              style={{ fontSize:9, fontWeight:600, padding:'2px 8px', borderRadius:3, border:'1px solid rgba(255,255,255,0.25)', color:'rgba(255,255,255,0.8)', background:'transparent', cursor:'pointer', flexShrink:0 }}>
+              🔖 Blackbook
+            </button>
           </div>
         </div>
+        {/* Row 1b: prizemoney */}
+        {(avgPrizeFmt || estCareerFmt) && (
+          <div style={{ fontSize:9, color:'rgba(255,255,255,0.55)', marginTop:2, paddingLeft:28, display:'flex', gap:10 }}>
+            {avgPrizeFmt  && <span>Avg Prize: {avgPrizeFmt}</span>}
+            {estCareerFmt && <span>Career Prizemoney: {estCareerFmt}</span>}
+          </div>
+        )}
         {/* Row 2: breeding */}
         {breedLine && (
           <div style={{ fontSize:10, color:'rgba(255,255,255,0.65)', marginTop:3, paddingLeft:28 }}>{breedLine}</div>
@@ -2212,6 +2231,7 @@ function RacesPageInner() {
   const preferredViewRef = useRef('field');
   console.log('[Tier] isPro:', isPro, 'plan:', user?.publicMetadata?.plan);
 
+  const [csvLoading,  setCsvLoading]  = useState(true);
   const [allRaces,    setAllRaces]    = useState({});
   const [allVenues,   setAllVenues]   = useState({});
   const [raceKeys,    setRaceKeys]    = useState([]);
@@ -2395,11 +2415,13 @@ function RacesPageInner() {
         localStorage.setItem('ww_csv', text);
         localStorage.setItem('ww_csv_name', 'today.csv');
         loadCSV(text, 'today.csv', selectParam);
+        setCsvLoading(false);
       })
       .catch(() => {
         const saved = localStorage.getItem('ww_csv');
         const savedName = localStorage.getItem('ww_csv_name') || 'saved.csv';
         if (saved) loadCSV(saved, savedName, selectParam);
+        setCsvLoading(false);
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -2579,7 +2601,16 @@ function RacesPageInner() {
       {/* Main */}
       <main className="flex-1 flex flex-col overflow-hidden bg-slate-50">
         {!hasData ? (
-          <UploadZone onFile={handleFile} />
+          csvLoading ? (
+            <div className="flex-1 flex items-center justify-center">
+              <div style={{ textAlign: 'center', color: '#9ca3af' }}>
+                <i className="ti ti-loader-2 text-3xl block mb-2" style={{ animation: 'spin 1s linear infinite' }} />
+                <div className="text-sm">Loading today's races…</div>
+              </div>
+            </div>
+          ) : (
+            <UploadZone onFile={handleFile} />
+          )
         ) : (
           <>
             {/* Mobile race picker */}
