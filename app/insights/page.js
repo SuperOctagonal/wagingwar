@@ -428,6 +428,126 @@ export default function InsightsPage() {
   // ─── early returns ───────────────────────────────────────────────────────────
   if (!isLoaded) return null;
 
+  if (isPro === false) {
+    const fakeHero = [
+      ['Total P&L',   '+$312.50', '#00471b'],
+      ['ROI %',       '+14.8%',   '#00471b'],
+      ['Strike Rate', '38.2%',    '#111'],
+      ['Avg CLV %',   '+2.1%',    '#00471b'],
+      ['Avg Odds',    '4.20',     '#111'],
+      ['Max Drawdown','-$87.00',  '#dc2626'],
+    ];
+    const fakeClv = [
+      ['R1 (top pick)', '+4.2%', 68],
+      ['R2',            '+1.8%', 56],
+      ['R3–5',          '-0.9%', 44],
+    ];
+    const fakeRoi = [
+      ['R1', 22.4, 18],
+      ['R2',  8.1, 31],
+      ['R3',  1.2, 24],
+      ['R4', -6.8, 19],
+      ['R5+', -14.2, 12],
+    ];
+    return (
+      <div style={{ flex: 1, overflowY: 'auto', background: '#f3f4f6', position: 'relative' }}>
+        <div style={{ opacity: 0.18, filter: 'blur(2px)', pointerEvents: 'none', userSelect: 'none' }}>
+          {/* Header */}
+          <div style={{ background: G, padding: '14px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+            <div style={{ fontSize: 22, fontWeight: 800, color: '#fff', letterSpacing: 2 }}>Insights</div>
+            <div style={{ display: 'flex', gap: 4 }}>
+              {['Today','Yesterday','This Week','This Month','All Time'].map((l, i) => (
+                <div key={l} style={{ background: i === 4 ? 'rgba(255,255,255,0.25)' : 'transparent', border: '1px solid rgba(255,255,255,0.4)', color: '#fff', borderRadius: 6, padding: '4px 10px', fontSize: 11, fontWeight: i === 4 ? 700 : 400 }}>{l}</div>
+              ))}
+            </div>
+          </div>
+          <div style={{ padding: '14px 20px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {/* Hero bar */}
+            <div style={{ background: '#fff', borderRadius: 8, border: '1px solid #e5e7eb', padding: '8px 0' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6,1fr)' }}>
+                {fakeHero.map(([label, value, color], i) => (
+                  <div key={i} style={{ textAlign: 'center', padding: '10px 6px', borderRight: i < 5 ? '1px solid #f3f4f6' : 'none' }}>
+                    <div style={{ fontSize: 10, color: '#9ca3af', marginBottom: 4, textTransform: 'uppercase', letterSpacing: 0.5 }}>{label}</div>
+                    <div style={{ fontFamily: 'ui-monospace,monospace', fontSize: 19, fontWeight: 700, color }}>{value}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+            {/* AI insight */}
+            <div style={{ background: '#f0fdf4', border: '1px solid #86efac', borderRadius: 8, padding: '12px 18px' }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: G, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 6 }}>AI Insight</div>
+              <div style={{ fontSize: 13, color: '#166534', lineHeight: 1.65 }}>
+                Your best zone is <strong>R1</strong> picks in <strong>Soft/Heavy</strong> conditions — ROI <strong>+31.4%</strong> over 18 bets.{' '}
+                Main leak: <strong>R4–5</strong> in <strong>Good</strong> — ROI <strong>-18.2%</strong> over 22 bets. Consider cutting stakes here.
+              </div>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              {/* CLV Tracker */}
+              <div style={{ background: '#fff', borderRadius: 8, border: '1px solid #e5e7eb', padding: '12px 16px' }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: '#111', marginBottom: 10 }}>CLV Tracker</div>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                  <thead>
+                    <tr style={{ color: '#9ca3af' }}>
+                      {['Rank','Avg CLV','Beat %','vs 50%'].map(h => (
+                        <th key={h} style={{ textAlign: h === 'Rank' ? 'left' : 'right', fontWeight: 500, paddingBottom: 8 }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {fakeClv.map(([rank, clv, beat]) => (
+                      <tr key={rank} style={{ borderTop: '1px solid #f3f4f6' }}>
+                        <td style={{ padding: '7px 0', fontWeight: 600 }}>{rank}</td>
+                        <td style={{ fontFamily: 'ui-monospace,monospace', textAlign: 'right', color: clv.startsWith('+') ? G : '#dc2626' }}>{clv}</td>
+                        <td style={{ fontFamily: 'ui-monospace,monospace', textAlign: 'right' }}>{beat}%</td>
+                        <td style={{ textAlign: 'right', paddingLeft: 8 }}>
+                          <div style={{ display: 'inline-flex', justifyContent: 'flex-end' }}>
+                            <div style={{ width: 64, height: 8, background: '#f3f4f6', borderRadius: 2, position: 'relative', overflow: 'hidden' }}>
+                              <div style={{ position: 'absolute', left: '50%', top: 0, width: 1, height: '100%', background: '#d1d5db', zIndex: 1 }} />
+                              {beat >= 50
+                                ? <div style={{ position: 'absolute', left: '50%', width: `${Math.min(50, beat - 50)}%`, height: '100%', background: G }} />
+                                : <div style={{ position: 'absolute', right: '50%', width: `${Math.min(50, 50 - beat)}%`, height: '100%', background: '#dc2626' }} />}
+                            </div>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                <div style={{ fontSize: 10, color: '#9ca3af', marginTop: 8 }}>50% beat rate = no edge over closing line</div>
+              </div>
+              {/* ROI by Rank */}
+              <div style={{ background: '#fff', borderRadius: 8, border: '1px solid #e5e7eb', padding: '12px 16px' }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: '#111', marginBottom: 10 }}>ROI by Model Rank</div>
+                {fakeRoi.map(([label, roi, n]) => (
+                  <div key={label} style={{ marginBottom: 10 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <div style={{ width: 28, fontSize: 12, fontWeight: 700, color: '#374151', flexShrink: 0 }}>{label}</div>
+                      <div style={{ flex: 1, height: 18, background: '#f3f4f6', borderRadius: 3, position: 'relative', overflow: 'hidden' }}>
+                        <div style={{ position: 'absolute', [roi >= 0 ? 'left' : 'right']: '50%', width: `${Math.min(50, Math.abs(roi) / 25 * 50)}%`, height: '100%', background: roi >= 0 ? G : '#dc2626' }} />
+                        <div style={{ position: 'absolute', left: '50%', top: 0, width: 1, height: '100%', background: '#d1d5db' }} />
+                      </div>
+                      <div style={{ fontFamily: 'ui-monospace,monospace', fontSize: 11, width: 52, textAlign: 'right', color: roi >= 0 ? G : '#dc2626' }}>{roi > 0 ? '+' : ''}{roi}%</div>
+                    </div>
+                    <div style={{ fontSize: 10, color: '#9ca3af', marginLeft: 36 }}>n={n}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+        {/* Overlay */}
+        <div style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'auto' }}>
+          <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 12, padding: '32px 40px', textAlign: 'center', maxWidth: 300, boxShadow: '0 8px 32px rgba(0,0,0,0.12)' }}>
+            <div style={{ fontSize: 28, marginBottom: 10 }}>&#128202;</div>
+            <div style={{ fontSize: 15, fontWeight: 700, color: '#111', marginBottom: 8 }}>Insights is a Pro feature</div>
+            <div style={{ fontSize: 13, color: '#6b7280', lineHeight: 1.5, marginBottom: 20 }}>Full betting analytics — CLV tracking, edge zones, Kelly advisor and more.</div>
+            <a href="/account" style={{ display: 'inline-block', background: G, color: '#fff', borderRadius: 8, padding: '10px 24px', fontSize: 13, fontWeight: 600, textDecoration: 'none' }}>Upgrade to Pro</a>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   // ─── computed display values ─────────────────────────────────────────────────
   const roiMaxAbs = Math.max(1, ...roiByRank.map(r => Math.abs(r.roi)));
 
@@ -440,16 +560,6 @@ export default function InsightsPage() {
   // ─── render ──────────────────────────────────────────────────────────────────
   return (
     <div style={{ flex: 1, overflowY: 'auto', background: '#f3f4f6' }}>
-      {isPro === false && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(6px)', background: 'rgba(255,255,255,0.55)' }}>
-          <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 12, padding: '32px 40px', textAlign: 'center', maxWidth: 300, boxShadow: '0 8px 32px rgba(0,0,0,0.12)' }}>
-            <div style={{ fontSize: 28, marginBottom: 10 }}>&#128202;</div>
-            <div style={{ fontSize: 15, fontWeight: 700, color: '#111', marginBottom: 8 }}>Insights is a Pro feature</div>
-            <div style={{ fontSize: 13, color: '#6b7280', lineHeight: 1.5, marginBottom: 20 }}>Full betting analytics — CLV tracking, edge zones, Kelly advisor and more.</div>
-            <a href="/account" style={{ display: 'inline-block', background: G, color: '#fff', borderRadius: 8, padding: '10px 24px', fontSize: 13, fontWeight: 600, textDecoration: 'none' }}>Upgrade to Pro</a>
-          </div>
-        </div>
-      )}
 
       {/* Header */}
       <div style={{ background: G, padding: '14px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
