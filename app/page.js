@@ -46,6 +46,57 @@ function Check({ dark }) {
   return <span style={{ color: dark ? GREEN : '#86efac', flexShrink: 0 }}>✓</span>;
 }
 
+function ProductScreenshot() {
+  const rows = [
+    { num: 1, name: 'Sunfire Prince',  score: 87, edge: '+4.2%', edgePos: true,  val: '$8.50'  },
+    { num: 2, name: 'Storm King',      score: 79, edge: '+1.1%', edgePos: true,  val: '$5.00'  },
+    { num: 3, name: 'Golden Arrow',    score: 71, edge: '—',     edgePos: null,  val: '$12.00' },
+    { num: 4, name: 'Rapid River',     score: 64, edge: '-2.8%', edgePos: false, val: '$18.00' },
+    { num: 5, name: 'Misty Belle',     score: 58, edge: '—',     edgePos: null,  val: '$22.00' },
+  ];
+  return (
+    <div style={{
+      maxWidth: 520, margin: '40px auto 0',
+      borderRadius: 10, overflow: 'hidden',
+      boxShadow: '0 20px 60px rgba(0,0,0,0.45)',
+      border: '1px solid rgba(255,255,255,0.12)',
+    }}>
+      {/* Window chrome */}
+      <div style={{ background: '#0D1C13', padding: '8px 14px', display: 'flex', alignItems: 'center', gap: 10, borderBottom: '1px solid #1a3a25' }}>
+        <div style={{ display: 'flex', gap: 5 }}>
+          {['#f87171','#fbbf24','#4ade80'].map(c => (
+            <div key={c} style={{ width: 9, height: 9, borderRadius: '50%', background: c, opacity: 0.7 }} />
+          ))}
+        </div>
+        <div style={{ fontSize: 10, fontWeight: 600, color: 'rgba(255,255,255,0.45)', marginLeft: 6 }}>
+          Flemington R5 · 1600m · Good (3) · 14 runners
+        </div>
+      </div>
+      {/* Table header */}
+      <div style={{ background: '#173404', display: 'grid', gridTemplateColumns: '24px 1fr 52px 60px 60px', gap: 0, padding: '5px 12px', borderBottom: '1px solid #1a3a25' }}>
+        {['#', 'Horse', 'Score', 'Edge', 'Value'].map((h, i) => (
+          <div key={h} style={{ fontSize: 9, fontWeight: 700, color: '#EAF3DE', textTransform: 'uppercase', letterSpacing: '0.6px', textAlign: i >= 2 ? 'right' : 'left' }}>{h}</div>
+        ))}
+      </div>
+      {/* Rows */}
+      {rows.map((r, i) => (
+        <div key={r.num} style={{
+          background: i === 0 ? 'rgba(74,222,128,0.06)' : i % 2 === 0 ? '#fff' : '#fafafa',
+          display: 'grid', gridTemplateColumns: '24px 1fr 52px 60px 60px',
+          padding: '7px 12px', borderBottom: i < rows.length - 1 ? '1px solid #f3f4f6' : 'none',
+          alignItems: 'center',
+        }}>
+          <div style={{ fontSize: 10, fontWeight: 700, color: '#9ca3af' }}>{r.num}</div>
+          <div style={{ fontSize: 11, fontWeight: i === 0 ? 700 : 500, color: TEXT, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.name}</div>
+          <div style={{ fontSize: 12, fontWeight: 800, color: i === 0 ? GREEN : TEXT, textAlign: 'right', fontFamily: 'ui-monospace,monospace' }}>{r.score}</div>
+          <div style={{ fontSize: 11, fontWeight: 600, color: r.edgePos === true ? '#16a34a' : r.edgePos === false ? '#dc2626' : '#9ca3af', textAlign: 'right', fontFamily: 'ui-monospace,monospace' }}>{r.edge}</div>
+          <div style={{ fontSize: 11, color: '#374151', textAlign: 'right', fontFamily: 'ui-monospace,monospace' }}>{r.val}</div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export default function HomePage() {
   const stripeMonthlyUrl = process.env.NEXT_PUBLIC_STRIPE_MONTHLY_URL || '/sign-up';
 
@@ -56,7 +107,6 @@ export default function HomePage() {
       <section style={{ background: GREEN, padding: 'clamp(56px, 10vw, 96px) 24px clamp(64px, 11vw, 104px)', textAlign: 'center' }}>
         <div style={{ maxWidth: 700, margin: '0 auto' }}>
 
-          {/* Logo mark */}
           <div
             className="font-bebas"
             style={{ fontSize: 'clamp(52px, 12vw, 88px)', letterSpacing: '0.06em', lineHeight: 1, marginBottom: 32 }}
@@ -80,91 +130,26 @@ export default function HomePage() {
             Score and rank every runner in every race in seconds.
           </p>
 
-          <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap', marginBottom: 18 }}>
-            <Link
-              href="/sign-up"
-              style={{
-                background: '#fff', color: GREEN, fontWeight: 800, fontSize: 14,
-                padding: '14px 30px', borderRadius: 9, textDecoration: 'none',
-                boxShadow: '0 4px 14px rgba(0,0,0,0.18)',
-              }}
-            >
-              Start Free 7-Day Trial
-            </Link>
-            <Link
-              href="/sign-in"
-              style={{
-                background: 'transparent', color: '#fff', fontWeight: 700, fontSize: 14,
-                padding: '13px 30px', borderRadius: 9, textDecoration: 'none',
-                border: '1.5px solid rgba(255,255,255,0.55)',
-              }}
-            >
-              Sign In
-            </Link>
-          </div>
-
-          <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.45)', margin: 0 }}>
-            No credit card required
+          <Link
+            href="/sign-up"
+            style={{
+              display: 'inline-block',
+              background: '#fff', color: GREEN, fontWeight: 800, fontSize: 15,
+              padding: '15px 36px', borderRadius: 9, textDecoration: 'none',
+              boxShadow: '0 4px 14px rgba(0,0,0,0.18)',
+            }}
+          >
+            Sign Up Free
+          </Link>
+          <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.45)', margin: '12px 0 0' }}>
+            No card needed
           </p>
+
+          <ProductScreenshot />
         </div>
       </section>
 
-      {/* ── 2. How It Works ──────────────────────────────────────────────── */}
-      <section style={{ background: '#fff', padding: 'clamp(56px, 8vw, 88px) 24px' }}>
-        <div style={{ maxWidth: 860, margin: '0 auto' }}>
-          <h2 style={{
-            fontSize: 'clamp(20px, 3vw, 30px)', fontWeight: 800, color: TEXT,
-            textAlign: 'center', marginBottom: 56, letterSpacing: '-0.01em',
-          }}>
-            How It Works
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-12">
-            <StepCard step={1} icon="🏇" title="Load Your Races"         desc="Upload the daily race fields in seconds" />
-            <StepCard step={2} icon="📊" title="Model Scores Everything" desc="Every runner ranked by form, speed, class, pace and connections" />
-            <StepCard step={3} icon="💰" title="Find the Value"          desc="Compare model prices against live market odds to find the edge" />
-          </div>
-        </div>
-      </section>
-
-      {/* ── 3. Key Features ──────────────────────────────────────────────── */}
-      <section style={{ background: '#F9FAFB', padding: 'clamp(56px, 8vw, 88px) 24px' }}>
-        <div style={{ maxWidth: 1020, margin: '0 auto' }}>
-          <h2 style={{
-            fontSize: 'clamp(20px, 3vw, 30px)', fontWeight: 800, color: TEXT,
-            textAlign: 'center', marginBottom: 48, letterSpacing: '-0.01em',
-          }}>
-            Everything You Need on Race Day
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-            <FeatureCard icon="🎯" title="Race Scoring"    desc="Proprietary algorithm ranks every runner instantly" />
-            <FeatureCard icon="🗺️" title="Pace Maps"       desc="Visualise how each race will be run before it starts" />
-            <FeatureCard icon="📈" title="Bet Tracker"     desc="Log bets and track P&L with full analytics" />
-            <FeatureCard icon="👥" title="Community"       desc="Share tips and follow top punters" />
-            <FeatureCard icon="📖" title="Blackbook"       desc="Track horses you want to follow across meetings" />
-            <FeatureCard icon="💹" title="Model vs Market" desc="See exactly where your price differs from the TAB" />
-          </div>
-        </div>
-      </section>
-
-      {/* ── 4. About ─────────────────────────────────────────────────────── */}
-      <section style={{ background: '#fff', padding: 'clamp(56px, 8vw, 88px) 24px', textAlign: 'center' }}>
-        <div style={{ maxWidth: 640, margin: '0 auto' }}>
-          <h2 style={{
-            fontSize: 'clamp(20px, 3vw, 30px)', fontWeight: 800, color: TEXT,
-            marginBottom: 24, letterSpacing: '-0.01em',
-          }}>
-            Built By a Punter, For Punters
-          </h2>
-          <p style={{ fontSize: 14, color: '#4b5563', lineHeight: 1.85, margin: 0 }}>
-            Waging War started as an Excel spreadsheet 5 years ago. After hundreds of hours refining
-            the model across thousands of races, it&apos;s now available to serious punters who want
-            an edge. This isn&apos;t a tipster service — it&apos;s a tool that helps you make better
-            decisions with your own money.
-          </p>
-        </div>
-      </section>
-
-      {/* ── 5. Pricing ───────────────────────────────────────────────────── */}
+      {/* ── 2. Pricing ───────────────────────────────────────────────────── */}
       <section style={{ background: GREEN, padding: 'clamp(56px, 8vw, 88px) 24px' }}>
         <div style={{ maxWidth: 780, margin: '0 auto' }}>
           <h2 style={{
@@ -246,7 +231,7 @@ export default function HomePage() {
                   'Unlimited bet tracker',
                   'Blackbook',
                   'Community posting',
-                  'Model vs market odds',
+                  'Daily competition',
                 ].map(f => (
                   <li key={f} style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 13, color: TEXT }}>
                     <Check dark />
@@ -267,11 +252,65 @@ export default function HomePage() {
               >
                 Start Free 7-Day Trial
               </a>
+              <p style={{ textAlign: 'center', fontSize: 11, color: '#9ca3af', margin: '10px 0 0' }}>
+                7-day free trial · card required · cancel anytime
+              </p>
             </div>
           </div>
+        </div>
+      </section>
 
-          <p style={{ textAlign: 'center', fontSize: 11, color: 'rgba(255,255,255,0.45)', margin: 0 }}>
-            7-day free trial. Cancel anytime.
+      {/* ── 3. How It Works ──────────────────────────────────────────────── */}
+      <section style={{ background: '#fff', padding: 'clamp(56px, 8vw, 88px) 24px' }}>
+        <div style={{ maxWidth: 860, margin: '0 auto' }}>
+          <h2 style={{
+            fontSize: 'clamp(20px, 3vw, 30px)', fontWeight: 800, color: TEXT,
+            textAlign: 'center', marginBottom: 56, letterSpacing: '-0.01em',
+          }}>
+            How It Works
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-12">
+            <StepCard step={1} icon="🏇" title="Races Load Automatically"  desc="Every morning's fields are ready before you open the app — no uploads, no setup" />
+            <StepCard step={2} icon="📊" title="Model Scores Everything"   desc="Every runner ranked by form, speed, class, pace and connections" />
+            <StepCard step={3} icon="💰" title="Find the Value"            desc="See where the model's rating differs from each runner's estimated price to spot value" />
+          </div>
+        </div>
+      </section>
+
+      {/* ── 4. Key Features ──────────────────────────────────────────────── */}
+      <section style={{ background: '#F9FAFB', padding: 'clamp(56px, 8vw, 88px) 24px' }}>
+        <div style={{ maxWidth: 1020, margin: '0 auto' }}>
+          <h2 style={{
+            fontSize: 'clamp(20px, 3vw, 30px)', fontWeight: 800, color: TEXT,
+            textAlign: 'center', marginBottom: 48, letterSpacing: '-0.01em',
+          }}>
+            Everything You Need on Race Day
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+            <FeatureCard icon="🎯" title="Race Scoring"    desc="Proprietary algorithm ranks every runner instantly" />
+            <FeatureCard icon="🗺️" title="Pace Maps"       desc="Visualise how each race will be run before it starts" />
+            <FeatureCard icon="📈" title="Bet Tracker"     desc="Log bets and track P&L with full analytics" />
+            <FeatureCard icon="👥" title="Community"       desc="Share tips and follow top punters" />
+            <FeatureCard icon="📖" title="Blackbook"       desc="Track horses you want to follow across meetings" />
+            <FeatureCard icon="🏆" title="Daily Competition" desc="Pick winners, earn points and climb the daily leaderboard" />
+          </div>
+        </div>
+      </section>
+
+      {/* ── 5. About ─────────────────────────────────────────────────────── */}
+      <section style={{ background: '#fff', padding: 'clamp(56px, 8vw, 88px) 24px', textAlign: 'center' }}>
+        <div style={{ maxWidth: 640, margin: '0 auto' }}>
+          <h2 style={{
+            fontSize: 'clamp(20px, 3vw, 30px)', fontWeight: 800, color: TEXT,
+            marginBottom: 24, letterSpacing: '-0.01em',
+          }}>
+            Built By a Punter, For Punters
+          </h2>
+          <p style={{ fontSize: 14, color: '#4b5563', lineHeight: 1.85, margin: 0 }}>
+            Waging War started as an Excel spreadsheet 5 years ago. After hundreds of hours refining
+            the model across thousands of races, it&apos;s now available to serious punters who want
+            an edge. This isn&apos;t a tipster service — it&apos;s a tool that helps you make better
+            decisions with your own money.
           </p>
         </div>
       </section>
@@ -301,8 +340,9 @@ export default function HomePage() {
               boxShadow: '0 6px 18px rgba(0,0,0,0.2)',
             }}
           >
-            Start Free Trial
+            Sign Up Free
           </Link>
+          <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', margin: '12px 0 0' }}>No card needed</p>
         </div>
       </section>
 

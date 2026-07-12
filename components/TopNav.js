@@ -232,13 +232,15 @@ export default function TopNav() {
         {/* Right side */}
         <div className="ml-auto flex gap-2 items-center">
           <style>{`@keyframes ww-spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}`}</style>
-          <button
-            onClick={handleRefresh}
-            title="Refresh data"
-            className="hidden sm:flex items-center justify-center w-7 h-7 rounded-full border border-white/20 text-white/70 hover:text-white hover:border-white/40 transition-colors"
-          >
-            <i className="ti ti-refresh" style={{ fontSize: 13, display: 'inline-block', animation: navRefreshing ? 'ww-spin 0.8s linear infinite' : 'none' }} />
-          </button>
+          {user && (
+            <button
+              onClick={handleRefresh}
+              title="Refresh data"
+              className="hidden sm:flex items-center justify-center w-7 h-7 rounded-full border border-white/20 text-white/70 hover:text-white hover:border-white/40 transition-colors"
+            >
+              <i className="ti ti-refresh" style={{ fontSize: 13, display: 'inline-block', animation: navRefreshing ? 'ww-spin 0.8s linear infinite' : 'none' }} />
+            </button>
+          )}
           <button
             onClick={() => router.push('/settings')}
             title="Settings"

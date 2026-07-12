@@ -1679,7 +1679,7 @@ function FieldView({ results, scratched, rc, trackCond, onLogBet, onShowPopup, o
             {layers.pace && <span style={{ fontSize: 10, fontWeight: 400, color: '#6b7280', textTransform: 'none', letterSpacing: 0 }}>· Sorted by barrier</span>}
           </div>
           <div style={{ flexShrink: 0, width: 36, textAlign: 'right' }}>Score</div>
-          <div style={{ flexShrink: 0, width: 42, textAlign: 'right' }}>Live $</div>
+          <div style={{ flexShrink: 0, width: 42, textAlign: 'right' }}>Ref $</div>
           <div style={{ flexShrink: 0, width: 32, textAlign: 'right' }}>Val</div>
         </div>
 
