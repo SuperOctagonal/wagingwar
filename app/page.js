@@ -46,53 +46,155 @@ function Check({ dark }) {
   return <span style={{ color: dark ? GREEN : '#86efac', flexShrink: 0 }}>✓</span>;
 }
 
+// Mirrors pipStyle() from app/races/page.js exactly
+function Pip({ n }) {
+  const s = n === 1 ? { background: '#fbbf24', color: '#78350f' }
+           : n === 2 ? { background: '#d1d5db', color: '#374151' }
+           : n === 3 ? { background: '#cd7f32', color: '#fff' }
+           : { background: '#f3f4f6', color: '#374151' };
+  return (
+    <span style={{ width: 15, height: 15, borderRadius: '50%', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 8, fontWeight: 700, flexShrink: 0, ...s }}>
+      {n}
+    </span>
+  );
+}
+
+// Mirrors GrpCell coloring from app/races/page.js + GRP_LABELS from lib/scoring.js
+function FakeGrpCell({ val, isBest, isWorst, grpColor }) {
+  const color = isBest ? grpColor : isWorst ? '#b91c1c' : '#1e293b';
+  const bg    = isBest ? '#f0fdf4' : isWorst ? '#fef2f2' : 'transparent';
+  return (
+    <td style={{ padding: '2px 3px', textAlign: 'right', fontSize: 11, fontWeight: 600, fontFamily: 'ui-monospace,monospace', color, background: bg, whiteSpace: 'nowrap' }}>
+      {val}
+    </td>
+  );
+}
+
 function ProductScreenshot() {
+  // Header style mirrors th = { background:'#f8fafc', color:'#374151', fontSize:9, fontWeight:700,
+  //   textTransform:'uppercase', letterSpacing:'0.5px', borderBottom:'1px solid #e5e7eb' }
+  const th = { background: '#f8fafc', color: '#374151', fontSize: 9, fontWeight: 700,
+    textTransform: 'uppercase', letterSpacing: '0.5px', borderBottom: '1px solid #e5e7eb',
+    padding: '3px 3px', whiteSpace: 'nowrap' };
+  // Rank colors from RunnerRow: rank1=#d97706, rank2=#6b7280, rank3=#b45309, else=#9ca3af
+  const rankColor = [null, '#d97706', '#6b7280', '#b45309', '#9ca3af', '#9ca3af'];
+  // Pace role colors from races/page.js lines 132-136
+  const paceColor = { LDR: '#00b050', PRE: '#7ec820', MID: '#ffc000', CLO: '#ff8000', BAC: '#dc3545' };
+  // GRP_LABELS colors from lib/scoring.js
+  const grpColor = { form: '#d97706', speed: '#2563eb', cond: '#0891b2', conn: '#7c3aed' };
+
   const rows = [
-    { num: 1, name: 'Sunfire Prince',  score: 87, edge: '+4.2%', edgePos: true,  val: '$8.50'  },
-    { num: 2, name: 'Storm King',      score: 79, edge: '+1.1%', edgePos: true,  val: '$5.00'  },
-    { num: 3, name: 'Golden Arrow',    score: 71, edge: '—',     edgePos: null,  val: '$12.00' },
-    { num: 4, name: 'Rapid River',     score: 64, edge: '-2.8%', edgePos: false, val: '$18.00' },
-    { num: 5, name: 'Misty Belle',     score: 58, edge: '—',     edgePos: null,  val: '$22.00' },
+    // rank, tab, name, jockey, trainer, lastFin[newest→oldest], record, form, speed, cond, conn, score, edge, ref, valPct, pace
+    // Best: form=row0, speed=row1, cond=row2, conn=row0 | Worst: form=row4, speed=row4, cond=row4, conn=row4
+    { rank:1, tab:5,  name:'Sunfire Prince', j:'J. McDonald', t:'C. Waller',    pips:[1,2,1,3], rec:'24-8-4-3',  form:18.4, speed:16.2, cond:14.8, conn:12.1, score:72.4, edge:'$4.50', ref:'$6.00', val:'+33%', valColor:'#059669', pace:'LDR', bestForm:true,  bestConn:true  },
+    { rank:2, tab:2,  name:'Storm King',     j:'D. Oliver',   t:'P. Moody',     pips:[2,1,3,4], rec:'31-11-6-4', form:15.2, speed:18.6, cond:12.3, conn: 9.8, score:65.8, edge:'$5.20', ref:'$5.50', val: '+6%', valColor:'#374151', pace:'PRE', bestSpeed:true },
+    { rank:3, tab:8,  name:'Golden Arrow',   j:'T. Berry',    t:'G. Waterhouse', pips:[3,2,1,2], rec:'18-5-4-4',  form:14.1, speed:12.4, cond:16.7, conn:11.3, score:63.2, edge:'$6.00', ref:'$4.50', val:'-25%', valColor:'#dc2626', pace:'MID', bestCond:true  },
+    { rank:4, tab:1,  name:'Rapid River',    j:'R. Bayliss',  t:'L. Maher',     pips:[4,3,2,5], rec:'27-7-5-6',  form:12.8, speed:14.1, cond:11.9, conn:10.2, score:58.4, edge:'$8.00', ref:'$9.00', val:'+13%', valColor:'#374151', pace:'CLO' },
+    { rank:5, tab:11, name:'Misty Belle',    j:'J. Bowman',   t:'M. Moroney',   pips:[5,6,3,1], rec:'22-4-3-5',  form:10.2, speed:11.8, cond: 9.4, conn: 8.7, score:48.7, edge:'$12.00',ref:'$14.00',val:'+17%', valColor:'#374151', pace:'BAC', worstForm:true, worstSpeed:true, worstCond:true, worstConn:true },
   ];
+
   return (
     <div style={{
-      maxWidth: 520, margin: '40px auto 0',
+      maxWidth: 780, margin: '40px auto 0',
       borderRadius: 10, overflow: 'hidden',
-      boxShadow: '0 20px 60px rgba(0,0,0,0.45)',
-      border: '1px solid rgba(255,255,255,0.12)',
+      boxShadow: '0 20px 60px rgba(0,0,0,0.5)',
+      border: '1px solid rgba(255,255,255,0.1)',
+      fontSize: 11,
     }}>
-      {/* Window chrome */}
-      <div style={{ background: '#0D1C13', padding: '8px 14px', display: 'flex', alignItems: 'center', gap: 10, borderBottom: '1px solid #1a3a25' }}>
-        <div style={{ display: 'flex', gap: 5 }}>
-          {['#f87171','#fbbf24','#4ade80'].map(c => (
-            <div key={c} style={{ width: 9, height: 9, borderRadius: '50%', background: c, opacity: 0.7 }} />
+      {/* Browser-style address bar */}
+      <div style={{ background: '#e8eaed', padding: '6px 12px', display: 'flex', alignItems: 'center', gap: 8 }}>
+        <div style={{ display: 'flex', gap: 4 }}>
+          <div style={{ width: 7, height: 7, borderRadius: '50%', background: '#bfc1c4' }} />
+          <div style={{ width: 7, height: 7, borderRadius: '50%', background: '#bfc1c4' }} />
+          <div style={{ width: 7, height: 7, borderRadius: '50%', background: '#bfc1c4' }} />
+        </div>
+        <div style={{ flex: 1, background: '#fff', borderRadius: 4, padding: '2px 10px', fontSize: 10, color: '#6b7280', fontFamily: 'ui-monospace,monospace' }}>
+          wagingwar.com.au/races
+        </div>
+      </div>
+      {/* App top nav strip */}
+      <div style={{ background: '#1B4332', padding: '6px 12px', display: 'flex', alignItems: 'center', gap: 10 }}>
+        <span style={{ fontWeight: 800, color: '#fff', fontSize: 11, letterSpacing: '0.06em' }}>WAGING WAR</span>
+        <span style={{ color: '#fbbf24', fontSize: 9, letterSpacing: '0.1em', fontWeight: 600 }}>RACING ANALYTICS</span>
+        <div style={{ marginLeft: 'auto', display: 'flex', gap: 12, fontSize: 9, color: 'rgba(255,255,255,0.55)', fontWeight: 600 }}>
+          {['Races','Today','My Bets','Insights','Results','Community'].map(l => (
+            <span key={l} style={{ color: l === 'Races' ? '#fff' : undefined, borderBottom: l === 'Races' ? '2px solid #fbbf24' : '2px solid transparent', paddingBottom: 1 }}>{l}</span>
           ))}
         </div>
-        <div style={{ fontSize: 10, fontWeight: 600, color: 'rgba(255,255,255,0.45)', marginLeft: 6 }}>
-          Flemington R5 · 1600m · Good (3) · 14 runners
+      </div>
+      {/* Race selector bar */}
+      <div style={{ background: '#f0fdf4', borderBottom: '1px solid #d1fae5', padding: '5px 12px', display: 'flex', alignItems: 'center', gap: 8 }}>
+        <span style={{ fontSize: 10, fontWeight: 700, color: GREEN }}>FLEMINGTON</span>
+        <span style={{ fontSize: 9, color: '#6b7280' }}>R7 · 1200m · Good (3) · {rows.length} runners</span>
+        <div style={{ marginLeft: 'auto', display: 'flex', gap: 4 }}>
+          {['Field','Form','Pace Map'].map((t, i) => (
+            <span key={t} style={{ fontSize: 9, fontWeight: 600, padding: '2px 8px', borderRadius: 10, background: i === 0 ? GREEN : 'transparent', color: i === 0 ? '#fff' : '#6b7280', border: `1px solid ${i === 0 ? GREEN : '#e5e7eb'}` }}>{t}</span>
+          ))}
         </div>
       </div>
-      {/* Table header */}
-      <div style={{ background: '#173404', display: 'grid', gridTemplateColumns: '24px 1fr 52px 60px 60px', gap: 0, padding: '5px 12px', borderBottom: '1px solid #1a3a25' }}>
-        {['#', 'Horse', 'Score', 'Edge', 'Value'].map((h, i) => (
-          <div key={h} style={{ fontSize: 9, fontWeight: 700, color: '#EAF3DE', textTransform: 'uppercase', letterSpacing: '0.6px', textAlign: i >= 2 ? 'right' : 'left' }}>{h}</div>
-        ))}
+      {/* Field table — column set mirrors FieldView thead exactly */}
+      <div style={{ overflowX: 'auto', background: '#fff' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 700 }}>
+          <thead>
+            <tr>
+              <th style={{ ...th, textAlign: 'center',  width: 36 }}>Rank</th>
+              <th style={{ ...th, textAlign: 'left',    minWidth: 160 }}>Horse / Jockey / Trainer</th>
+              <th style={{ ...th, textAlign: 'center',  width: 72 }}>Last 4 →</th>
+              <th style={{ ...th, textAlign: 'center',  width: 64 }}>Record</th>
+              <th style={{ ...th, textAlign: 'right',   width: 48, color: grpColor.form  }}>Form</th>
+              <th style={{ ...th, textAlign: 'right',   width: 48, color: grpColor.speed }}>Speed</th>
+              <th style={{ ...th, textAlign: 'right',   width: 48, color: grpColor.cond  }}>Good</th>
+              <th style={{ ...th, textAlign: 'right',   width: 48, color: grpColor.conn  }}>Conn</th>
+              <th style={{ ...th, textAlign: 'right',   width: 48 }}>Score</th>
+              <th style={{ ...th, textAlign: 'right',   width: 56 }}>Edge $</th>
+              <th style={{ ...th, textAlign: 'right',   width: 56 }}>Ref $</th>
+              <th style={{ ...th, textAlign: 'right',   width: 52 }}>Value</th>
+              <th style={{ ...th, textAlign: 'left',    width: 52 }}>Pace</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r) => (
+              <tr key={r.rank} style={{ background: r.rank === 1 ? '#fffbeb' : '#fff', borderBottom: '1px solid #f3f4f6' }}>
+                {/* Rank */}
+                <td style={{ padding: '3px 3px', textAlign: 'center', fontWeight: 700, fontSize: 11, color: rankColor[r.rank] }}>{r.rank}</td>
+                {/* Horse / Jockey / Trainer — two-line cell */}
+                <td style={{ padding: '3px 4px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
+                    <span style={{ background: '#1e3a8a', color: '#fff', fontSize: 8, fontWeight: 700, fontFamily: 'ui-monospace,monospace', padding: '1px 4px', borderRadius: 2, lineHeight: 1.4, flexShrink: 0 }}>{r.tab}</span>
+                    <span style={{ fontWeight: 600, fontSize: 11, color: '#111827' }}>{r.name}</span>
+                  </div>
+                  <div style={{ fontSize: 9, color: '#374151', marginTop: 1 }}>
+                    {r.j} · {r.t}
+                  </div>
+                </td>
+                {/* Last 4 form dots */}
+                <td style={{ padding: '3px 3px', textAlign: 'center' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 2 }}>
+                    {r.pips.map((n, i) => <Pip key={i} n={n} />)}
+                  </div>
+                </td>
+                {/* Career record */}
+                <td style={{ padding: '3px 3px', textAlign: 'center', fontSize: 9, fontFamily: 'ui-monospace,monospace', color: '#111827', whiteSpace: 'nowrap' }}>{r.rec}</td>
+                {/* Group scores */}
+                <FakeGrpCell val={r.form.toFixed(1)}  isBest={!!r.bestForm}  isWorst={!!r.worstForm}  grpColor={grpColor.form}  />
+                <FakeGrpCell val={r.speed.toFixed(1)} isBest={!!r.bestSpeed} isWorst={!!r.worstSpeed} grpColor={grpColor.speed} />
+                <FakeGrpCell val={r.cond.toFixed(1)}  isBest={!!r.bestCond}  isWorst={!!r.worstCond}  grpColor={grpColor.cond}  />
+                <FakeGrpCell val={r.conn.toFixed(1)}  isBest={!!r.bestConn}  isWorst={!!r.worstConn}  grpColor={grpColor.conn}  />
+                {/* Total score — mirrors: font-bold text-[12px], color=rankColor */}
+                <td style={{ padding: '3px 3px', textAlign: 'right', fontWeight: 700, fontSize: 12, fontFamily: 'ui-monospace,monospace', color: rankColor[r.rank], whiteSpace: 'nowrap' }}>{r.score.toFixed(1)}</td>
+                {/* Edge $ — mirrors: text-[11px] font-semibold text-emerald-600 */}
+                <td style={{ padding: '3px 3px', textAlign: 'right', fontSize: 11, fontWeight: 600, color: '#059669', fontFamily: 'ui-monospace,monospace', whiteSpace: 'nowrap' }}>{r.edge}</td>
+                {/* Ref $ — mirrors: text-[11px] color:#111827 */}
+                <td style={{ padding: '3px 3px', textAlign: 'right', fontSize: 11, color: '#111827', fontFamily: 'ui-monospace,monospace', whiteSpace: 'nowrap' }}>{r.ref}</td>
+                {/* Value — mirrors: text-[10px] font-semibold, color by threshold */}
+                <td style={{ padding: '3px 3px', textAlign: 'right', fontSize: 10, fontWeight: 600, fontFamily: 'ui-monospace,monospace', color: r.valColor, whiteSpace: 'nowrap' }}>{r.val}</td>
+                {/* Pace — mirrors: text-[8px] font-bold, color=pm.color */}
+                <td style={{ padding: '3px 4px', fontSize: 8, fontWeight: 700, color: paceColor[r.pace], whiteSpace: 'nowrap' }}>{r.pace}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
-      {/* Rows */}
-      {rows.map((r, i) => (
-        <div key={r.num} style={{
-          background: i === 0 ? 'rgba(74,222,128,0.06)' : i % 2 === 0 ? '#fff' : '#fafafa',
-          display: 'grid', gridTemplateColumns: '24px 1fr 52px 60px 60px',
-          padding: '7px 12px', borderBottom: i < rows.length - 1 ? '1px solid #f3f4f6' : 'none',
-          alignItems: 'center',
-        }}>
-          <div style={{ fontSize: 10, fontWeight: 700, color: '#9ca3af' }}>{r.num}</div>
-          <div style={{ fontSize: 11, fontWeight: i === 0 ? 700 : 500, color: TEXT, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.name}</div>
-          <div style={{ fontSize: 12, fontWeight: 800, color: i === 0 ? GREEN : TEXT, textAlign: 'right', fontFamily: 'ui-monospace,monospace' }}>{r.score}</div>
-          <div style={{ fontSize: 11, fontWeight: 600, color: r.edgePos === true ? '#16a34a' : r.edgePos === false ? '#dc2626' : '#9ca3af', textAlign: 'right', fontFamily: 'ui-monospace,monospace' }}>{r.edge}</div>
-          <div style={{ fontSize: 11, color: '#374151', textAlign: 'right', fontFamily: 'ui-monospace,monospace' }}>{r.val}</div>
-        </div>
-      ))}
     </div>
   );
 }
