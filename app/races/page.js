@@ -613,7 +613,7 @@ function RaceCountdown({ rc }) {
 
 // ─── race header ──────────────────────────────────────────────────────────────
 
-function RaceHeader({ rc, trackCond, setTrackCond, weights, setWeights, runnerCount, onUpgrade }) {
+function RaceHeader({ rc, trackCond, setTrackCond, weights, setWeights, runnerCount, onUpgrade, isPro }) {
   const [tcOpen, setTcOpen] = useState(false);
   return (
     <div className="px-2.5 md:px-4 py-1.5 md:py-2.5 bg-white flex flex-wrap items-center justify-between gap-3 flex-shrink-0" style={{ borderBottom: '4px solid #00471B' }}>
@@ -635,7 +635,7 @@ function RaceHeader({ rc, trackCond, setTrackCond, weights, setWeights, runnerCo
         {/* Track condition — desktop inline, mobile dropdown */}
         <div className="hidden md:flex items-center gap-0.5 bg-gray-50 rounded-lg p-0.5 border border-gray-100">
           {TC_OPTIONS.map(tc => (
-            <button key={tc.key} onClick={() => setTrackCond(tc.key)}
+            <button key={tc.key} onClick={() => { if (!isPro) { onUpgrade(); } else { setTrackCond(tc.key); } }}
               className={['text-[9px] font-bold px-2 py-1 rounded-md transition-colors',
                 trackCond === tc.key ? `${tc.bg} ${tc.text}` : 'text-gray-400 hover:text-gray-600',
               ].join(' ')}>
@@ -655,7 +655,7 @@ function RaceHeader({ rc, trackCond, setTrackCond, weights, setWeights, runnerCo
               {TC_OPTIONS.map(tc => (
                 <button
                   key={tc.key}
-                  onClick={() => { setTrackCond(tc.key); setTcOpen(false); }}
+                  onClick={() => { if (!isPro) { onUpgrade(); setTcOpen(false); } else { setTrackCond(tc.key); setTcOpen(false); } }}
                   style={{ display: 'block', width: '100%', textAlign: 'left', padding: '8px 12px', fontSize: 10, fontWeight: 600, color: trackCond === tc.key ? '#00471b' : '#6b7280', background: trackCond === tc.key ? '#f0fdf4' : '#fff', border: 'none', cursor: 'pointer', borderBottom: tc.key !== TC_OPTIONS[TC_OPTIONS.length-1].key ? '1px solid #f3f4f6' : 'none' }}
                 >
                   {tc.label}
@@ -2741,7 +2741,7 @@ function RacesPageInner() {
                 )}
                 <RaceHeader rc={currentRace} trackCond={trackCond} setTrackCond={setTrackCond}
                   weights={weights} setWeights={setWeights} runnerCount={results.length}
-                  onUpgrade={() => setUpgradeOpen(true)} />
+                  onUpgrade={() => setUpgradeOpen(true)} isPro={isPro} />
                 {(() => {
                   const venueRaces = (allVenues[currentRace.venue] || [])
                     .slice()
