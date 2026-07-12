@@ -654,15 +654,14 @@ export default function MybetsPage() {
     if (!qlOdds || isNaN(+qlOdds) || +qlOdds <= 1) {
       console.log('[QuickLog] Blocked: odds must be > 1, got:', qlOdds); return;
     }
-    if (!user?.id || !SURL || !SKEY) {
-      console.log('[QuickLog] Blocked: missing user or env | user:', !!user?.id, 'SURL:', !!SURL, 'SKEY:', !!SKEY); return;
+    if (!user?.id) {
+      console.log('[QuickLog] Blocked: not logged in'); return;
     }
     setQlSaving(true);
 
     const normVenue = normaliseVenue(qlMeeting || '') || null;
 
     const insertBody = {
-      clerk_id:    user.id,
       date:        todayISO,
       horse_name:  qlHorse.trim(),
       track:       normVenue,
@@ -674,31 +673,21 @@ export default function MybetsPage() {
       bookmaker:   qlBookmaker || null,
       race_time:   qlRaceTime  || null,
       tab_no:      qlTab       || null,
-      status:      'pending',
-      return_amt:  null,
-      position:    null,
     };
-    console.log('[QuickLog] Posting to bet_log:', JSON.stringify(insertBody));
 
     let ok = false;
     try {
-      const res = await fetch(`${SURL}/rest/v1/bet_log`, {
+      const res = await fetch('/api/log-bet', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'apikey': SKEY,
-          'Authorization': `Bearer ${SKEY}`,
-          'Prefer': 'return=representation',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(insertBody),
       });
       if (!res.ok) {
         const errText = await res.text();
-        console.error('[QuickLog] Supabase error — status:', res.status, '| body:', errText);
+        console.error('[QuickLog] /api/log-bet error — status:', res.status, '| body:', errText);
       } else {
         ok = true;
-        const text = await res.text();
-        const inserted = text ? JSON.parse(text) : null;
+        const inserted = await res.json();
         const newBet = Array.isArray(inserted) ? inserted[0] : inserted;
         if (newBet) setBets(prev => [newBet, ...prev]);
         loadBets(user.id).then(fresh => { if (fresh.length) setBets(fresh); });

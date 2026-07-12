@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { auth, clerkClient } from '@clerk/nextjs/server';
 
 const SURL = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const SKEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+const SKEY = process.env.SUPABASE_SERVICE_KEY;
 
 export async function POST(req) {
   const { userId } = await auth();
