@@ -219,6 +219,7 @@ export default function CompetitionsPage() {
   const router = useRouter();
   const { settings } = useUserSettings();
   const [upgradeOpen, setUpgradeOpen] = useState(false);
+  const [lockVisible, setLockVisible] = useState(true);
   const [hiddenFromLb, setHiddenFromLb] = useState(new Set());
 
   const [csvRaces, setCsvRaces]       = useState(null);
@@ -900,14 +901,17 @@ export default function CompetitionsPage() {
           </div>
         </div>
         {/* Overlay */}
-        <div style={{ position: 'absolute', inset: 0, zIndex: 5, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 12, padding: '32px 40px', textAlign: 'center', maxWidth: 320, boxShadow: '0 8px 32px rgba(0,0,0,0.12)' }}>
-            <div style={{ fontSize: 28, marginBottom: 10 }}>🏆</div>
-            <div style={{ fontSize: 15, fontWeight: 700, color: '#111', marginBottom: 8 }}>Daily Competition</div>
-            <div style={{ fontSize: 13, color: '#6b7280', lineHeight: 1.5, marginBottom: 20 }}>Pick the winner of each race and climb the daily leaderboard. Pro members only.</div>
-            <button onClick={() => setUpgradeOpen(true)} style={{ background: G, color: '#fff', border: 'none', borderRadius: 8, padding: '10px 24px', fontSize: 13, fontWeight: 700, cursor: 'pointer', width: '100%' }}>Upgrade to Pro</button>
+        {lockVisible && (
+          <div style={{ position: 'absolute', inset: 0, zIndex: 5, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 12, padding: '32px 40px', textAlign: 'center', maxWidth: 320, boxShadow: '0 8px 32px rgba(0,0,0,0.12)', position: 'relative' }}>
+              <button onClick={() => setLockVisible(false)} style={{ position: 'absolute', top: 10, right: 12, background: 'none', border: 'none', fontSize: 18, color: '#9ca3af', cursor: 'pointer', lineHeight: 1 }}>✕</button>
+              <div style={{ fontSize: 28, marginBottom: 10 }}>🏆</div>
+              <div style={{ fontSize: 15, fontWeight: 700, color: '#111', marginBottom: 8 }}>Daily Competition</div>
+              <div style={{ fontSize: 13, color: '#6b7280', lineHeight: 1.5, marginBottom: 20 }}>Pick the winner of each race and climb the daily leaderboard. Pro members only.</div>
+              <button onClick={() => setUpgradeOpen(true)} style={{ background: G, color: '#fff', border: 'none', borderRadius: 8, padding: '10px 24px', fontSize: 13, fontWeight: 700, cursor: 'pointer', width: '100%' }}>Upgrade to Pro</button>
+            </div>
           </div>
-        </div>
+        )}
         {upgradeOpen && <UpgradeModal onClose={() => setUpgradeOpen(false)} />}
       </main>
     );

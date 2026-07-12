@@ -253,6 +253,7 @@ export default function BlackbookPage() {
   const isPro = useIsPro();
   const isMobile = useIsMobile();
   const [upgradeOpen, setUpgradeOpen] = useState(false);
+  const [lockVisible, setLockVisible] = useState(true);
 
   const [horses,      setHorses]      = useState([]);
   const [loading,     setLoading]     = useState(true);
@@ -550,14 +551,17 @@ export default function BlackbookPage() {
               </table>
             </div>
           </div>
-          <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 5 }}>
-            <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 12, padding: '32px 40px', textAlign: 'center', maxWidth: 300, boxShadow: '0 8px 32px rgba(0,0,0,0.12)' }}>
-              <div style={{ fontSize: 28, marginBottom: 10 }}>🔒</div>
-              <div style={{ fontSize: 15, fontWeight: 700, color: '#111', marginBottom: 8 }}>Blackbook is a Pro feature</div>
-              <div style={{ fontSize: 13, color: '#6b7280', lineHeight: 1.5, marginBottom: 20 }}>Track horses, get win alerts and never miss a run.</div>
-              <button onClick={() => setUpgradeOpen(true)} style={{ display: 'inline-block', background: '#00471b', color: '#fff', borderRadius: 8, padding: '10px 24px', fontSize: 13, fontWeight: 600, border: 'none', cursor: 'pointer', width: '100%' }}>Start free trial</button>
+          {lockVisible && (
+            <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 5 }}>
+              <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 12, padding: '32px 40px', textAlign: 'center', maxWidth: 300, boxShadow: '0 8px 32px rgba(0,0,0,0.12)', position: 'relative' }}>
+                <button onClick={() => setLockVisible(false)} style={{ position: 'absolute', top: 10, right: 12, background: 'none', border: 'none', fontSize: 18, color: '#9ca3af', cursor: 'pointer', lineHeight: 1 }}>✕</button>
+                <div style={{ fontSize: 28, marginBottom: 10 }}>🔒</div>
+                <div style={{ fontSize: 15, fontWeight: 700, color: '#111', marginBottom: 8 }}>Blackbook is a Pro feature</div>
+                <div style={{ fontSize: 13, color: '#6b7280', lineHeight: 1.5, marginBottom: 20 }}>Track horses, get win alerts and never miss a run.</div>
+                <button onClick={() => setUpgradeOpen(true)} style={{ display: 'inline-block', background: '#00471b', color: '#fff', borderRadius: 8, padding: '10px 24px', fontSize: 13, fontWeight: 600, border: 'none', cursor: 'pointer', width: '100%' }}>Start free trial</button>
+              </div>
             </div>
-          </div>
+          )}
         </main>
         {upgradeOpen && <UpgradeModal onClose={() => setUpgradeOpen(false)} />}
       </div>

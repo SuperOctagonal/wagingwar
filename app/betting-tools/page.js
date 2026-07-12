@@ -48,14 +48,15 @@ const DEFAULT = {
 };
 
 // ── Small shared UI ───────────────────────────────────────────────────────────
-function ProOverlay({ onUpgrade }) {
+function ProOverlay({ onUpgrade, onClose }) {
   return (
     <div style={{ position:'absolute', inset:0, zIndex:10, display:'flex', alignItems:'center', justifyContent:'center', backdropFilter:'blur(4px)', background:'rgba(255,255,255,0.55)', borderRadius:8 }}>
-      <div style={{ background:'#fff', border:`1.5px solid ${GOLD}`, borderRadius:12, padding:'28px 32px', textAlign:'center', maxWidth:280, boxShadow:'0 8px 32px rgba(0,0,0,0.1)' }}>
+      <div style={{ background:'#fff', border:'1px solid #00471b', borderRadius:12, padding:'28px 32px', textAlign:'center', maxWidth:280, boxShadow:'0 8px 32px rgba(0,0,0,0.1)', position:'relative' }}>
+        <button onClick={onClose} style={{ position:'absolute', top:10, right:12, background:'none', border:'none', fontSize:18, color:'#9ca3af', cursor:'pointer', lineHeight:1 }}>✕</button>
         <div style={{ fontSize:28, marginBottom:8 }}>🔒</div>
         <div style={{ fontSize:15, fontWeight:700, color:'#111827', marginBottom:6 }}>Pro Feature</div>
         <div style={{ fontSize:12, color:'#6b7280', marginBottom:18, lineHeight:1.5 }}>Unlock the full professional staking & pricing suite</div>
-        <button onClick={onUpgrade} style={{ background:GOLD, color:'#111', fontWeight:700, fontSize:13, padding:'10px 24px', borderRadius:8, border:'none', cursor:'pointer' }}>
+        <button onClick={onUpgrade} style={{ background:'#00471b', color:'#fff', fontWeight:700, fontSize:13, padding:'10px 24px', borderRadius:8, border:'none', cursor:'pointer' }}>
           Upgrade to Pro
         </button>
       </div>
@@ -105,6 +106,7 @@ function ClearBtn({ onClick }) {
 
 // ── Tool 1: Kelly ─────────────────────────────────────────────────────────────
 function ToolKelly({ st, set, onClear, locked, onUpgrade }) {
+  const [dismissed, setDismissed] = useState(false);
   const odds = parseFloat(st.odds), prob = parseFloat(st.prob) / 100, bankroll = parseFloat(st.bankroll);
   const frac = { full:1, half:0.5, quarter:0.25 }[st.fraction] ?? 0.5;
   let stake = 0, stakePerc = 0, edge = 0, ev = 0;
@@ -119,7 +121,7 @@ function ToolKelly({ st, set, onClear, locked, onUpgrade }) {
 
   return (
     <div style={{ position:'relative', minHeight:300 }}>
-      {locked && <ProOverlay onUpgrade={onUpgrade} />}
+      {locked && !dismissed && <ProOverlay onUpgrade={onUpgrade} onClose={() => setDismissed(true)} />}
       <div style={{ display:'flex', gap:10, flexWrap:'wrap', marginBottom:16 }}>
         <Inp label="Decimal odds" value={st.odds} onChange={v => set({ ...st, odds:v })} placeholder="2.50" type="number" />
         <Inp label="Win probability" value={st.prob} onChange={v => set({ ...st, prob:v })} placeholder="45" right="%" type="number" />
@@ -160,6 +162,7 @@ function ToolKelly({ st, set, onClear, locked, onUpgrade }) {
 
 // ── Tool 2: Dutching ──────────────────────────────────────────────────────────
 function ToolDutch({ st, set, onClear, locked, onUpgrade }) {
+  const [dismissed, setDismissed] = useState(false);
   const target = parseFloat(st.target) || 0;
   const computed = useMemo(() => {
     const invs = st.rows.map(r => { const o = parseFloat(r.odds); return o > 1 ? 1/o : 0; });
@@ -182,7 +185,7 @@ function ToolDutch({ st, set, onClear, locked, onUpgrade }) {
 
   return (
     <div style={{ position:'relative', minHeight:300 }}>
-      {locked && <ProOverlay onUpgrade={onUpgrade} />}
+      {locked && !dismissed && <ProOverlay onUpgrade={onUpgrade} onClose={() => setDismissed(true)} />}
       <div style={{ display:'flex', gap:10, alignItems:'flex-end', flexWrap:'wrap', marginBottom:16 }}>
         <div>
           <div style={{ fontSize:10, fontWeight:600, color:'#6b7280', marginBottom:4, textTransform:'uppercase', letterSpacing:'0.4px' }}>Mode</div>
@@ -238,6 +241,7 @@ function ToolDutch({ st, set, onClear, locked, onUpgrade }) {
 
 // ── Tool 3: Each-way Dutch ────────────────────────────────────────────────────
 function ToolEWDutch({ st, set, onClear, locked, onUpgrade }) {
+  const [dismissed, setDismissed] = useState(false);
   const totalStake = parseFloat(st.stake) || 0;
   const computed = useMemo(() => {
     const parsed = st.rows.map(r => parseFloat(r.odds));
@@ -257,7 +261,7 @@ function ToolEWDutch({ st, set, onClear, locked, onUpgrade }) {
 
   return (
     <div style={{ position:'relative', minHeight:300 }}>
-      {locked && <ProOverlay onUpgrade={onUpgrade} />}
+      {locked && !dismissed && <ProOverlay onUpgrade={onUpgrade} onClose={() => setDismissed(true)} />}
       <div style={{ display:'flex', gap:10, marginBottom:16, alignItems:'flex-end', flexWrap:'wrap' }}>
         <Inp label="Total E/W stake ($)" value={st.stake} onChange={v => set({ ...st, stake:v })} placeholder="200" type="number" />
         <div style={{ paddingBottom:2 }}><ClearBtn onClick={onClear} /></div>
@@ -293,6 +297,7 @@ function ToolEWDutch({ st, set, onClear, locked, onUpgrade }) {
 
 // ── Tool 4: Multi builder ─────────────────────────────────────────────────────
 function ToolMulti({ st, set, onClear, locked, onUpgrade }) {
+  const [dismissed, setDismissed] = useState(false);
   const stake = parseFloat(st.stake) || 0;
   const combined = useMemo(() => {
     const valid = st.legs.filter(l => parseFloat(l.odds) > 1);
@@ -302,7 +307,7 @@ function ToolMulti({ st, set, onClear, locked, onUpgrade }) {
 
   return (
     <div style={{ position:'relative', minHeight:300 }}>
-      {locked && <ProOverlay onUpgrade={onUpgrade} />}
+      {locked && !dismissed && <ProOverlay onUpgrade={onUpgrade} onClose={() => setDismissed(true)} />}
       <div style={{ marginBottom:12 }}>
         <div style={{ display:'grid', gridTemplateColumns:'1fr 120px 32px', gap:8, marginBottom:6, fontSize:9, fontWeight:600, color:'#9ca3af', textTransform:'uppercase' }}>
           <span>Selection / event</span><span>Decimal odds</span><span />
@@ -337,6 +342,7 @@ function ToolMulti({ st, set, onClear, locked, onUpgrade }) {
 
 // ── Tool 5: EV Calc ───────────────────────────────────────────────────────────
 function ToolEV({ st, set, onClear, locked, onUpgrade }) {
+  const [dismissed, setDismissed] = useState(false);
   const odds = parseFloat(st.odds), prob = parseFloat(st.prob)/100, stake = parseFloat(st.stake)||0;
   let ev = 0, evPerc = 0, edge = 0, impliedProb = 0;
   if (odds > 1 && prob > 0 && prob <= 1) {
@@ -349,7 +355,7 @@ function ToolEV({ st, set, onClear, locked, onUpgrade }) {
 
   return (
     <div style={{ position:'relative', minHeight:300 }}>
-      {locked && <ProOverlay onUpgrade={onUpgrade} />}
+      {locked && !dismissed && <ProOverlay onUpgrade={onUpgrade} onClose={() => setDismissed(true)} />}
       <div style={{ display:'flex', gap:10, flexWrap:'wrap', marginBottom:20, alignItems:'flex-end' }}>
         <Inp label="Decimal odds" value={st.odds} onChange={v => set({ ...st, odds:v })} placeholder="2.50" type="number" />
         <Inp label="Your probability" value={st.prob} onChange={v => set({ ...st, prob:v })} placeholder="45" right="%" type="number" />
@@ -367,6 +373,7 @@ function ToolEV({ st, set, onClear, locked, onUpgrade }) {
 
 // ── Tool 6: Odds Converter ────────────────────────────────────────────────────
 function ToolConv({ st, set, onClear, locked, onUpgrade }) {
+  const [dismissed, setDismissed] = useState(false);
   function syncFrom(dec) {
     const d = parseFloat(dec);
     if (!d || isNaN(d) || d <= 1) return { decimal:dec, fraction:'', american:'', implied:'' };
@@ -390,7 +397,7 @@ function ToolConv({ st, set, onClear, locked, onUpgrade }) {
 
   return (
     <div style={{ position:'relative', minHeight:300 }}>
-      {locked && <ProOverlay onUpgrade={onUpgrade} />}
+      {locked && !dismissed && <ProOverlay onUpgrade={onUpgrade} onClose={() => setDismissed(true)} />}
       <div style={{ fontSize:12, color:'#6b7280', marginBottom:16 }}>Edit any field — the others update live.</div>
       <div style={{ display:'flex', gap:12, flexWrap:'wrap', marginBottom:24 }}>
         <Inp label="Decimal" value={st.decimal} onChange={onDecimal} placeholder="2.50" />

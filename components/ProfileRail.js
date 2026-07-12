@@ -27,7 +27,7 @@ export default function ProfileRail({ children }) {
         });
         if (!res.ok) return;
         const data = await res.json();
-        if (data && data[0]) setProfile(data[0]);
+        setProfile(data?.[0] ?? {});
       } catch {}
     }
 

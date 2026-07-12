@@ -2302,11 +2302,12 @@ function RacesPageInner() {
   }, [currentRace, isHistoricalMode]);
 
   const handleLogBet = useCallback((runner, rank) => {
+    if (!isPro) { setUpgradeOpen(true); return; }
     const rc = allRaces[selectedKey];
     const raceAt = rc ? parseRaceTime(rc.time, rc.date) : null;
     if (raceAt && raceAt.getTime() <= Date.now()) return;
     setBetTarget({ ...runner, _rank: rank, _venue: rc?.venue, _raceNum: rc?.num, _raceName: rc?.name || null, _meetingDate: rc?.date || null, _trackCond: trackCond, _myOdds: runner.rawOdds, _raceTime: rc?.time || null });
-  }, [allRaces, selectedKey, trackCond]);
+  }, [allRaces, selectedKey, trackCond, isPro]);
   const hideTimerRef = useRef(null);
 
   useEffect(() => {
