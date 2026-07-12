@@ -1044,11 +1044,10 @@ function BetModal({ horse, onClose }) {
     localStorage.setItem('ww_bets', JSON.stringify([bet, ...existing]));
 
     let dbSuccess = !user?.id; // not logged in → localStorage-only, treat as success
-    if (SURL && SKEY && user?.id) {
+    if (user?.id) {
       try {
         const raceNumVal = horse._raceNum != null ? (isNaN(+horse._raceNum) ? String(horse._raceNum) : +horse._raceNum) : null;
         const insertBody = {
-          clerk_id:        user.id,
           date:            toISO(horse._meetingDate) || new Date().toISOString().slice(0, 10),
           horse_name:      horse.name,
           track:           horse._venue        || null,
@@ -1057,7 +1056,6 @@ function BetModal({ horse, onClose }) {
           bet_type:        betType,
           stake:           +stake,
           odds:            +odds,
-          status:          'pending',
           bookmaker:       bookie              || null,
           rank:            horse._rank         || null,
           my_odds:         horse._myOdds       ?? horse.rawOdds ?? null,
@@ -1066,28 +1064,15 @@ function BetModal({ horse, onClose }) {
           meeting_date:    horse._meetingDate  || null,
           race_time:       horse._raceTime     || null,
           tab_no:          horse.tab != null   ? String(horse.tab) : null,
-          return_amt:      null,
-          position:        null,
         };
-        console.log('[BetSave] Posting to bet_log:', JSON.stringify(insertBody));
-        // Run in Supabase SQL: ALTER TABLE bet_log ENABLE ROW LEVEL SECURITY;
-        // CREATE POLICY "Users can insert own bets" ON bet_log FOR INSERT WITH CHECK (true);
-        const res = await fetch(
-          `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/bet_log`,
-          {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'apikey': process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-              'Authorization': `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`,
-              'Prefer': 'return=minimal'
-            },
-            body: JSON.stringify(insertBody)
-          }
-        );
+        const res = await fetch('/api/log-bet', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(insertBody),
+        });
         if (!res.ok) {
           const errText = await res.text();
-          console.error('[BetSave] Supabase error — status:', res.status, '| body:', errText);
+          console.error('[BetSave] /api/log-bet error — status:', res.status, '| body:', errText);
         } else {
           dbSuccess = true;
           awardPoints(user.id, 'bet_logged', horse.name).catch(err => { console.error('[BetSave] points error:', err); });
