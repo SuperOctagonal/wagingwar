@@ -101,7 +101,7 @@ function Inp({ label, value, onChange, placeholder, type = 'text', right }) {
 }
 
 function ClearBtn({ onClick }) {
-  return <button onClick={onClick} style={{ fontSize:11, color:'#9ca3af', background:'none', border:'none', cursor:'pointer', whiteSpace:'nowrap', flexShrink:0 }}>Clear</button>;
+  return <button onClick={onClick} style={{ fontSize:11, color:'#374151', background:'#fff', border:'1px solid #d1d5db', borderRadius:6, padding:'6px 12px', cursor:'pointer', whiteSpace:'nowrap', flexShrink:0, fontWeight:500 }}>Clear</button>;
 }
 
 function HowItWorks({ children }) {
@@ -232,7 +232,7 @@ function ToolDutch({ st, set, onClear, locked, onUpgrade }) {
               <input type="number" inputMode="decimal" value={r.odds} placeholder="3.50"
                 onChange={e => set({ ...st, rows:st.rows.map((row,idx)=>idx===i?{...row,odds:e.target.value}:row) })}
                 style={{ fontSize:14, fontFamily:MONO, padding:'9px 12px', border:'1px solid #d1d5db', borderRadius:7, outline:'none', background:'#fff', color:'#111827' }} />
-              <div style={{ fontSize:12, fontFamily:MONO, color:'#6b7280', padding:'9px 4px' }}>{c ? `${c.implied.toFixed(1)}%` : '—'}</div>
+              <div style={{ fontSize:12, fontFamily:MONO, color:'#374151', padding:'9px 4px' }}>{c ? `${c.implied.toFixed(1)}%` : '—'}</div>
               <div style={{ fontSize:12, fontFamily:MONO, color:'#111827', fontWeight:600, padding:'9px 4px' }}>{c ? `$${c.stake.toFixed(2)}` : '—'}</div>
               <div style={{ fontSize:12, fontFamily:MONO, color:'#16a34a', fontWeight:600, padding:'9px 4px' }}>{computed && c ? `+$${computed.profit.toFixed(2)}` : '—'}</div>
               <button onClick={() => st.rows.length>2 && set({ ...st, rows:st.rows.filter((_,idx)=>idx!==i) })} disabled={st.rows.length<=2}
@@ -291,7 +291,7 @@ function ToolEWDutch({ st, set, onClear, locked, onUpgrade }) {
         <Inp label="Total E/W stake ($)" value={st.stake} onChange={v => set({ ...st, stake:v })} placeholder="200" type="number" />
         <div style={{ paddingBottom:2 }}><ClearBtn onClick={onClear} /></div>
       </div>
-      <div style={{ fontSize:11, color:'#6b7280', marginBottom:12 }}>Uses standard 1/4 odds, 3 places. Win and place stakes dutch&apos;d separately.</div>
+      <div style={{ fontSize:11, color:'#374151', marginBottom:12 }}>Uses standard 1/4 odds, 3 places. Win and place stakes dutch&apos;d separately.</div>
       <div style={{ overflowX:'auto', marginBottom:12 }}>
         <div style={{ display:'grid', gridTemplateColumns:'1fr 80px 90px 100px 110px 32px', gap:6, marginBottom:6, fontSize:9, fontWeight:600, color:'#9ca3af', textTransform:'uppercase', minWidth:480 }}>
           <span>Win odds</span><span>Place odds</span><span>E/W stake</span><span>Win return</span><span>Place return</span><span />
@@ -304,7 +304,7 @@ function ToolEWDutch({ st, set, onClear, locked, onUpgrade }) {
               <input type="number" inputMode="decimal" value={r.odds} placeholder="5.00"
                 onChange={e => set({ ...st, rows:st.rows.map((row,idx)=>idx===i?{...row,odds:e.target.value}:row) })}
                 style={{ fontSize:14, fontFamily:MONO, padding:'9px 12px', border:'1px solid #d1d5db', borderRadius:7, outline:'none', background:'#fff', color:'#111827' }} />
-              <div style={{ fontSize:12, fontFamily:MONO, color:'#6b7280', padding:'4px' }}>{po}</div>
+              <div style={{ fontSize:12, fontFamily:MONO, color:'#374151', padding:'4px' }}>{po}</div>
               <div style={{ fontSize:12, fontFamily:MONO, color:'#111827', fontWeight:600, padding:'4px' }}>{c ? `$${c.ewStake.toFixed(2)}` : '—'}</div>
               <div style={{ fontSize:12, fontFamily:MONO, color:'#16a34a', fontWeight:600, padding:'4px' }}>{c ? `$${c.winRet.toFixed(2)}` : '—'}</div>
               <div style={{ fontSize:12, fontFamily:MONO, color:'#0891b2', fontWeight:600, padding:'4px' }}>{c ? `$${c.placeRet.toFixed(2)}` : '—'}</div>
@@ -432,7 +432,7 @@ function ToolConv({ st, set, onClear, locked, onUpgrade }) {
       <HowItWorks>
         Converts odds between the four formats used by different bookmakers worldwide. Type any value &mdash; Decimal (e.g. 2.50, standard in Australia), Fractional (e.g. 3/2, common in the UK), American (e.g. +150, used in the US), or Implied % (the win probability the odds represent) &mdash; and all other fields update live. The Summary panel below shows all four formats at a glance.
       </HowItWorks>
-      <div style={{ fontSize:12, color:'#6b7280', marginBottom:16 }}>Edit any field — the others update live.</div>
+      <div style={{ fontSize:12, color:'#374151', marginBottom:16 }}>Edit any field — the others update live.</div>
       <div style={{ display:'flex', gap:12, flexWrap:'wrap', marginBottom:24 }}>
         <Inp label="Decimal" value={st.decimal} onChange={onDecimal} placeholder="2.50" />
         <Inp label="Fractional" value={st.fraction} onChange={onFraction} placeholder="3/2" />
