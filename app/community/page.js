@@ -771,7 +771,7 @@ function LeftColumn({ profile, userId, section, onSection, missions, badges, onS
             <div style={{ marginBottom: 8 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 9, color: '#9ca3af', marginBottom: 3 }}>
                 <span>{totalPoints.toLocaleString()} pts</span>
-                <span>{nextTierPts.toLocaleString()} pts</span>
+                <span>{nextTierPts.toLocaleString()} to next rank</span>
               </div>
               <div style={{ height: 4, background: '#f3f4f6', borderRadius: 99, overflow: 'hidden' }}>
                 <div style={{ height: '100%', width: `${progress}%`, background: '#00471b', borderRadius: 99 }} />
