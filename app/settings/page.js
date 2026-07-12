@@ -427,18 +427,6 @@ export default function SettingsPage() {
           <p style={{ fontSize: 12, color: '#6b7280', marginTop: -8, marginBottom: 24 }}>
             Choose your preferences below, then save.
           </p>
-          <div style={{ fontSize: 11, fontWeight: 700, color: '#9ca3af', letterSpacing: 1, marginBottom: 12, textTransform: 'uppercase' }}>Free</div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
-            <Toggle on={s.notifRank1} onChange={v => set('notifRank1', v)} />
-            <span style={{ fontSize: 13 }}>Rank 1 horse scratched</span>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
-            <Toggle on={s.notifBlackbooked} onChange={v => set('notifBlackbooked', v)} />
-            <span style={{ fontSize: 13 }}>Blackbooked horse scratched</span>
-          </div>
-          <div style={{ fontSize: 11, color: '#9ca3af', marginBottom: 24 }}>
-            Not yet delivering — we'll notify you here when this launches.
-          </div>
           <div style={{ fontSize: 11, fontWeight: 700, color: '#9ca3af', letterSpacing: 1, marginBottom: 12, textTransform: 'uppercase' }}>Pro only</div>
           {!isPro && (
             <a href="/account" style={{ fontSize: 12, color: G, fontWeight: 600, textDecoration: 'none', display: 'inline-block', marginBottom: 14 }}>Unlock Pro features →</a>
@@ -455,8 +443,10 @@ export default function SettingsPage() {
             </div>
           ))}
           {[
-            ['notifSettled', 'Bet result settled'],
-            ['notifReply',   'Community reply'],
+            ['notifSettled',     'Bet result settled'],
+            ['notifReply',       'Community reply'],
+            ['notifRank1',       'Rank 1 horse scratched'],
+            ['notifBlackbooked', 'Blackbooked horse scratched'],
           ].map(([k, label]) => (
             <div key={k} style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14, opacity: isPro ? 1 : 0.5, pointerEvents: isPro ? 'auto' : 'none' }}>
               {isPro
@@ -465,6 +455,9 @@ export default function SettingsPage() {
               <span style={{ fontSize: 13 }}>{label}</span>
             </div>
           ))}
+          <div style={{ fontSize: 11, color: '#9ca3af', marginBottom: 24 }}>
+            Not yet delivering — we'll notify you here when this launches.
+          </div>
           <SaveBt saving={saving} onClick={save} />
         </>
       );
