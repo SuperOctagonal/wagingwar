@@ -437,6 +437,9 @@ export default function SettingsPage() {
             <span style={{ fontSize: 13 }}>Blackbooked horse scratched</span>
           </div>
           <div style={{ fontSize: 11, fontWeight: 700, color: '#9ca3af', letterSpacing: 1, marginBottom: 12, textTransform: 'uppercase' }}>Pro only</div>
+          {!isPro && (
+            <a href="/account" style={{ fontSize: 12, color: G, fontWeight: 600, textDecoration: 'none', display: 'inline-block', marginBottom: 14 }}>Unlock Pro features →</a>
+          )}
           {[
             ['notifCountdown', 'Race countdown reminder', ['15min','5min','off']],
             ['notifComp',      'Daily competition reminder', ['1hr','30min','off']],

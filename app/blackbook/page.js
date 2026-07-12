@@ -39,6 +39,13 @@ const TAG_STYLES = {
 };
 const ALL_TAGS = Object.keys(TAG_STYLES);
 
+const SAMPLE_HORSES = [
+  { id: 's1', horse_name: 'Sunfire Prince', tags: ['Watch', 'Value'], priority: 4, added_at: '2026-06-01' },
+  { id: 's2', horse_name: 'Misty Galloper', tags: ['Wet track'], priority: 3, added_at: '2026-06-03' },
+  { id: 's3', horse_name: 'Storm Chaser', tags: ['Big run'], priority: 5, added_at: '2026-06-07' },
+  { id: 's4', horse_name: 'Golden Arrow', tags: ['Watch'], priority: 2, added_at: '2026-06-10' },
+];
+
 function normName(name) {
   return (name || '').replace(/\s*\([A-Z]{2,3}\)\s*$/i, '').trim().toUpperCase();
 }
@@ -508,14 +515,48 @@ export default function BlackbookPage() {
     return (
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
         <ProfileRail />
-        <main className="mob-page" style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f8fafc' }}>
-          <div style={{ textAlign: 'center', padding: 40 }}>
-            <i className="ti ti-lock" style={{ fontSize: 48, color: '#d1d5db', display: 'block', marginBottom: 16 }} />
-            <div style={{ fontSize: 18, fontWeight: 700, color: '#111827', marginBottom: 8 }}>Blackbook is a Pro feature</div>
-            <div style={{ fontSize: 13, color: '#6b7280', marginBottom: 20 }}>Track your horses, get win notifications and never miss a run.</div>
-            <button onClick={() => setUpgradeOpen(true)} style={{ padding: '10px 24px', background: '#00471b', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
-              Start free trial
-            </button>
+        <main className="mob-page" style={{ flex: 1, position: 'relative', overflow: 'hidden', background: '#f8fafc' }}>
+          <div style={{ opacity: 0.15, filter: 'blur(3px)', pointerEvents: 'none', userSelect: 'none', padding: 16 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
+              <h1 style={{ fontSize: 20, fontWeight: 700, color: '#111827', margin: 0 }}>Blackbook</h1>
+              <span style={{ fontSize: 11, background: '#f3f4f6', padding: '2px 8px', borderRadius: 10, color: '#6b7280' }}>4 horses</span>
+            </div>
+            <div style={{ background: '#fff', borderRadius: 10, border: '1px solid #e5e7eb', overflow: 'hidden' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
+                <thead>
+                  <tr style={{ background: '#173404' }}>
+                    {['Horse', 'Tags', 'Date Added', 'Priority', 'P&L', 'Actions'].map(h => (
+                      <th key={h} style={{ padding: '4px 8px', fontSize: 10, fontWeight: 700, color: '#EAF3DE', textAlign: 'left' }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {SAMPLE_HORSES.map(h => (
+                    <tr key={h.id} style={{ borderBottom: '1px solid #e5e7eb' }}>
+                      <td style={{ padding: '6px 8px', fontWeight: 600, color: '#111827' }}>{h.horse_name}</td>
+                      <td style={{ padding: '6px 8px' }}>
+                        {h.tags.map(t => {
+                          const s = TAG_STYLES[t] || {};
+                          return <span key={t} style={{ fontSize: 9, fontWeight: 600, padding: '1px 6px', borderRadius: 8, background: s.bg, color: s.color, marginRight: 3 }}>{t}</span>;
+                        })}
+                      </td>
+                      <td style={{ padding: '6px 8px', fontSize: 10, color: '#6b7280' }}>{h.added_at}</td>
+                      <td style={{ padding: '6px 8px' }}><Stars value={h.priority} readOnly /></td>
+                      <td style={{ padding: '6px 8px', fontSize: 10, fontFamily: 'monospace', color: '#059669' }}>+${(h.priority * 1.2).toFixed(2)}</td>
+                      <td style={{ padding: '6px 8px' }}><span style={{ fontSize: 9, color: '#6b7280' }}>Edit · Rm</span></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 5 }}>
+            <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 12, padding: '32px 40px', textAlign: 'center', maxWidth: 300, boxShadow: '0 8px 32px rgba(0,0,0,0.12)' }}>
+              <div style={{ fontSize: 28, marginBottom: 10 }}>🔒</div>
+              <div style={{ fontSize: 15, fontWeight: 700, color: '#111', marginBottom: 8 }}>Blackbook is a Pro feature</div>
+              <div style={{ fontSize: 13, color: '#6b7280', lineHeight: 1.5, marginBottom: 20 }}>Track horses, get win alerts and never miss a run.</div>
+              <button onClick={() => setUpgradeOpen(true)} style={{ display: 'inline-block', background: '#00471b', color: '#fff', borderRadius: 8, padding: '10px 24px', fontSize: 13, fontWeight: 600, border: 'none', cursor: 'pointer', width: '100%' }}>Start free trial</button>
+            </div>
           </div>
         </main>
         {upgradeOpen && <UpgradeModal onClose={() => setUpgradeOpen(false)} />}

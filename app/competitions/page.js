@@ -781,25 +781,8 @@ export default function CompetitionsPage() {
     }
   }
 
-  // ─── Pro gate ─────────────────────────────────────────────────────────────────
+  // ─── Loading gate ─────────────────────────────────────────────────────────────
   if (!isLoaded) return null;
-  if (isPro === false) {
-    return (
-      <main style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 32, background: '#f3f4f6' }}>
-        <div style={{ background: '#fff', borderRadius: 14, padding: '32px 28px', maxWidth: 420, width: '100%', textAlign: 'center', border: '1px solid #e5e7eb', boxShadow: '0 4px 24px rgba(0,0,0,0.07)' }}>
-          <div style={{ width: 56, height: 56, borderRadius: '50%', background: '#f0fdf4', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px', fontSize: 26 }}>🏆</div>
-          <div style={{ fontSize: 20, fontWeight: 800, color: '#111827', marginBottom: 8 }}>Daily Competition</div>
-          <div style={{ fontSize: 13, color: '#6b7280', marginBottom: 24, lineHeight: 1.6 }}>
-            Pick the winner of each selected race and climb the daily leaderboard. Pro members only.
-          </div>
-          <button onClick={() => setUpgradeOpen(true)} style={{ width: '100%', padding: '13px 0', background: G, color: '#fff', border: 'none', borderRadius: 8, fontSize: 14, fontWeight: 700, cursor: 'pointer' }}>
-            Upgrade to Pro
-          </button>
-        </div>
-        {upgradeOpen && <UpgradeModal onClose={() => setUpgradeOpen(false)} />}
-      </main>
-    );
-  }
 
   const DK_BG   = '#0B1F14';
   const DK_HDR  = '#0D1C13';
@@ -1510,6 +1493,16 @@ export default function CompetitionsPage() {
   // ─── Main render ──────────────────────────────────────────────────────────────
   return (
     <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: '#f8fafc' }}>
+      {isPro === false && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(6px)', background: 'rgba(255,255,255,0.55)' }}>
+          <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 12, padding: '32px 40px', textAlign: 'center', maxWidth: 320, boxShadow: '0 8px 32px rgba(0,0,0,0.12)' }}>
+            <div style={{ fontSize: 28, marginBottom: 10 }}>🏆</div>
+            <div style={{ fontSize: 15, fontWeight: 700, color: '#111', marginBottom: 8 }}>Daily Competition</div>
+            <div style={{ fontSize: 13, color: '#6b7280', lineHeight: 1.5, marginBottom: 20 }}>Pick the winner of each race and climb the daily leaderboard. Pro members only.</div>
+            <button onClick={() => setUpgradeOpen(true)} style={{ background: G, color: '#fff', border: 'none', borderRadius: 8, padding: '10px 24px', fontSize: 13, fontWeight: 700, cursor: 'pointer', width: '100%' }}>Upgrade to Pro</button>
+          </div>
+        </div>
+      )}
       <div style={{ background: DK_HDR, borderBottom: `1px solid ${DK_LINE}`, padding: '7px 14px', display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0, flexWrap: 'wrap' }}>
         <div style={{ fontSize: 12, fontWeight: 800, color: DK_TEXT }}>{headerDateStr}</div>
         <div style={{ fontSize: 9, color: DK_MUT, display: 'flex', gap: 6, alignItems: 'center' }}>

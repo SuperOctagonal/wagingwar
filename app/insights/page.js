@@ -196,7 +196,7 @@ export default function InsightsPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!user?.id || !isPro) return;
+    if (!user?.id || !isPro) { if (isPro === false) setLoading(false); return; }
     setLoading(true);
     Promise.all([
       sbFetch(`bet_log?clerk_id=eq.${encodeURIComponent(user.id)}&select=*&order=date.asc,created_at.asc`),
@@ -428,28 +428,6 @@ export default function InsightsPage() {
   // ─── early returns ───────────────────────────────────────────────────────────
   if (!isLoaded) return null;
 
-  if (!isPro) {
-    return (
-      <div>
-        <div style={{ background: G, padding: '14px 24px' }}>
-          <div style={{ fontSize: 22, fontWeight: 800, color: '#fff', letterSpacing: 2, fontFamily: 'Bebas Neue, sans-serif' }}>Insights</div>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 'calc(100vh - 56px)', background: '#f9fafb' }}>
-          <div style={{ textAlign: 'center', maxWidth: 380, padding: '0 24px' }}>
-            <div style={{ fontSize: 40, marginBottom: 16 }}>&#128202;</div>
-            <h2 style={{ fontSize: 18, fontWeight: 700, color: '#111', marginBottom: 8 }}>Insights is a Pro feature</h2>
-            <p style={{ fontSize: 13, color: '#6b7280', lineHeight: 1.6, marginBottom: 24 }}>
-              Full betting analytics — CLV tracking, edge zone heatmap, Kelly advisor, P&L calendar and more.
-            </p>
-            <a href="/account" style={{ display: 'inline-block', background: G, color: '#fff', borderRadius: 8, padding: '11px 28px', fontSize: 14, fontWeight: 600, textDecoration: 'none' }}>
-              Upgrade to Pro
-            </a>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   // ─── computed display values ─────────────────────────────────────────────────
   const roiMaxAbs = Math.max(1, ...roiByRank.map(r => Math.abs(r.roi)));
 
@@ -462,6 +440,16 @@ export default function InsightsPage() {
   // ─── render ──────────────────────────────────────────────────────────────────
   return (
     <div style={{ flex: 1, overflowY: 'auto', background: '#f3f4f6' }}>
+      {isPro === false && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(6px)', background: 'rgba(255,255,255,0.55)' }}>
+          <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 12, padding: '32px 40px', textAlign: 'center', maxWidth: 300, boxShadow: '0 8px 32px rgba(0,0,0,0.12)' }}>
+            <div style={{ fontSize: 28, marginBottom: 10 }}>&#128202;</div>
+            <div style={{ fontSize: 15, fontWeight: 700, color: '#111', marginBottom: 8 }}>Insights is a Pro feature</div>
+            <div style={{ fontSize: 13, color: '#6b7280', lineHeight: 1.5, marginBottom: 20 }}>Full betting analytics — CLV tracking, edge zones, Kelly advisor and more.</div>
+            <a href="/account" style={{ display: 'inline-block', background: G, color: '#fff', borderRadius: 8, padding: '10px 24px', fontSize: 13, fontWeight: 600, textDecoration: 'none' }}>Upgrade to Pro</a>
+          </div>
+        </div>
+      )}
 
       {/* Header */}
       <div style={{ background: G, padding: '14px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>

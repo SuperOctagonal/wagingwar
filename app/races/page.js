@@ -1344,7 +1344,9 @@ function MobileRunnerCard({ runner, rank, rc, trackCond, onLogBet, isResulted, b
           {isDbScratched ? '—' : !isPro ? <LockBtn onClick={onUpgrade} /> : runner.totalFromGroups.toFixed(1)}
         </div>
         <div style={{ flexShrink: 0, width: 42, textAlign: 'right', fontSize: 12, fontWeight: 600, color: '#111827' }}>{mktO ? `$${mktO.toFixed(2)}` : '—'}</div>
-        <div style={{ flexShrink: 0, width: 32, textAlign: 'right', fontSize: 11, fontWeight: 500, color: valColor }}>{isPro ? valStr : '—'}</div>
+        <div style={{ flexShrink: 0, width: 32, textAlign: 'right', fontSize: 11, fontWeight: 500, color: valColor }}>
+          {isPro ? valStr : <button onClick={onUpgrade} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '6px 4px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minHeight: 32, color: '#9ca3af' }}><i className="ti ti-lock" style={{ fontSize: 13 }} /></button>}
+        </div>
       </div>
 
       {/* Career record — 42px indent = 16(RNK)+5(gap)+16(NO)+5(gap) */}
