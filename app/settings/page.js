@@ -456,7 +456,7 @@ export default function SettingsPage() {
             </div>
           ))}
           <div style={{ fontSize: 11, color: '#9ca3af', marginBottom: 24 }}>
-            Not yet delivering — we'll notify you here when this launches.
+            Not yet delivering — we&apos;ll notify you here when this launches.
           </div>
           <SaveBt saving={saving} onClick={save} />
         </>
