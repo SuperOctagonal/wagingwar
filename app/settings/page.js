@@ -425,16 +425,19 @@ export default function SettingsPage() {
         <>
           <SecTitle>Notifications</SecTitle>
           <p style={{ fontSize: 12, color: '#6b7280', marginTop: -8, marginBottom: 24 }}>
-            Preferences save immediately. Push delivery is coming soon — your settings will activate when it launches.
+            Choose your preferences below, then save.
           </p>
           <div style={{ fontSize: 11, fontWeight: 700, color: '#9ca3af', letterSpacing: 1, marginBottom: 12, textTransform: 'uppercase' }}>Free</div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
             <Toggle on={s.notifRank1} onChange={v => set('notifRank1', v)} />
             <span style={{ fontSize: 13 }}>Rank 1 horse scratched</span>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 28 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
             <Toggle on={s.notifBlackbooked} onChange={v => set('notifBlackbooked', v)} />
             <span style={{ fontSize: 13 }}>Blackbooked horse scratched</span>
+          </div>
+          <div style={{ fontSize: 11, color: '#9ca3af', marginBottom: 24 }}>
+            Not yet delivering — we'll notify you here when this launches.
           </div>
           <div style={{ fontSize: 11, fontWeight: 700, color: '#9ca3af', letterSpacing: 1, marginBottom: 12, textTransform: 'uppercase' }}>Pro only</div>
           {!isPro && (
