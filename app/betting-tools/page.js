@@ -104,6 +104,22 @@ function ClearBtn({ onClick }) {
   return <button onClick={onClick} style={{ fontSize:11, color:'#9ca3af', background:'none', border:'none', cursor:'pointer', whiteSpace:'nowrap', flexShrink:0 }}>Clear</button>;
 }
 
+function HowItWorks({ children }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div style={{ marginBottom:16 }}>
+      <button onClick={() => setOpen(o => !o)} style={{ fontSize:11, color:'#9ca3af', background:'none', border:'none', cursor:'pointer', padding:0, display:'flex', alignItems:'center', gap:4 }}>
+        How this works {open ? '▴' : '▾'}
+      </button>
+      {open && (
+        <div style={{ marginTop:8, fontSize:12, color:'#6b7280', lineHeight:1.6, background:'#f9fafb', border:'1px solid #e5e7eb', borderRadius:7, padding:'10px 14px' }}>
+          {children}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Tool 1: Kelly ─────────────────────────────────────────────────────────────
 function ToolKelly({ st, set, onClear, locked, onUpgrade }) {
   const [dismissed, setDismissed] = useState(false);
@@ -122,6 +138,9 @@ function ToolKelly({ st, set, onClear, locked, onUpgrade }) {
   return (
     <div style={{ position:'relative', minHeight:300 }}>
       {locked && !dismissed && <ProOverlay onUpgrade={onUpgrade} onClose={() => setDismissed(true)} />}
+      <HowItWorks>
+        Kelly staking tells you the mathematically optimal amount to bet based on your edge. Enter the decimal odds being offered, your estimated win probability (%), and your total bankroll. The Recommended Stake output shows the Kelly-optimal bet size in dollars and as a percentage of your bankroll. Half Kelly (the default) bets half the full amount &mdash; keeping most of the edge while reducing variance.
+      </HowItWorks>
       <div style={{ display:'flex', gap:10, flexWrap:'wrap', marginBottom:16 }}>
         <Inp label="Decimal odds" value={st.odds} onChange={v => set({ ...st, odds:v })} placeholder="2.50" type="number" />
         <Inp label="Win probability" value={st.prob} onChange={v => set({ ...st, prob:v })} placeholder="45" right="%" type="number" />
@@ -186,6 +205,9 @@ function ToolDutch({ st, set, onClear, locked, onUpgrade }) {
   return (
     <div style={{ position:'relative', minHeight:300 }}>
       {locked && !dismissed && <ProOverlay onUpgrade={onUpgrade} onClose={() => setDismissed(true)} />}
+      <HowItWorks>
+        Dutching means spreading a stake across multiple runners so you collect the same return whichever one wins. Enter the decimal odds for each runner, then choose a mode: Target profit aims for a fixed profit regardless of which runner wins; Fixed stake splits a set total across the field. Each runner&apos;s Stake column shows exactly how much to bet on it. A green indicator means the market is under 100% &mdash; a guaranteed profit is possible.
+      </HowItWorks>
       <div style={{ display:'flex', gap:10, alignItems:'flex-end', flexWrap:'wrap', marginBottom:16 }}>
         <div>
           <div style={{ fontSize:10, fontWeight:600, color:'#6b7280', marginBottom:4, textTransform:'uppercase', letterSpacing:'0.4px' }}>Mode</div>
@@ -262,6 +284,9 @@ function ToolEWDutch({ st, set, onClear, locked, onUpgrade }) {
   return (
     <div style={{ position:'relative', minHeight:300 }}>
       {locked && !dismissed && <ProOverlay onUpgrade={onUpgrade} onClose={() => setDismissed(true)} />}
+      <HowItWorks>
+        Each-way dutching spreads a total each-way budget across multiple runners so the return is roughly equal whether any one of them wins or places. Enter your total each-way stake and the win odds for each runner &mdash; place odds are calculated automatically at standard 1/4 odds, 3 places. E/W Stake per row is the combined win-and-place amount to put on that runner. Win Return is what you collect if it wins; Place Return is what you collect if it places.
+      </HowItWorks>
       <div style={{ display:'flex', gap:10, marginBottom:16, alignItems:'flex-end', flexWrap:'wrap' }}>
         <Inp label="Total E/W stake ($)" value={st.stake} onChange={v => set({ ...st, stake:v })} placeholder="200" type="number" />
         <div style={{ paddingBottom:2 }}><ClearBtn onClick={onClear} /></div>
@@ -308,6 +333,9 @@ function ToolMulti({ st, set, onClear, locked, onUpgrade }) {
   return (
     <div style={{ position:'relative', minHeight:300 }}>
       {locked && !dismissed && <ProOverlay onUpgrade={onUpgrade} onClose={() => setDismissed(true)} />}
+      <HowItWorks>
+        A multi (also called a parlay or accumulator) combines multiple selections into one bet &mdash; all legs must win for you to collect. This tool multiplies the odds of each leg together to show the combined price and payout. Add each selection with a name and its decimal odds, enter your stake, and Combined Odds and Potential Payout update instantly.
+      </HowItWorks>
       <div style={{ marginBottom:12 }}>
         <div style={{ display:'grid', gridTemplateColumns:'1fr 120px 32px', gap:8, marginBottom:6, fontSize:9, fontWeight:600, color:'#9ca3af', textTransform:'uppercase' }}>
           <span>Selection / event</span><span>Decimal odds</span><span />
@@ -356,6 +384,9 @@ function ToolEV({ st, set, onClear, locked, onUpgrade }) {
   return (
     <div style={{ position:'relative', minHeight:300 }}>
       {locked && !dismissed && <ProOverlay onUpgrade={onUpgrade} onClose={() => setDismissed(true)} />}
+      <HowItWorks>
+        Expected value (EV) measures whether a bet is profitable over time. A positive EV means the odds on offer are higher than your estimated true probability warrants &mdash; you have an edge over the bookmaker. Enter the decimal odds, your own probability estimate (%), and optionally a stake. Edge is the gap between your estimate and the bookmaker&apos;s implied probability; Implied Prob shows what win chance the bookmaker&apos;s odds assume.
+      </HowItWorks>
       <div style={{ display:'flex', gap:10, flexWrap:'wrap', marginBottom:20, alignItems:'flex-end' }}>
         <Inp label="Decimal odds" value={st.odds} onChange={v => set({ ...st, odds:v })} placeholder="2.50" type="number" />
         <Inp label="Your probability" value={st.prob} onChange={v => set({ ...st, prob:v })} placeholder="45" right="%" type="number" />
@@ -398,6 +429,9 @@ function ToolConv({ st, set, onClear, locked, onUpgrade }) {
   return (
     <div style={{ position:'relative', minHeight:300 }}>
       {locked && !dismissed && <ProOverlay onUpgrade={onUpgrade} onClose={() => setDismissed(true)} />}
+      <HowItWorks>
+        Converts odds between the four formats used by different bookmakers worldwide. Type any value &mdash; Decimal (e.g. 2.50, standard in Australia), Fractional (e.g. 3/2, common in the UK), American (e.g. +150, used in the US), or Implied % (the win probability the odds represent) &mdash; and all other fields update live. The Summary panel below shows all four formats at a glance.
+      </HowItWorks>
       <div style={{ fontSize:12, color:'#6b7280', marginBottom:16 }}>Edit any field — the others update live.</div>
       <div style={{ display:'flex', gap:12, flexWrap:'wrap', marginBottom:24 }}>
         <Inp label="Decimal" value={st.decimal} onChange={onDecimal} placeholder="2.50" />
