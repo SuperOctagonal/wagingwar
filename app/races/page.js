@@ -1998,7 +1998,7 @@ function PaceMapView({ results, scratched, rc, trackCond, isPro, onUpgrade, scra
                 <span style={{ fontSize:9, color:'#6b7280', fontWeight:600 }}>{h.tab||'—'}</span>
               </div>
               <div className="w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-bold flex-shrink-0"
-                style={{ background: rkBg, color: rkColor2 }}>{h.systemRank}</div>
+                style={{ background: rkBg, color: rkColor2 }}>{isPro ? h.systemRank : '—'}</div>
               <div className="w-8 flex-shrink-0 text-center">
                 <span className="bg-blue-800 text-white text-[9px] font-bold px-1.5 py-[2px] rounded">{bp}</span>
               </div>
@@ -2074,7 +2074,7 @@ const BB_TAG_STYLES = {
 
 const BB_STAR_COLORS = { 1:'#ef4444', 2:'#f97316', 3:'#eab308', 4:'#22c55e', 5:'#f59e0b' };
 
-function BlackbookModal({ target, onClose, userId }) {
+function BlackbookModal({ target, onClose, userId, isPro }) {
   const horseName   = typeof target === 'string' ? target : (target?.name || '');
   const venue       = typeof target === 'object' ? (target?.venue || '') : '';
   const raceNumber  = typeof target === 'object' ? (target?.raceNumber || '') : '';
@@ -2095,7 +2095,7 @@ function BlackbookModal({ target, onClose, userId }) {
   const starColor = BB_STAR_COLORS[priority] || '#d1d5db';
 
   const handleSave = async () => {
-    if (!SURL || !SKEY || !userId) return;
+    if (!SURL || !SKEY || !userId || !isPro) return;
     setSaving(true);
     const payload = {
       clerk_id: userId,
@@ -2827,7 +2827,7 @@ function RacesPageInner() {
       {/* Race result modal */}
       {resultPopup && <RaceResultModal result={resultPopup} results={results} onClose={() => setResultPopup(null)} />}
       {/* Blackbook modal */}
-      {bbTarget && <BlackbookModal target={bbTarget} onClose={() => { setBbTarget(null); const popup = document.getElementById('horse-popup'); if (popup) popup.style.display = ''; }} userId={user?.id} />}
+      {bbTarget && <BlackbookModal target={bbTarget} onClose={() => { setBbTarget(null); const popup = document.getElementById('horse-popup'); if (popup) popup.style.display = ''; }} userId={user?.id} isPro={isPro} />}
     </div>
   );
 }

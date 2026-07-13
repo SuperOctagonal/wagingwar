@@ -193,7 +193,7 @@ function TopPicksPanel({ data }) {
   );
 }
 
-function ModelPerfPanel({ data }) {
+function ModelPerfPanel({ data, isPro }) {
   if (!data) return <NoCsvMsg />;
   const { hits, total, roi, strikeRate, details } = data;
   const roiPct   = total ? (roi / total) * 100 : 0;
@@ -223,7 +223,7 @@ function ModelPerfPanel({ data }) {
             <tr style={{ background: '#f1f5f9', borderBottom: '1px solid #e5e7eb' }}>
               <th style={{ padding: '2px 4px', textAlign: 'left',   fontWeight: 700, color: '#111827' }}>R#</th>
               <th style={{ padding: '2px 4px', textAlign: 'left',   fontWeight: 700, color: '#111827' }}>Winner</th>
-              <th style={{ padding: '2px 4px', textAlign: 'center', fontWeight: 700, color: '#111827' }}>Rank</th>
+              {isPro && <th style={{ padding: '2px 4px', textAlign: 'center', fontWeight: 700, color: '#111827' }}>Rank</th>}
               <th style={{ padding: '2px 4px', textAlign: 'right',  fontWeight: 700, color: '#111827' }}>SP</th>
               <th style={{ padding: '2px 4px', textAlign: 'center', fontWeight: 700, color: '#111827' }}>✓</th>
             </tr>
@@ -236,7 +236,7 @@ function ModelPerfPanel({ data }) {
                   <td style={{ padding: '2px 4px', fontWeight: 700, color: '#111827' }}>{d.raceNum}</td>
                   <td style={{ padding: '2px 4px', color: '#111827', maxWidth: 90, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.horse}</td>
                   <td style={{ padding: '2px 4px', textAlign: 'center' }}>
-                    {rs
+                    {isPro && rs
                       ? <span style={{ padding: '1px 5px', borderRadius: 3, fontSize: 9, fontWeight: 700, background: rs.bg, color: rs.color }}>#{d.rank}</span>
                       : <span style={{ color: '#9ca3af' }}>—</span>}
                   </td>
@@ -299,7 +299,7 @@ function BarrierPanel({ data, hasCsv }) {
   );
 }
 
-function UpsetsPanel({ data, hasCsv }) {
+function UpsetsPanel({ data, hasCsv, isPro }) {
   if (!hasCsv) return <NoCsvMsg />;
   if (!data || data.length === 0) {
     return (
@@ -317,11 +317,13 @@ function UpsetsPanel({ data, hasCsv }) {
           <span style={{ fontSize: 14, flexShrink: 0 }}>{medals[i]}</span>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontWeight: 700, fontSize: 11, color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{u.horse}</div>
-            <div style={{ fontSize: 9, color: '#111827', marginTop: 1 }}>R{u.raceNum} · rank #{u.rank} · ${Number(u.sp || 0).toFixed(2)}</div>
+            <div style={{ fontSize: 9, color: '#111827', marginTop: 1 }}>R{u.raceNum}{isPro ? ` · rank #${u.rank}` : ''} · ${Number(u.sp || 0).toFixed(2)}</div>
           </div>
-          <div style={{ padding: '1px 6px', borderRadius: 3, background: '#fef3c7', color: '#92400e', fontSize: 9, fontWeight: 700, flexShrink: 0 }}>
-            #{u.rank}
-          </div>
+          {isPro && (
+            <div style={{ padding: '1px 6px', borderRadius: 3, background: '#fef3c7', color: '#92400e', fontSize: 9, fontWeight: 700, flexShrink: 0 }}>
+              #{u.rank}
+            </div>
+          )}
         </div>
       ))}
     </div>
@@ -455,7 +457,7 @@ function TrackBiasPanel({ data }) {
   );
 }
 
-function ResultsDetail({ meeting, venue, allRaces, allVenues, weights, dbScratchings }) {
+function ResultsDetail({ meeting, venue, allRaces, allVenues, weights, dbScratchings, isPro }) {
   if (!meeting || !meeting.runners || !meeting.runners.length) {
     return (
       <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:160, gap:10, color:'#374151' }}>
@@ -465,8 +467,8 @@ function ResultsDetail({ meeting, venue, allRaces, allVenues, weights, dbScratch
     );
   }
 
-  const sysRankMap = getSysRanks(allRaces, allVenues, venue, meeting.raceNum, weights, dbScratchings) || {};
-  const hasSysRank = Object.keys(sysRankMap).length > 0;
+  const sysRankMap = isPro ? (getSysRanks(allRaces, allVenues, venue, meeting.raceNum, weights, dbScratchings) || {}) : {};
+  const hasSysRank = isPro && Object.keys(sysRankMap).length > 0;
 
   return (
     <div style={{ display:'inline-block', minWidth:420, width:'fit-content' }}>
@@ -946,6 +948,7 @@ export default function ResultsPage() {
                     allVenues={effectiveVenues}
                     weights={weights}
                     dbScratchings={dbScratchings}
+                    isPro={isPro}
                   />
                 </div>
               </div>
@@ -976,9 +979,9 @@ export default function ResultsPage() {
                     );
                   })}
                 </div>
-                {sidePanel === 'model'   && <SidePanel icon="ti-chart-bar"      label="Model"><ModelPerfPanel data={modelPerf} /></SidePanel>}
+                {sidePanel === 'model'   && <SidePanel icon="ti-chart-bar"      label="Model"><ModelPerfPanel data={modelPerf} isPro={isPro} /></SidePanel>}
                 {sidePanel === 'barrier' && <SidePanel icon="ti-layout-columns" label="Barriers"><BarrierPanel data={barrierBias} hasCsv={hasCsv} /></SidePanel>}
-                {sidePanel === 'upsets'  && <SidePanel icon="ti-bolt"           label="Upsets"><UpsetsPanel data={biggestUpsets} hasCsv={hasCsv} /></SidePanel>}
+                {sidePanel === 'upsets'  && <SidePanel icon="ti-bolt"           label="Upsets"><UpsetsPanel data={biggestUpsets} hasCsv={hasCsv} isPro={isPro} /></SidePanel>}
                 {sidePanel === 'staff'   && <SidePanel icon="ti-users"          label="Trainer / Jockey"><StaffPanel data={staffForm} /></SidePanel>}
                 {sidePanel === 'weight'  && <SidePanel icon="ti-scale"          label="Weight & Class"><WeightClassPanel data={weightClass} /></SidePanel>}
                 {sidePanel === 'bias'    && <SidePanel icon="ti-trending-up"    label="Pace Bias"><TrackBiasPanel data={trackBias} /></SidePanel>}
