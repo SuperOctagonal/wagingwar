@@ -36,7 +36,7 @@ export default function UpgradeModal({ onClose }) {
       </ul>
       <div style={{ fontSize: 12, color: '#9ca3af', marginBottom: 16, marginTop: -8 }}>...and more coming soon</div>
 
-      <
+      <a
         href={MONTHLY_URL}
         style={{ display: 'block', width: '100%', padding: '13px 0', background: '#00471b', color: '#fff', borderRadius: 8, fontSize: 14, fontWeight: 700, textAlign: 'center', textDecoration: 'none', boxSizing: 'border-box' }}
       >
