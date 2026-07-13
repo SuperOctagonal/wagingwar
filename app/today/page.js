@@ -6,7 +6,9 @@ import { parseCSV, buildRaces } from '@/lib/csvParser';
 import { normaliseVenue } from '@/lib/venues';
 import { scoreGroup, calculateMatrixOdds, formatRacingOdds, getDefaultWeights, GRP_KEYS } from '@/lib/scoring';
 import ProfileRail from '@/components/ProfileRail';
+import UpgradeModal from '@/components/UpgradeModal';
 import useIsMobile from '@/hooks/useIsMobile';
+import useIsPro from '@/hooks/useIsPro';
 
 const SURL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SKEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -178,6 +180,7 @@ function PillCountdown({ time, date }) {
 export default function TodayPage() {
   const router = useRouter();
   const isMobile = useIsMobile();
+  const isPro = useIsPro();
   const [allRaces, setAllRaces] = useState({});
   const [allVenues, setAllVenues] = useState({});
   const [raceKeys, setRaceKeys] = useState([]);
@@ -185,6 +188,7 @@ export default function TodayPage() {
   const [picksOpen, setPicksOpen] = useState(false);
   const [popup, setPopup] = useState(null);
   const [dbScratchings, setDbScratchings] = useState(new Set());
+  const [upgradeOpen, setUpgradeOpen] = useState(false);
 
   const weights = useMemo(() => getDefaultWeights(), []);
 
@@ -251,9 +255,9 @@ export default function TodayPage() {
           <>
             {/* Top Picks */}
             {picks.length > 0 && (
-              <div style={{ display: isMobile ? 'flex' : 'inline-flex', flexDirection:'column', marginBottom:16, border:'0.5px solid #e5e7eb', borderRadius:10, overflow:'hidden', background:'#fff', minWidth:260, maxWidth:'100%', width: isMobile ? '100%' : undefined }}>
+              <div style={{ position:'relative', display: isMobile ? 'flex' : 'inline-flex', flexDirection:'column', marginBottom:16, border:'0.5px solid #e5e7eb', borderRadius:10, overflow:'hidden', background:'#fff', minWidth:260, maxWidth:'100%', width: isMobile ? '100%' : undefined }}>
                 <div
-                  onClick={() => setPicksOpen(v => !v)}
+                  onClick={() => { if (isPro === false) { setUpgradeOpen(true); } else { setPicksOpen(v => !v); } }}
                   style={{ display:'flex', alignItems:'center', gap:7, padding:'7px 12px', cursor:'pointer', userSelect:'none' }}
                 >
                   <span style={{ fontSize:11 }}>🏆</span>
@@ -263,7 +267,7 @@ export default function TodayPage() {
                 </div>
                 {picksOpen && (
                   <div style={{ borderTop:'0.5px solid #f3f4f6', padding:'10px 14px' }}>
-                    <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(200px, 1fr))', gap:8 }}>
+                    <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(200px, 1fr))', gap:8, filter: isPro === false ? 'blur(4px)' : undefined, pointerEvents: isPro === false ? 'none' : undefined }}>
                       {picks.map((p, i) => {
                         const rkBg  = i===0?'#fbbf24':i===1?'#e5e7eb':'#fed7aa';
                         const rkTxt = i===0?'#78350f':i===1?'#374151':'#92400e';
@@ -282,6 +286,15 @@ export default function TodayPage() {
                         );
                       })}
                     </div>
+                    {isPro === false && (
+                      <div style={{ position:'absolute', inset:0, display:'flex', alignItems:'center', justifyContent:'center', background:'rgba(255,255,255,0.6)', backdropFilter:'blur(2px)' }}>
+                        <div style={{ textAlign:'center' }}>
+                          <i className="ti ti-lock" style={{ fontSize:20, color:'#374151', display:'block', marginBottom:6 }} />
+                          <div style={{ fontSize:11, fontWeight:600, color:'#111827', marginBottom:8 }}>Pro feature</div>
+                          <button onClick={() => setUpgradeOpen(true)} style={{ fontSize:10, padding:'5px 14px', background:'#00471b', color:'#fff', border:'none', borderRadius:6, cursor:'pointer', fontWeight:600 }}>Upgrade</button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -333,6 +346,7 @@ export default function TodayPage() {
       </div>
 
       {popup && <ResultPopup result={popup} onClose={() => setPopup(null)} />}
+      {upgradeOpen && <UpgradeModal onClose={() => setUpgradeOpen(false)} />}
       </main>
     </div>
   );

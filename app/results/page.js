@@ -592,20 +592,26 @@ export default function ResultsPage() {
           .catch(() => new Set())
       : Promise.resolve(new Set());
     const todayCheck = new Date().toLocaleDateString('sv-SE', { timeZone: 'Australia/Brisbane' });
-    const cardFetch = user?.id && selectedDate !== todayCheck
+    const isViewingToday = selectedDate === todayCheck;
+    const cardFetch = user?.id && !isViewingToday
       ? fetch(`/api/race-cards?date=${selectedDate}`).then(r => {
           if (r.status === 403) { setUpgradeOpen(true); return []; }
           return r.ok ? r.json() : [];
         })
       : Promise.resolve([]);
-    Promise.all([fetchResultsForDate(selectedDate), scrFetch, abandonedFetch, cardFetch]).then(([rows, scrRows, abandoned, cards]) => {
+    // Block results data for free users on non-today dates
+    const resultsFetch = (isViewingToday || isPro !== false)
+      ? fetchResultsForDate(selectedDate)
+      : Promise.resolve([]);
+    if (!isViewingToday && isPro === false) setUpgradeOpen(true);
+    Promise.all([resultsFetch, scrFetch, abandonedFetch, cardFetch]).then(([rows, scrRows, abandoned, cards]) => {
       setDbRows(rows || []);
       setDbScratchings(scrRows || []);
       setVenueAbandoned(abandoned);
       setCardRows(cards || []);
       setLoading(false);
     });
-  }, [selectedDate, user?.id]);
+  }, [selectedDate, user?.id, isPro]);
 
   const grouped = useMemo(() => {
     const g = {};

@@ -1021,17 +1021,62 @@ export default function MybetsPage() {
   }, [resultedBets]);
 
   if (isPro === false) {
+    const mockRows = [
+      { horse: 'Celestial Star', venue: 'FLEMINGTON', r: 5, type: 'Win', stake: 50, odds: 4.50, pnl: +175 },
+      { horse: 'Iron Brigade', venue: 'RANDWICK', r: 3, type: 'E/W', stake: 20, odds: 8.00, pnl: -40 },
+      { horse: 'Desert Queen', venue: 'MOONEE VALLEY', r: 7, type: 'Win', stake: 30, odds: 3.20, pnl: -30 },
+      { horse: 'Silent Thunder', venue: 'CAULFIELD', r: 2, type: 'Place', stake: 40, odds: 2.10, pnl: +44 },
+      { horse: 'War Anthem', venue: 'EAGLE FARM', r: 8, type: 'Win', stake: 25, odds: 6.00, pnl: +125 },
+    ];
     return (
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
         <ProfileRail />
-        <main className="mob-page" style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f8fafc' }}>
-          <div style={{ textAlign: 'center', padding: 40 }}>
-            <i className="ti ti-lock" style={{ fontSize: 48, color: '#d1d5db', display: 'block', marginBottom: 16 }} />
-            <div style={{ fontSize: 18, fontWeight: 700, color: '#111827', marginBottom: 8 }}>Track your bets with Pro</div>
-            <div style={{ fontSize: 13, color: '#6b7280', marginBottom: 20 }}>Log every bet and track your P&amp;L and ROI with a Pro subscription.</div>
-            <button onClick={() => setUpgradeOpen(true)} style={{ padding: '10px 24px', background: '#00471b', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
-              Start free trial
-            </button>
+        <main className="mob-page" style={{ flex: 1, overflowY: 'auto', background: '#f8fafc', position: 'relative' }}>
+          {/* Mock ledger (blurred) */}
+          <div style={{ padding: '16px 20px', filter: 'blur(3px)', pointerEvents: 'none', userSelect: 'none' }}>
+            <div style={{ display: 'flex', gap: 10, marginBottom: 16, flexWrap: 'wrap' }}>
+              {[{ label: 'P&L', val: '+$274', color: '#059669' }, { label: 'ROI', val: '+18.3%', color: '#059669' }, { label: 'Strike rate', val: '60%', color: '#111827' }, { label: 'Bets', val: '5', color: '#111827' }].map(s => (
+                <div key={s.label} style={{ background: '#fff', border: '0.5px solid #e5e7eb', borderRadius: 8, padding: '10px 16px', minWidth: 80 }}>
+                  <div style={{ fontSize: 9, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '.4px', marginBottom: 4 }}>{s.label}</div>
+                  <div style={{ fontSize: 18, fontWeight: 700, color: s.color, fontFamily: 'JetBrains Mono, monospace' }}>{s.val}</div>
+                </div>
+              ))}
+            </div>
+            <div style={{ background: '#fff', border: '0.5px solid #e5e7eb', borderRadius: 8, overflow: 'hidden' }}>
+              <div style={{ background: '#1e2936', padding: '6px 12px', fontSize: 10, fontWeight: 700, color: '#fff', textTransform: 'uppercase', letterSpacing: '.4px' }}>Bet Log</div>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
+                <thead>
+                  <tr style={{ background: '#f1f5f9', borderBottom: '1px solid #e5e7eb' }}>
+                    {['Horse', 'Venue', 'Type', 'Stake', 'Odds', 'P&L'].map(h => (
+                      <th key={h} style={{ padding: '6px 10px', textAlign: 'left', fontWeight: 700, color: '#111827', fontSize: 10 }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {mockRows.map((r, i) => (
+                    <tr key={i} style={{ borderBottom: '0.5px solid #f3f4f6' }}>
+                      <td style={{ padding: '8px 10px', fontWeight: 600, color: '#111827' }}>{r.horse}</td>
+                      <td style={{ padding: '8px 10px', color: '#6b7280', fontSize: 10 }}>{r.venue} R{r.r}</td>
+                      <td style={{ padding: '8px 10px' }}><span style={{ background: r.type === 'Win' ? '#dcfce7' : r.type === 'E/W' ? '#ede9fe' : '#dbeafe', color: r.type === 'Win' ? '#16a34a' : r.type === 'E/W' ? '#7c3aed' : '#2563eb', fontSize: 9, fontWeight: 700, padding: '1px 6px', borderRadius: 4 }}>{r.type}</span></td>
+                      <td style={{ padding: '8px 10px', fontFamily: 'JetBrains Mono, monospace', color: '#111827' }}>${r.stake}</td>
+                      <td style={{ padding: '8px 10px', fontFamily: 'JetBrains Mono, monospace', color: '#111827' }}>${r.odds.toFixed(2)}</td>
+                      <td style={{ padding: '8px 10px', fontFamily: 'JetBrains Mono, monospace', fontWeight: 700, color: r.pnl >= 0 ? '#059669' : '#dc2626' }}>{r.pnl >= 0 ? '+' : ''}${r.pnl}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+          {/* Lock overlay */}
+          <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(248,250,252,0.7)', backdropFilter: 'blur(2px)' }}>
+            <div style={{ textAlign: 'center', padding: '32px 40px', background: '#fff', borderRadius: 12, border: '0.5px solid #e5e7eb', boxShadow: '0 4px 24px rgba(0,0,0,0.08)', maxWidth: 340 }}>
+              <i className="ti ti-lock" style={{ fontSize: 40, color: '#d1d5db', display: 'block', marginBottom: 12 }} />
+              <div style={{ fontSize: 18, fontWeight: 700, color: '#111827', marginBottom: 8 }}>Track your bets with Pro</div>
+              <div style={{ fontSize: 13, color: '#6b7280', lineHeight: 1.6, marginBottom: 20 }}>Log every bet and track your P&amp;L, ROI, and edge over time.</div>
+              <button onClick={() => setUpgradeOpen(true)} style={{ padding: '11px 28px', background: '#00471b', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
+                Start free trial
+              </button>
+            </div>
           </div>
         </main>
         {upgradeOpen && <UpgradeModal onClose={() => setUpgradeOpen(false)} />}
@@ -1075,27 +1120,7 @@ export default function MybetsPage() {
   const nextBetsPanel = null;
 
   if (!isLoaded) return null;
-  if (isPro === false) {
-    return (
-      <div>
-        <div style={{ background: '#00471b', padding: '14px 24px' }}>
-          <div style={{ fontSize: 22, fontWeight: 800, color: '#fff', letterSpacing: 2, fontFamily: 'Bebas Neue, sans-serif' }}>My Bets</div>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 'calc(100vh - 56px)', background: '#f9fafb' }}>
-          <div style={{ textAlign: 'center', maxWidth: 380, padding: '0 24px' }}>
-            <div style={{ fontSize: 40, marginBottom: 16 }}>&#128196;</div>
-            <h2 style={{ fontSize: 18, fontWeight: 700, color: '#111', marginBottom: 8 }}>My Bets is a Pro feature</h2>
-            <p style={{ fontSize: 13, color: '#6b7280', lineHeight: 1.6, marginBottom: 24 }}>
-              Track your bets, monitor P&amp;L, analyse your edge and manage your war record.
-            </p>
-            <a href="/account" style={{ display: 'inline-block', background: '#00471b', color: '#fff', borderRadius: 8, padding: '11px 28px', fontSize: 14, fontWeight: 600, textDecoration: 'none' }}>
-              Upgrade to Pro
-            </a>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  // Second isPro===false guard (after isLoaded) — same blurred mock as above, already handled above
 
   return (
     <div className="mob-page" style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
