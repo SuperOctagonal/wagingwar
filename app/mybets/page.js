@@ -380,6 +380,7 @@ export default function MybetsPage() {
   const settingsApplied = useRef(false);
 
   const [upgradeOpen,      setUpgradeOpen]      = useState(false);
+  const [lockDismissed,    setLockDismissed]    = useState(false);
   const [bets,             setBets]             = useState([]);
   const [loading,          setLoading]          = useState(true);
   const [activeTab,        setActiveTab]        = useState('all');
@@ -1071,16 +1072,19 @@ export default function MybetsPage() {
             </div>
           </div>
           {/* Lock overlay */}
-          <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(248,250,252,0.7)', backdropFilter: 'blur(2px)' }}>
-            <div style={{ textAlign: 'center', padding: '32px 40px', background: '#fff', borderRadius: 12, border: '0.5px solid #e5e7eb', boxShadow: '0 4px 24px rgba(0,0,0,0.08)', maxWidth: 340 }}>
-              <i className="ti ti-lock" style={{ fontSize: 40, color: '#d1d5db', display: 'block', marginBottom: 12 }} />
-              <div style={{ fontSize: 18, fontWeight: 700, color: '#111827', marginBottom: 8 }}>Track your bets with Pro</div>
-              <div style={{ fontSize: 13, color: '#6b7280', lineHeight: 1.6, marginBottom: 20 }}>Log every bet and track your P&amp;L, ROI, and edge over time.</div>
-              <button onClick={() => setUpgradeOpen(true)} style={{ padding: '11px 28px', background: '#00471b', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
-                Start free trial
-              </button>
+          {!lockDismissed && (
+            <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(248,250,252,0.7)', backdropFilter: 'blur(2px)' }}>
+              <div style={{ textAlign: 'center', padding: '32px 40px', background: '#fff', borderRadius: 12, border: '0.5px solid #e5e7eb', boxShadow: '0 4px 24px rgba(0,0,0,0.08)', maxWidth: 340, position: 'relative' }}>
+                <button onClick={() => setLockDismissed(true)} style={{ position: 'absolute', top: 10, right: 12, background: 'none', border: 'none', cursor: 'pointer', fontSize: 18, color: '#9ca3af', lineHeight: 1, padding: 4 }} aria-label="Close">✕</button>
+                <i className="ti ti-lock" style={{ fontSize: 40, color: '#d1d5db', display: 'block', marginBottom: 12 }} />
+                <div style={{ fontSize: 18, fontWeight: 700, color: '#111827', marginBottom: 8 }}>Track your bets with Pro</div>
+                <div style={{ fontSize: 13, color: '#6b7280', lineHeight: 1.6, marginBottom: 20 }}>Log every bet and track your P&amp;L, ROI, and edge over time.</div>
+                <button onClick={() => setUpgradeOpen(true)} style={{ padding: '11px 28px', background: '#00471b', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
+                  Start free trial
+                </button>
+              </div>
             </div>
-          </div>
+          )}
         </main>
         {upgradeOpen && <UpgradeModal onClose={() => setUpgradeOpen(false)} />}
       </div>

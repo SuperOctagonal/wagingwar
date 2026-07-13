@@ -1319,7 +1319,7 @@ function MobileRunnerCard({ runner, rank, rc, trackCond, onLogBet, isResulted, b
       {/* Line 1: RNK (16) | NO/badge (16) | name (flex:1) | Score (32) | Live $ (38) | Val (28) — gap:5 mirrors column header */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 1 }}>
         <div style={{ flexShrink: 0, width: 16, textAlign: 'center', fontSize: 9, fontWeight: 500, color: isDbScratched ? '#d1d5db' : '#6b7280', lineHeight: '16px' }}>
-          {isDbScratched ? '—' : (rank || '—')}
+          {isDbScratched ? '—' : !isPro ? <LockBtn onClick={onUpgrade} /> : (rank || '—')}
         </div>
         <span style={{ flexShrink: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 16, height: 16, borderRadius: 4, background: '#1e3a8a', color: '#fff', fontSize: 9, fontWeight: 700, fontFamily: 'monospace', lineHeight: 1 }}>{runner.tab}</span>
         <span style={{ flex: 1, fontWeight: 500, fontSize: 11, color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textDecoration: isDbScratched ? 'line-through' : 'none' }}>
@@ -1632,7 +1632,7 @@ function FieldView({ results, scratched, rc, trackCond, onLogBet, onShowPopup, o
         <div style={{ flexShrink: 0, display: 'flex', gap: 6, overflowX: 'auto', padding: '6px 10px', background: '#fff', borderBottom: '1px solid #e5e7eb' }}>
           {[['picks','Top picks'],['form','Form detail'],['scores','Score breakdown'],['pace','Pace map']].map(([key, label]) => (
             <button key={key} onClick={() => {
-              if (key === 'pace' && !isPro) { onUpgrade(); return; }
+              if ((key === 'pace' || key === 'picks') && !isPro) { onUpgrade(); return; }
               setLayers(l => ({ ...l, [key]: !l[key] }));
             }}
               style={{ flexShrink: 0, borderRadius: 12, fontSize: 11, padding: '4px 10px', cursor: 'pointer', fontWeight: 500,
@@ -1645,7 +1645,7 @@ function FieldView({ results, scratched, rc, trackCond, onLogBet, onShowPopup, o
         </div>
 
         {/* Top picks strip — above column header */}
-        {layers.picks && (
+        {layers.picks && isPro && (
           <div style={{ flexShrink: 0, display: 'flex', gap: 8, overflowX: 'auto', padding: '8px 10px', background: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
             {[...activeResults].sort((a,b) => b.totalFromGroups - a.totalFromGroups).slice(0,3).map((r, i) => (
               <div key={r.tab||r.name} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '5px 8px', borderRadius: 6, flexShrink: 0,
