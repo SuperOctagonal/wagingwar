@@ -1033,7 +1033,7 @@ export default function MybetsPage() {
         <ProfileRail />
         <main className="mob-page" style={{ flex: 1, overflowY: 'auto', background: '#f8fafc', position: 'relative' }}>
           {/* Mock ledger (blurred) */}
-          <div style={{ padding: '16px 20px', filter: 'blur(3px)', pointerEvents: 'none', userSelect: 'none' }}>
+          <div style={{ padding: '16px 20px', filter: 'blur(3px)', pointerEvents: 'none', userSelect: 'none', overflowX: 'hidden' }}>
             <div style={{ display: 'flex', gap: 10, marginBottom: 16, flexWrap: 'wrap' }}>
               {[{ label: 'P&L', val: '+$274', color: '#059669' }, { label: 'ROI', val: '+18.3%', color: '#059669' }, { label: 'Strike rate', val: '60%', color: '#111827' }, { label: 'Bets', val: '5', color: '#111827' }].map(s => (
                 <div key={s.label} style={{ background: '#fff', border: '0.5px solid #e5e7eb', borderRadius: 8, padding: '10px 16px', minWidth: 80 }}>
@@ -1044,10 +1044,13 @@ export default function MybetsPage() {
             </div>
             <div style={{ background: '#fff', border: '0.5px solid #e5e7eb', borderRadius: 8, overflow: 'hidden' }}>
               <div style={{ background: '#1e2936', padding: '6px 12px', fontSize: 10, fontWeight: 700, color: '#fff', textTransform: 'uppercase', letterSpacing: '.4px' }}>Bet Log</div>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11, tableLayout: 'fixed' }}>
                 <thead>
                   <tr style={{ background: '#f1f5f9', borderBottom: '1px solid #e5e7eb' }}>
-                    {['Horse', 'Venue', 'Type', 'Stake', 'Odds', 'P&L'].map(h => (
+                    {(isMobile
+                      ? ['Horse', 'Type', 'Stake', 'P&L']
+                      : ['Horse', 'Venue', 'Type', 'Stake', 'Odds', 'P&L']
+                    ).map(h => (
                       <th key={h} style={{ padding: '6px 10px', textAlign: 'left', fontWeight: 700, color: '#111827', fontSize: 10 }}>{h}</th>
                     ))}
                   </tr>
@@ -1055,11 +1058,11 @@ export default function MybetsPage() {
                 <tbody>
                   {mockRows.map((r, i) => (
                     <tr key={i} style={{ borderBottom: '0.5px solid #f3f4f6' }}>
-                      <td style={{ padding: '8px 10px', fontWeight: 600, color: '#111827' }}>{r.horse}</td>
-                      <td style={{ padding: '8px 10px', color: '#6b7280', fontSize: 10 }}>{r.venue} R{r.r}</td>
+                      <td style={{ padding: '8px 10px', fontWeight: 600, color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.horse}</td>
+                      {!isMobile && <td style={{ padding: '8px 10px', color: '#6b7280', fontSize: 10 }}>{r.venue} R{r.r}</td>}
                       <td style={{ padding: '8px 10px' }}><span style={{ background: r.type === 'Win' ? '#dcfce7' : r.type === 'E/W' ? '#ede9fe' : '#dbeafe', color: r.type === 'Win' ? '#16a34a' : r.type === 'E/W' ? '#7c3aed' : '#2563eb', fontSize: 9, fontWeight: 700, padding: '1px 6px', borderRadius: 4 }}>{r.type}</span></td>
                       <td style={{ padding: '8px 10px', fontFamily: 'JetBrains Mono, monospace', color: '#111827' }}>${r.stake}</td>
-                      <td style={{ padding: '8px 10px', fontFamily: 'JetBrains Mono, monospace', color: '#111827' }}>${r.odds.toFixed(2)}</td>
+                      {!isMobile && <td style={{ padding: '8px 10px', fontFamily: 'JetBrains Mono, monospace', color: '#111827' }}>${r.odds.toFixed(2)}</td>}
                       <td style={{ padding: '8px 10px', fontFamily: 'JetBrains Mono, monospace', fontWeight: 700, color: r.pnl >= 0 ? '#059669' : '#dc2626' }}>{r.pnl >= 0 ? '+' : ''}${r.pnl}</td>
                     </tr>
                   ))}

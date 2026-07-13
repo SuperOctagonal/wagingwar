@@ -593,17 +593,17 @@ export default function ResultsPage() {
       : Promise.resolve(new Set());
     const todayCheck = new Date().toLocaleDateString('sv-SE', { timeZone: 'Australia/Brisbane' });
     const isViewingToday = selectedDate === todayCheck;
+    // For non-today dates, wait until Clerk has resolved Pro status before fetching.
+    // isPro===null means still loading — return early and let the effect re-run once resolved.
+    if (!isViewingToday && isPro === null) return;
+    if (!isViewingToday && isPro === false) { setUpgradeOpen(true); setLoading(false); return; }
     const cardFetch = user?.id && !isViewingToday
       ? fetch(`/api/race-cards?date=${selectedDate}`).then(r => {
           if (r.status === 403) { setUpgradeOpen(true); return []; }
           return r.ok ? r.json() : [];
         })
       : Promise.resolve([]);
-    // Block results data for free users on non-today dates
-    const resultsFetch = (isViewingToday || isPro !== false)
-      ? fetchResultsForDate(selectedDate)
-      : Promise.resolve([]);
-    if (!isViewingToday && isPro === false) setUpgradeOpen(true);
+    const resultsFetch = fetchResultsForDate(selectedDate);
     Promise.all([resultsFetch, scrFetch, abandonedFetch, cardFetch]).then(([rows, scrRows, abandoned, cards]) => {
       setDbRows(rows || []);
       setDbScratchings(scrRows || []);
