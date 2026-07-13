@@ -1429,7 +1429,7 @@ function MobileRunnerCard({ runner, rank, rc, trackCond, onLogBet, isResulted, b
       )}
 
       {/* PACE MAP (layers.pace) — single-color fill bar */}
-      {layers?.pace && pm && (
+      {layers?.pace && pm && isPro && (
         <div style={{ paddingLeft: 42, marginTop: 2, display: 'flex', alignItems: 'center', gap: 4 }}>
           <div style={{ flex: 1, height: 7, borderRadius: 2, background: '#f3f4f6', overflow: 'hidden' }}>
             <div style={{ height: '100%', width: `${pm.pct}%`, background: pm.color }} />
@@ -1631,7 +1631,10 @@ function FieldView({ results, scratched, rc, trackCond, onLogBet, onShowPopup, o
         {/* Toggle pills: Top picks | Form detail | Score breakdown | Pace map */}
         <div style={{ flexShrink: 0, display: 'flex', gap: 6, overflowX: 'auto', padding: '6px 10px', background: '#fff', borderBottom: '1px solid #e5e7eb' }}>
           {[['picks','Top picks'],['form','Form detail'],['scores','Score breakdown'],['pace','Pace map']].map(([key, label]) => (
-            <button key={key} onClick={() => setLayers(l => ({ ...l, [key]: !l[key] }))}
+            <button key={key} onClick={() => {
+              if (key === 'pace' && !isPro) { onUpgrade(); return; }
+              setLayers(l => ({ ...l, [key]: !l[key] }));
+            }}
               style={{ flexShrink: 0, borderRadius: 12, fontSize: 11, padding: '4px 10px', cursor: 'pointer', fontWeight: 500,
                 background: layers[key] ? '#00471b' : '#fff',
                 color: layers[key] ? '#fff' : '#111827',

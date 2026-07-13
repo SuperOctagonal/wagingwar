@@ -575,6 +575,8 @@ export default function ResultsPage() {
 
   useEffect(() => {
     setLoading(true);
+    setDbRows([]);
+    setDbScratchings([]);
     setSelectedMeeting(null);
     setSelectedRace(null);
     setSidePanel('model');

@@ -257,7 +257,7 @@ export default function TodayPage() {
             {picks.length > 0 && (
               <div style={{ position:'relative', display: isMobile ? 'flex' : 'inline-flex', flexDirection:'column', marginBottom:16, border:'0.5px solid #e5e7eb', borderRadius:10, overflow:'hidden', background:'#fff', minWidth:260, maxWidth:'100%', width: isMobile ? '100%' : undefined }}>
                 <div
-                  onClick={() => { if (isPro === false) { setUpgradeOpen(true); } else { setPicksOpen(v => !v); } }}
+                  onClick={() => { if (isPro !== true) { setUpgradeOpen(true); } else { setPicksOpen(v => !v); } }}
                   style={{ display:'flex', alignItems:'center', gap:7, padding:'7px 12px', cursor:'pointer', userSelect:'none' }}
                 >
                   <span style={{ fontSize:11 }}>🏆</span>
