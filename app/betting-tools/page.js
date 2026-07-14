@@ -48,11 +48,10 @@ const DEFAULT = {
 };
 
 // ── Small shared UI ───────────────────────────────────────────────────────────
-function ProOverlay({ onUpgrade, onClose }) {
+function ProOverlay({ onUpgrade }) {
   return (
     <div style={{ position:'absolute', inset:0, zIndex:10, display:'flex', alignItems:'center', justifyContent:'center', backdropFilter:'blur(4px)', background:'rgba(255,255,255,0.55)', borderRadius:8 }}>
-      <div style={{ background:'#fff', border:'1px solid #00471b', borderRadius:12, padding:'28px 32px', textAlign:'center', maxWidth:280, boxShadow:'0 8px 32px rgba(0,0,0,0.1)', position:'relative' }}>
-        <button onClick={onClose} style={{ position:'absolute', top:10, right:12, background:'none', border:'none', fontSize:18, color:'#9ca3af', cursor:'pointer', lineHeight:1 }}>✕</button>
+      <div style={{ background:'#fff', border:'1px solid #00471b', borderRadius:12, padding:'28px 32px', textAlign:'center', maxWidth:280, boxShadow:'0 8px 32px rgba(0,0,0,0.1)' }}>
         <div style={{ fontSize:28, marginBottom:8 }}>🔒</div>
         <div style={{ fontSize:15, fontWeight:700, color:'#111827', marginBottom:6 }}>Pro Feature</div>
         <div style={{ fontSize:12, color:'#6b7280', marginBottom:18, lineHeight:1.5 }}>Unlock the full professional staking & pricing suite</div>
@@ -122,7 +121,6 @@ function HowItWorks({ children }) {
 
 // ── Tool 1: Kelly ─────────────────────────────────────────────────────────────
 function ToolKelly({ st, set, onClear, locked, onUpgrade }) {
-  const [dismissed, setDismissed] = useState(false);
   const odds = parseFloat(st.odds), prob = parseFloat(st.prob) / 100, bankroll = parseFloat(st.bankroll);
   const frac = { full:1, half:0.5, quarter:0.25 }[st.fraction] ?? 0.5;
   let stake = 0, stakePerc = 0, edge = 0, ev = 0;
@@ -137,7 +135,7 @@ function ToolKelly({ st, set, onClear, locked, onUpgrade }) {
 
   return (
     <div style={{ position:'relative', minHeight:300 }}>
-      {locked && !dismissed && <ProOverlay onUpgrade={onUpgrade} onClose={() => setDismissed(true)} />}
+      {locked && <ProOverlay onUpgrade={onUpgrade} />}
       <HowItWorks>
         Kelly staking tells you the mathematically optimal amount to bet based on your edge. Enter the decimal odds being offered, your estimated win probability (%), and your total bankroll. The Recommended Stake output shows the Kelly-optimal bet size in dollars and as a percentage of your bankroll. Half Kelly (the default) bets half the full amount &mdash; keeping most of the edge while reducing variance.
       </HowItWorks>
@@ -181,7 +179,6 @@ function ToolKelly({ st, set, onClear, locked, onUpgrade }) {
 
 // ── Tool 2: Dutching ──────────────────────────────────────────────────────────
 function ToolDutch({ st, set, onClear, locked, onUpgrade }) {
-  const [dismissed, setDismissed] = useState(false);
   const target = parseFloat(st.target) || 0;
   const computed = useMemo(() => {
     const invs = st.rows.map(r => { const o = parseFloat(r.odds); return o > 1 ? 1/o : 0; });
@@ -204,7 +201,7 @@ function ToolDutch({ st, set, onClear, locked, onUpgrade }) {
 
   return (
     <div style={{ position:'relative', minHeight:300 }}>
-      {locked && !dismissed && <ProOverlay onUpgrade={onUpgrade} onClose={() => setDismissed(true)} />}
+      {locked && <ProOverlay onUpgrade={onUpgrade} />}
       <HowItWorks>
         Dutching means spreading a stake across multiple runners so you collect the same return whichever one wins. Enter the decimal odds for each runner, then choose a mode: Target profit aims for a fixed profit regardless of which runner wins; Fixed stake splits a set total across the field. Each runner&apos;s Stake column shows exactly how much to bet on it. A green indicator means the market is under 100% &mdash; a guaranteed profit is possible.
       </HowItWorks>
@@ -263,7 +260,6 @@ function ToolDutch({ st, set, onClear, locked, onUpgrade }) {
 
 // ── Tool 3: Each-way Dutch ────────────────────────────────────────────────────
 function ToolEWDutch({ st, set, onClear, locked, onUpgrade }) {
-  const [dismissed, setDismissed] = useState(false);
   const totalStake = parseFloat(st.stake) || 0;
   const computed = useMemo(() => {
     const parsed = st.rows.map(r => parseFloat(r.odds));
@@ -283,7 +279,7 @@ function ToolEWDutch({ st, set, onClear, locked, onUpgrade }) {
 
   return (
     <div style={{ position:'relative', minHeight:300 }}>
-      {locked && !dismissed && <ProOverlay onUpgrade={onUpgrade} onClose={() => setDismissed(true)} />}
+      {locked && <ProOverlay onUpgrade={onUpgrade} />}
       <HowItWorks>
         Each-way dutching spreads a total each-way budget across multiple runners so the return is roughly equal whether any one of them wins or places. Enter your total each-way stake and the win odds for each runner &mdash; place odds are calculated automatically at standard 1/4 odds, 3 places. E/W Stake per row is the combined win-and-place amount to put on that runner. Win Return is what you collect if it wins; Place Return is what you collect if it places.
       </HowItWorks>
@@ -322,7 +318,6 @@ function ToolEWDutch({ st, set, onClear, locked, onUpgrade }) {
 
 // ── Tool 4: Multi builder ─────────────────────────────────────────────────────
 function ToolMulti({ st, set, onClear, locked, onUpgrade }) {
-  const [dismissed, setDismissed] = useState(false);
   const stake = parseFloat(st.stake) || 0;
   const combined = useMemo(() => {
     const valid = st.legs.filter(l => parseFloat(l.odds) > 1);
@@ -332,7 +327,7 @@ function ToolMulti({ st, set, onClear, locked, onUpgrade }) {
 
   return (
     <div style={{ position:'relative', minHeight:300 }}>
-      {locked && !dismissed && <ProOverlay onUpgrade={onUpgrade} onClose={() => setDismissed(true)} />}
+      {locked && <ProOverlay onUpgrade={onUpgrade} />}
       <HowItWorks>
         A multi (also called a parlay or accumulator) combines multiple selections into one bet &mdash; all legs must win for you to collect. This tool multiplies the odds of each leg together to show the combined price and payout. Add each selection with a name and its decimal odds, enter your stake, and Combined Odds and Potential Payout update instantly.
       </HowItWorks>
@@ -370,7 +365,6 @@ function ToolMulti({ st, set, onClear, locked, onUpgrade }) {
 
 // ── Tool 5: EV Calc ───────────────────────────────────────────────────────────
 function ToolEV({ st, set, onClear, locked, onUpgrade }) {
-  const [dismissed, setDismissed] = useState(false);
   const odds = parseFloat(st.odds), prob = parseFloat(st.prob)/100, stake = parseFloat(st.stake)||0;
   let ev = 0, evPerc = 0, edge = 0, impliedProb = 0;
   if (odds > 1 && prob > 0 && prob <= 1) {
@@ -383,7 +377,7 @@ function ToolEV({ st, set, onClear, locked, onUpgrade }) {
 
   return (
     <div style={{ position:'relative', minHeight:300 }}>
-      {locked && !dismissed && <ProOverlay onUpgrade={onUpgrade} onClose={() => setDismissed(true)} />}
+      {locked && <ProOverlay onUpgrade={onUpgrade} />}
       <HowItWorks>
         Expected value (EV) measures whether a bet is profitable over time. A positive EV means the odds on offer are higher than your estimated true probability warrants &mdash; you have an edge over the bookmaker. Enter the decimal odds, your own probability estimate (%), and optionally a stake. Edge is the gap between your estimate and the bookmaker&apos;s implied probability; Implied Prob shows what win chance the bookmaker&apos;s odds assume.
       </HowItWorks>
@@ -404,7 +398,6 @@ function ToolEV({ st, set, onClear, locked, onUpgrade }) {
 
 // ── Tool 6: Odds Converter ────────────────────────────────────────────────────
 function ToolConv({ st, set, onClear, locked, onUpgrade }) {
-  const [dismissed, setDismissed] = useState(false);
   function syncFrom(dec) {
     const d = parseFloat(dec);
     if (!d || isNaN(d) || d <= 1) return { decimal:dec, fraction:'', american:'', implied:'' };
@@ -428,7 +421,7 @@ function ToolConv({ st, set, onClear, locked, onUpgrade }) {
 
   return (
     <div style={{ position:'relative', minHeight:300 }}>
-      {locked && !dismissed && <ProOverlay onUpgrade={onUpgrade} onClose={() => setDismissed(true)} />}
+      {locked && <ProOverlay onUpgrade={onUpgrade} />}
       <HowItWorks>
         Converts odds between the four formats used by different bookmakers worldwide. Type any value &mdash; Decimal (e.g. 2.50, standard in Australia), Fractional (e.g. 3/2, common in the UK), American (e.g. +150, used in the US), or Implied % (the win probability the odds represent) &mdash; and all other fields update live. The Summary panel below shows all four formats at a glance.
       </HowItWorks>
@@ -552,32 +545,41 @@ export default function BettingToolsPage() {
       <div style={{ position:'fixed', bottom:isMobile?MOBILE_TAB_H:0, left:0, right:0, height:STRIP_H, background:'#f9fafb', borderTop:'1px solid #e5e7eb', zIndex:200, display:'flex', alignItems:'center', gap:16, padding:'0 16px', overflowX:'auto', scrollbarWidth:'none' }}>
         <span style={{ fontSize:10, fontWeight:700, color:'#9ca3af', textTransform:'uppercase', letterSpacing:'0.5px', flexShrink:0 }}>Quick tools</span>
 
-        {/* Compact odds converter */}
-        <div style={{ display:'flex', alignItems:'center', gap:6, flexShrink:0 }}>
-          <span style={{ fontSize:10, color:'#6b7280', fontWeight:600, flexShrink:0 }}>Odds</span>
-          <input type="text" value={state.conv.decimal} placeholder="Decimal"
-            onChange={e => setState({ ...state, conv:syncConvFromDec(state.conv, e.target.value) })}
-            style={{ width:68, fontSize:12, fontFamily:MONO, padding:'5px 8px', border:'1px solid #d1d5db', borderRadius:5, outline:'none' }} />
-          <span style={{ fontSize:11, color:'#374151', fontFamily:MONO, minWidth:30 }}>{state.conv.fraction||'—'}</span>
-          <span style={{ fontSize:11, color:'#374151', fontFamily:MONO, minWidth:38 }}>{state.conv.american||'—'}</span>
-          <span style={{ fontSize:11, color:'#6b7280', fontFamily:MONO, minWidth:42 }}>{state.conv.implied?`${state.conv.implied}%`:'—'}</span>
-        </div>
+        {locked ? (
+          <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+            <span style={{ fontSize:12, color:'#9ca3af' }}>🔒 Pro feature —</span>
+            <button onClick={onUpgrade} style={{ fontSize:12, fontWeight:700, color:'#00471b', background:'none', border:'none', cursor:'pointer', padding:0, textDecoration:'underline' }}>Upgrade to Pro</button>
+          </div>
+        ) : (
+          <>
+            {/* Compact odds converter */}
+            <div style={{ display:'flex', alignItems:'center', gap:6, flexShrink:0 }}>
+              <span style={{ fontSize:10, color:'#6b7280', fontWeight:600, flexShrink:0 }}>Odds</span>
+              <input type="text" value={state.conv.decimal} placeholder="Decimal"
+                onChange={e => setState({ ...state, conv:syncConvFromDec(state.conv, e.target.value) })}
+                style={{ width:68, fontSize:12, fontFamily:MONO, padding:'5px 8px', border:'1px solid #d1d5db', borderRadius:5, outline:'none' }} />
+              <span style={{ fontSize:11, color:'#374151', fontFamily:MONO, minWidth:30 }}>{state.conv.fraction||'—'}</span>
+              <span style={{ fontSize:11, color:'#374151', fontFamily:MONO, minWidth:38 }}>{state.conv.american||'—'}</span>
+              <span style={{ fontSize:11, color:'#6b7280', fontFamily:MONO, minWidth:42 }}>{state.conv.implied?`${state.conv.implied}%`:'—'}</span>
+            </div>
 
-        <div style={{ width:1, height:24, background:'#d1d5db', flexShrink:0 }} />
+            <div style={{ width:1, height:24, background:'#d1d5db', flexShrink:0 }} />
 
-        {/* Compact EV */}
-        <div style={{ display:'flex', alignItems:'center', gap:6, flexShrink:0 }}>
-          <span style={{ fontSize:10, color:'#6b7280', fontWeight:600, flexShrink:0 }}>EV</span>
-          <input type="number" inputMode="decimal" value={state.ev.odds} placeholder="Odds"
-            onChange={e => setState({ ...state, ev:{ ...state.ev, odds:e.target.value } })}
-            style={{ width:60, fontSize:12, fontFamily:MONO, padding:'5px 8px', border:'1px solid #d1d5db', borderRadius:5, outline:'none' }} />
-          <input type="number" inputMode="decimal" value={state.ev.prob} placeholder="Prob %"
-            onChange={e => setState({ ...state, ev:{ ...state.ev, prob:e.target.value } })}
-            style={{ width:64, fontSize:12, fontFamily:MONO, padding:'5px 8px', border:'1px solid #d1d5db', borderRadius:5, outline:'none' }} />
-          <span style={{ fontSize:12, fontWeight:700, fontFamily:MONO, minWidth:52, color:qEv!==null?(parseFloat(qEv)>0?'#16a34a':'#dc2626'):'#9ca3af' }}>
-            {qEv!==null?`${qEv}%`:'—'}
-          </span>
-        </div>
+            {/* Compact EV */}
+            <div style={{ display:'flex', alignItems:'center', gap:6, flexShrink:0 }}>
+              <span style={{ fontSize:10, color:'#6b7280', fontWeight:600, flexShrink:0 }}>EV</span>
+              <input type="number" inputMode="decimal" value={state.ev.odds} placeholder="Odds"
+                onChange={e => setState({ ...state, ev:{ ...state.ev, odds:e.target.value } })}
+                style={{ width:60, fontSize:12, fontFamily:MONO, padding:'5px 8px', border:'1px solid #d1d5db', borderRadius:5, outline:'none' }} />
+              <input type="number" inputMode="decimal" value={state.ev.prob} placeholder="Prob %"
+                onChange={e => setState({ ...state, ev:{ ...state.ev, prob:e.target.value } })}
+                style={{ width:64, fontSize:12, fontFamily:MONO, padding:'5px 8px', border:'1px solid #d1d5db', borderRadius:5, outline:'none' }} />
+              <span style={{ fontSize:12, fontWeight:700, fontFamily:MONO, minWidth:52, color:qEv!==null?(parseFloat(qEv)>0?'#16a34a':'#dc2626'):'#9ca3af' }}>
+                {qEv!==null?`${qEv}%`:'—'}
+              </span>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
