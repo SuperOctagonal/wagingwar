@@ -2005,7 +2005,7 @@ function PaceMapView({ results, scratched, rc, trackCond, isPro, onUpgrade, scra
               <div className="w-36 flex-shrink-0 overflow-hidden">
                 <div className="truncate" style={{ fontSize:11, fontWeight:600, color:'#111827' }}>{h.name}</div>
                 {h.pm.hasTPPC
-                  ? <div className="text-[8px] text-gray-400">F:{Math.round(h.pm.tppcFront||0)}% P:{Math.round(h.pm.tppcOnpc||0)}% M:{Math.round(h.pm.tppcMid||0)}% B:{Math.round(h.pm.tppcBack||0)}% <span className="text-emerald-600 font-semibold">CSV</span></div>
+                  ? <div className="text-[8px] text-gray-400">F:{Math.round(h.pm.tppcFront||0)}% P:{Math.round(h.pm.tppcOnpc||0)}% M:{Math.round(h.pm.tppcMid||0)}% B:{Math.round(h.pm.tppcBack||0)}% <span className="text-emerald-600 font-semibold">Data</span></div>
                   : <div className="text-[8px] text-amber-500">Estimated</div>
                 }
               </div>
@@ -2701,7 +2701,7 @@ function RacesPageInner() {
                 <div style={{ fontSize: 14, fontWeight: 600, color: '#374151', marginBottom: 6 }}>
                   No race cards available for {new Date(selectedDate + 'T12:00:00').toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'long', year: 'numeric' })}
                 </div>
-                <div style={{ fontSize: 12, color: '#9ca3af', marginBottom: 16 }}>Race cards are stored from the date the CSV is uploaded. Try a more recent date.</div>
+                <div style={{ fontSize: 12, color: '#9ca3af', marginBottom: 16 }}>No race card data stored for this date. Try a more recent date.</div>
                 <button onClick={() => setSelectedDate(todayISO)} style={{ fontSize: 12, fontWeight: 600, padding: '7px 18px', borderRadius: 6, background: '#00471b', color: '#fff', border: 'none', cursor: 'pointer' }}>← Back to today</button>
               </div>
             </div>

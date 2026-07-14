@@ -117,8 +117,8 @@ function SidePanel({ icon, label, children }) {
 function NoCsvMsg() {
   return (
     <div style={{ padding: '24px 0', textAlign: 'center', color: '#6b7280', fontSize: 10 }}>
-      <i className="ti ti-upload" style={{ fontSize: 20, display: 'block', marginBottom: 6 }} />
-      Load a CSV to enable this analysis
+      <i className="ti ti-clock" style={{ fontSize: 20, display: 'block', marginBottom: 6 }} />
+      No data available for this race yet
     </div>
   );
 }
@@ -258,7 +258,7 @@ function BarrierPanel({ data, hasCsv }) {
   if (!data || data.every(g => g.total === 0)) {
     return (
       <div style={{ padding: '24px 0', textAlign: 'center', color: '#6b7280', fontSize: 10 }}>
-        No barrier data — ensure CSV includes a barrier field.
+        No barrier data available for this race.
       </div>
     );
   }
@@ -996,7 +996,7 @@ export default function ResultsPage() {
             {venueNames.length === 0 ? (
               <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:200, gap:10, color:'#374151' }}>
                 <i className="ti ti-flag-check" style={{ fontSize:36 }} />
-                <p style={{ fontSize:11 }}>Load a CSV or results will appear here automatically</p>
+                <p style={{ fontSize:11 }}>Results will appear here automatically once available</p>
               </div>
             ) : (
               <>

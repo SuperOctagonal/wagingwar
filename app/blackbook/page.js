@@ -448,7 +448,7 @@ export default function BlackbookPage() {
     <>
       {runningToday.length === 0 ? (
         <div style={{ padding: 12, fontSize: 11, color: '#9ca3af' }}>
-          {horses.length === 0 ? 'Add horses to your blackbook.' : 'No blackbook horses in the current CSV.'}
+          {horses.length === 0 ? 'Add horses to your blackbook.' : 'No blackbook horses running today.'}
         </div>
       ) : runningToday.map(h => {
         const info = csvRaces[normName(h.horse_name)];

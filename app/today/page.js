@@ -249,7 +249,7 @@ export default function TodayPage() {
         {!hasCSV ? (
           <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:200, gap:10, color:'#9ca3af' }}>
             <i className="ti ti-calendar" style={{ fontSize:36 }} />
-            <p style={{ fontSize:11 }}>Load a CSV to see today&apos;s meetings</p>
+            <p style={{ fontSize:11 }}>Today&apos;s meetings will appear here shortly</p>
           </div>
         ) : (
           <>

@@ -158,7 +158,7 @@ export default function PrivacyPage() {
             <P>We use the following technologies to maintain your session and preferences:</P>
             <Ul items={[
               'Session cookies set by Clerk to keep you signed in across page loads',
-              'Browser localStorage to cache your most recently uploaded race CSV and bet records for offline access',
+              'Browser localStorage to cache your most recent race data and bet records for offline access',
               'No third-party advertising cookies or cross-site tracking cookies are used',
             ]} />
             <P>

@@ -1174,21 +1174,21 @@ export default function CompetitionsPage() {
         {csvStaleDate && (
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 48, gap: 10, textAlign: 'center' }}>
             <div style={{ fontSize: 28 }}>📅</div>
-            <div style={{ fontSize: 13, fontWeight: 700, color: '#374151' }}>CSV is from a previous day</div>
-            <div style={{ fontSize: 11, color: CT_MUT, maxWidth: 280, lineHeight: 1.6 }}>The loaded CSV is from {csvStaleDate}. Please upload today&apos;s CSV on the Races page to enable the competition.</div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: '#374151' }}>Showing data from a previous day</div>
+            <div style={{ fontSize: 11, color: CT_MUT, maxWidth: 280, lineHeight: 1.6 }}>The most recent data available is from {csvStaleDate}. Today&apos;s competition will be available once new data loads.</div>
           </div>
         )}
         {!csvRaces && !csvStaleDate && (
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 48, gap: 10, textAlign: 'center' }}>
             <div style={{ fontSize: 28 }}>📋</div>
-            <div style={{ fontSize: 13, fontWeight: 700, color: '#374151' }}>No race data loaded</div>
-            <div style={{ fontSize: 11, color: CT_MUT, maxWidth: 260 }}>Upload today&apos;s CSV on the Races page to enable the competition.</div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: '#374151' }}>No race data yet</div>
+            <div style={{ fontSize: 11, color: CT_MUT, maxWidth: 260 }}>Race data for today hasn&apos;t loaded yet. Check back shortly.</div>
           </div>
         )}
         {csvRaces && compRaces.length === 0 && (
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 48, gap: 10 }}>
             <div style={{ fontSize: 28 }}>🏁</div>
-            <div style={{ fontSize: 13, fontWeight: 700, color: '#94a3b8' }}>No races in CSV</div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: '#94a3b8' }}>No races available today</div>
           </div>
         )}
         {csvRaces && compRaces.length > 0 && (
@@ -1276,7 +1276,7 @@ export default function CompetitionsPage() {
       <div style={{ height: 1, background: '#f3f4f6' }} />
       <div style={{ padding: '5px 8px 6px' }}>
         <div style={{ fontSize: 8, fontWeight: 700, color: '#111827', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Today&apos;s meetings</div>
-        {selVenues.length === 0 && <div style={{ fontSize: 9, color: '#9ca3af' }}>Load CSV on Races page</div>}
+        {selVenues.length === 0 && <div style={{ fontSize: 9, color: '#9ca3af' }}>Meetings will appear here shortly</div>}
         {selVenues.map(v => (
           <div key={v} style={{ marginBottom: 2 }}>
             <span style={{ fontSize: 9, color: '#374151' }}>{titleCase(v)}</span>
@@ -1514,15 +1514,15 @@ export default function CompetitionsPage() {
       {csvStaleDate && (
         <div style={{ padding: 32, textAlign: 'center' }}>
           <div style={{ fontSize: 24, marginBottom: 8 }}>📅</div>
-          <div style={{ fontSize: 12, fontWeight: 600, color: '#374151' }}>CSV is from a previous day</div>
-          <div style={{ fontSize: 10, color: CT_MUT, marginTop: 4, lineHeight: 1.6 }}>Loaded CSV is from {csvStaleDate}. Upload today&apos;s CSV on the Races page.</div>
+          <div style={{ fontSize: 12, fontWeight: 600, color: '#374151' }}>Showing data from a previous day</div>
+          <div style={{ fontSize: 10, color: CT_MUT, marginTop: 4, lineHeight: 1.6 }}>The most recent data available is from {csvStaleDate}. Today&apos;s competition will be available once new data loads.</div>
         </div>
       )}
       {!csvRaces && !csvStaleDate && (
         <div style={{ padding: 32, textAlign: 'center' }}>
           <div style={{ fontSize: 24, marginBottom: 8 }}>📋</div>
-          <div style={{ fontSize: 12, fontWeight: 600, color: '#374151' }}>No CSV loaded</div>
-          <div style={{ fontSize: 10, color: CT_MUT, marginTop: 4 }}>Upload today&apos;s CSV on the Races page first.</div>
+          <div style={{ fontSize: 12, fontWeight: 600, color: '#374151' }}>No data yet</div>
+          <div style={{ fontSize: 10, color: CT_MUT, marginTop: 4 }}>Today&apos;s data hasn&apos;t loaded yet. Check back shortly.</div>
         </div>
       )}
       {csvRaces && selVenues.map(v => (
