@@ -1,3 +1,5 @@
+'use client';
+
 import ProfileRail from '@/components/ProfileRail';
 
 const GREEN = '#00471b';
