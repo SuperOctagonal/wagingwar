@@ -419,22 +419,15 @@ export default function SettingsPage() {
       case 'notifications': return (
         <>
           <SecTitle>Notifications</SecTitle>
-          <p style={{ fontSize: 12, color: '#6b7280', marginTop: -8, marginBottom: 24 }}>
-            Choose your preferences below, then save.
-          </p>
-          <div style={{ fontSize: 11, fontWeight: 700, color: '#9ca3af', letterSpacing: 1, marginBottom: 12, textTransform: 'uppercase' }}>Pro only</div>
-          {!isPro && (
-            <a href="/account" style={{ fontSize: 12, color: G, fontWeight: 600, textDecoration: 'none', display: 'inline-block', marginBottom: 14 }}>Unlock Pro features →</a>
-          )}
           {[
-            ['notifCountdown', 'Race countdown reminder', ['15min','5min','off']],
-            ['notifComp',      'Daily competition reminder', ['1hr','30min','off']],
+            ['notifCountdown', 'Race countdown reminder', ['15min','5min','off'], 'sel'],
+            ['notifComp',      'Daily competition reminder', ['1hr','30min','off'], 'sel'],
           ].map(([k, label, opts]) => (
-            <div key={k} style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14, opacity: isPro ? 1 : 0.5, pointerEvents: isPro ? 'auto' : 'none' }}>
-              {isPro
-                ? <Sel value={s[k]} onChange={v => set(k, v)} options={opts} />
-                : <span style={{ fontSize: 13 }}>&#128274;</span>}
-              <span style={{ fontSize: 13 }}>{label}</span>
+            <div key={k} style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
+              <div style={{ opacity: 0.4, pointerEvents: 'none' }}>
+                <Sel value={s[k]} onChange={() => {}} options={opts} />
+              </div>
+              <span style={{ fontSize: 13 }}>{label} <CSoon /></span>
             </div>
           ))}
           {[
@@ -443,17 +436,16 @@ export default function SettingsPage() {
             ['notifRank1',       'Rank 1 horse scratched'],
             ['notifBlackbooked', 'Blackbooked horse scratched'],
           ].map(([k, label]) => (
-            <div key={k} style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14, opacity: isPro ? 1 : 0.5, pointerEvents: isPro ? 'auto' : 'none' }}>
-              {isPro
-                ? <Toggle on={s[k]} onChange={v => set(k, v)} />
-                : <span style={{ fontSize: 13 }}>&#128274;</span>}
-              <span style={{ fontSize: 13 }}>{label}</span>
+            <div key={k} style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
+              <div style={{ opacity: 0.4, pointerEvents: 'none' }}>
+                <Toggle on={false} onChange={() => {}} />
+              </div>
+              <span style={{ fontSize: 13 }}>{label} <CSoon /></span>
             </div>
           ))}
           <div style={{ fontSize: 11, color: '#9ca3af', marginBottom: 24 }}>
             Not yet delivering — we&apos;ll notify you here when this launches.
           </div>
-          <SaveBt saving={saving} onClick={save} />
         </>
       );
 
