@@ -19,7 +19,7 @@ const NAV_LINKS = [
   { id: 'community',    label: 'Community',    href: '/community' },
   { id: 'competitions', label: 'Competitions', href: '/competitions' },
   { id: 'blackbook',    label: 'Blackbook',    href: '/blackbook' },
-  { id: 'learn',        label: 'Learn',        href: '/learn' },
+  { id: 'how-it-works', label: 'How It Works',  href: '/how-it-works' },
 ];
 
 const MOB_TABS = [
@@ -122,7 +122,7 @@ export default function TopNav() {
         {/* Desktop nav links */}
         <div className="hidden md:flex h-full flex-1">
           {NAV_LINKS.map(link => {
-            if (link.id === 'learn') {
+            if (link.id === 'how-it-works') {
               return (
                 <div key={link.id} style={{ position: 'relative' }} onMouseEnter={() => setShowLearnMenu(true)} onMouseLeave={() => setShowLearnMenu(false)}>
                   <button
@@ -158,12 +158,12 @@ export default function TopNav() {
                         <div>
                           <div style={{ fontSize: 10, fontWeight: 500, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.5px', padding: '4px 16px 6px' }}>Races page</div>
                           {[
-                            { icon: 'ti-layout-list', label: 'Field tab',      desc: 'Ranked runners by score',   id: 'field-tab' },
-                            { icon: 'ti-notebook',    label: 'Form tab',       desc: 'Deep dive per runner',      id: 'form-tab' },
-                            { icon: 'ti-map',         label: 'Pace map',       desc: 'How the race unfolds',      id: 'pace-map' },
-                            { icon: 'ti-chart-bar',   label: 'Scoring system', desc: 'How horses are ranked',     id: 'scoring-system' },
+                            { icon: 'ti-layout-list', label: 'Field tab',      desc: 'Ranked runners by score',   id: 'field'   },
+                            { icon: 'ti-notebook',    label: 'Form tab',       desc: 'Deep dive per runner',      id: 'form'    },
+                            { icon: 'ti-map',         label: 'Pace map',       desc: 'How the race unfolds',      id: 'pace'    },
+                            { icon: 'ti-chart-bar',   label: 'Scoring system', desc: 'How horses are ranked',     id: 'scoring' },
                           ].map(item => (
-                            <button key={item.id} onClick={() => { setShowLearnMenu(false); router.push(`/learn#${item.id}`); }}
+                            <button key={item.id} onClick={() => { setShowLearnMenu(false); router.push(`/how-it-works#${item.id}`); }}
                               style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 16px', cursor: 'pointer', background: 'none', border: 'none', width: '100%', textAlign: 'left' }}
                               onMouseEnter={e => e.currentTarget.style.background = '#f9fafb'}
                               onMouseLeave={e => e.currentTarget.style.background = 'none'}>
@@ -178,12 +178,12 @@ export default function TopNav() {
                         <div style={{ borderLeft: '1px solid #f3f4f6' }}>
                           <div style={{ fontSize: 10, fontWeight: 500, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.5px', padding: '4px 16px 6px' }}>Betting tools</div>
                           {[
-                            { icon: 'ti-currency-dollar', label: 'Edge $ & Value %',  desc: 'Finding value bets',        id: 'edge-value' },
-                            { icon: 'ti-report-money',    label: 'My Bets & ROI',     desc: 'Track your performance',    id: 'my-bets' },
-                            { icon: 'ti-users',           label: 'Community guide',   desc: 'Points, ranks & posting',   id: 'community-guide' },
-                            { icon: 'ti-trophy',          label: 'Saturday comp',     desc: 'How competitions work',     id: 'saturday-comp' },
+                            { icon: 'ti-currency-dollar', label: 'Edge $ & Value %',  desc: 'Finding value bets',        id: 'edge'      },
+                            { icon: 'ti-report-money',    label: 'My Bets & P&L',     desc: 'Track your performance',    id: 'mybets'    },
+                            { icon: 'ti-users',           label: 'Community',          desc: 'Points, ranks & posting',   id: 'community' },
+                            { icon: 'ti-trophy',          label: 'Competitions',       desc: 'How the contest works',     id: 'comps'     },
                           ].map(item => (
-                            <button key={item.id} onClick={() => { setShowLearnMenu(false); router.push(`/learn#${item.id}`); }}
+                            <button key={item.id} onClick={() => { setShowLearnMenu(false); router.push(`/how-it-works#${item.id}`); }}
                               style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 16px', cursor: 'pointer', background: 'none', border: 'none', width: '100%', textAlign: 'left' }}
                               onMouseEnter={e => e.currentTarget.style.background = '#f9fafb'}
                               onMouseLeave={e => e.currentTarget.style.background = 'none'}>

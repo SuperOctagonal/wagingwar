@@ -11,6 +11,7 @@ const isProtectedRoute = createRouteMatcher([
   '/competitions(.*)',
   '/blackbook(.*)',
   '/learn(.*)',
+  '/how-it-works(.*)',
   '/account(.*)',
   '/settings(.*)',
 ]);
