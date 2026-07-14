@@ -2730,30 +2730,31 @@ function RacesPageInner() {
         {/* Date picker bar */}
         <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 8, padding: '4px 12px', background: '#fff', borderBottom: '1px solid #e5e7eb' }}>
           <span style={{ fontSize: 9, color: '#9ca3af', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.4px' }}>Date</span>
-          <button
-            onClick={() => {
-              if (isPro !== true) { setUpgradeOpen(true); return; }
-              dateInputRef.current?.showPicker?.();
-            }}
-            style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 10, color: isHistoricalMode ? '#d97706' : '#374151', fontWeight: isHistoricalMode ? 700 : 400, background: 'none', border: '1px solid #e5e7eb', borderRadius: 4, padding: '2px 7px', cursor: 'pointer' }}
-          >
-            <i className="ti ti-calendar" style={{ fontSize: 9 }} />
-            {isHistoricalMode ? selectedDate : 'Today'}
-            {isPro !== true && <i className="ti ti-lock" style={{ fontSize: 7, color: '#9ca3af', marginLeft: 2 }} />}
-          </button>
+          <div style={{ position: 'relative', display: 'inline-flex' }}>
+            <button
+              onClick={() => { if (isPro !== true) { setUpgradeOpen(true); } }}
+              style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 10, color: isHistoricalMode ? '#d97706' : '#374151', fontWeight: isHistoricalMode ? 700 : 400, background: 'none', border: '1px solid #e5e7eb', borderRadius: 4, padding: '2px 7px', cursor: 'pointer' }}
+            >
+              <i className="ti ti-calendar" style={{ fontSize: 9 }} />
+              {isHistoricalMode ? selectedDate : 'Today'}
+              {isPro !== true && <i className="ti ti-lock" style={{ fontSize: 7, color: '#9ca3af', marginLeft: 2 }} />}
+            </button>
+            {isPro === true && (
+              <input
+                ref={dateInputRef}
+                type="date"
+                value={selectedDate}
+                max={todayISO}
+                onChange={e => { if (e.target.value) setSelectedDate(e.target.value); }}
+                style={{ position: 'absolute', inset: 0, opacity: 0, width: '100%', height: '100%', cursor: 'pointer' }}
+              />
+            )}
+          </div>
           {isHistoricalMode && (
             <button onClick={() => setSelectedDate(todayISO)} style={{ fontSize: 9, color: '#059669', fontWeight: 600, background: 'none', border: 'none', cursor: 'pointer', padding: '2px 0' }}>
               ← Today
             </button>
           )}
-          <input
-            ref={dateInputRef}
-            type="date"
-            value={selectedDate}
-            max={todayISO}
-            onChange={e => { if (e.target.value) setSelectedDate(e.target.value); }}
-            style={{ position: 'absolute', opacity: 0, pointerEvents: 'none', width: 0, height: 0 }}
-          />
           {histLoading && <span style={{ fontSize: 9, color: '#9ca3af' }}>Loading…</span>}
         </div>
 
