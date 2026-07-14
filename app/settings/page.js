@@ -59,7 +59,7 @@ const DEFAULTS = {
   mybetsRange: 'All time', mybetsView: 'Table', mybetsShowScratched: true,
   insightsPeriod: 'All time', insightsMinBets: 5, kellyFraction: 'Half Kelly',
   compAutoEnter: false, compShowPicks: true, compLeaderboard: true,
-  theme: 'Dark', density: 'Comfortable', fontSize: 'Medium', paceMapDefault: false,
+  theme: 'Dark', density: 'Comfortable', fontSize: 'Medium',
 };
 
 function initials(name) {
@@ -374,12 +374,7 @@ export default function SettingsPage() {
             <Inp value={email} onChange={() => {}} readOnly />
           </Field>
           <Field label="State">
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <div style={{ opacity: 0.4, pointerEvents: 'none' }}>
-                <Sel value={s.state} onChange={() => {}} options={['QLD','NSW','VIC','SA','WA','TAS','ACT','NT']} />
-              </div>
-              <CSoon />
-            </div>
+            <Sel value={s.state} onChange={v => set('state', v)} options={['QLD','NSW','VIC','SA','WA','TAS','ACT','NT']} />
           </Field>
           <Field label="Avatar">
             <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
@@ -485,20 +480,10 @@ export default function SettingsPage() {
               </div>
             </Field>
             <Field label="Bankroll ($)" hint="Used to calculate Kelly stake on the Insights page">
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <div style={{ opacity: 0.4, pointerEvents: 'none' }}>
-                  <Inp type="number" value={s.bankroll} onChange={() => {}} placeholder="1000" />
-                </div>
-                <CSoon />
-              </div>
+              <Inp type="number" value={s.bankroll} onChange={v => set('bankroll', v)} placeholder="1000" />
             </Field>
             <Field label="Staking alert threshold ($)" hint="Warn if a single bet exceeds this amount">
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <div style={{ opacity: 0.4, pointerEvents: 'none' }}>
-                  <Inp type="number" value={s.stakingAlert} onChange={() => {}} placeholder="200" />
-                </div>
-                <CSoon />
-              </div>
+              <Inp type="number" value={s.stakingAlert} onChange={v => set('stakingAlert', v)} placeholder="200" />
             </Field>
             <SaveBt saving={saving} onClick={save} />
           </>
@@ -512,21 +497,11 @@ export default function SettingsPage() {
             <Field label="Default tab">
               <Sel value={s.racesTab} onChange={v => set('racesTab', v)} options={['Field','Form','Pace Map']} />
             </Field>
-            <Field label="Default scoring group">
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <div style={{ opacity: 0.4, pointerEvents: 'none' }}>
-                  <Sel value={s.racesGroup} onChange={() => {}} options={['All','Speed','Form','Connections','Conditions']} />
-                </div>
-                <CSoon />
-              </div>
+            <Field label="Default scoring group" hint="Sets the starting weight emphasis when you open the Races page">
+              <Sel value={s.racesGroup} onChange={v => set('racesGroup', v)} options={['All','Speed','Form','Connections','Conditions']} />
             </Field>
-            <Field label="Minimum runners filter">
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <div style={{ opacity: 0.4, pointerEvents: 'none' }}>
-                  <Sel value={s.racesMinRunners} onChange={() => {}} options={['None','4','6','8']} />
-                </div>
-                <CSoon />
-              </div>
+            <Field label="Minimum runners filter" hint="Races with fewer runners are hidden by default">
+              <Sel value={s.racesMinRunners} onChange={v => set('racesMinRunners', v)} options={['None','4','6','8']} />
             </Field>
             <div style={{ marginBottom: 20 }}>
               <div style={{ fontSize: 13, fontWeight: 500, color: '#374151', marginBottom: 10 }}>Column visibility</div>
@@ -625,25 +600,11 @@ export default function SettingsPage() {
             </div>
           </Field>
           <Field label="Table density">
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <div style={{ opacity: 0.4, pointerEvents: 'none' }}>
-                <Sel value={s.density} onChange={() => {}} options={['Compact','Comfortable']} />
-              </div>
-              <CSoon />
-            </div>
+            <Sel value={s.density} onChange={v => set('density', v)} options={['Compact','Comfortable']} />
           </Field>
           <Field label="Table font size">
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <div style={{ opacity: 0.4, pointerEvents: 'none' }}>
-                <Sel value={s.fontSize} onChange={() => {}} options={['Small (11px)','Medium (12px)','Large (13px)']} />
-              </div>
-              <CSoon />
-            </div>
+            <Sel value={s.fontSize} onChange={v => set('fontSize', v)} options={['Small','Medium','Large']} />
           </Field>
-          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, marginBottom: 16 }}>
-            <div style={{ opacity: 0.4, pointerEvents: 'none', marginTop: 1 }}><Toggle on={false} onChange={() => {}} /></div>
-            <div style={{ fontSize: 13, color: '#111' }}>Show pace map by default <CSoon /></div>
-          </div>
           <SaveBt saving={saving} onClick={save} />
         </>
       );

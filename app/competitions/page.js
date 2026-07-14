@@ -587,6 +587,21 @@ export default function CompetitionsPage() {
       });
   }, [user?.id, today]);
 
+  // Auto-enter: fill any unlocked races with model rank-1 horse when compAutoEnter is enabled
+  useEffect(() => {
+    if (!settings.compAutoEnter) return;
+    if (!user?.id || !isPro) return;
+    if (compRaces.length === 0 || Object.keys(mr1Map).length === 0) return;
+    compRaces.forEach(race => {
+      if (isLocked(race)) return;
+      const key = rk(race.venue, race.num);
+      if (picks[key]) return; // already has a pick
+      const horse = mr1Map[key];
+      if (horse) savePick(race, horse);
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [settings.compAutoEnter, compRaces.length, Object.keys(mr1Map).length, user?.id, isPro]);
+
   useEffect(() => {
     if (!SURL || !SKEY || !isPro) return;
     function load() {

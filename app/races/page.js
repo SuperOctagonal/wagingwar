@@ -128,6 +128,17 @@ const TC_OPTIONS = [
   { key: 'synthetic', label: 'Synth',  bg: 'bg-purple-100',  text: 'text-purple-700' },
 ];
 
+const GRP_LABEL_TO_KEY = { 'Form': 'form', 'Speed': 'speed', 'Conditions': 'cond', 'Connections': 'conn' };
+
+function weightsByGroup(group) {
+  const grpKey = GRP_LABEL_TO_KEY[group];
+  if (!grpKey) return getDefaultWeights();
+  const grpFactors = new Set((FACTOR_GROUPS_DEF.find(g => g.key === grpKey)?.factors || []).map(f => f.key));
+  const w = {};
+  FACTORS.forEach(f => { if (!f.scoreZero) w[f.key] = grpFactors.has(f.key) ? 10 : 3; });
+  return w;
+}
+
 const PACE_ROLES = [
   { label: 'Leader',     color: '#00b050' },
   { label: 'Presser',    color: '#7ec820' },
@@ -232,9 +243,10 @@ const TC_PILL = {
 
 // ─── left rail ────────────────────────────────────────────────────────────────
 
-function LeftRail({ allVenues, allRaces, selectedRaceKey, onSelect, trackConds, raceResults, abandonedVenues }) {
-  const [now,    setNow]    = useState(() => Date.now());
-  const [pinned, setPinned] = useState(() => {
+function LeftRail({ allVenues, allRaces, selectedRaceKey, onSelect, trackConds, raceResults, abandonedVenues, minRunners }) {
+  const [now,     setNow]     = useState(() => Date.now());
+  const [showAll, setShowAll] = useState(false);
+  const [pinned,  setPinned]  = useState(() => {
     try { return JSON.parse(localStorage.getItem('ww_pinned_meetings') || '[]'); } catch { return []; }
   });
 
@@ -275,9 +287,17 @@ function LeftRail({ allVenues, allRaces, selectedRaceKey, onSelect, trackConds, 
     return 'upcoming';
   };
 
+  const minCount = minRunners && minRunners !== 'None' ? +minRunners : 0;
+  const venuePassesFilter = (venue) => {
+    if (!minCount || showAll) return true;
+    const keys = allVenues[venue] || [];
+    return keys.some(k => (allRaces[k]?.horses?.filter(h => !h.scratched).length || 0) >= minCount);
+  };
+
   const venues = Object.keys(allVenues);
-  const pinnedVenues   = venues.filter(v =>  pinned.includes(v));
-  const unpinnedVenues = venues.filter(v => !pinned.includes(v));
+  const pinnedVenues   = venues.filter(v =>  pinned.includes(v) && venuePassesFilter(v));
+  const unpinnedVenues = venues.filter(v => !pinned.includes(v) && venuePassesFilter(v));
+  const hiddenCount    = venues.filter(v => !venuePassesFilter(v)).length;
 
   const renderTile = (venue) => {
     const raceKeys   = allVenues[venue] || [];
@@ -391,8 +411,18 @@ function LeftRail({ allVenues, allRaces, selectedRaceKey, onSelect, trackConds, 
 
   return (
     <aside style={{ width: 202, flexShrink: 0, background: '#1a2634', height: '100%', overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
-      <div style={{ color: '#fff', fontSize: 10, fontWeight: 700, padding: '7px 12px', letterSpacing: '0.5px', textTransform: 'uppercase', borderBottom: '1px solid rgba(255,255,255,0.08)', flexShrink: 0 }}>
-        Meetings
+      <div style={{ color: '#fff', fontSize: 10, fontWeight: 700, padding: '7px 12px', letterSpacing: '0.5px', textTransform: 'uppercase', borderBottom: '1px solid rgba(255,255,255,0.08)', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <span>Meetings</span>
+        {!showAll && hiddenCount > 0 && (
+          <button onClick={() => setShowAll(true)} style={{ fontSize: 9, fontWeight: 600, color: 'rgba(255,255,255,0.5)', background: 'none', border: 'none', cursor: 'pointer', padding: 0, textDecoration: 'underline' }}>
+            +{hiddenCount} hidden
+          </button>
+        )}
+        {showAll && minCount > 0 && (
+          <button onClick={() => setShowAll(false)} style={{ fontSize: 9, fontWeight: 600, color: 'rgba(255,255,255,0.5)', background: 'none', border: 'none', cursor: 'pointer', padding: 0, textDecoration: 'underline' }}>
+            Filter
+          </button>
+        )}
       </div>
 
       <div style={{ flex: 1, overflowY: 'auto', paddingBottom: 8 }}>
@@ -999,13 +1029,15 @@ function BetModal({ horse, onClose }) {
   const { user } = useUser();
   const router = useRouter();
   const isMobile = useIsMobile();
-  const [open,     setOpen]     = useState(false);
-  const [stake,    setStake]    = useState('');
-  const [odds,     setOdds]     = useState(horse.rawOdds ? horse.rawOdds.toFixed(2) : '');
-  const [bookie,   setBookie]   = useState('Sportsbet');
-  const [betType,  setBetType]  = useState('win');
-  const [saving,   setSaving]   = useState(false);
-  const [toast,    setToast]    = useState(null);
+  const [open,          setOpen]          = useState(false);
+  const [stake,         setStake]         = useState('');
+  const [odds,          setOdds]          = useState(horse.rawOdds ? horse.rawOdds.toFixed(2) : '');
+  const [bookie,        setBookie]        = useState('Sportsbet');
+  const [betType,       setBetType]       = useState('win');
+  const [saving,        setSaving]        = useState(false);
+  const [toast,         setToast]         = useState(null);
+  const [stakingAlert,  setStakingAlert]  = useState('');
+  const [stakeWarning,  setStakeWarning]  = useState(false);
 
   useEffect(() => { setOpen(true); }, []);
 
@@ -1021,6 +1053,7 @@ function BetModal({ horse, onClose }) {
         if (s.defStake)     setStake(String(s.defStake));
         if (s.defBookmaker) setBookie(s.defBookmaker);
         if (s.defBetType)   setBetType(s.defBetType.toLowerCase());
+        if (s.stakingAlert) setStakingAlert(String(s.stakingAlert));
       })
       .catch(() => {});
   }, [user?.id]);
@@ -1028,6 +1061,11 @@ function BetModal({ horse, onClose }) {
   const handleSave = async () => {
     if (!stake || isNaN(+stake) || +stake <= 0) { alert('Enter a valid stake'); return; }
     if (!odds || isNaN(+odds) || +odds <= 1)   { alert('Enter valid odds'); return; }
+    if (stakingAlert && +stakingAlert > 0 && +stake > +stakingAlert && !stakeWarning) {
+      setStakeWarning(true);
+      return;
+    }
+    setStakeWarning(false);
     setSaving(true);
     const bet = {
       id: Date.now(),
@@ -1159,11 +1197,29 @@ function BetModal({ horse, onClose }) {
         </div>
       </div>
 
+      {/* Staking alert warning */}
+      {stakeWarning && (
+        <div style={{ background: '#fef3c7', border: '1px solid #fde68a', borderRadius: 8, padding: '10px 12px' }}>
+          <div style={{ fontSize: 12, fontWeight: 600, color: '#92400e', marginBottom: 8 }}>
+            This stake is higher than your usual — are you sure?
+          </div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button onClick={handleSave} style={{ flex: 1, padding: '7px 0', background: '#00471b', color: '#fff', border: 'none', borderRadius: 6, fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
+              Confirm &amp; Save
+            </button>
+            <button onClick={() => setStakeWarning(false)} style={{ flex: 1, padding: '7px 0', background: '#fff', color: '#374151', border: '1px solid #d1d5db', borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
       {/* Save */}
-      <button onClick={handleSave} disabled={saving}
-        className="w-full py-2.5 rounded-xl text-sm font-bold transition-colors bg-brand text-white hover:bg-brand-dark disabled:opacity-60">
-        {saving ? 'Saving…' : 'Save Bet'}
-      </button>
+      {!stakeWarning && (
+        <button onClick={handleSave} disabled={saving}
+          className="w-full py-2.5 rounded-xl text-sm font-bold transition-colors bg-brand text-white hover:bg-brand-dark disabled:opacity-60">
+          {saving ? 'Saving…' : 'Save Bet'}
+        </button>
+      )}
     </div>
   );
 
@@ -1587,7 +1643,7 @@ function FieldView({ results, scratched, rc, trackCond, onLogBet, onShowPopup, o
     <>
       {/* Desktop table */}
       <div className="hidden md:block flex-1 overflow-y-auto overflow-x-hidden">
-        <table className="w-full border-collapse" style={{ tableLayout: 'auto' }}>
+        <table className="ww-race-table w-full border-collapse" style={{ tableLayout: 'auto' }}>
           <thead>
             <tr className="border-b border-gray-200">
               <th style={{ ...th, textAlign:'center', width:'3%' }}>RANK</th>
@@ -2256,12 +2312,19 @@ function RacesPageInner() {
     return () => clearInterval(id);
   }, []);
 
+  const groupWeightApplied = useRef(false);
   useEffect(() => {
     if (settingsLoading) return;
     const map = { 'Field': 'field', 'Form': 'form', 'Pace Map': 'pacemap' };
     const mapped = map[userSettings.racesTab] || 'field';
     preferredViewRef.current = mapped;
     if (!Object.keys(allRaces).length) setView(mapped);
+    if (!groupWeightApplied.current) {
+      groupWeightApplied.current = true;
+      if (userSettings.racesGroup && userSettings.racesGroup !== 'All') {
+        setWeights(weightsByGroup(userSettings.racesGroup));
+      }
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [settingsLoading]);
 
@@ -2645,12 +2708,17 @@ function RacesPageInner() {
     }, 200);
   }, []);
 
+  const tablePad = userSettings.density === 'Compact' ? '1px 2px' : '3px 4px';
+  const tableFs  = userSettings.fontSize === 'Small' ? 10 : userSettings.fontSize === 'Large' ? 13 : 11;
+
   return (
+    <>
+    <style>{`.ww-race-table td { padding: ${tablePad} !important; font-size: ${tableFs}px !important; }`}</style>
     <div className="flex flex-1 overflow-hidden">
       {/* Left rail — desktop only */}
       {hasData && (
         <div className="hidden md:flex">
-          <LeftRail allVenues={allVenues} allRaces={allRaces} selectedRaceKey={selectedKey} onSelect={handleSelectRace} trackConds={trackConds} raceResults={raceResults} abandonedVenues={venueAbandoned} />
+          <LeftRail allVenues={allVenues} allRaces={allRaces} selectedRaceKey={selectedKey} onSelect={handleSelectRace} trackConds={trackConds} raceResults={raceResults} abandonedVenues={venueAbandoned} minRunners={userSettings.racesMinRunners} />
         </div>
       )}
 
@@ -2829,5 +2897,6 @@ function RacesPageInner() {
       {/* Blackbook modal */}
       {bbTarget && <BlackbookModal target={bbTarget} onClose={() => { setBbTarget(null); const popup = document.getElementById('horse-popup'); if (popup) popup.style.display = ''; }} userId={user?.id} isPro={isPro} />}
     </div>
+    </>
   );
 }

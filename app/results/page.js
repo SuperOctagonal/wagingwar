@@ -9,6 +9,7 @@ import ProfileRail from '@/components/ProfileRail';
 import UpgradeModal from '@/components/UpgradeModal';
 import useIsMobile from '@/hooks/useIsMobile';
 import useIsPro from '@/hooks/useIsPro';
+import useUserSettings from '@/hooks/useUserSettings';
 
 const SURL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SKEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -167,7 +168,7 @@ function TopPicksPanel({ data }) {
       {details.length === 0 ? (
         <div style={{ color: '#6b7280', fontSize: 10 }}>No model data yet.</div>
       ) : (
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 10 }}>
+        <table className="ww-results-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: 10 }}>
           <thead>
             <tr style={{ background: '#f1f5f9', borderBottom: '1px solid #e5e7eb' }}>
               <th style={{ padding: '2px 4px', textAlign: 'left',   fontWeight: 700, color: '#111827' }}>R#</th>
@@ -218,7 +219,7 @@ function ModelPerfPanel({ data, isPro }) {
       {details.length === 0 ? (
         <div style={{ color: '#6b7280', fontSize: 10 }}>No model data yet.</div>
       ) : (
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 10 }}>
+        <table className="ww-results-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: 10 }}>
           <thead>
             <tr style={{ background: '#f1f5f9', borderBottom: '1px solid #e5e7eb' }}>
               <th style={{ padding: '2px 4px', textAlign: 'left',   fontWeight: 700, color: '#111827' }}>R#</th>
@@ -265,7 +266,7 @@ function BarrierPanel({ data, hasCsv }) {
   const maxPct = Math.max(...data.map(g => g.total ? g.wins / g.total : 0), 0.001);
   return (
     <div style={{ paddingTop: 8 }}>
-      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 10 }}>
+      <table className="ww-results-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: 10 }}>
         <thead>
           <tr style={{ background: '#f1f5f9', borderBottom: '1px solid #e5e7eb' }}>
             <th style={{ padding: '3px 5px', textAlign: 'left',   fontWeight: 700, color: '#111827' }}>Gate</th>
@@ -378,7 +379,7 @@ function WeightClassPanel({ data }) {
   const fmt = v => v != null ? (+v).toFixed(1) : '—';
   return (
     <div style={{ overflowY:'auto', flex:1, padding:'8px 10px' }}>
-      <table style={{ width:'100%', borderCollapse:'collapse', fontSize:10 }}>
+      <table className="ww-results-table" style={{ width:'100%', borderCollapse:'collapse', fontSize:10 }}>
         <thead>
           <tr style={{ borderBottom:'1px solid #e5e7eb' }}>
             <th style={{ padding:'3px 4px', textAlign:'left', color:'#6b7280', fontWeight:600, fontSize:9 }}>R</th>
@@ -484,7 +485,7 @@ function ResultsDetail({ meeting, venue, allRaces, allVenues, weights, dbScratch
         </div>
       </div>
 
-      <table style={{ width:'100%', borderCollapse:'collapse', tableLayout:'auto', border:'0.5px solid #e5e7eb', borderTop:'none', borderRadius:'0 0 8px 8px', overflow:'hidden' }}>
+      <table className="ww-results-table" style={{ width:'100%', borderCollapse:'collapse', tableLayout:'auto', border:'0.5px solid #e5e7eb', borderTop:'none', borderRadius:'0 0 8px 8px', overflow:'hidden' }}>
         <thead>
           <tr style={{ background:'#f1f5f9', borderBottom:'1px solid #e5e7eb' }}>
             <th style={{ padding:'4px 6px', fontSize:9, fontWeight:700, color:'#111827', textAlign:'center', width:28 }}>POS</th>
@@ -548,6 +549,7 @@ export default function ResultsPage() {
   const isMobile = useIsMobile();
   const { user } = useUser();
   const isPro = useIsPro();
+  const { settings } = useUserSettings();
   const [allRaces, setAllRaces] = useState({});
   const [allVenues, setAllVenues] = useState({});
   const [dbRows, setDbRows] = useState([]);
@@ -861,7 +863,12 @@ export default function ResultsPage() {
     return roles;
   }, [meetingResulted, effectiveRaces, effectiveVenues, selectedMeeting, dbScratchings, hasCsv]);
 
+  const tablePad = settings.density === 'Compact' ? '1px 2px' : '3px 4px';
+  const tableFs  = settings.fontSize === 'Small' ? 10 : settings.fontSize === 'Large' ? 13 : 11;
+
   return (
+    <>
+    <style>{`.ww-results-table td, .ww-results-table th { padding: ${tablePad} !important; font-size: ${tableFs}px !important; }`}</style>
     <div style={{ display:'flex', flex:1, overflow:'hidden' }}>
       <ProfileRail />
       <main className="mob-page" style={{ flex:1, overflowY:'auto', background:'#f8fafc' }}>
@@ -1062,5 +1069,6 @@ export default function ResultsPage() {
       </main>
       {upgradeOpen && <UpgradeModal onClose={() => setUpgradeOpen(false)} />}
     </div>
+    </>
   );
 }

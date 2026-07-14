@@ -421,10 +421,11 @@ export default function MybetsPage() {
   const [qlOdds,      setQlOdds]      = useState('');
   const [qlBookmaker, setQlBookmaker] = useState('Sportsbet');
   const [qlSaving,    setQlSaving]    = useState(false);
-  const [qlToast,     setQlToast]     = useState(null);
-  const [qlRaceTime,  setQlRaceTime]  = useState('');
-  const [qlTab,       setQlTab]       = useState('');
-  const [raceDate,    setRaceDate]    = useState(null);
+  const [qlToast,        setQlToast]        = useState(null);
+  const [qlRaceTime,     setQlRaceTime]     = useState('');
+  const [qlTab,          setQlTab]          = useState('');
+  const [raceDate,       setRaceDate]       = useState(null);
+  const [qlStakeWarning, setQlStakeWarning] = useState(false);
 
   const todayISO = new Date().toLocaleDateString('en-CA', { timeZone: 'Australia/Sydney' });
   const [now, setNow] = useState(() => Date.now());
@@ -658,6 +659,12 @@ export default function MybetsPage() {
     if (!user?.id) {
       console.log('[QuickLog] Blocked: not logged in'); return;
     }
+    const alertThreshold = +(settings.stakingAlert || 0);
+    if (alertThreshold > 0 && +qlStake > alertThreshold && !qlStakeWarning) {
+      setQlStakeWarning(true);
+      return;
+    }
+    setQlStakeWarning(false);
     setQlSaving(true);
 
     const normVenue = normaliseVenue(qlMeeting || '') || null;
@@ -1129,7 +1136,12 @@ export default function MybetsPage() {
   if (!isLoaded) return null;
   // Second isPro===false guard (after isLoaded) — same blurred mock as above, already handled above
 
+  const tablePad = settings.density === 'Compact' ? '1px 2px' : '3px 4px';
+  const tableFs  = settings.fontSize === 'Small' ? 10 : settings.fontSize === 'Large' ? 13 : 11;
+
   return (
+    <>
+    <style>{`.ww-bets-table td, .ww-bets-table th { padding: ${tablePad} !important; font-size: ${tableFs}px !important; }`}</style>
     <div className="mob-page" style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
       <ProfileRail>
         <div style={{ borderTop: '1px solid #e5e7eb', padding: '10px 12px' }}>
@@ -1168,13 +1180,23 @@ export default function MybetsPage() {
           <select value={qlBookmaker} onChange={e => setQlBookmaker(e.target.value)} style={{ ...inp, marginBottom: 8 }}>
             {BOOKMAKERS.map(b => <option key={b} value={b}>{b}</option>)}
           </select>
-          <button
-            onClick={handleQuickLog}
-            disabled={qlBtnDisabled}
-            style={{ width: '100%', padding: '7px 0', background: raceHasPassed ? '#6b7280' : '#059669', color: '#fff', border: 'none', borderRadius: 5, fontSize: 12, fontWeight: 700, cursor: qlBtnDisabled ? 'default' : 'pointer', opacity: qlBtnDisabled ? 0.6 : 1 }}
-          >
-            {qlSaving ? '…' : 'Save Bet'}
-          </button>
+          {qlStakeWarning ? (
+            <div style={{ background: '#fef3c7', border: '1px solid #fde68a', borderRadius: 6, padding: '8px 10px' }}>
+              <div style={{ fontSize: 11, fontWeight: 600, color: '#92400e', marginBottom: 6 }}>Stake is higher than usual — confirm?</div>
+              <div style={{ display: 'flex', gap: 6 }}>
+                <button onClick={handleQuickLog} style={{ flex: 1, padding: '5px 0', background: '#00471b', color: '#fff', border: 'none', borderRadius: 5, fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>Confirm</button>
+                <button onClick={() => setQlStakeWarning(false)} style={{ flex: 1, padding: '5px 0', background: '#fff', color: '#374151', border: '1px solid #d1d5db', borderRadius: 5, fontSize: 11, cursor: 'pointer' }}>Cancel</button>
+              </div>
+            </div>
+          ) : (
+            <button
+              onClick={handleQuickLog}
+              disabled={qlBtnDisabled}
+              style={{ width: '100%', padding: '7px 0', background: raceHasPassed ? '#6b7280' : '#059669', color: '#fff', border: 'none', borderRadius: 5, fontSize: 12, fontWeight: 700, cursor: qlBtnDisabled ? 'default' : 'pointer', opacity: qlBtnDisabled ? 0.6 : 1 }}
+            >
+              {qlSaving ? '…' : 'Save Bet'}
+            </button>
+          )}
           {qlToast && (
             <div style={{ marginTop: 6, fontSize: 11, fontWeight: 600, textAlign: 'center', color: qlToast === 'success' ? '#059669' : '#dc2626' }}>
               {qlToast === 'success' ? '✓ Logged' : '✗ Failed'}
@@ -1330,7 +1352,7 @@ export default function MybetsPage() {
               <div style={{ padding: 20, textAlign: 'center', color: '#fff', fontSize: 11 }}>No bets for this period</div>
             ) : (
               <div style={{ overflowX: 'auto' }}>
-                <table style={{ borderCollapse: 'collapse', fontSize: 11 }}>
+                <table className="ww-bets-table" style={{ borderCollapse: 'collapse', fontSize: 11 }}>
                   <thead>
                     <tr style={{ background: '#0D1C13' }}>
                       {(() => {
@@ -2134,5 +2156,6 @@ export default function MybetsPage() {
         </div>
       )}
     </div>
+    </>
   );
 }
