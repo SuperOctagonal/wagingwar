@@ -8,7 +8,7 @@ export async function POST() {
 
   const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
-  const clerkUser = await clerkClient().users.getUser(userId);
+  const clerkUser = await (await clerkClient()).users.getUser(userId);
   const customerId = clerkUser.publicMetadata?.stripeCustomerId;
   console.log('[portal] userId:', userId, 'customerId:', customerId ?? 'MISSING');
 

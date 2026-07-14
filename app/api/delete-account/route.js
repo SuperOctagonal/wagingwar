@@ -22,7 +22,7 @@ export async function POST() {
 
   // 1. Cancel active Stripe subscriptions
   try {
-    const clerkUser = await clerkClient().users.getUser(userId);
+    const clerkUser = await (await clerkClient()).users.getUser(userId);
     const customerId = clerkUser.publicMetadata?.stripeCustomerId;
     if (customerId) {
       const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
@@ -57,7 +57,7 @@ export async function POST() {
 
   // 3. Delete Clerk user (last — invalidates the session)
   try {
-    await clerkClient().users.deleteUser(userId);
+    await (await clerkClient()).users.deleteUser(userId);
   } catch (err) {
     console.error('[delete-account] Clerk deleteUser error:', err);
     return NextResponse.json({ error: 'Failed to delete account — contact support' }, { status: 500 });

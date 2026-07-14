@@ -34,7 +34,7 @@ export async function POST(req) {
 async function findClerkUserByCustomerId(stripe, customerId) {
   const customer = await stripe.customers.retrieve(customerId);
   if (customer.deleted || !customer.email) return null;
-  const result = await clerkClient().users.getUserList({ emailAddress: [customer.email] });
+  const result = await (await clerkClient()).users.getUserList({ emailAddress: [customer.email] });
   return result.data[0] ?? null;
 }
 
@@ -49,7 +49,7 @@ async function handleCheckoutCompleted(stripe, session) {
   const sub = await stripe.subscriptions.retrieve(session.subscription);
   const isActive = ['active', 'trialing'].includes(sub.status);
 
-  await clerkClient().users.updateUserMetadata(user.id, {
+  await (await clerkClient()).users.updateUserMetadata(user.id, {
     publicMetadata: {
       stripeCustomerId: customerId,
       plan: isActive ? 'pro' : 'free',
@@ -66,7 +66,7 @@ async function handleSubscriptionChange(stripe, subscription) {
 
   const isActive = ['active', 'trialing'].includes(subscription.status);
 
-  await clerkClient().users.updateUserMetadata(user.id, {
+  await (await clerkClient()).users.updateUserMetadata(user.id, {
     publicMetadata: {
       stripeCustomerId: customerId,
       plan: isActive ? 'pro' : 'free',
