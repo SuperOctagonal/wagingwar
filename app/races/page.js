@@ -438,33 +438,13 @@ function LeftRail({ allVenues, allRaces, selectedRaceKey, onSelect, trackConds, 
 
 // ─── right rail ───────────────────────────────────────────────────────────────
 
-function RightRail({ allRaces, allVenues, selectedRaceKey, onSelect, isPro, userId }) {
-  const [now,      setNow]      = useState(() => Date.now());
-  const [todayBets, setTodayBets] = useState({});
+function RightRail({ allRaces, allVenues, selectedRaceKey, onSelect, isPro, userId, todayBets = {} }) {
+  const [now, setNow] = useState(() => Date.now());
 
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(id);
   }, []);
-
-  // Fetch today's logged bets for Pro users (horse name per race)
-  useEffect(() => {
-    if (!isPro || !userId || !SURL || !SKEY) return;
-    const d = new Date().toLocaleDateString('sv-SE', { timeZone: 'Australia/Brisbane' });
-    fetch(`${SURL}/rest/v1/bet_log?clerk_id=eq.${userId}&date=eq.${d}&select=venue,race_number,horse_name`, {
-      headers: { apikey: SKEY, Authorization: `Bearer ${SKEY}` },
-    })
-      .then(r => r.ok ? r.json() : [])
-      .then(rows => {
-        const m = {};
-        (Array.isArray(rows) ? rows : []).forEach(r => {
-          const k = `${normaliseVenue(r.venue||'')}||${String(r.race_number)}`;
-          if (!m[k]) m[k] = r.horse_name;
-        });
-        setTodayBets(m);
-      })
-      .catch(() => {});
-  }, [isPro, userId]);
 
   // Sort all races by countdown, include up to -4 min past
   const keys = Object.values(allVenues).flat()
@@ -508,7 +488,8 @@ function RightRail({ allRaces, allVenues, selectedRaceKey, onSelect, isPro, user
                           : urgent ? '#059669'
                           :          '#111827';
             const betKey = `${normaliseVenue(rc.venue)}||${String(rc.num)}`;
-            const bet   = isPro ? todayBets[betKey] : null;
+            const betArr = isPro ? (todayBets[betKey] || []) : [];
+            const hasBet = betArr.length > 0;
 
             const tdBase = { padding: '4px 8px', borderBottom: '0.5px solid #e5e7eb', ...(idx > 0 ? { borderTop: '1px solid #86efac' } : {}), verticalAlign: 'middle' };
 
@@ -520,6 +501,7 @@ function RightRail({ allRaces, allVenues, selectedRaceKey, onSelect, isPro, user
                 onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
               >
                 <td style={{ ...tdBase, fontSize: 10, color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {hasBet && <span style={{ display: 'inline-block', width: 6, height: 6, borderRadius: '50%', background: '#00471b', marginRight: 4, verticalAlign: 'middle', flexShrink: 0 }} />}
                   <span style={{ color: '#111827', fontSize: 9 }}>{venueAbbr(rc.venue)}</span>
                   {' '}<span style={{ fontWeight: 600 }}>R{rc.num}</span>
                   {rc.dist && <span style={{ color: '#111827', fontSize: 9, marginLeft: 3 }}>{rc.dist}m</span>}
@@ -531,11 +513,11 @@ function RightRail({ allRaces, allVenues, selectedRaceKey, onSelect, isPro, user
               </tr>,
             ];
 
-            if (bet) {
+            if (hasBet) {
               rows.push(
                 <tr key={`${rk}-bet`} style={{ background: '#f0fdf4' }}>
                   <td colSpan={3} style={{ padding: '2px 10px 4px 18px', fontSize: 9, color: '#059669', borderBottom: '0.5px solid #e5e7eb', fontStyle: 'italic' }}>
-                    ↳ {bet}
+                    ↳ {betArr.join(', ')}
                   </td>
                 </tr>
               );
@@ -1511,7 +1493,7 @@ function LockBtn({ onClick }) {
 
 const DEFAULT_COL_VIS = { form: true, speed: true, cond: true, conn: true, score: true, edge: true, value: true };
 
-function RunnerRow({ runner, rank, rc, trackCond, onLogBet, onShowPopup, onHidePopup, isResulted, betBlocked = false, isPro, onUpgrade, isDbScratched, colVis = DEFAULT_COL_VIS }) {
+function RunnerRow({ runner, rank, rc, trackCond, onLogBet, onShowPopup, onHidePopup, isResulted, betBlocked = false, isPro, onUpgrade, isDbScratched, colVis = DEFAULT_COL_VIS, todayBets = {} }) {
   const myO  = runner.myOdds;
   const mktO = runner.rawOdds;
   const pm   = calcPaceMap(runner, rc.venue, +rc.dist, trackCond);
@@ -1539,6 +1521,7 @@ function RunnerRow({ runner, rank, rc, trackCond, onLogBet, onShowPopup, onHideP
       <td className={`${td} overflow-hidden`}>
         <div className="flex items-center flex-wrap gap-x-1 leading-snug">
           <span className="flex-shrink-0 bg-blue-800 text-white text-[8px] font-bold font-mono px-[4px] py-[1px] rounded-sm leading-tight mr-0.5">{runner.tab}</span>
+          {isPro && (() => { const bk = `${normaliseVenue(rc?.venue||'')}||${String(rc?.num)}`; return (todayBets[bk]||[]).some(h => h.toUpperCase() === stripCountry(runner.name).toUpperCase()); })() && <i className="ti ti-ticket flex-shrink-0" style={{ fontSize: 9, color: '#00471b' }} />}
           <span
             className="font-semibold text-[11px] hover:text-brand hover:underline cursor-pointer"
             style={{ color: '#111827', textDecoration: isDbScratched ? 'line-through' : 'none' }}
@@ -1628,7 +1611,7 @@ function RunnerRow({ runner, rank, rc, trackCond, onLogBet, onShowPopup, onHideP
   );
 }
 
-function FieldView({ results, scratched, rc, trackCond, onLogBet, onShowPopup, onHidePopup, isResulted, betBlocked = false, isPro, onUpgrade, scratchingsSet = new Set(), colVis = DEFAULT_COL_VIS }) {
+function FieldView({ results, scratched, rc, trackCond, onLogBet, onShowPopup, onHidePopup, isResulted, betBlocked = false, isPro, onUpgrade, scratchingsSet = new Set(), colVis = DEFAULT_COL_VIS, todayBets = {} }) {
   const tcLabel = { good:'Good', soft:'Soft', heavy:'Heavy', synthetic:'Synth' }[trackCond] || 'Good';
   const scrKey = h => `${normaliseVenue(rc.venue)}||${rc.num}||${stripCountry(h.name).toUpperCase()}`;
   const activeResults = results.filter(h => !scratchingsSet.has(scrKey(h)));
@@ -1664,10 +1647,10 @@ function FieldView({ results, scratched, rc, trackCond, onLogBet, onShowPopup, o
           </thead>
           <tbody>
             {activeResults.map((r, i) => (
-              <RunnerRow key={r.tab || r.name} runner={r} rank={i+1} rc={rc} trackCond={trackCond} onLogBet={onLogBet} onShowPopup={onShowPopup} onHidePopup={onHidePopup} isResulted={isResulted} betBlocked={betBlocked} isPro={isPro} onUpgrade={onUpgrade} colVis={colVis} />
+              <RunnerRow key={r.tab || r.name} runner={r} rank={i+1} rc={rc} trackCond={trackCond} onLogBet={onLogBet} onShowPopup={onShowPopup} onHidePopup={onHidePopup} isResulted={isResulted} betBlocked={betBlocked} isPro={isPro} onUpgrade={onUpgrade} colVis={colVis} todayBets={todayBets} />
             ))}
             {dbScratched.map(r => (
-              <RunnerRow key={r.tab || r.name} runner={r} rank={null} rc={rc} trackCond={trackCond} onLogBet={onLogBet} onShowPopup={onShowPopup} onHidePopup={onHidePopup} isResulted={true} betBlocked isPro={isPro} onUpgrade={onUpgrade} isDbScratched colVis={colVis} />
+              <RunnerRow key={r.tab || r.name} runner={r} rank={null} rc={rc} trackCond={trackCond} onLogBet={onLogBet} onShowPopup={onShowPopup} onHidePopup={onHidePopup} isResulted={true} betBlocked isPro={isPro} onUpgrade={onUpgrade} isDbScratched colVis={colVis} todayBets={todayBets} />
             ))}
           </tbody>
           {scratched.length > 0 && (
@@ -2301,6 +2284,7 @@ function RacesPageInner() {
   const [resultPopup,   setResultPopup]   = useState(null);
   const [bbTarget,      setBbTarget]      = useState(null);
   const [meetingsSynced, setMeetingsSynced] = useState(false);
+  const [todayBets,     setTodayBets]     = useState({});
   const [venueTrackConds, setVenueTrackConds] = useState({});
   const [venueAbandoned,  setVenueAbandoned]  = useState(new Set());
   const [scratchedRows,   setScratchedRows]   = useState([]);
@@ -2311,6 +2295,25 @@ function RacesPageInner() {
     const id = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(id);
   }, []);
+
+  useEffect(() => {
+    if (!isPro || !user?.id || !SURL || !SKEY) return;
+    const d = new Date().toLocaleDateString('sv-SE', { timeZone: 'Australia/Brisbane' });
+    fetch(`${SURL}/rest/v1/bet_log?clerk_id=eq.${user.id}&date=eq.${d}&select=venue,race_number,horse_name`, {
+      headers: { apikey: SKEY, Authorization: `Bearer ${SKEY}` },
+    })
+      .then(r => r.ok ? r.json() : [])
+      .then(rows => {
+        const m = {};
+        (Array.isArray(rows) ? rows : []).forEach(r => {
+          const k = `${normaliseVenue(r.venue||'')}||${String(r.race_number)}`;
+          if (!m[k]) m[k] = [];
+          m[k].push(r.horse_name || '');
+        });
+        setTodayBets(m);
+      })
+      .catch(() => {});
+  }, [isPro, user?.id]);
 
   const groupWeightApplied = useRef(false);
   useEffect(() => {
@@ -2823,7 +2826,9 @@ function RacesPageInner() {
                       {venueRaces.map(key => {
                         const rn = allRaces[key]?.num;
                         const active = key === selectedKey;
-                        return (
+                        const tabBetKey = `${normaliseVenue(currentRace.venue)}||${String(rn)}`;
+                          const tabHasBet = isPro && (todayBets[tabBetKey]?.length > 0);
+                          return (
                           <button
                             key={key}
                             onClick={() => setSelectedKey(key)}
@@ -2831,9 +2836,12 @@ function RacesPageInner() {
                               minWidth:28, height:40, fontSize:12, fontWeight: active ? 700 : 500,
                               borderRadius:5, border: active ? '1.5px solid #1D9E75' : '1px solid #d1d5db',
                               background: active ? '#1D9E75' : '#fff', color: active ? '#fff' : '#374151',
-                              cursor:'pointer', flexShrink:0, padding:'0 5px',
+                              cursor:'pointer', flexShrink:0, padding:'0 5px', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:2,
                             }}
-                          >R{rn}</button>
+                          >
+                            <span>R{rn}</span>
+                            {tabHasBet && <span style={{ width:5, height:5, borderRadius:'50%', background: active ? '#fff' : '#00471b', flexShrink:0 }} />}
+                          </button>
                         );
                       })}
                     </div>
@@ -2859,7 +2867,7 @@ function RacesPageInner() {
                         onShowPopup={showHorsePopup} onHidePopup={hideHorsePopup}
                         isResulted={!!currentRaceResult} betBlocked={betBlocked}
                         isPro={isPro} onUpgrade={() => setUpgradeOpen(true)}
-                        scratchingsSet={scratchingsSet} colVis={colVis} />
+                        scratchingsSet={scratchingsSet} colVis={colVis} todayBets={todayBets} />
                     </div>
                   )}
                   {view === 'form' && (
@@ -2880,7 +2888,7 @@ function RacesPageInner() {
       {/* Right rail — desktop only, hidden in historical mode */}
       {hasData && !isHistoricalMode && (
         <div className="hidden md:flex">
-          <RightRail allRaces={allRaces} allVenues={allVenues} selectedRaceKey={selectedKey} onSelect={handleSelectRace} isPro={isPro} userId={user?.id} />
+          <RightRail allRaces={allRaces} allVenues={allVenues} selectedRaceKey={selectedKey} onSelect={handleSelectRace} isPro={isPro} userId={user?.id} todayBets={todayBets} />
         </div>
       )}
 
