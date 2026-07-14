@@ -569,7 +569,7 @@ export default function SettingsPage() {
               <div style={{ marginTop: 1 }}><Toggle on={s.compAutoEnter} onChange={v => set('compAutoEnter', v)} /></div>
               <div>
                 <div style={{ fontSize: 13, color: '#111' }}>Auto-enter with model rank 1 picks</div>
-                <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 2 }}>Automatically submits the model rank 1 pick for each race when you open the Competitions page. Won't submit picks if you don't visit that day.</div>
+                <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 2 }}>Automatically submits the model rank 1 pick for each race when you open the Competitions page. Won&apos;t submit picks if you don&apos;t visit that day.</div>
               </div>
             </div>
             <TRow
