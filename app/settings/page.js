@@ -566,10 +566,10 @@ export default function SettingsPage() {
           <>
             <SecTitle>Competition</SecTitle>
             <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, marginBottom: 16 }}>
-              <div style={{ opacity: 0.4, pointerEvents: 'none', marginTop: 1 }}><Toggle on={false} onChange={() => {}} /></div>
+              <div style={{ marginTop: 1 }}><Toggle on={s.compAutoEnter} onChange={v => set('compAutoEnter', v)} /></div>
               <div>
-                <div style={{ fontSize: 13, color: '#111' }}>Auto-enter with model rank 1 picks <CSoon /></div>
-                <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 2 }}>Automatically submit the model rank 1 horse as your pick before jump</div>
+                <div style={{ fontSize: 13, color: '#111' }}>Auto-enter with model rank 1 picks</div>
+                <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 2 }}>Automatically submits the model rank 1 pick for each race when you open the Competitions page. Won't submit picks if you don't visit that day.</div>
               </div>
             </div>
             <TRow
