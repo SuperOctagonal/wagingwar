@@ -11,7 +11,6 @@ const SKEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
 const NAV_LINKS = [
   { id: 'races',        label: 'Races',        href: '/races',        public: true },
-  { id: 'today',        label: 'Today',        href: '/today' },
   { id: 'results',      label: 'Results',      href: '/results' },
   { id: 'mybets',       label: 'My Bets',      href: '/mybets' },
   { id: 'betting-tools', label: 'Tools',       href: '/betting-tools' },
@@ -40,6 +39,7 @@ export default function TopNav() {
   const isPro = useIsPro();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [showLearnMenu, setShowLearnMenu] = useState(false);
+  const [showRacesMenu, setShowRacesMenu] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [navRefreshing, setNavRefreshing] = useState(false);
   const [pendingCount, setPendingCount] = useState(0);
@@ -122,6 +122,46 @@ export default function TopNav() {
         {/* Desktop nav links */}
         <div className="hidden md:flex h-full flex-1">
           {NAV_LINKS.map(link => {
+            if (link.id === 'races') {
+              const racesActive = currentPage === 'races' || currentPage === 'today';
+              return (
+                <div key={link.id} style={{ position: 'relative' }} onMouseEnter={() => setShowRacesMenu(true)} onMouseLeave={() => setShowRacesMenu(false)}>
+                  <button
+                    onClick={() => navigate(link.href, link.public)}
+                    className={[
+                      'group h-full px-1 font-space text-[10px] font-semibold uppercase tracking-[0.5px]',
+                      'border-b-2 whitespace-nowrap flex items-center',
+                      racesActive ? 'border-amber-400' : 'border-transparent',
+                    ].join(' ')}
+                  >
+                    <span className={[
+                      'px-3.5 py-[7px] rounded-full transition-colors',
+                      racesActive
+                        ? 'text-white'
+                        : 'text-white/55 group-hover:bg-white group-hover:text-brand',
+                    ].join(' ')}>
+                      {link.label} ▾
+                    </span>
+                  </button>
+                  {showRacesMenu && (
+                    <div style={{ position: 'absolute', top: '100%', left: 0, zIndex: 200, background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, boxShadow: '0 8px 24px rgba(0,0,0,0.12)', width: 180, padding: '8px 0' }}>
+                      <button
+                        onClick={() => { setShowRacesMenu(false); navigate('/today', false); }}
+                        style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 16px', cursor: 'pointer', background: 'none', border: 'none', width: '100%', textAlign: 'left' }}
+                        onMouseEnter={e => e.currentTarget.style.background = '#f9fafb'}
+                        onMouseLeave={e => e.currentTarget.style.background = 'none'}
+                      >
+                        <i className="ti ti-calendar" style={{ fontSize: 16, color: '#00471b', width: 20, flexShrink: 0 }} />
+                        <div>
+                          <div style={{ fontSize: 12, fontWeight: 600, color: '#111827' }}>Today</div>
+                          <div style={{ fontSize: 10, color: '#6b7280', marginTop: 1 }}>Today&apos;s race overview</div>
+                        </div>
+                      </button>
+                    </div>
+                  )}
+                </div>
+              );
+            }
             if (link.id === 'how-it-works') {
               return (
                 <div key={link.id} style={{ position: 'relative' }} onMouseEnter={() => setShowLearnMenu(true)} onMouseLeave={() => setShowLearnMenu(false)}>
