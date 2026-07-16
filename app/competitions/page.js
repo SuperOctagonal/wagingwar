@@ -250,6 +250,8 @@ export default function CompetitionsPage() {
   const [todayRaceResultsData, setTodayRaceResultsData] = useState([]);
   const [prevTodayLbRanks, setPrevTodayLbRanks] = useState({});
   const prevTodayLbRanksRef = useRef({});
+  const [openPickKey, setOpenPickKey]   = useState(null);
+  const [selCompVenue, setSelCompVenue] = useState(null);
 
   const [today, setToday] = useState(() => aestISO());
   const uname = user ? (user.fullName || user.username || user.firstName || 'Anon') : 'Anon';
@@ -754,6 +756,12 @@ export default function CompetitionsPage() {
       .catch(() => {});
   }, []);
 
+  // Auto-select first venue tab when selVenues changes
+  useEffect(() => {
+    if (selVenues.length > 0) setSelCompVenue(sv => !sv || !selVenues.includes(sv) ? selVenues[0] : sv);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selVenues.length, selVenues[0]]);
+
   async function savePick(race, horseName) {
     if (!horseName) return;
     const key = rk(race.venue, race.num);
@@ -1113,137 +1121,292 @@ export default function CompetitionsPage() {
     );
   }
 
-  // ─── Left panel — career record card ─────────────────────────────────────────
-  const plDisplay = allTimePL !== null
-    ? { str: (allTimePL >= 0 ? '+$' : '-$') + Math.abs(allTimePL).toFixed(2), color: allTimePL >= 0 ? '#16a34a' : '#dc2626' }
-    : { str: '—', color: '#9ca3af' };
+  // ─── Gold Status Band ────────────────────────────────────────────────────────
+  const statusBand = (() => {
+    const d = new Date();
+    const dateLabel = d.toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'long', timeZone: 'Australia/Brisbane' })
+      .toUpperCase().replace(',', '') + ' DAILY COMP';
+    const nrMs  = nextRace ? ((jumpDate(nextRace.time, nextRace.date)?.getTime() || 0) - now) : null;
+    const nrCd  = nrMs !== null && nrMs > 0 ? fmtMs(nrMs) : null;
+    const nrLabel = nextRace
+      ? `⏱ NEXT: ${titleCase(normaliseVenue(nextRace.venue || ''))} R${nextRace.num}${nrCd ? ` · ${nrCd}` : ''}`
+      : null;
+    const total = compRaces.length;
+    const picksLabel = pickedCount === total && total > 0
+      ? `PICKS: ${pickedCount}/${total} ✓`
+      : `${pickedCount}/${total || '?'} — ${total - pickedCount > 0 ? total - pickedCount : total} TO PICK`;
+    let statusLabel;
+    if (pickedCount === 0) statusLabel = "ENTER TODAY'S COMP →";
+    else if (userRank === 1) statusLabel = "👑 YOU'RE LEADING";
+    else if (userRank) statusLabel = `YOU: ${ordinal(userRank).toUpperCase()} · ${userScore} PTS`;
+    else statusLabel = `${userScore} PTS`;
+    return (
+      <div style={{ background: '#fbbf24', padding: '10px 18px', display: 'flex', alignItems: 'center', gap: 18, flexShrink: 0, overflow: 'hidden' }}>
+        <span style={{ fontSize: 13, fontWeight: 800, color: '#78350f', whiteSpace: 'nowrap' }}>{dateLabel}</span>
+        {nrLabel && <span style={{ fontSize: 16, fontWeight: 800, color: '#78350f', fontFamily: MONO, whiteSpace: 'nowrap' }}>{nrLabel}</span>}
+        <span style={{ fontSize: 13, fontWeight: 800, color: '#78350f', whiteSpace: 'nowrap' }}>{picksLabel}</span>
+        <span style={{ marginLeft: 'auto', fontSize: 13, fontWeight: 800, color: '#78350f', whiteSpace: 'nowrap' }}>{statusLabel}</span>
+      </div>
+    );
+  })();
 
-  // ─── Centre panel ─────────────────────────────────────────────────────────────
-  const centrePanel = (
-    <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-      <div style={{ flex: 1, overflowY: 'auto', overflowX: 'auto', background: DK_BG }}>
-        {csvStaleDate && (
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 48, gap: 10, textAlign: 'center' }}>
-            <div style={{ fontSize: 28 }}>📅</div>
-            <div style={{ fontSize: 13, fontWeight: 700, color: DK_TEXT }}>Showing data from a previous day</div>
-            <div style={{ fontSize: 11, color: DK_MUT, maxWidth: 280, lineHeight: 1.6 }}>The most recent data available is from {csvStaleDate}. Today&apos;s competition will be available once new data loads.</div>
+  // ─── Today leaderboard — left panel ──────────────────────────────────────────
+  const lbLeaderScore = todayLeaderboard[0]?.score || 1;
+  const lbUserIdx     = todayLeaderboard.findIndex(e => e.isMe);
+  const lbUserEntry   = todayLeaderboard.find(e => e.isMe);
+  const lbGapMsg = (() => {
+    if (!lbUserEntry || lbUserEntry.rank <= 3) return '';
+    const r3 = todayLeaderboard.find(e => e.rank === 3);
+    if (!r3) return 'chasing the podium';
+    const gap = r3.score - lbUserEntry.score;
+    return gap <= 3 ? `${gap} pt${gap !== 1 ? 's' : ''} off podium ↑` : 'chasing the podium';
+  })();
+  let lbDisplayRows = [];
+  let lbEllipsis    = false;
+  if (todayLeaderboard.length > 0) {
+    if (lbUserIdx === -1) {
+      lbDisplayRows = todayLeaderboard.slice(0, Math.min(6, todayLeaderboard.length));
+    } else if (lbUserIdx <= 5) {
+      lbDisplayRows = todayLeaderboard.slice(0, Math.min(todayLeaderboard.length, lbUserIdx + 2));
+    } else {
+      lbEllipsis = true;
+      const ws = Math.max(3, lbUserIdx - 1);
+      const we = Math.min(todayLeaderboard.length, lbUserIdx + 2);
+      lbDisplayRows = [...todayLeaderboard.slice(0, 3), ...todayLeaderboard.slice(ws, we)];
+    }
+  }
+  const renderLbEntry = (e) => {
+    const r = e.rank;
+    if (e.isMe) {
+      return (
+        <div key={e.clerk_id} style={{ background: '#fbbf24', borderRadius: 10, padding: '12px 14px', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 12 }}>
+          <span style={{ fontFamily: MONO, fontSize: 14, fontWeight: 900, color: '#78350f', width: 26, flexShrink: 0 }}>#{r}</span>
+          <span style={{ flex: 1, fontSize: 16, fontWeight: 800, color: '#78350f', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            ► YOU ({titleCase(uname)}){lbGapMsg ? ` · ${lbGapMsg}` : ''}
+          </span>
+          <span style={{ fontSize: 22, fontWeight: 900, fontFamily: MONO, color: '#78350f', flexShrink: 0 }}>{e.score}</span>
+        </div>
+      );
+    }
+    if (r === 1) {
+      const barPct = lbLeaderScore > 0 ? Math.round(e.score / lbLeaderScore * 100) : 100;
+      return (
+        <div key={e.clerk_id} style={{ background: '#0a4d23', border: '2px solid #fbbf24', borderRadius: 10, padding: '12px 14px', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div style={{ width: 46, height: 46, borderRadius: '50%', background: '#fbbf24', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <span style={{ fontSize: 22, fontWeight: 900, color: '#78350f', fontFamily: MONO }}>1</span>
           </div>
-        )}
-        {!csvRaces && !csvStaleDate && (
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 48, gap: 10, textAlign: 'center' }}>
-            <div style={{ fontSize: 28 }}>📋</div>
-            <div style={{ fontSize: 13, fontWeight: 700, color: DK_TEXT }}>No race data yet</div>
-            <div style={{ fontSize: 11, color: DK_MUT, maxWidth: 260 }}>Race data for today hasn&apos;t loaded yet. Check back shortly.</div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 17, fontWeight: 700, color: '#ffffff', marginBottom: 6, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.uname}</div>
+            <div style={{ height: 9, background: 'rgba(255,255,255,0.25)', borderRadius: 4, overflow: 'hidden' }}>
+              <div style={{ width: `${barPct}%`, height: '100%', background: '#fbbf24', borderRadius: 4 }} />
+            </div>
           </div>
-        )}
-        {csvRaces && compRaces.length === 0 && (
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 48, gap: 10 }}>
-            <div style={{ fontSize: 28 }}>🏁</div>
-            <div style={{ fontSize: 13, fontWeight: 700, color: '#94a3b8' }}>No races available today</div>
+          <span style={{ fontSize: 28, fontWeight: 900, fontFamily: MONO, color: '#fbbf24', flexShrink: 0 }}>{e.score}</span>
+        </div>
+      );
+    }
+    const mBg   = r === 2 ? '#e5e7eb' : '#f59e0b';
+    const mTxt  = r === 2 ? '#374151' : '#ffffff';
+    const bFill = r === 2 ? '#e5e7eb' : '#f59e0b';
+    const pts   = r === 2 ? 23 : 23;
+    const barPct = lbLeaderScore > 0 ? Math.round(e.score / lbLeaderScore * 100) : 0;
+    if (r === 2 || r === 3) {
+      return (
+        <div key={e.clerk_id} style={{ background: '#0a4d23', border: '1px solid rgba(255,255,255,0.3)', borderRadius: 10, padding: '10px 14px', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div style={{ width: 40, height: 40, borderRadius: '50%', background: mBg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <span style={{ fontSize: 18, fontWeight: 900, color: mTxt, fontFamily: MONO }}>{r}</span>
           </div>
-        )}
-        {csvRaces && compRaces.length > 0 && (
-          <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 440, background: DK_BG }}>
-            <thead>
-              <tr style={{ background: DK_HDR }}>
-                {[['RACE', 70], ['JUMP', 80], ['YOUR PICK', 130], ['WINNER', 110], ['PTS', 50]].map(([h, w], i) => (
-                  <th key={h} style={{ padding: '5px 8px', fontSize: 9, fontWeight: 700, color: '#4b5563', textAlign: i >= 4 ? 'center' : 'left', textTransform: 'uppercase', letterSpacing: '0.8px', whiteSpace: 'nowrap', borderBottom: `1px solid ${DK_LINE}`, borderRight: i < 4 ? `1px solid ${DK_LINE}` : 'none', minWidth: w }}>
-                    {h}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {selVenues.map(v => (
-                <>
-                  <tr key={`${v}-hdr`}>
-                    <td colSpan={5} style={{ background: '#0a1a0f', borderTop: `1px solid ${DK_LINE}`, borderBottom: `1px solid ${DK_LINE}`, padding: '3px 10px' }}>
-                      <span style={{ fontSize: 10, fontWeight: 700, color: '#4ade80', letterSpacing: '0.8px', textTransform: 'uppercase' }}>
-                        {v}
-                      </span>
-                    </td>
-                  </tr>
-                  {(racesByVenue[v] || []).map(race => renderRaceRow(race))}
-                </>
-              ))}
-            </tbody>
-          </table>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 15, fontWeight: 700, color: '#ffffff', marginBottom: 6, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.uname}</div>
+            <div style={{ height: 9, background: 'rgba(255,255,255,0.25)', borderRadius: 4, overflow: 'hidden' }}>
+              <div style={{ width: `${barPct}%`, height: '100%', background: bFill, borderRadius: 4 }} />
+            </div>
+          </div>
+          <span style={{ fontSize: pts, fontWeight: 900, fontFamily: MONO, color: '#ffffff', flexShrink: 0 }}>{e.score}</span>
+        </div>
+      );
+    }
+    return (
+      <div key={e.clerk_id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 4px', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+        <span style={{ fontSize: 13, fontWeight: 700, color: '#ffffff', fontFamily: MONO, width: 28, flexShrink: 0 }}>#{r}</span>
+        <span style={{ flex: 1, fontSize: 14, fontWeight: 500, color: '#ffffff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.uname}</span>
+        <span style={{ fontSize: 17, fontWeight: 800, fontFamily: MONO, color: '#ffffff', flexShrink: 0 }}>{e.score}</span>
+      </div>
+    );
+  };
+
+  const newLeftPanel = (
+    <div style={{ background: '#0d5f2b', padding: '18px 22px', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, flexShrink: 0 }}>
+        <span style={{ fontSize: 17, fontWeight: 900, color: '#fbbf24', textTransform: 'uppercase', letterSpacing: 1 }}>🏆 TODAY&apos;S LEADERBOARD</span>
+        <span style={{ fontSize: 13, fontWeight: 800, color: '#7CFC9B' }}>● LIVE · {entrantCount} PUNTER{entrantCount !== 1 ? 'S' : ''}</span>
+      </div>
+      <div style={{ flex: 1, overflowY: 'auto' }}>
+        {todayLeaderboard.length === 0 ? (
+          <>
+            {pickedCount > 0 && (
+              <div style={{ background: '#fbbf24', borderRadius: 10, padding: '12px 14px', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 12 }}>
+                <span style={{ fontFamily: MONO, fontSize: 14, fontWeight: 900, color: '#78350f', width: 26, flexShrink: 0 }}>#1</span>
+                <span style={{ flex: 1, fontSize: 16, fontWeight: 800, color: '#78350f', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>► YOU ({titleCase(uname)})</span>
+                <span style={{ fontSize: 22, fontWeight: 900, fontFamily: MONO, color: '#78350f', flexShrink: 0 }}>{userScore}</span>
+              </div>
+            )}
+            <div style={{ padding: '8px 4px', fontSize: 13, fontStyle: 'italic', color: 'rgba(255,255,255,0.4)' }}>
+              Invite punters — be here when they arrive
+            </div>
+          </>
+        ) : (
+          <>
+            {lbDisplayRows.slice(0, lbEllipsis ? 3 : lbDisplayRows.length).map(e => renderLbEntry(e))}
+            {lbEllipsis && (
+              <div key="ellipsis" style={{ textAlign: 'center', color: 'rgba(255,255,255,0.4)', fontSize: 13, padding: '4px 0 6px' }}>···</div>
+            )}
+            {lbEllipsis && lbDisplayRows.slice(3).map(e => renderLbEntry(e))}
+            {todayLeaderboard.length <= 1 && (
+              <div style={{ padding: '8px 4px', fontSize: 13, fontStyle: 'italic', color: 'rgba(255,255,255,0.4)' }}>
+                Invite punters — be here when they arrive
+              </div>
+            )}
+          </>
         )}
       </div>
-      <SubmitFooter compact={false} />
+      <div style={{ flexShrink: 0, textAlign: 'right', paddingTop: 12, borderTop: '1px solid rgba(255,255,255,0.1)', marginTop: 8 }}>
+        <button onClick={() => setMainTab('alltime')} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 900, color: '#fbbf24' }}>
+          FULL LEADERBOARD →
+        </button>
+      </div>
     </div>
   );
 
-  // ─── Right panel — mini standings ─────────────────────────────────────────────
-  const top5 = todayLeaderboard.slice(0, 5);
-  const userEntry = todayLeaderboard.find(e => e.isMe);
-  const showUserSep = userEntry && !top5.some(e => e.isMe);
-
-  const userIdx = todayLeaderboard.findIndex(e => e.isMe);
-  const standingsSlice = (() => {
-    if (todayLeaderboard.length === 0) return [];
-    const start = Math.max(0, userIdx === -1 ? 0 : userIdx - 2);
-    const end = Math.min(todayLeaderboard.length, start + 5);
-    return todayLeaderboard.slice(start, end);
-  })();
-
-  const rightPanel = (
-    <div style={{ width: 200, flexShrink: 0, background: DK_HDR, borderLeft: `1px solid ${DK_LINE}`, display: 'flex', flexDirection: 'column', overflowY: 'auto' }}>
-      <div style={{ padding: '8px 10px', borderBottom: `1px solid ${DK_LINE}`, flexShrink: 0 }}>
-        <div style={{ fontSize: 8, fontWeight: 700, color: '#4b5563', textTransform: 'uppercase', letterSpacing: '0.8px' }}>STANDINGS</div>
-      </div>
-      <div style={{ flex: 1, padding: '6px 8px', overflowY: 'auto' }}>
-        {todayLeaderboard.length === 0 ? (
-          <div style={{ fontSize: 9, color: DK_MUT, textAlign: 'center', padding: '12px 0' }}>No picks submitted yet</div>
-        ) : (
-          standingsSlice.map((e) => {
-            const mv = prevTodayLbRanks[e.clerk_id] != null ? prevTodayLbRanks[e.clerk_id] - e.rank : null;
+  // ─── Picker — right panel ─────────────────────────────────────────────────────
+  const newRightPanel = (() => {
+    const activeRaces = racesByVenue[selCompVenue] || [];
+    const plSign = todayPL >= 0 ? '+$' : '-$';
+    const plStr  = plSign + Math.abs(todayPL).toFixed(2);
+    const allLocked   = compRaces.length > 0 && compRaces.every(r => isLocked(r));
+    let btnBg, btnColor, btnLabel, btnDisabled;
+    if (allLocked)                          { btnBg = '#374151'; btnColor = '#6b7280'; btnLabel = 'Picks locked';               btnDisabled = true; }
+    else if (submitting)                    { btnBg = '#374151'; btnColor = '#9ca3af'; btnLabel = 'Saving…';                    btnDisabled = true; }
+    else if (submitToast === 'success')     { btnBg = '#16a34a'; btnColor = '#fff';    btnLabel = `✓ ${pickedCount} picks in`; btnDisabled = true; }
+    else if (submitToast === 'error')       { btnBg = '#7f1d1d'; btnColor = '#f87171'; btnLabel = '✗ Save failed — retry';      btnDisabled = false; }
+    else if (hasSubmitted)                  { btnBg = '#16a34a'; btnColor = '#fff';    btnLabel = 'PICKS SUBMITTED ✓';          btnDisabled = false; }
+    else if (pickedCount > 0)               { btnBg = '#fbbf24'; btnColor = '#78350f'; btnLabel = 'SUBMIT PICKS';               btnDisabled = false; }
+    else                                    { btnBg = '#374151'; btnColor = '#6b7280'; btnLabel = 'SUBMIT PICKS';               btnDisabled = true; }
+    return (
+      <div style={{ background: '#ffffff', padding: '18px 22px', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        {/* Header */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14, flexShrink: 0 }}>
+          <span style={{ fontSize: 15, fontWeight: 900, color: '#00471b', textTransform: 'uppercase', letterSpacing: 0.5 }}>YOUR PICKS</span>
+          <span style={{ fontSize: 12, color: '#374151' }}>3-2-1 pts · +3 bonus for 4/4</span>
+        </div>
+        {/* Venue tabs */}
+        {selVenues.length > 1 && (
+          <div style={{ display: 'flex', gap: 6, marginBottom: 14, flexShrink: 0, flexWrap: 'wrap' }}>
+            {selVenues.map(v => (
+              <button key={v} onClick={() => { setSelCompVenue(v); setOpenPickKey(null); }}
+                style={{ padding: '6px 14px', borderRadius: 20, fontSize: 12, fontWeight: 700, border: 'none', cursor: 'pointer', fontFamily: 'inherit', background: selCompVenue === v ? '#00471b' : '#e5e7eb', color: selCompVenue === v ? '#fff' : '#374151' }}>
+                {v}
+              </button>
+            ))}
+          </div>
+        )}
+        {/* Race list */}
+        <div style={{ flex: 1, overflowY: 'auto' }}>
+          {csvStaleDate && (
+            <div style={{ textAlign: 'center', padding: '24px 8px', color: '#6b7280', fontSize: 13 }}>
+              Data from {csvStaleDate} — today&apos;s comp opens when new data loads
+            </div>
+          )}
+          {!csvRaces && !csvStaleDate && (
+            <div style={{ textAlign: 'center', padding: '24px 8px', color: '#6b7280', fontSize: 13 }}>Loading race data…</div>
+          )}
+          {csvRaces && compRaces.length === 0 && (
+            <div style={{ textAlign: 'center', padding: '24px 8px', color: '#6b7280', fontSize: 13 }}>No races available today</div>
+          )}
+          {csvRaces && compRaces.length > 0 && activeRaces.map(race => {
+            const key         = rk(race.venue, race.num);
+            const locked      = isLocked(race);
+            const pick        = picks[key];
+            const winner      = liveWinnerMap[key] || results[key];
+            const jt          = jumpDate(race.time, race.date);
+            const msToJump    = jt ? jt.getTime() - now : null;
+            const isScratched = pick && scratchings.has(`${key}||${pick.toUpperCase()}`);
+            const canOpen     = !locked || !!isScratched;
+            const isOpen      = openPickKey === key;
+            const activeHorses = (race.horses || []).filter(h => {
+              if (h.scratched) return false;
+              return !scratchings.has(`${key}||${(h.name || '').toUpperCase()}`);
+            });
+            let pts = null;
+            if (winner && pick) {
+              const rr = todayFinishPos[`${key}||${pick.toUpperCase()}`];
+              pts = rr?.pos != null ? scorePick(rr.pos) : (winner.toLowerCase() === pick.toLowerCase() ? 3 : 0);
+            }
             return (
-              <div key={e.clerk_id} style={{
-                display: 'flex', alignItems: 'center', gap: 5, padding: '4px 6px', borderRadius: 4, marginBottom: 2,
-                background: e.isMe ? 'rgba(0,71,27,0.35)' : 'transparent',
-                border: e.isMe ? `1px solid ${DK_LINE}` : '1px solid transparent',
-              }}>
-                <span style={{ fontSize: 9, fontWeight: 700, color: e.rank === 1 ? '#fbbf24' : e.rank === 2 ? '#9ca3af' : e.rank === 3 ? '#d97706' : '#4b5563', width: 20, flexShrink: 0, fontFamily: MONO }}>#{e.rank}</span>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 9, fontWeight: e.isMe ? 700 : 500, color: e.isMe ? '#4ade80' : DK_TEXT, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.uname}</div>
+              <div key={key}>
+                {isScratched && (
+                  <div style={{ fontSize: 12, color: '#dc2626', fontWeight: 700, padding: '4px 0 2px' }}>⚠ {pick} scratched — please re-pick</div>
+                )}
+                <div
+                  onClick={() => canOpen && setOpenPickKey(isOpen ? null : key)}
+                  style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 0', borderBottom: '1.5px solid #e5e7eb', cursor: canOpen ? 'pointer' : 'default' }}
+                >
+                  <span style={{ fontFamily: MONO, fontSize: 16, fontWeight: 700, color: '#00471b', flexShrink: 0 }}>R{race.num}</span>
+                  {!winner && msToJump !== null && msToJump > 0 && (
+                    <span style={{ fontSize: 13, fontFamily: MONO, color: '#6b7280', flexShrink: 0 }}>{fmtMs(msToJump)}</span>
+                  )}
+                  {winner ? (
+                    <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+                      <span style={{ fontSize: 15, fontWeight: 700, color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{pick || '—'}</span>
+                      <span style={{ fontSize: 12, fontWeight: 800, color: pts > 0 ? '#16a34a' : '#9ca3af', flexShrink: 0 }}>
+                        {pts === null ? `W: ${winner}` : pts > 0 ? `WON +${pts}` : `${winner} · 0 pts`}
+                      </span>
+                    </div>
+                  ) : (
+                    <span style={{ flex: 1, fontSize: 15, fontWeight: pick ? 700 : 400, color: pick ? '#111827' : '#9ca3af', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {pick || ''}
+                    </span>
+                  )}
+                  {!winner && (
+                    <span style={{ fontSize: 12, fontWeight: 800, color: (locked && !isScratched) ? '#16a34a' : '#dc2626', flexShrink: 0, whiteSpace: 'nowrap' }}>
+                      {(locked && !isScratched) ? 'LOCKED ✓ · change ▾' : 'PICK ▾'}
+                    </span>
+                  )}
                 </div>
-                <span style={{ fontSize: 10, fontWeight: 800, fontFamily: MONO, color: e.isMe ? '#4ade80' : DK_MUT, flexShrink: 0 }}>{e.score}</span>
-                {mv !== null && mv !== 0 && (
-                  <span style={{ fontSize: 8, width: 18, textAlign: 'right', flexShrink: 0, fontWeight: 700, color: mv > 0 ? '#4ade80' : '#f87171' }}>
-                    {mv > 0 ? `▲${mv}` : `▼${Math.abs(mv)}`}
-                  </span>
+                {isOpen && (
+                  <div style={{ background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: 8, padding: '8px 10px', margin: '6px 0 10px' }}>
+                    {activeHorses.length === 0 ? (
+                      <div style={{ fontSize: 13, color: '#9ca3af', padding: '6px 0' }}>No horses available</div>
+                    ) : activeHorses.map(h => (
+                      <button key={h.name}
+                        onClick={() => { savePick(race, h.name); setOpenPickKey(null); }}
+                        style={{ display: 'block', width: '100%', textAlign: 'left', padding: '8px 12px', fontSize: 15, fontWeight: 600, color: '#111827', background: pick === h.name ? '#d1fae5' : 'transparent', border: pick === h.name ? '1px solid #16a34a' : '1px solid transparent', borderRadius: 6, cursor: 'pointer', marginBottom: 2, fontFamily: 'inherit' }}>
+                        {h.name}
+                      </button>
+                    ))}
+                  </div>
                 )}
               </div>
             );
-          })
-        )}
+          })}
+        </div>
+        {/* Footer bar */}
+        <div style={{ background: '#111827', borderRadius: 8, padding: '10px 14px', marginTop: 12, display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
+          <span style={{ flex: 1, fontSize: 13, fontFamily: MONO, color: '#7CFC9B', lineHeight: 1.3 }}>
+            {decidedCount}/{compRaces.length} DECIDED · +{userScore} PTS · P&amp;L {plStr}
+          </span>
+          <button
+            onClick={btnDisabled || allLocked ? undefined : submitAllPicks}
+            disabled={btnDisabled}
+            style={{ padding: '6px 14px', borderRadius: 6, fontSize: 12, fontWeight: 800, border: 'none', cursor: btnDisabled ? 'default' : 'pointer', background: btnBg, color: btnColor, flexShrink: 0, fontFamily: 'inherit', whiteSpace: 'nowrap' }}>
+            {btnLabel}
+          </button>
+        </div>
       </div>
-      {scratchAlerts.length > 0 && (
-        <>
-          <div style={{ height: 1, background: DK_LINE, flexShrink: 0 }} />
-          <div style={{ padding: '6px 10px 8px', flexShrink: 0 }}>
-            <div style={{ fontSize: 8, fontWeight: 700, color: '#f87171', marginBottom: 3, textTransform: 'uppercase', letterSpacing: '0.5px' }}>⚠ Scratches</div>
-            {scratchAlerts.map(race => (
-              <div key={rk(race.venue, race.num)} style={{ fontSize: 9, color: '#fca5a5', marginBottom: 2, lineHeight: 1.4 }}>
-                {titleCase(race.venue)} R{race.num}: {picks[rk(race.venue, race.num)]} scratched
-              </div>
-            ))}
-          </div>
-        </>
-      )}
-      <div style={{ height: 1, background: DK_LINE, flexShrink: 0 }} />
-      <button
-        onClick={() => setMainTab('alltime')}
-        style={{ padding: '8px 10px', background: 'none', border: 'none', fontSize: 10, fontWeight: 600, color: DK_MUT, cursor: 'pointer', textAlign: 'left', flexShrink: 0 }}
-      >
-        Full leaderboard →
-      </button>
-    </div>
-  );
+    );
+  })();
 
-  // ─── Leaderboard tab — UNCHANGED ─────────────────────────────────────────────
-  const lbTop3 = lbRanked.slice(0, 3);
+  // ─── Historical leaderboard panel ───────────────────────────────────────────
   function lbMvmt(u) {
     const prev = lbPrevRankMap[u.clerk_id];
     if (prev == null) return null;
@@ -1251,151 +1414,162 @@ export default function CompetitionsPage() {
   }
 
   const allTimePanel = (
-    <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-      <div style={{ borderBottom: '1px solid #e5e7eb', background: '#f9fafb', display: 'flex', gap: 2, padding: '0 20px', flexShrink: 0 }}>
-        {LB_TABS.map(t => (
-          <button key={t.id} onClick={() => setLbTab(t.id)}
-            style={{
-              padding: '8px 14px', border: 'none', cursor: 'pointer', fontWeight: 600, fontSize: 12,
-              whiteSpace: 'nowrap', flexShrink: 0, background: 'transparent',
-              borderBottom: lbTab === t.id ? `2px solid ${G}` : '2px solid transparent',
-              color: lbTab === t.id ? G : '#6b7280',
-            }}>
-            {t.label}
-          </button>
-        ))}
+    <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column', background: '#0d5f2b' }}>
+      {/* Nav: back + tab pills */}
+      <div style={{ padding: '10px 20px 0', display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0, flexWrap: 'wrap' }}>
+        <button onClick={() => setMainTab('today')}
+          style={{ background: 'none', border: 'none', color: '#fbbf24', fontSize: 13, fontWeight: 900, cursor: 'pointer', padding: 0, fontFamily: 'inherit' }}>
+          ← Today
+        </button>
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+          {LB_TABS.map(t => {
+            const active = lbTab === t.id;
+            return (
+              <button key={t.id} onClick={() => setLbTab(t.id)}
+                style={{ padding: '6px 14px', borderRadius: 20, fontSize: 12, fontWeight: 700, border: 'none', cursor: 'pointer', fontFamily: 'inherit', background: active ? '#fbbf24' : 'rgba(255,255,255,0.15)', color: active ? '#78350f' : '#ffffff' }}>
+                {t.label}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
-      <div style={{ flex: 1, overflowY: 'auto', padding: isMobile ? '16px' : '20px 24px' }}>
+      <div style={{ flex: 1, overflowY: 'auto', padding: isMobile ? '16px' : '16px 20px 24px' }}>
         {lbLoading && (
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 200, color: '#9ca3af', fontSize: 13 }}>Loading…</div>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 200, color: '#7CFC9B', fontSize: 13 }}>Loading…</div>
         )}
-
         {!lbLoading && lbRanked.length === 0 && (
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: 220, gap: 12, textAlign: 'center' }}>
             <div style={{ fontSize: 36 }}>🏆</div>
-            <div style={{ fontSize: 14, fontWeight: 600, color: '#374151' }}>No competition data yet</div>
-            <div style={{ fontSize: 12, color: '#9ca3af', maxWidth: 300 }}>Scores are computed after each race day. Check back tomorrow.</div>
+            <div style={{ fontSize: 14, fontWeight: 600, color: '#ffffff' }}>No competition data yet</div>
+            <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', maxWidth: 300 }}>Scores are computed after each race day. Check back tomorrow.</div>
           </div>
         )}
-
         {!lbLoading && lbRanked.length > 0 && (() => {
-          const lbMe = lbRanked.find(u => u.clerk_id === user?.id);
+          const lbMe     = lbRanked.find(u => u.clerk_id === user?.id);
+          const lbAllTop = lbRanked.slice(0, Math.min(3, lbRanked.length));
+          const lscore   = lbRanked[0]?.score || 1;
           return (
-            <div style={{ maxWidth: 620, margin: '0 auto' }}>
+            <div style={{ maxWidth: 780, width: '100%' }}>
               {/* Your rank strip */}
               {lbMe && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 8, padding: '8px 12px', marginBottom: 12 }}>
-                  <span style={{ fontSize: 18, lineHeight: 1, flexShrink: 0 }}>
-                    {lbMe.rank <= 3 ? MEDAL_ICON[lbMe.rank - 1] : `#${lbMe.rank}`}
-                  </span>
+                <div style={{ background: '#fbbf24', borderRadius: 10, padding: '10px 16px', marginBottom: 14, display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <span style={{ fontSize: 16, fontWeight: 900, color: '#78350f', width: 28, flexShrink: 0, fontFamily: MONO }}>#{lbMe.rank}</span>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 12, fontWeight: 700, color: '#1d4ed8', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{lbMe.username}</div>
-                    <div style={{ fontSize: 10, color: '#6b7280' }}>Rank {lbMe.rank} of {lbRanked.length} tipster{lbRanked.length !== 1 ? 's' : ''}</div>
+                    <div style={{ fontSize: 14, fontWeight: 800, color: '#78350f', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>► YOU ({titleCase(uname)})</div>
+                    <div style={{ fontSize: 12, color: '#78350f', opacity: 0.7 }}>Rank {lbMe.rank} of {lbRanked.length} tipster{lbRanked.length !== 1 ? 's' : ''} · {lbMe.hitPct.toFixed(1)}% hit</div>
                   </div>
-                  <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                    <div style={{ fontSize: 14, fontWeight: 800, fontFamily: MONO, color: '#1d4ed8' }}>{lbMe.score} pts</div>
-                    <div style={{ fontSize: 10, color: '#6b7280', fontFamily: MONO }}>{lbMe.hitPct.toFixed(1)}% hit</div>
-                  </div>
+                  <div style={{ fontSize: 20, fontWeight: 900, fontFamily: MONO, color: '#78350f', flexShrink: 0 }}>{lbMe.score} pts</div>
                 </div>
               )}
-
-              {/* Compact top-3 podium strips */}
-              <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, overflow: 'hidden', marginBottom: 12 }}>
-                {lbTop3.map((u, i) => {
-                  const isMe = u.clerk_id === user?.id;
-                  const form = lbUserForms[u.clerk_id] || [];
+              {/* Top-3 medallion cards */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 14 }}>
+                {lbAllTop.map((u, i) => {
+                  const isMe   = u.clerk_id === user?.id;
+                  const form   = lbUserForms[u.clerk_id] || [];
                   const padded = Array(Math.max(0, 10 - form.length)).fill(null).concat(form);
+                  const mBg    = i === 0 ? '#fbbf24' : i === 1 ? '#e5e7eb' : '#f59e0b';
+                  const mTxt   = i === 0 ? '#78350f' : i === 1 ? '#374151' : '#ffffff';
+                  const ptsC   = i === 0 ? '#fbbf24' : '#ffffff';
+                  const ptsS   = i === 0 ? 28 : 23;
+                  const mSize  = i === 0 ? 46 : 40;
+                  const nSize  = i === 0 ? 22 : 18;
+                  const nFont  = i === 0 ? 17 : 15;
+                  const bFill  = i === 0 ? '#fbbf24' : i === 1 ? '#e5e7eb' : '#f59e0b';
+                  const barPct = lscore > 0 ? Math.round(u.score / lscore * 100) : 0;
                   return (
-                    <div key={u.clerk_id} style={{
-                      display: 'flex', alignItems: 'center', gap: 10, padding: '7px 12px',
-                      background: isMe ? '#eff6ff' : i === 0 ? '#fffbeb' : '#fff',
-                      borderBottom: i < 2 ? '1px solid #f3f4f6' : 'none',
-                    }}>
-                      <span style={{ fontSize: 16, lineHeight: 1, width: 22, flexShrink: 0 }}>{MEDAL_ICON[i]}</span>
-                      <span style={{ fontSize: 12, fontWeight: 700, color: isMe ? '#1d4ed8' : '#111827', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {u.username}{isMe && <span style={{ fontSize: 8, fontWeight: 700, color: '#1d4ed8', marginLeft: 6, background: '#dbeafe', padding: '1px 4px', borderRadius: 3 }}>YOU</span>}
-                      </span>
-                      <div style={{ display: 'flex', gap: 2, flexShrink: 0 }}>
-                        {padded.map((r, j) => (
-                          <div key={j} style={{ width: 9, height: 9, borderRadius: 1, background: r === null ? '#f3f4f6' : r === 1 ? '#fbbf24' : r <= 3 ? '#9ca3af' : '#e5e7eb' }} />
-                        ))}
+                    <div key={u.clerk_id} style={{ background: '#0a4d23', border: i === 0 ? '2px solid #fbbf24' : '1px solid rgba(255,255,255,0.3)', borderRadius: 10, padding: i === 0 ? '12px 16px' : '10px 16px', display: 'flex', alignItems: 'center', gap: 14 }}>
+                      <div style={{ width: mSize, height: mSize, borderRadius: '50%', background: mBg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        <span style={{ fontSize: nSize, fontWeight: 900, color: mTxt, fontFamily: MONO }}>{i + 1}</span>
                       </div>
-                      <span style={{ fontSize: 11, fontWeight: 700, color: RANK_COLOR[i], fontFamily: MONO, flexShrink: 0, width: 30, textAlign: 'right' }}>{u.score}</span>
-                      <span style={{ fontSize: 10, color: '#6b7280', fontFamily: MONO, flexShrink: 0, width: 38, textAlign: 'right' }}>{u.hitPct.toFixed(1)}%</span>
-                      <span style={{ fontSize: 10, color: '#6b7280', fontFamily: MONO, flexShrink: 0 }}>{u.streak > 0 ? `${u.streak}🔥` : '—'}</span>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: nFont, fontWeight: 700, color: '#ffffff', marginBottom: 5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {u.username}{isMe && <span style={{ fontSize: 10, fontWeight: 800, color: '#fbbf24', marginLeft: 8, background: 'rgba(251,191,36,0.2)', padding: '1px 6px', borderRadius: 3 }}>YOU</span>}
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <div style={{ flex: 1, height: 9, background: 'rgba(255,255,255,0.25)', borderRadius: 4, overflow: 'hidden' }}>
+                            <div style={{ width: `${barPct}%`, height: '100%', background: bFill, borderRadius: 4 }} />
+                          </div>
+                          <div style={{ display: 'flex', gap: 2, flexShrink: 0 }}>
+                            {padded.map((r, j) => (
+                              <div key={j} style={{ width: 9, height: 9, borderRadius: 1, background: r === null ? 'rgba(255,255,255,0.15)' : r === 1 ? '#fbbf24' : r <= 3 ? '#9ca3af' : 'rgba(255,255,255,0.35)' }} />
+                            ))}
+                          </div>
+                          <span style={{ fontSize: 12, fontFamily: MONO, color: 'rgba(255,255,255,0.7)', flexShrink: 0 }}>{u.hitPct.toFixed(1)}%</span>
+                          <span style={{ fontSize: 12, fontFamily: MONO, color: u.streak > 0 ? '#7CFC9B' : 'rgba(255,255,255,0.5)', flexShrink: 0 }}>{u.streak > 0 ? `${u.streak}🔥` : '—'}</span>
+                        </div>
+                      </div>
+                      <span style={{ fontSize: ptsS, fontWeight: 900, fontFamily: MONO, color: ptsC, flexShrink: 0 }}>{u.score}</span>
                     </div>
                   );
                 })}
               </div>
-
-              <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, overflow: 'hidden' }}>
-                <div style={{ overflowX: 'auto' }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 520 }}>
-                    <thead>
-                      <tr style={{ background: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
-                        {[
-                          { h: '#',       w: 32,  align: 'center', tip: null },
-                          { h: 'Tipster', w: null, align: 'left',  tip: null },
-                          { h: 'Pts',     w: 48,  align: 'right',  tip: 'Total points scored' },
-                          { h: 'Hit%',    w: 48,  align: 'right',  tip: '% of picks that won' },
-                          { h: 'Streak',  w: 54,  align: 'left',   tip: 'Consecutive correct picks' },
-                          { h: '7-day',   w: 54,  align: 'left',   tip: null },
-                          { h: 'Last 10', w: 116, align: 'left',   tip: null },
-                        ].map(({ h, w, align, tip }) => (
-                          <th key={h} title={tip || undefined} style={{ padding: '4px 8px', fontSize: 9, fontWeight: 700, color: '#6b7280', textAlign: align, textTransform: 'uppercase', letterSpacing: '0.5px', whiteSpace: 'nowrap', width: w || undefined, cursor: tip ? 'help' : undefined }}>
-                            {h}
-                          </th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {lbRanked.map(u => {
-                        const isMe = u.clerk_id === user?.id;
-                        const mv   = lbMvmt(u);
-                        const form = lbUserForms[u.clerk_id] || [];
-                        const padded = Array(Math.max(0, 10 - form.length)).fill(null).concat(form);
-                        return (
-                          <tr key={u.clerk_id} style={{ background: isMe ? '#eff6ff' : '#fff', borderBottom: '1px solid #f3f4f6' }}>
-                            <td style={{ padding: '4px 8px', textAlign: 'center' }}>
-                              <span style={{ fontSize: 11, fontWeight: 700, fontFamily: MONO, color: u.rank <= 3 ? RANK_COLOR[u.rank - 1] : '#9ca3af' }}>{u.rank}</span>
-                            </td>
-                            <td style={{ padding: '4px 8px' }}>
-                              <span style={{ fontSize: 11, fontWeight: isMe ? 700 : 500, color: isMe ? '#1d4ed8' : '#111827' }}>{u.username}</span>
-                              {isMe && <span style={{ fontSize: 8, fontWeight: 700, color: '#1d4ed8', marginLeft: 5, background: '#dbeafe', padding: '1px 4px', borderRadius: 3 }}>YOU</span>}
-                            </td>
-                            <td style={{ padding: '4px 8px', fontFamily: MONO, fontWeight: 700, fontSize: 11, color: '#111827', textAlign: 'right' }}>{u.score}</td>
-                            <td style={{ padding: '4px 8px', fontFamily: MONO, fontSize: 11, color: '#6b7280', textAlign: 'right' }}>{u.hitPct.toFixed(1)}%</td>
-                            <td style={{ padding: '4px 8px', fontFamily: MONO, fontSize: 11, color: '#111827' }}>{u.streak > 0 ? `${u.streak}🔥` : '—'}</td>
-                            <td style={{ padding: '4px 8px', fontSize: 11, fontFamily: MONO }}>
-                              {mv === null ? <span style={{ color: '#d1d5db' }}>—</span>
-                                : mv > 0 ? <span style={{ color: '#16a34a', fontWeight: 700 }}>▲{mv}</span>
-                                : mv < 0 ? <span style={{ color: '#dc2626', fontWeight: 700 }}>▼{Math.abs(mv)}</span>
-                                : <span style={{ color: '#9ca3af' }}>—</span>}
-                            </td>
-                            <td style={{ padding: '4px 8px' }}>
-                              <div style={{ display: 'flex', gap: 2 }}>
-                                {padded.map((r, j) => (
-                                  <div key={j} style={{ width: 9, height: 9, borderRadius: 1, background: r === null ? '#f3f4f6' : r === 1 ? '#fbbf24' : r <= 3 ? '#9ca3af' : '#e5e7eb' }} />
-                                ))}
-                              </div>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                      <tr style={{ background: '#f9fafb', borderTop: '2px solid #e5e7eb' }}>
-                        <td style={{ padding: '4px 8px', textAlign: 'center' }}><span style={{ fontSize: 10, color: '#d1d5db' }}>—</span></td>
-                        <td style={{ padding: '4px 8px' }}>
-                          <span style={{ fontSize: 11, fontWeight: 600, color: '#6b7280' }}>⚡ SP-fav benchmark</span>
-                          <span title="Tracks the starting-price favourite as a model-performance proxy. Data accumulates from today forward." style={{ fontSize: 9, color: '#9ca3af', marginLeft: 6, cursor: 'help', textDecoration: 'underline dotted' }}>what&apos;s this?</span>
-                        </td>
-                        <td colSpan={5} style={{ padding: '4px 8px', fontSize: 10, color: '#9ca3af', fontStyle: 'italic' }}>Tracking starts from today — accumulates over coming race days</td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
+              {/* Full table */}
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 520 }}>
+                  <thead>
+                    <tr style={{ background: 'rgba(255,255,255,0.1)' }}>
+                      {[
+                        { h: '#',       w: 32,  align: 'center' },
+                        { h: 'Tipster', w: null, align: 'left'  },
+                        { h: 'Pts',     w: 54,  align: 'right'  },
+                        { h: 'Hit%',    w: 54,  align: 'right'  },
+                        { h: 'Streak',  w: 60,  align: 'left'   },
+                        { h: '7-day',   w: 60,  align: 'left'   },
+                        { h: 'Last 10', w: 116, align: 'left'   },
+                      ].map(({ h, w, align }) => (
+                        <th key={h} style={{ padding: '6px 10px', fontSize: 12, fontWeight: 700, color: '#ffffff', textAlign: align, textTransform: 'uppercase', letterSpacing: '0.5px', whiteSpace: 'nowrap', width: w || undefined }}>
+                          {h}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {lbRanked.map(u => {
+                      const isMe   = u.clerk_id === user?.id;
+                      const mv     = lbMvmt(u);
+                      const form   = lbUserForms[u.clerk_id] || [];
+                      const padded = Array(Math.max(0, 10 - form.length)).fill(null).concat(form);
+                      return (
+                        <tr key={u.clerk_id} style={{ background: isMe ? '#fbbf24' : 'rgba(0,0,0,0.08)', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                          <td style={{ padding: '6px 10px', textAlign: 'center' }}>
+                            <span style={{ fontSize: 12, fontWeight: 700, fontFamily: MONO, color: isMe ? '#78350f' : u.rank <= 3 ? '#fbbf24' : '#ffffff' }}>{u.rank}</span>
+                          </td>
+                          <td style={{ padding: '6px 10px' }}>
+                            <span style={{ fontSize: 13, fontWeight: isMe ? 800 : 500, color: isMe ? '#78350f' : '#ffffff' }}>{u.username}</span>
+                            {isMe && <span style={{ fontSize: 10, fontWeight: 800, color: '#78350f', marginLeft: 6, background: 'rgba(120,53,15,0.15)', padding: '1px 4px', borderRadius: 3 }}>YOU</span>}
+                          </td>
+                          <td style={{ padding: '6px 10px', fontFamily: MONO, fontWeight: 700, fontSize: 13, color: isMe ? '#78350f' : '#fbbf24', textAlign: 'right' }}>{u.score}</td>
+                          <td style={{ padding: '6px 10px', fontFamily: MONO, fontSize: 12, color: isMe ? '#78350f' : '#7CFC9B', textAlign: 'right' }}>{u.hitPct.toFixed(1)}%</td>
+                          <td style={{ padding: '6px 10px', fontFamily: MONO, fontSize: 12, color: isMe ? '#78350f' : (u.streak > 0 ? '#7CFC9B' : '#ffffff') }}>{u.streak > 0 ? `${u.streak}🔥` : '—'}</td>
+                          <td style={{ padding: '6px 10px', fontSize: 12, fontFamily: MONO, color: isMe ? '#78350f' : '#ffffff' }}>
+                            {mv === null ? <span style={{ opacity: 0.4 }}>—</span>
+                              : mv > 0 ? <span style={{ color: isMe ? '#78350f' : '#7CFC9B', fontWeight: 700 }}>▲{mv}</span>
+                              : mv < 0 ? <span style={{ color: isMe ? '#78350f' : '#f87171', fontWeight: 700 }}>▼{Math.abs(mv)}</span>
+                              : <span style={{ opacity: 0.4 }}>—</span>}
+                          </td>
+                          <td style={{ padding: '6px 10px' }}>
+                            <div style={{ display: 'flex', gap: 2 }}>
+                              {padded.map((r, j) => (
+                                <div key={j} style={{ width: 9, height: 9, borderRadius: 1, background: r === null ? 'rgba(255,255,255,0.15)' : r === 1 ? '#fbbf24' : r <= 3 ? '#9ca3af' : 'rgba(255,255,255,0.35)' }} />
+                              ))}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                    <tr style={{ background: 'transparent', borderTop: '1px solid rgba(255,255,255,0.15)' }}>
+                      <td style={{ padding: '6px 10px', textAlign: 'center' }}><span style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)' }}>—</span></td>
+                      <td style={{ padding: '6px 10px' }}>
+                        <span style={{ fontSize: 12, fontWeight: 600, color: 'rgba(255,255,255,0.7)' }}>⚡ SP-fav benchmark</span>
+                        <span title="Tracks the starting-price favourite as a model-performance proxy. Data accumulates from today forward." style={{ fontSize: 10, color: 'rgba(255,255,255,0.5)', marginLeft: 6, cursor: 'help', textDecoration: 'underline dotted' }}>what&apos;s this?</span>
+                      </td>
+                      <td colSpan={5} style={{ padding: '6px 10px', fontSize: 12, color: 'rgba(255,255,255,0.5)', fontStyle: 'italic' }}>Tracking starts from today — accumulates over coming race days</td>
+                    </tr>
+                  </tbody>
+                </table>
               </div>
-              <div style={{ marginTop: 10, fontSize: 9, color: '#9ca3af', lineHeight: 1.6 }}>
+              <div style={{ marginTop: 10, fontSize: 12, color: 'rgba(255,255,255,0.5)', lineHeight: 1.6 }}>
                 Ties are broken by hit rate. Scores recalculate after each race day. SP-fav benchmark tracks what picking the favourite in every race would score, for comparison.
               </div>
             </div>
@@ -1406,6 +1580,11 @@ export default function CompetitionsPage() {
   );
 
   // ─── Mobile today view ────────────────────────────────────────────────────────
+  // These slice variables are used inside mobileTodayPanel's inline leaderboard
+  const top5        = todayLeaderboard.slice(0, 5);
+  const userEntry   = todayLeaderboard.find(e => e.isMe);
+  const showUserSep = !!(userEntry && !top5.some(e => e.isMe));
+
   const mobileTodayPanel = (
     <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', background: '#f8fafc' }}>
       <div style={{ background: DK_HDR, borderBottom: `1px solid ${DK_LINE}`, padding: '6px 12px', display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -1544,128 +1723,16 @@ export default function CompetitionsPage() {
 
   // ─── Main render ──────────────────────────────────────────────────────────────
   return (
-    <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: DK_BG }}>
-      {/* Compact top strip — date + tab switcher */}
-      <div style={{ background: DK_HDR, borderBottom: `1px solid ${DK_LINE}`, padding: '5px 14px', display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
-        <div style={{ fontSize: 11, fontWeight: 700, color: DK_TEXT }}>{headerDateStr}</div>
-        <div style={{ fontSize: 9, color: DK_MUT }}>
-          {entrantCount} entrant{entrantCount !== 1 ? 's' : ''}
-          {compRaces.length > 0 && (
-            <span> · <span style={{ color: pickedCount === compRaces.length ? '#4ade80' : DK_MUT }}>{pickedCount}/{compRaces.length} picked</span></span>
-          )}
-        </div>
-        <div style={{ marginLeft: 'auto', display: 'flex', gap: 2 }}>
-          {[{ id: 'today', label: 'Today' }, { id: 'alltime', label: 'Leaderboard' }].map(t => (
-            <button key={t.id} onClick={() => setMainTab(t.id)}
-              style={{ padding: '4px 10px', fontSize: 10, fontWeight: 700, border: 'none', borderRadius: 4, cursor: 'pointer', background: mainTab === t.id ? 'rgba(255,255,255,0.10)' : 'transparent', color: mainTab === t.id ? DK_TEXT : '#374151' }}>
-              {t.label}
-            </button>
-          ))}
-        </div>
-      </div>
-
+    <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: '#0d5f2b' }}>
+      {mainTab === 'today' && !isMobile && statusBand}
       {mainTab === 'today' && (
         isMobile
           ? mobileTodayPanel
           : (
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-
-              {/* SECTION 1 — PODIUM HERO */}
-              {(() => {
-                const p1 = todayLeaderboard.find(e => e.rank === 1);
-                const p2 = todayLeaderboard.find(e => e.rank === 2);
-                const p3 = todayLeaderboard.find(e => e.rank === 3);
-                const me = todayLeaderboard.find(e => e.isMe);
-                const aboveMe = userRank > 1 ? todayLeaderboard.find(e => e.rank === userRank - 1) : null;
-                const gap = aboveMe && me ? aboveMe.score - me.score : null;
-
-                let pillContent;
-                if (!me || pickedCount === 0) {
-                  pillContent = <span>Enter today&apos;s competition — pick your horses below</span>;
-                } else if (userRank === 1) {
-                  pillContent = <span>👑 You&apos;re leading! {userScore} pts</span>;
-                } else if (userRank <= 3) {
-                  pillContent = <span>🏅 You&apos;re on the podium · #{userRank} · {userScore} pts</span>;
-                } else if (gap !== null && gap <= 3) {
-                  pillContent = <span>↑ {gap} pt{gap !== 1 ? 's' : ''} behind #{userRank - 1} — within striking distance</span>;
-                } else {
-                  pillContent = <span>#{userRank} of {entrantCount} · {userScore} pts</span>;
-                }
-
-                const podiumOrder = [p2, p1, p3];
-                const heights = [72, 96, 60];
-                const borders = ['2px solid #6b7280', '2px solid #fbbf24', '2px solid #d97706'];
-                const rankColors = ['#9ca3af', '#fbbf24', '#d97706'];
-                const rankLabels = ['2ND', '1ST', '3RD'];
-
-                return (
-                  <div style={{ background: 'linear-gradient(180deg, #0D2818 0%, #0B1F14 100%)', borderBottom: `1px solid ${DK_LINE}`, padding: '14px 24px 10px', flexShrink: 0 }}>
-                    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'flex-end', gap: 10, marginBottom: 10 }}>
-                      {podiumOrder.map((entry, i) => (
-                        <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: 100 }}>
-                          <div style={{ height: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 2 }}>
-                            {i === 1 && <span style={{ fontSize: 16 }}>👑</span>}
-                          </div>
-                          <div style={{ fontSize: 10, fontWeight: 700, color: DK_TEXT, marginBottom: 2, textAlign: 'center', maxWidth: 94, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                            {entry ? entry.uname : '—'}
-                          </div>
-                          <div style={{ fontSize: 12, fontWeight: 800, fontFamily: MONO, color: rankColors[i], marginBottom: 4 }}>
-                            {entry ? `${entry.score} pts` : '—'}
-                          </div>
-                          <div style={{ width: 94, height: heights[i], background: i === 1 ? 'rgba(251,191,36,0.08)' : 'rgba(255,255,255,0.03)', border: borders[i], borderBottom: 'none', borderRadius: '4px 4px 0 0', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', paddingTop: 6 }}>
-                            <span style={{ fontSize: 9, fontWeight: 700, color: rankColors[i], letterSpacing: '0.5px' }}>{rankLabels[i]}</span>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'center' }}>
-                      <div style={{ background: 'rgba(251,191,36,0.10)', border: '1px solid rgba(251,191,36,0.25)', borderRadius: 20, padding: '4px 18px', fontSize: 10, fontWeight: 600, color: '#fbbf24', fontFamily: MONO }}>
-                        {pillContent}
-                      </div>
-                    </div>
-                  </div>
-                );
-              })()}
-
-              {/* SECTION 2 — LIVE TICKER */}
-              {(() => {
-                const nrKey = nextRace ? rk(nextRace.venue, nextRace.num) : null;
-                const nrPick = nrKey ? picks[nrKey] : null;
-                const nrMs = nextRace ? (jumpDate(nextRace.time, nextRace.date)?.getTime() || 0) - now : null;
-                const nrCountdown = nrMs !== null && nrMs > 0 ? fmtMs(nrMs) : nrMs !== null ? 'Now' : null;
-                return (
-                  <div style={{ background: '#111827', borderBottom: '1px solid #1f2937', padding: '6px 16px', display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0, overflow: 'hidden' }}>
-                    <span style={{ background: '#dc2626', color: '#fff', fontSize: 8, fontWeight: 800, padding: '2px 6px', borderRadius: 3, letterSpacing: '0.8px', flexShrink: 0 }}>NEXT JUMP</span>
-                    {nextRace ? (
-                      <>
-                        <span style={{ fontSize: 11, fontWeight: 700, color: '#f9fafb', fontFamily: MONO, flexShrink: 0 }}>
-                          {titleCase(normaliseVenue(nextRace.venue || ''))} R{nextRace.num}
-                        </span>
-                        {nrCountdown && (
-                          <span style={{ fontSize: 10, color: '#fbbf24', fontFamily: MONO, flexShrink: 0 }}>{nrCountdown}</span>
-                        )}
-                        {nrPick ? (
-                          <span style={{ fontSize: 9, color: '#9ca3af', flexShrink: 0 }}>Your pick: <b style={{ color: '#4ade80' }}>{nrPick}</b></span>
-                        ) : (
-                          <span style={{ fontSize: 9, color: '#dc2626', flexShrink: 0 }}>No pick yet</span>
-                        )}
-                      </>
-                    ) : (
-                      <span style={{ fontSize: 10, color: '#6b7280' }}>{compRaces.length > 0 ? 'All races complete' : 'No races today'}</span>
-                    )}
-                    <span style={{ marginLeft: 'auto', fontSize: 9, color: '#6b7280', flexShrink: 0, display: 'flex', alignItems: 'center', gap: 4 }}>
-                      <span style={{ color: '#4ade80', fontSize: 8 }}>●</span>
-                      {entrantCount} punters live
-                    </span>
-                  </div>
-                );
-              })()}
-
-              {/* SECTION 3 — COMBINED TERMINAL FRAME */}
-              <div style={{ flex: 1, display: 'flex', overflow: 'hidden', margin: '10px 14px 12px', border: `1px solid ${DK_LINE}`, borderRadius: 6 }}>
-                {centrePanel}
-                {rightPanel}
-              </div>
+            <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '52fr 5px 48fr', overflow: 'hidden' }}>
+              {newLeftPanel}
+              <div style={{ background: '#fbbf24' }} />
+              {newRightPanel}
             </div>
           )
       )}
