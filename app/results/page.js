@@ -603,7 +603,7 @@ export default function ResultsPage() {
     // isPro===null means still loading — return early and let the effect re-run once resolved.
     if (!isViewingToday && isPro === null) return;
     if (!isViewingToday && isPro === false) { setUpgradeOpen(true); setLoading(false); return; }
-    const cardFetch = user?.id && !isViewingToday
+    const cardFetch = user?.id
       ? fetch(`/api/race-cards?date=${selectedDate}`).then(r => {
           if (r.status === 403) { setUpgradeOpen(true); return []; }
           return r.ok ? r.json() : [];
@@ -665,8 +665,8 @@ export default function ResultsPage() {
     return { allRaces: ar, allVenues: av };
   }, [cardRows]);
 
-  const effectiveRaces  = useMemo(() => isToday ? allRaces  : cardRaceData.allRaces,  [isToday, allRaces,  cardRaceData]);
-  const effectiveVenues = useMemo(() => isToday ? allVenues : cardRaceData.allVenues, [isToday, allVenues, cardRaceData]);
+  const effectiveRaces  = useMemo(() => Object.keys(cardRaceData.allRaces).length  ? cardRaceData.allRaces  : allRaces,  [allRaces,  cardRaceData]);
+  const effectiveVenues = useMemo(() => Object.keys(cardRaceData.allVenues).length ? cardRaceData.allVenues : allVenues, [allVenues, cardRaceData]);
 
   const meetings = useMemo(() => {
     const m = {};
