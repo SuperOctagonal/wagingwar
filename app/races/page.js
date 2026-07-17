@@ -2499,12 +2499,31 @@ function RacesPageInner() {
     if (!isHistoricalMode) {
       if (!wasHistoricalRef.current) return; // initial mount, handled above
       wasHistoricalRef.current = false;
-      setScratchedRows([]);
-      setRaceResults({});
-      setTrackConds({});
+      setAllRaces({}); setAllVenues({}); setRaceKeys([]); setSelectedKey(null);
+      setScratchedRows([]); setRaceResults({}); setTrackConds({});
       const saved = localStorage.getItem('ww_csv');
       const savedName = localStorage.getItem('ww_csv_name') || 'today.csv';
-      if (saved) loadCSV(saved, savedName, null);
+      if (saved) { loadCSV(saved, savedName, null); return; }
+      // No local CSV — fall back to server data for today
+      setHistLoading(true);
+      fetch(`/api/race-cards?date=${todayISO}`)
+        .then(r => (r.ok ? r.json() : null))
+        .then(rows => {
+          setHistLoading(false);
+          if (!rows?.length) return;
+          const ar = {}, av = {};
+          rows.forEach(row => {
+            const key = `${row.venue}_R${row.race_num}`;
+            if (!ar[key]) ar[key] = { venue: row.venue, num: row.race_num, horses: [] };
+            if (row.form_data) ar[key].horses.push(row.form_data);
+            if (!av[row.venue]) av[row.venue] = [];
+            if (!av[row.venue].includes(key)) av[row.venue].push(key);
+          });
+          const rk = Object.values(av).flat();
+          setAllRaces(ar); setAllVenues(av); setRaceKeys(rk); setSelectedKey(rk[0] || null);
+          fetchRaceResultsForDate(todayISO).then(setRaceResults);
+        })
+        .catch(() => setHistLoading(false));
       return;
     }
     wasHistoricalRef.current = true;
@@ -2732,7 +2751,7 @@ function RacesPageInner() {
           <span style={{ fontSize: 9, color: '#9ca3af', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.4px' }}>Date</span>
           <div style={{ position: 'relative', display: 'inline-flex' }}>
             <button
-              onClick={() => { if (isPro !== true) { setUpgradeOpen(true); } }}
+              onClick={() => { if (isPro !== true) { setUpgradeOpen(true); return; } dateInputRef.current?.showPicker?.(); }}
               style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 10, color: isHistoricalMode ? '#d97706' : '#374151', fontWeight: isHistoricalMode ? 700 : 400, background: 'none', border: '1px solid #e5e7eb', borderRadius: 4, padding: '2px 7px', cursor: 'pointer' }}
             >
               <i className="ti ti-calendar" style={{ fontSize: 9 }} />
