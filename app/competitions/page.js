@@ -640,7 +640,7 @@ export default function CompetitionsPage() {
     function loadAll() {
       sbFetch(`comp_picks_popular?comp_date=eq.${today}&select=venue,race_num,horse_name,pick_count`)
         .then(rows => { if (Array.isArray(rows)) setPopularData(rows); });
-      sbFetch(`comp_picks?comp_date=eq.${today}&select=clerk_id,username,venue,race_num,horse_name`)
+      sbFetch(`comp_picks?comp_date=eq.${today}&hide_picks=eq.false&select=clerk_id,username,venue,race_num,horse_name`)
         .then(rows => { if (Array.isArray(rows)) setAllPicksData(rows); });
     }
     loadAll();
@@ -754,7 +754,7 @@ export default function CompetitionsPage() {
       .then(r => r.ok ? r.json() : [])
       .then(rows => { if (Array.isArray(rows)) setHiddenFromLb(new Set(rows.map(r => r.clerk_id))); })
       .catch(() => {});
-  }, []);
+  }, [user?.id]);
 
   // Auto-select first venue tab when selVenues changes
   useEffect(() => {
