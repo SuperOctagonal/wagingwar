@@ -11,6 +11,7 @@ import UpgradeModal from '@/components/UpgradeModal';
 import BottomSheet from '@/components/BottomSheet';
 import { awardPoints } from '@/lib/points';
 import { normaliseVenue, stripSponsorPrefix, SPONSOR_PREFIXES } from '@/lib/venues';
+import { isRacesAdmin } from '@/lib/admin';
 
 const SURL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SKEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -146,35 +147,6 @@ const PACE_ROLES = [
   { label: 'Closer',     color: '#ff8000' },
   { label: 'Backmarker', color: '#dc3545' },
 ];
-
-const VENUE_STATE_MAP = {
-  // NSW
-  ROSEHILL:'NSW', 'ROSEHILL GARDENS':'NSW', NEWCASTLE:'NSW', RANDWICK:'NSW',
-  'WARWICK FARM':'NSW', 'KEMBLA GRANGE':'NSW', GOSFORD:'NSW', HAWKESBURY:'NSW',
-  NARRANDERA:'NSW', MUDGEE:'NSW', GOULBURN:'NSW', BATHURST:'NSW', ORANGE:'NSW',
-  TAMWORTH:'NSW', GRAFTON:'NSW', LISMORE:'NSW', ARMIDALE:'NSW', TAREE:'NSW',
-  'COFFS HARBOUR':'NSW', 'PORT MACQUARIE':'NSW', DUBBO:'NSW', 'WAGGA WAGGA':'NSW',
-  // VIC
-  FLEMINGTON:'VIC', CAULFIELD:'VIC', 'MOONEE VALLEY':'VIC', SANDOWN:'VIC',
-  'SANDOWN-HILLSIDE':'VIC', 'SANDOWN HILLSIDE':'VIC', 'SANDOWN LAKESIDE':'VIC',
-  BENDIGO:'VIC', BALLARAT:'VIC', 'BALLARAT SYN':'VIC', 'BALLARAT SYNTHETIC':'VIC', GEELONG:'VIC', PAKENHAM:'VIC', CRANBOURNE:'VIC',
-  MORNINGTON:'VIC', SEYMOUR:'VIC', ECHUCA:'VIC', HAMILTON:'VIC', HORSHAM:'VIC',
-  'SWAN HILL':'VIC', WODONGA:'VIC', WANGARATTA:'VIC',
-  // QLD
-  'EAGLE FARM':'QLD', DOOMBEN:'QLD', 'GOLD COAST':'QLD', 'GOLD COAST POLY':'QLD',
-  TOOWOOMBA:'QLD', WARWICK:'QLD', IPSWICH:'QLD', 'SUNSHINE COAST':'QLD',
-  ROCKHAMPTON:'QLD', TOWNSVILLE:'QLD', CAIRNS:'QLD', MACKAY:'QLD',
-  // SA
-  MORPHETTVILLE:'SA', 'MORPHETTVILLE PARKS':'SA', 'MURRAY BRIDGE':'SA', GAWLER:'SA',
-  'PORT AUGUSTA':'SA', NARACOORTE:'SA', BALAKLAVA:'SA', 'MOUNT GAMBIER':'SA',
-  // WA
-  'BELMONT PARK':'WA', BELMONT:'WA', ASCOT:'WA', PINJARRA:'WA',
-  BUNBURY:'WA', GERALDTON:'WA', KALGOORLIE:'WA', ALBANY:'WA',
-  // NT
-  DARWIN:'NT', 'ALICE SPRINGS':'NT',
-  // TAS
-  HOBART:'TAS', LAUNCESTON:'TAS', SPREYTON:'TAS', DEVONPORT:'TAS',
-};
 
 // ─── upload zone ──────────────────────────────────────────────────────────────
 
@@ -2417,60 +2389,20 @@ function RacesPageInner() {
     localStorage.setItem('ww_csv_name', name);
     loadCSV(text, name, null);
 
-    if (SURL && SKEY) {
-      try {
-        const { allRaces: ar, allVenues: av } = buildRaces(parseCSV(text));
-        const firstKey = Object.keys(ar)[0];
-        const dateISO = firstKey ? toISO(ar[firstKey]?.date) : null;
-        if (dateISO) {
-          const venues = Object.keys(av);
-          // Filter unknown-state venues so a single missing entry doesn't abort the batch.
-          // Use ignore-duplicates so the worker's track_condition is never overwritten by CSV reload.
-          const rows = venues
-            .map(v => { const normV = normaliseVenue(v); return { venue: normV, state: VENUE_STATE_MAP[normV] || null, date: dateISO }; })
-            .filter(r => r.state !== null);
-          if (rows.length) {
-            const res = await fetch(`${SURL}/rest/v1/today_meetings`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json', apikey: SKEY, Authorization: `Bearer ${SKEY}`, Prefer: 'resolution=ignore-duplicates,return=minimal' },
-              body: JSON.stringify(rows),
-            });
-            if (res.ok) {
-              console.log('[Races] today_meetings upserted:', rows.length, 'venues');
-              setMeetingsSynced(true);
-            } else {
-              console.error('[Races] today_meetings sync failed:', res.status, await res.text());
-            }
-          }
-        }
-
-        // Upsert race post times to race_schedule for historical backfill in mybets
-        const scheduleRows = [];
-        for (const k of Object.keys(ar)) {
-          const rc = ar[k];
-          if (!rc.time || !rc.date || !rc.venue) continue;
-          const d = toISO(rc.date);
-          if (!d) continue;
-          scheduleRows.push({ date: d, venue: rc.venue.toUpperCase(), race_num: String(rc.num), post_time: rc.time });
-        }
-        if (scheduleRows.length) {
-          fetch(`${SURL}/rest/v1/race_schedule`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              apikey: SKEY,
-              Authorization: `Bearer ${SKEY}`,
-              Prefer: 'resolution=merge-duplicates,return=minimal',
-            },
-            body: JSON.stringify(scheduleRows),
-          }).then(r => {
-            if (r.ok) console.log(`[Races] race_schedule upserted ${scheduleRows.length} rows`);
-            else r.text().then(t => console.error('[Races] race_schedule upsert failed:', r.status, t));
-          }).catch(err => console.error('[Races] race_schedule upsert error:', err));
-        }
-      } catch (err) {
-        console.error('[Races] today_meetings sync error:', err);
+    try {
+      const res = await fetch('/api/upload-race-csv', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text }),
+      });
+      if (res.ok) {
+        const { meetingsSynced: synced } = await res.json();
+        if (synced) setMeetingsSynced(true);
+      } else {
+        console.error('[Races] upload-race-csv failed:', res.status, await res.text());
       }
+    } catch (err) {
+      console.error('[Races] upload-race-csv error:', err);
     }
   }, [loadCSV]);
 
@@ -2796,8 +2728,18 @@ function RacesPageInner() {
                 <button onClick={() => setSelectedDate(todayISO)} style={{ fontSize: 12, fontWeight: 600, padding: '7px 18px', borderRadius: 6, background: '#00471b', color: '#fff', border: 'none', cursor: 'pointer' }}>← Back to today</button>
               </div>
             </div>
-          ) : (
+          ) : isRacesAdmin(user?.id) ? (
             <UploadZone onFile={handleFile} />
+          ) : (
+            <div className="flex-1 flex items-center justify-center p-8">
+              <div style={{ textAlign: 'center', color: '#6b7280', maxWidth: 320 }}>
+                <i className="ti ti-calendar-off text-3xl block mb-3" style={{ color: '#d1d5db' }} />
+                <div style={{ fontSize: 14, fontWeight: 600, color: '#374151', marginBottom: 6 }}>
+                  No race cards available
+                </div>
+                <div style={{ fontSize: 12, color: '#9ca3af' }}>Please check back shortly.</div>
+              </div>
+            </div>
           )
         ) : (
           <>
@@ -2805,7 +2747,7 @@ function RacesPageInner() {
             <MobileRacePicker allVenues={allVenues} allRaces={allRaces} selectedRaceKey={selectedKey} onSelect={handleSelectRace} />
 
             {/* CSV toolbar — admin only, hidden in historical mode */}
-            {user?.id === 'user_3ELAZyaOPUNLmkzOfuThRoCEHaG' && !isHistoricalMode && (
+            {isRacesAdmin(user?.id) && !isHistoricalMode && (
               <div className="flex items-center gap-2 px-4 py-1.5 bg-white border-b border-gray-100 text-[10px] text-gray-500 flex-shrink-0">
                 <i className="ti ti-file-type-csv text-sm text-gray-400" />
                 <span className="font-medium text-gray-700">{fileName}</span>
