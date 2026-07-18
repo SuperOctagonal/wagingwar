@@ -14,6 +14,7 @@ const isProtectedRoute = createRouteMatcher([
   '/how-it-works(.*)',
   '/account(.*)',
   '/settings(.*)',
+  '/admin(.*)',
 ]);
 
 const SIGN_IN_URL = process.env.NEXT_PUBLIC_CLERK_SIGN_IN_URL || '/sign-in';
