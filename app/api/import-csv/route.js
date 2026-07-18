@@ -3,7 +3,7 @@ import { parseCSV, buildRaces } from '@/lib/csvParser';
 import { normaliseVenue } from '@/lib/venues';
 
 const SURL  = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const SKEY  = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+const SKEY  = process.env.SUPABASE_SERVICE_KEY;
 const SECRET = process.env.IMPORT_CSV_SECRET;
 
 // Mirrors VENUE_STATE_MAP in app/races/page.js
