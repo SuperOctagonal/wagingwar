@@ -1,8 +1,8 @@
 import Link from 'next/link';
 
 export const metadata = {
-  title: 'Waging War — Australian Horse Racing Analytics',
-  description: "Australia's most advanced horse racing analytics platform. Score and rank every runner in every race in seconds.",
+  title: 'Waging War | Horse Racing Analytics and Bet Tracking Australia',
+  description: 'Score and rank every runner, track your bets with real P&L, and follow daily tipping competitions - built for serious Australian punters.',
 };
 
 const GREEN = '#1B4332';
