@@ -5,6 +5,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useUser, useClerk } from '@clerk/nextjs';
 import { useState, useEffect, useRef } from 'react';
 import useIsPro from '@/hooks/useIsPro';
+import { isSiteAdmin } from '@/lib/admin';
 
 const SURL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SKEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -266,6 +267,7 @@ export default function TopNav() {
                   { label: 'My Account',  icon: 'user-circle', href: '/account' },
                   { label: 'Community',   icon: 'users',       href: '/community' },
                   { label: 'Settings',    icon: 'settings',    href: '/settings' },
+                  ...(isSiteAdmin(user.id) ? [{ label: 'Subscribers', icon: 'shield-lock', href: '/admin/subscribers' }] : []),
                 ].map(item => (
                   <button
                     key={item.href}

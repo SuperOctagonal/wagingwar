@@ -49,7 +49,7 @@ export default function SubscribersTable({ rows }) {
   }
 
   return (
-    <div style={{ padding: '24px', maxWidth: 1100, margin: '0 auto' }}>
+    <div className="flex-1 overflow-y-auto mob-page" style={{ padding: '24px', maxWidth: 1100, margin: '0 auto' }}>
       <h1 style={{ fontSize: 20, fontWeight: 800, color: '#111827', marginBottom: 4 }}>Subscribers</h1>
       <div style={{ fontSize: 12, color: '#6b7280', marginBottom: 16 }}>{rows.length} total users</div>
 
