@@ -2,7 +2,7 @@ export const metadata = {
   title: 'Terms of Service — Waging War',
 };
 
-const LAST_UPDATED = '11 June 2026';
+const LAST_UPDATED = '18 July 2026';
 
 function Section({ title, children }) {
   return (
@@ -133,8 +133,8 @@ export default function TermsPage() {
             <P>
               You may cancel your subscription at any time through your account settings or by
               contacting us at{' '}
-              <a href="mailto:adam@wagingwar.com.au" style={{ color: '#00471b', fontWeight: 600 }}>
-                adam@wagingwar.com.au
+              <a href="mailto:support@wagingwar.com.au" style={{ color: '#00471b', fontWeight: 600 }}>
+                support@wagingwar.com.au
               </a>.
             </P>
             <Ul items={[
@@ -154,8 +154,8 @@ export default function TermsPage() {
             <P>
               Refunds may be granted at our sole discretion in exceptional circumstances such as a
               significant service outage or billing error. To request a refund consideration, contact{' '}
-              <a href="mailto:adam@wagingwar.com.au" style={{ color: '#00471b', fontWeight: 600 }}>
-                adam@wagingwar.com.au
+              <a href="mailto:support@wagingwar.com.au" style={{ color: '#00471b', fontWeight: 600 }}>
+                support@wagingwar.com.au
               </a>{' '}
               within 7 days of the charge.
             </P>
@@ -203,8 +203,8 @@ export default function TermsPage() {
               If your account is terminated for a breach of these Terms you will not be entitled to
               a refund of any fees paid. If you believe your account was terminated in error, contact
               us at{' '}
-              <a href="mailto:adam@wagingwar.com.au" style={{ color: '#00471b', fontWeight: 600 }}>
-                adam@wagingwar.com.au
+              <a href="mailto:support@wagingwar.com.au" style={{ color: '#00471b', fontWeight: 600 }}>
+                support@wagingwar.com.au
               </a>.
             </P>
           </Section>
@@ -256,8 +256,8 @@ export default function TermsPage() {
               <div style={{ fontSize: 13, fontWeight: 700, color: '#111827', marginBottom: 4 }}>Waging War</div>
               <div style={{ fontSize: 13, color: '#374151' }}>
                 Email:{' '}
-                <a href="mailto:adam@wagingwar.com.au" style={{ color: '#00471b', fontWeight: 600 }}>
-                  adam@wagingwar.com.au
+                <a href="mailto:support@wagingwar.com.au" style={{ color: '#00471b', fontWeight: 600 }}>
+                  support@wagingwar.com.au
                 </a>
               </div>
               <div style={{ fontSize: 13, color: '#374151', marginTop: 2 }}>Website: wagingwar.com.au</div>

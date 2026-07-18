@@ -2,7 +2,7 @@ export const metadata = {
   title: 'Privacy Policy — Waging War',
 };
 
-const LAST_UPDATED = '11 June 2026';
+const LAST_UPDATED = '18 July 2026';
 
 function Section({ title, children }) {
   return (
@@ -126,8 +126,8 @@ export default function PrivacyPage() {
             <P>
               All application data — including your profile, bets, blackbook entries, community posts,
               and points — is stored in <strong>Supabase</strong> (supabase.com), a managed PostgreSQL
-              database platform. Supabase may store data on servers located in the United States or other
-              regions depending on your selected project region.
+              database platform. Our Supabase project is hosted in Australia (Sydney region), and your
+              data is stored there.
             </P>
             <P>
               Data at rest is encrypted by Supabase. We implement row-level access controls so that your
@@ -162,6 +162,11 @@ export default function PrivacyPage() {
               'No third-party advertising cookies or cross-site tracking cookies are used',
             ]} />
             <P>
+              We use Google Analytics (GA4) to understand aggregate usage patterns across the platform.
+              Google may set its own cookies for this purpose. Google&apos;s privacy practices can be
+              reviewed at policies.google.com/privacy.
+            </P>
+            <P>
               You can clear cookies and local storage at any time via your browser settings. Clearing
               session cookies will sign you out of the platform.
             </P>
@@ -188,8 +193,8 @@ export default function PrivacyPage() {
             ]} />
             <P>
               To exercise any of these rights, contact us at{' '}
-              <a href="mailto:adam@wagingwar.com.au" style={{ color: '#00471b', fontWeight: 600 }}>
-                adam@wagingwar.com.au
+              <a href="mailto:support@wagingwar.com.au" style={{ color: '#00471b', fontWeight: 600 }}>
+                support@wagingwar.com.au
               </a>
               . We will respond within 30 days. If you are unsatisfied with our response you may lodge
               a complaint with the{' '}
@@ -227,8 +232,8 @@ export default function PrivacyPage() {
               <div style={{ fontSize: 13, fontWeight: 700, color: '#111827', marginBottom: 4 }}>Waging War</div>
               <div style={{ fontSize: 13, color: '#374151' }}>
                 Email:{' '}
-                <a href="mailto:adam@wagingwar.com.au" style={{ color: '#00471b', fontWeight: 600 }}>
-                  adam@wagingwar.com.au
+                <a href="mailto:support@wagingwar.com.au" style={{ color: '#00471b', fontWeight: 600 }}>
+                  support@wagingwar.com.au
                 </a>
               </div>
               <div style={{ fontSize: 13, color: '#374151', marginTop: 2 }}>Website: wagingwar.com.au</div>

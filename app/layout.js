@@ -79,7 +79,7 @@ export default function RootLayout({ children }) {
             <a href="/terms"                   className="hover:text-gray-600 transition-colors">Terms of Service</a>
             <a href="/responsible-gambling"    className="hover:text-gray-600 transition-colors">Responsible Gambling</a>
             <a href="/upcoming"                className="hover:text-gray-600 transition-colors">Upcoming Features</a>
-            <a href="mailto:adam@wagingwar.com.au" className="hover:text-gray-600 transition-colors">Contact</a>
+            <a href="mailto:support@wagingwar.com.au" className="hover:text-gray-600 transition-colors">Contact</a>
           </footer>
           {/* Responsible gambling banner — mobile (fixed above tab bar) */}
           <div className="md:hidden fixed bottom-14 left-0 right-0 z-[1001] flex items-center justify-center gap-2 px-3 py-1 bg-gray-800 text-[10px] text-gray-300">

@@ -566,7 +566,7 @@ export default function AccountPage() {
                 ) : (
                   <div style={{ background: '#f9fafb', border: '0.5px solid #e5e7eb', borderRadius: 8, padding: '14px 16px', fontSize: 12, color: '#374151', lineHeight: 1.7 }}>
                     To request account deletion, email{' '}
-                    <a href="mailto:adam@wagingwar.com.au" style={{ color: GREEN, fontWeight: 700 }}>adam@wagingwar.com.au</a>.
+                    <a href="mailto:support@wagingwar.com.au" style={{ color: GREEN, fontWeight: 700 }}>support@wagingwar.com.au</a>.
                     We&apos;ll delete your data within 30 days in line with our{' '}
                     <Link href="/privacy" style={{ color: GREEN, fontWeight: 700 }}>Privacy Policy</Link>.
                   </div>
