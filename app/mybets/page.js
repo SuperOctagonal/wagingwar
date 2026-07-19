@@ -2162,7 +2162,7 @@ export default function MybetsPage() {
         const isEwOrPlace = (b.bet_type || '').toLowerCase() === 'place' || (b.bet_type || '').toLowerCase().includes('each');
         return (
           <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 60, display: 'flex', alignItems: 'flex-end' }} onClick={() => setMobileMenuId(null)}>
-            <div style={{ background: '#fff', borderRadius: '12px 12px 0 0', width: '100%', padding: 16, boxShadow: '0 -4px 24px rgba(0,0,0,0.18)' }} onClick={e => e.stopPropagation()}>
+            <div style={{ background: '#fff', borderRadius: '12px 12px 0 0', width: '100%', padding: 16, boxShadow: '0 -4px 24px rgba(0,0,0,0.18)', maxHeight: '85vh', overflowY: 'auto', boxSizing: 'border-box' }} onClick={e => e.stopPropagation()}>
               <div style={{ fontWeight: 700, fontSize: 14, color: '#111827', marginBottom: 4 }}>{b.horse_name || 'Bet'}</div>
               <div style={{ fontSize: 11, color: '#6b7280', marginBottom: 12 }}>{b.track || b.venue || ''}{(b.race_number || b.race_num) ? ` R${b.race_number || b.race_num}` : ''} · {b.date}</div>
               <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
