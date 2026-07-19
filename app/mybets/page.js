@@ -7,6 +7,7 @@ import useIsPro from '@/hooks/useIsPro';
 import useIsMobile from '@/hooks/useIsMobile';
 import useUserSettings from '@/hooks/useUserSettings';
 import UpgradeModal from '@/components/UpgradeModal';
+import BottomSheet from '@/components/BottomSheet';
 import { awardPoints } from '@/lib/points';
 import { parseCSV, buildRaces } from '@/lib/csvParser';
 import { normaliseVenue } from '@/lib/venues';
@@ -734,6 +735,7 @@ export default function MybetsPage() {
   const handleEditSave = useCallback(async (id) => {
     if (!editStake || !editOdds) return;
     const bet = bets.find(b => b.id === id);
+    if (bet?.status && bet.status !== 'pending') return; // settled bets are frozen
     const isEwOrPlace = (bet?.bet_type || '').toLowerCase() === 'place' || (bet?.bet_type || '').toLowerCase().includes('each');
     const placeOddsVal = isEwOrPlace && editPlaceOdds ? +editPlaceOdds : (bet?.place_odds ?? null);
     const patch = { stake: +editStake, odds: +editOdds, place_odds: placeOddsVal };
@@ -1160,10 +1162,7 @@ export default function MybetsPage() {
 
   return (
     <>
-    <style>{`
-      .ww-bets-table td, .ww-bets-table th { padding: ${tablePad} !important; font-size: ${tableFs}px !important; }
-      .ww-edit-sheet { max-height: 85vh; max-height: 90dvh; overflow-y: auto; }
-    `}</style>
+    <style>{`.ww-bets-table td, .ww-bets-table th { padding: ${tablePad} !important; font-size: ${tableFs}px !important; }`}</style>
     <div className="mob-page" style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
       <ProfileRail>
         <div style={{ borderTop: '1px solid #e5e7eb', padding: '10px 12px' }}>
@@ -1625,14 +1624,16 @@ export default function MybetsPage() {
                                   {isFF ? '—' : b.margin || '—'}
                                 </td>
                                 <td style={{ ...cs, textAlign: 'center', padding: '2px 4px', width: 48 }}>
-                                  {isEditing && !isLocked ? (
+                                  {isEditing && !isLocked && isPending ? (
                                     <span style={{ display: 'inline-flex', gap: 3 }}>
                                       <button onClick={() => handleEditSave(b.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#4ade80', padding: 2, lineHeight: 1 }}><i className="ti ti-check" style={{ fontSize: 13 }} /></button>
                                       <button onClick={() => setEditingId(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#f87171', padding: 2, lineHeight: 1 }}><i className="ti ti-x" style={{ fontSize: 13 }} /></button>
                                     </span>
-                                  ) : !isLocked && isHovered ? (
+                                  ) : isHovered ? (
                                     <span style={{ display: 'inline-flex', gap: 3 }}>
-                                      <button onClick={() => { setEditingId(b.id); setEditStake(String(b.stake || '')); setEditOdds(String(b.odds || '')); setEditPlaceOdds(String(b.place_odds || '')); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', padding: 2, lineHeight: 1 }}><i className="ti ti-pencil" style={{ fontSize: 12 }} /></button>
+                                      {!isLocked && isPending && (
+                                        <button onClick={() => { setEditingId(b.id); setEditStake(String(b.stake || '')); setEditOdds(String(b.odds || '')); setEditPlaceOdds(String(b.place_odds || '')); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', padding: 2, lineHeight: 1 }}><i className="ti ti-pencil" style={{ fontSize: 12 }} /></button>
+                                      )}
                                       <button onClick={() => handleDeleteBet(b.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#f87171', padding: 2, lineHeight: 1 }}><i className="ti ti-trash" style={{ fontSize: 12 }} /></button>
                                     </span>
                                   ) : null}
@@ -2163,42 +2164,68 @@ export default function MybetsPage() {
         const b = bets.find(x => x.id === mobileMenuId);
         if (!b) return null;
         const isEwOrPlace = (b.bet_type || '').toLowerCase() === 'place' || (b.bet_type || '').toLowerCase().includes('each');
+        const isEditable = !b.status || b.status === 'pending';
         return (
-          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 60, display: 'flex', alignItems: 'flex-end' }} onClick={() => setMobileMenuId(null)}>
-            <div className="ww-edit-sheet" style={{ background: '#fff', borderRadius: '12px 12px 0 0', width: '100%', padding: 16, boxShadow: '0 -4px 24px rgba(0,0,0,0.18)', boxSizing: 'border-box' }} onClick={e => e.stopPropagation()}>
-              <div style={{ fontWeight: 700, fontSize: 14, color: '#111827', marginBottom: 4 }}>{b.horse_name || 'Bet'}</div>
+          <BottomSheet isOpen={true} onClose={() => setMobileMenuId(null)} title={b.horse_name || 'Bet'}>
+            <div style={{ padding: 16 }}>
               <div style={{ fontSize: 11, color: '#6b7280', marginBottom: 12 }}>{b.track || b.venue || ''}{(b.race_number || b.race_num) ? ` R${b.race_number || b.race_num}` : ''} · {b.date}</div>
-              <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 10, color: '#6b7280', marginBottom: 3 }}>Stake</div>
-                  <input type="number" value={editStake} onChange={e => setEditStake(e.target.value)} style={{ width: '100%', border: '1px solid #e5e7eb', borderRadius: 5, padding: '6px 8px', fontSize: 13, boxSizing: 'border-box' }} />
-                </div>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 10, color: '#6b7280', marginBottom: 3 }}>{isEwOrPlace ? 'Win Odds' : 'Odds'}</div>
-                  <input type="number" value={editOdds} onChange={e => setEditOdds(e.target.value)} style={{ width: '100%', border: '1px solid #e5e7eb', borderRadius: 5, padding: '6px 8px', fontSize: 13, boxSizing: 'border-box' }} />
-                </div>
-                {isEwOrPlace && (
+              {isEditable ? (
+                <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
                   <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 10, color: '#6b7280', marginBottom: 3 }}>Place Odds</div>
-                    <input type="number" value={editPlaceOdds} onChange={e => setEditPlaceOdds(e.target.value)} style={{ width: '100%', border: '1px solid #e5e7eb', borderRadius: 5, padding: '6px 8px', fontSize: 13, boxSizing: 'border-box' }} />
+                    <div style={{ fontSize: 10, color: '#6b7280', marginBottom: 3 }}>Stake</div>
+                    <input type="number" value={editStake} onChange={e => setEditStake(e.target.value)} style={{ width: '100%', border: '1px solid #e5e7eb', borderRadius: 5, padding: '6px 8px', fontSize: 13, boxSizing: 'border-box' }} />
                   </div>
-                )}
-              </div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 10, color: '#6b7280', marginBottom: 3 }}>{isEwOrPlace ? 'Win Odds' : 'Odds'}</div>
+                    <input type="number" value={editOdds} onChange={e => setEditOdds(e.target.value)} style={{ width: '100%', border: '1px solid #e5e7eb', borderRadius: 5, padding: '6px 8px', fontSize: 13, boxSizing: 'border-box' }} />
+                  </div>
+                  {isEwOrPlace && (
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: 10, color: '#6b7280', marginBottom: 3 }}>Place Odds</div>
+                      <input type="number" value={editPlaceOdds} onChange={e => setEditPlaceOdds(e.target.value)} style={{ width: '100%', border: '1px solid #e5e7eb', borderRadius: 5, padding: '6px 8px', fontSize: 13, boxSizing: 'border-box' }} />
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div style={{ display: 'flex', gap: 8, marginBottom: 12, background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: 6, padding: '8px 10px' }}>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 10, color: '#6b7280', marginBottom: 3 }}>Stake</div>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: '#111827' }}>${(+(b.stake || 0)).toFixed(2)}</div>
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 10, color: '#6b7280', marginBottom: 3 }}>{isEwOrPlace ? 'Win Odds' : 'Odds'}</div>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: '#111827' }}>${Number(b.odds || 0).toFixed(2)}</div>
+                  </div>
+                  {isEwOrPlace && (
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: 10, color: '#6b7280', marginBottom: 3 }}>Place Odds</div>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: '#111827' }}>{b.place_odds != null ? `$${Number(b.place_odds).toFixed(2)}` : '—'}</div>
+                    </div>
+                  )}
+                </div>
+              )}
+              {!isEditable && (
+                <div style={{ fontSize: 10, color: '#92400e', background: '#fef3c7', borderRadius: 5, padding: '5px 8px', marginBottom: 12 }}>
+                  This bet has been settled ({(b.status || '').toUpperCase()}) and can no longer be edited.
+                </div>
+              )}
               <div style={{ display: 'flex', gap: 8 }}>
-                <button onClick={async () => {
-                  if (+editStake > 0 && +editOdds > 1) {
-                    const placeOddsVal = isEwOrPlace && editPlaceOdds ? +editPlaceOdds : (b.place_odds ?? null);
-                    const patch = { stake: +editStake, odds: +editOdds, place_odds: placeOddsVal };
-                    await patchBet(mobileMenuId, patch);
-                    setBets(prev => prev.map(x => x.id === mobileMenuId ? { ...x, ...patch } : x));
-                  }
-                  setMobileMenuId(null);
-                }} style={{ flex: 1, padding: '10px 0', background: '#059669', color: '#fff', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Save</button>
+                {isEditable && (
+                  <button onClick={async () => {
+                    if (isEditable && +editStake > 0 && +editOdds > 1) {
+                      const placeOddsVal = isEwOrPlace && editPlaceOdds ? +editPlaceOdds : (b.place_odds ?? null);
+                      const patch = { stake: +editStake, odds: +editOdds, place_odds: placeOddsVal };
+                      await patchBet(mobileMenuId, patch);
+                      setBets(prev => prev.map(x => x.id === mobileMenuId ? { ...x, ...patch } : x));
+                    }
+                    setMobileMenuId(null);
+                  }} style={{ flex: 1, padding: '10px 0', background: '#059669', color: '#fff', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Save</button>
+                )}
                 <button onClick={async () => { handleDeleteBet(mobileMenuId); setMobileMenuId(null); }} style={{ flex: 1, padding: '10px 0', background: '#dc2626', color: '#fff', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Delete</button>
                 <button onClick={() => setMobileMenuId(null)} style={{ padding: '10px 16px', background: '#f3f4f6', color: '#374151', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>Cancel</button>
               </div>
             </div>
-          </div>
+          </BottomSheet>
         );
       })()}
 
