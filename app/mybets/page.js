@@ -10,6 +10,7 @@ import UpgradeModal from '@/components/UpgradeModal';
 import { awardPoints } from '@/lib/points';
 import { parseCSV, buildRaces } from '@/lib/csvParser';
 import { normaliseVenue } from '@/lib/venues';
+import { validateBetForm } from '@/lib/betValidation';
 import {
   LineChart, Line, AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine,
@@ -134,14 +135,20 @@ async function matchAndUpdateBets(pendingBets) {
 
     if (!row) continue;
 
-    const stake = +(bet.stake || 0);
-    const odds  = +(bet.odds  || 0);
-    const sp    = +(row.sp    || 0);
-    const pos   = row.finish_pos;
-    const type  = (bet.bet_type || '').toLowerCase();
+    const stake     = +(bet.stake || 0);
+    const odds      = +(bet.odds  || 0);
+    // Legacy bets logged before place_odds existed have no stored value — fall back
+    // to the old win÷4 approximation so they still settle instead of erroring.
+    const placeOdds = bet.place_odds != null ? +bet.place_odds : odds / 4;
+    const sp        = +(row.sp    || 0);
+    const pos       = row.finish_pos;
+    const type      = (bet.bet_type || '').toLowerCase();
     const isEW = type === 'each-way' || type === 'each way';
     const FF_CODES = ['FF','BD','UR','PU','DNF','DISQ','NP','FELL','REF'];
     const isFF = row.result_status && FF_CODES.includes(row.result_status.toUpperCase());
+
+    const fieldSize  = rows.filter(r => +r.race_num === betRaceNum).length;
+    const paidPlaces = fieldSize >= 8 ? 3 : 2;
 
     let status, returnAmt, profitLoss;
     if (isFF) {
@@ -151,18 +158,18 @@ async function matchAndUpdateBets(pendingBets) {
     } else if (isEW) {
       if (pos === 1) {
         status     = 'win';
-        profitLoss = (stake * odds) - stake + (stake * (odds / 4)) - stake;
-      } else if (pos <= 3) {
+        profitLoss = (stake * odds) - stake + (stake * placeOdds) - stake;
+      } else if (pos <= paidPlaces) {
         status     = 'place';
-        profitLoss = -stake + (stake * (odds / 4)) - stake;
+        profitLoss = -stake + (stake * placeOdds) - stake;
       } else {
         status = 'loss'; profitLoss = -(2 * stake);
       }
       returnAmt = profitLoss + 2 * stake;
     } else if (type === 'place') {
-      if (pos <= 3) {
+      if (pos <= paidPlaces) {
         status     = 'place';
-        returnAmt  = stake * (odds / 4);
+        returnAmt  = stake * placeOdds;
         profitLoss = returnAmt - stake;
       } else {
         status = 'loss'; returnAmt = 0; profitLoss = -stake;
@@ -419,6 +426,8 @@ export default function MybetsPage() {
   const [qlBetType,   setQlBetType]   = useState('win');
   const [qlStake,     setQlStake]     = useState('');
   const [qlOdds,      setQlOdds]      = useState('');
+  const [qlPlaceOdds, setQlPlaceOdds] = useState('');
+  const [qlFormError, setQlFormError] = useState('');
   const [qlBookmaker, setQlBookmaker] = useState('Sportsbet');
   const [qlSaving,    setQlSaving]    = useState(false);
   const [qlToast,        setQlToast]        = useState(null);
@@ -650,15 +659,17 @@ export default function MybetsPage() {
   const handleQuickLog = useCallback(async () => {
     console.log('[QuickLog] Save Bet clicked | horse:', qlHorse, '| stake:', qlStake, '| odds:', qlOdds, '| user:', !!user?.id);
     console.log('[QuickLog] Date check — raceDate:', raceDate, '| todayISO:', todayISO, '| will use:', raceDate || todayISO);
-    if (!qlHorse.trim() || !qlStake || isNaN(+qlStake) || +qlStake <= 0) {
-      console.log('[QuickLog] Blocked: horse/stake invalid'); return;
+    if (!qlHorse.trim()) {
+      setQlFormError('Enter a horse name'); return;
     }
-    if (!qlOdds || isNaN(+qlOdds) || +qlOdds <= 1) {
-      console.log('[QuickLog] Blocked: odds must be > 1, got:', qlOdds); return;
+    const validationErr = validateBetForm({ betType: qlBetType, stake: qlStake, odds: qlOdds, placeOdds: qlPlaceOdds });
+    if (validationErr) {
+      setQlFormError(validationErr); return;
     }
     if (!user?.id) {
       console.log('[QuickLog] Blocked: not logged in'); return;
     }
+    setQlFormError('');
     const alertThreshold = +(settings.stakingAlert || 0);
     if (alertThreshold > 0 && +qlStake > alertThreshold && !qlStakeWarning) {
       setQlStakeWarning(true);
@@ -668,6 +679,7 @@ export default function MybetsPage() {
     setQlSaving(true);
 
     const normVenue = normaliseVenue(qlMeeting || '') || null;
+    const qlPlaceOddsVal = qlBetType === 'place' ? +qlOdds : qlBetType === 'each-way' ? +qlPlaceOdds : null;
 
     const insertBody = {
       date:        todayISO,
@@ -678,6 +690,7 @@ export default function MybetsPage() {
       bet_type:    qlBetType,
       stake:       +qlStake,
       odds:        +qlOdds,
+      place_odds:  qlPlaceOddsVal,
       bookmaker:   qlBookmaker || null,
       race_time:   qlRaceTime  || null,
       tab_no:      qlTab       || null,
@@ -700,7 +713,7 @@ export default function MybetsPage() {
         if (newBet) setBets(prev => [newBet, ...prev]);
         loadBets(user.id).then(fresh => { if (fresh.length) setBets(fresh); });
         try { awardPoints(user.id, 'bet_logged', qlHorse.trim()).catch(() => {}); } catch {}
-        setQlHorse(''); setQlStake(''); setQlOdds('');
+        setQlHorse(''); setQlStake(''); setQlOdds(''); setQlPlaceOdds('');
       }
     } catch (err) {
       console.error('[QuickLog] Network error:', err);
@@ -709,7 +722,7 @@ export default function MybetsPage() {
     setQlToast(ok ? 'success' : 'error');
     setQlSaving(false);
     setTimeout(() => setQlToast(null), 2500);
-  }, [user?.id, todayISO, raceDate, qlHorse, qlMeeting, qlRace, qlBetType, qlStake, qlOdds, qlRaceTime, qlBookmaker, qlTab]);
+  }, [user?.id, todayISO, raceDate, qlHorse, qlMeeting, qlRace, qlBetType, qlStake, qlOdds, qlPlaceOdds, qlRaceTime, qlBookmaker, qlTab]);
 
   const handleDeleteBet = useCallback(async (id) => {
     if (!confirm('Remove this bet?')) return;
@@ -937,7 +950,7 @@ export default function MybetsPage() {
   }, [ledgerFilteredBets, sortCol, sortDir, raceTimeMap]);
 
   const exportCSV = useCallback(() => {
-    const headers = ['Date','Venue','R#','Time','Tab','Horse','Type','Stake','Odds','P&L','Result'];
+    const headers = ['Date','Venue','R#','Time','Tab','Horse','Type','Stake','Odds','P.Odds','P&L','Result'];
     const csvRows = sortedLedgerBets.map(b => {
       const hasPnl = b.profit_loss !== null && b.profit_loss !== undefined;
       const isEW = (b.bet_type || '').toLowerCase().includes('each');
@@ -954,6 +967,7 @@ export default function MybetsPage() {
         b.bet_type || '',
         (+(b.stake || 0)).toFixed(2),
         Number(b.odds || 0).toFixed(2),
+        b.place_odds != null ? Number(b.place_odds).toFixed(2) : '',
         isPending ? '' : (pnl >= 0 ? '+' : '') + pnl.toFixed(2),
         isPending ? 'pending' : b.status || '',
       ].map(v => `"${String(v).replace(/"/g, '""')}"`).join(',');
@@ -1120,7 +1134,7 @@ export default function MybetsPage() {
   const qlRaceDate = (raceDate && raceDate >= qlAestDateISO) ? raceDate : qlAestDateISO;
   const raceHasPassed = !!qlRaceTime && isFinite(qlRaceMins) &&
     qlRaceDate === qlAestDateISO && qlRaceMins <= qlAestMins;
-  const qlBtnDisabled = qlSaving || raceHasPassed || !qlHorse.trim() || !(+qlStake > 0) || !(+qlOdds > 1);
+  const qlBtnDisabled = qlSaving || raceHasPassed || !qlHorse.trim() || !!validateBetForm({ betType: qlBetType, stake: qlStake, odds: qlOdds, placeOdds: qlPlaceOdds });
 
   const sbPnl = tabStats.pnl;
   const sbPnlPos = sbPnl !== null && sbPnl >= 0;
@@ -1175,8 +1189,28 @@ export default function MybetsPage() {
           </select>
           <div style={{ display: 'flex', gap: 5, marginBottom: 5 }}>
             <input value={qlStake} onChange={e => setQlStake(e.target.value)} type="number" placeholder="$Stake" min="0.01" step="0.01" style={{ ...inp, flex: 1 }} />
-            <input value={qlOdds} onChange={e => setQlOdds(e.target.value)} type="number" placeholder="$Odds" min="1.01" step="0.01" style={{ ...inp, flex: 1 }} />
+            <input value={qlOdds} onChange={e => setQlOdds(e.target.value)} type="number" placeholder={qlBetType === 'place' ? '$Place Odds' : qlBetType === 'each-way' ? '$Win Odds' : '$Odds'} min="1.01" step="0.01" style={{ ...inp, flex: 1 }} />
           </div>
+          {qlBetType === 'each-way' && (
+            <div style={{ marginBottom: 5 }}>
+              <input value={qlPlaceOdds} onChange={e => setQlPlaceOdds(e.target.value)} type="number" placeholder="$Place Odds" min="1.01" step="0.01" style={{ ...inp, width: '100%' }} />
+            </div>
+          )}
+          {qlBetType === 'each-way' && qlStake && qlOdds && qlPlaceOdds && +qlStake > 0 && +qlOdds > 1 && +qlPlaceOdds > 1 ? (
+            <div style={{ fontSize: 10, color: '#065f46', background: '#d1fae5', borderRadius: 5, padding: '5px 8px', marginBottom: 5 }}>
+              <div>Total outlay: <strong>${(+qlStake * 2).toFixed(2)}</strong></div>
+              <div>Best case: <strong>${(+qlStake * +qlOdds + +qlStake * +qlPlaceOdds).toFixed(2)}</strong></div>
+            </div>
+          ) : qlBetType !== 'each-way' && qlStake && qlOdds && +qlStake > 0 && +qlOdds > 1 && (
+            <div style={{ fontSize: 10, color: '#065f46', background: '#d1fae5', borderRadius: 5, padding: '5px 8px', marginBottom: 5 }}>
+              Potential return: <strong>${(+qlStake * +qlOdds).toFixed(2)}</strong>
+            </div>
+          )}
+          {qlFormError && (
+            <div style={{ fontSize: 10, color: '#991b1b', background: '#fee2e2', borderRadius: 5, padding: '5px 8px', marginBottom: 5, fontWeight: 600 }}>
+              {qlFormError}
+            </div>
+          )}
           <select value={qlBookmaker} onChange={e => setQlBookmaker(e.target.value)} style={{ ...inp, marginBottom: 8 }}>
             {BOOKMAKERS.map(b => <option key={b} value={b}>{b}</option>)}
           </select>
@@ -1363,7 +1397,11 @@ export default function MybetsPage() {
                           <th onClick={mkSort('horse')} style={{ ...thBase, textAlign: 'left', position: 'sticky', left: 0, zIndex: 2, background: '#0D1C13' }}>
                             <div style={{ width: 94, whiteSpace: 'nowrap' }}>Horse{ind('horse')}</div>
                           </th>
-                          {[['Venue','left','venue',110],['R#','right','race',36],['Time','right','time',72],['No','right','no',30],['Stake','right','stake',54],['Odds','right','odds',54],['P&L','right','pnl',70],['Result','right','result',50],['Margin','right','margin',60]].map(([h, align, col, mw]) => (
+                          {[['Venue','left','venue',110],['R#','right','race',36],['Time','right','time',72],['No','right','no',30],['Stake','right','stake',54],['Odds','right','odds',54]].map(([h, align, col, mw]) => (
+                            <th key={h} onClick={mkSort(col)} style={{ ...thBase, textAlign: align, minWidth: mw }}>{h}{ind(col)}</th>
+                          ))}
+                          <th style={{ ...thBase, textAlign: 'right', minWidth: 44, cursor: 'default' }}>P.Odds</th>
+                          {[['P&L','right','pnl',70],['Result','right','result',50],['Margin','right','margin',60]].map(([h, align, col, mw]) => (
                             <th key={h} onClick={mkSort(col)} style={{ ...thBase, textAlign: align, minWidth: mw }}>{h}{ind(col)}</th>
                           ))}
                           <th style={{ ...thBase, width: 32, cursor: 'default', textAlign: 'center' }}>···</th>
@@ -1378,7 +1416,7 @@ export default function MybetsPage() {
                       const items = pinned.length > 0 && rest.length > 0 ? [...pinned, null, ...rest] : sortedLedgerBets;
                       return items.map((b, idx) => {
                         if (b === null) return (
-                          <tr key="mob-pending-divider"><td colSpan={11} style={{ height: 2, background: '#2d5a3d', padding: 0 }} /></tr>
+                          <tr key="mob-pending-divider"><td colSpan={12} style={{ height: 2, background: '#2d5a3d', padding: 0 }} /></tr>
                         );
                         const pnl = computePnl(b);
                         const hasPnl = pnl !== null;
@@ -1405,6 +1443,7 @@ export default function MybetsPage() {
                             <td style={{ ...cs, color: '#fff', textAlign: 'right', whiteSpace: 'nowrap' }}>{b.tab_no || b.horse_number || '—'}</td>
                             <td style={{ ...cs, color: '#fff', textAlign: 'right', fontFamily: 'monospace', whiteSpace: 'nowrap' }}>${(+(b.stake || 0)).toFixed(0)}</td>
                             <td style={{ ...cs, color: '#fff', textAlign: 'right', fontFamily: 'monospace', whiteSpace: 'nowrap' }}>${Number(b.odds || 0).toFixed(2)}</td>
+                            <td style={{ ...cs, color: '#fff', textAlign: 'right', fontFamily: 'monospace', whiteSpace: 'nowrap' }}>{b.place_odds != null ? `$${Number(b.place_odds).toFixed(2)}` : '—'}</td>
                             <td style={{ ...cs, textAlign: 'right', fontWeight: 700, fontFamily: 'monospace', color: pnlColor, whiteSpace: 'nowrap' }}>
                               {isPending || isUnresolved || isAbandoned ? '—' : hasPnl ? (pnl >= 0 ? '+$' : '-$') + Math.abs(pnl).toFixed(2) : '—'}
                             </td>
@@ -1463,7 +1502,11 @@ export default function MybetsPage() {
                     <table style={{ borderCollapse: 'collapse', fontSize: 11, width: '100%' }}>
                       <thead style={{ position: 'sticky', top: 0, zIndex: 1 }}>
                         <tr style={{ background: '#0D1C13' }}>
-                          {[['Date','left','date',48],['Venue','left','venue',76],['R#','right','race',26],['Time','right','time',62],['No','right','no',20],['Horse','left','horse',106],['Stake','right','stake',42],['Odds','right','odds',42],['P&L','right','pnl',62],['Result','right','result',38],['Margin','right','margin',48]].map(([h, align, col, mw]) => (
+                          {[['Date','left','date',48],['Venue','left','venue',76],['R#','right','race',26],['Time','right','time',62],['No','right','no',20],['Horse','left','horse',106],['Stake','right','stake',42],['Odds','right','odds',42]].map(([h, align, col, mw]) => (
+                            <th key={h} onClick={mkSort(col)} style={{ ...thBase, textAlign: align, minWidth: mw }}>{h}{ind(col)}</th>
+                          ))}
+                          <th style={{ ...thBase, textAlign: 'right', minWidth: 42, cursor: 'default' }}>P.Odds</th>
+                          {[['P&L','right','pnl',62],['Result','right','result',38],['Margin','right','margin',48]].map(([h, align, col, mw]) => (
                             <th key={h} onClick={mkSort(col)} style={{ ...thBase, textAlign: align, minWidth: mw }}>{h}{ind(col)}</th>
                           ))}
                           <th style={{ ...thBase, width: 44, cursor: 'default' }} />
@@ -1471,16 +1514,16 @@ export default function MybetsPage() {
                       </thead>
                       <tbody>
                         {loading ? (
-                          <tr><td colSpan={12} style={{ padding: 20, textAlign: 'center', color: '#fff', fontSize: 11 }}>Loading…</td></tr>
+                          <tr><td colSpan={13} style={{ padding: 20, textAlign: 'center', color: '#fff', fontSize: 11 }}>Loading…</td></tr>
                         ) : sortedLedgerBets.length === 0 ? (
-                          <tr><td colSpan={12} style={{ padding: 20, textAlign: 'center', color: '#fff', fontSize: 11 }}>No bets for this period</td></tr>
+                          <tr><td colSpan={13} style={{ padding: 20, textAlign: 'center', color: '#fff', fontSize: 11 }}>No bets for this period</td></tr>
                         ) : (() => {
                           const pinned = sortedLedgerBets.filter(b => b.date === todayISO && (!b.status || b.status === 'pending'));
                           const rest = sortedLedgerBets.filter(b => !(b.date === todayISO && (!b.status || b.status === 'pending')));
                           const items = pinned.length > 0 && rest.length > 0 ? [...pinned, null, ...rest] : sortedLedgerBets;
                           return items.map((b, idx) => {
                             if (b === null) return (
-                              <tr key="desk-pending-divider"><td colSpan={12} style={{ height: 2, background: '#2d5a3d', padding: 0 }} /></tr>
+                              <tr key="desk-pending-divider"><td colSpan={13} style={{ height: 2, background: '#2d5a3d', padding: 0 }} /></tr>
                             );
                             const pnl = computePnl(b);
                             const hasPnl = pnl !== null;
@@ -1534,6 +1577,9 @@ export default function MybetsPage() {
                                 </td>
                                 <td style={{ ...cs, color: '#fff', textAlign: 'right', fontFamily: 'monospace' }}>
                                   {isEditing && !isLocked ? <input type="number" value={editOdds} onChange={e => setEditOdds(e.target.value)} style={{ width: 40, fontSize: 10, textAlign: 'right', border: '1px solid #4ade80', background: '#1a3a25', color: '#fff', borderRadius: 3, padding: '1px 3px' }} /> : `$${Number(b.odds || 0).toFixed(2)}`}
+                                </td>
+                                <td style={{ ...cs, color: '#fff', textAlign: 'right', fontFamily: 'monospace' }}>
+                                  {b.place_odds != null ? `$${Number(b.place_odds).toFixed(2)}` : '—'}
                                 </td>
                                 <td style={{ ...cs, textAlign: 'right', fontWeight: 700, fontFamily: 'monospace', color: pnlColor, whiteSpace: 'nowrap' }}>
                                   {isPending || isUnresolved || isAbandoned ? '—' : hasPnl ? (pnl >= 0 ? '+$' : '-$') + Math.abs(pnl).toFixed(2) : '—'}

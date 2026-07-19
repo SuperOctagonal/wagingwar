@@ -111,6 +111,7 @@ export async function POST(req) {
     bet_type:        body.bet_type        ?? 'win',
     stake:           +body.stake,
     odds:            +body.odds,
+    place_odds:      body.place_odds != null && body.place_odds !== '' ? +body.place_odds : null,
     status:          'pending',
     bookmaker:       body.bookmaker       ?? null,
     rank:            body.rank            ?? null,

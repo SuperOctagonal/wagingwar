@@ -12,6 +12,7 @@ import BottomSheet from '@/components/BottomSheet';
 import { awardPoints } from '@/lib/points';
 import { normaliseVenue, stripSponsorPrefix, SPONSOR_PREFIXES } from '@/lib/venues';
 import { isRacesAdmin } from '@/lib/admin';
+import { validateBetForm } from '@/lib/betValidation';
 
 const SURL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SKEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -986,12 +987,14 @@ function BetModal({ horse, onClose }) {
   const [open,          setOpen]          = useState(false);
   const [stake,         setStake]         = useState('');
   const [odds,          setOdds]          = useState(horse.rawOdds ? horse.rawOdds.toFixed(2) : '');
+  const [placeOdds,     setPlaceOdds]     = useState('');
   const [bookie,        setBookie]        = useState('Sportsbet');
   const [betType,       setBetType]       = useState('win');
   const [saving,        setSaving]        = useState(false);
   const [toast,         setToast]         = useState(null);
   const [stakingAlert,  setStakingAlert]  = useState('');
   const [stakeWarning,  setStakeWarning]  = useState(false);
+  const [formError,     setFormError]     = useState('');
 
   useEffect(() => { setOpen(true); }, []);
 
@@ -1013,14 +1016,16 @@ function BetModal({ horse, onClose }) {
   }, [user?.id]);
 
   const handleSave = async () => {
-    if (!stake || isNaN(+stake) || +stake <= 0) { alert('Enter a valid stake'); return; }
-    if (!odds || isNaN(+odds) || +odds <= 1)   { alert('Enter valid odds'); return; }
+    const err = validateBetForm({ betType, stake, odds, placeOdds });
+    if (err) { setFormError(err); return; }
+    setFormError('');
     if (stakingAlert && +stakingAlert > 0 && +stake > +stakingAlert && !stakeWarning) {
       setStakeWarning(true);
       return;
     }
     setStakeWarning(false);
     setSaving(true);
+    const placeOddsVal = betType === 'place' ? +odds : betType === 'each-way' ? +placeOdds : null;
     const bet = {
       id: Date.now(),
       horse: horse.name,
@@ -1029,6 +1034,7 @@ function BetModal({ horse, onClose }) {
       betType,
       stake: +stake,
       odds: +odds,
+      placeOdds: placeOddsVal,
       potential: +(+stake * +odds).toFixed(2),
       savedAt: new Date().toISOString(),
     };
@@ -1048,6 +1054,7 @@ function BetModal({ horse, onClose }) {
           bet_type:        betType,
           stake:           +stake,
           odds:            +odds,
+          place_odds:      placeOddsVal,
           bookmaker:       bookie              || null,
           rank:            horse._rank         || null,
           my_odds:         horse._myOdds       ?? horse.rawOdds ?? null,
@@ -1118,7 +1125,9 @@ function BetModal({ horse, onClose }) {
           />
         </div>
         <div className="flex-1">
-          <label className="block text-[10px] font-semibold text-gray-500 mb-1">Odds ($)</label>
+          <label className="block text-[10px] font-semibold text-gray-500 mb-1">
+            {betType === 'place' ? 'Place Odds ($)' : betType === 'each-way' ? 'Win Odds ($)' : 'Odds ($)'}
+          </label>
           <input
             type="number" min="1.01" step="0.01" placeholder="3.50"
             value={odds} onChange={e => setOdds(e.target.value)}
@@ -1127,8 +1136,37 @@ function BetModal({ horse, onClose }) {
         </div>
       </div>
 
+      {betType === 'each-way' && (
+        <div className="flex-1">
+          <label className="block text-[10px] font-semibold text-gray-500 mb-1">Place Odds ($)</label>
+          <input
+            type="number" min="1.01" step="0.01" placeholder="1.80"
+            value={placeOdds} onChange={e => setPlaceOdds(e.target.value)}
+            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-semibold focus:outline-none focus:border-brand"
+          />
+        </div>
+      )}
+
+      {/* Inline validation error */}
+      {formError && (
+        <div className="bg-red-50 border border-red-200 rounded-lg px-3 py-2 text-[11px] text-red-700 font-semibold">
+          {formError}
+        </div>
+      )}
+
       {/* Potential return */}
-      {stake && odds && +stake > 0 && +odds > 1 && (
+      {betType === 'each-way' && stake && odds && placeOdds && +stake > 0 && +odds > 1 && +placeOdds > 1 ? (
+        <div className="bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2 text-[11px] space-y-1">
+          <div className="flex justify-between">
+            <span className="text-emerald-700">Total outlay</span>
+            <span className="font-bold text-emerald-700">${(+stake * 2).toFixed(2)}</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-emerald-700">Best case return</span>
+            <span className="font-bold text-emerald-700">${(+stake * +odds + +stake * +placeOdds).toFixed(2)}</span>
+          </div>
+        </div>
+      ) : betType !== 'each-way' && stake && odds && +stake > 0 && +odds > 1 && (
         <div className="bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2 flex justify-between text-[11px]">
           <span className="text-emerald-700">Potential return</span>
           <span className="font-bold text-emerald-700">${(+stake * +odds).toFixed(2)}</span>

@@ -5,6 +5,7 @@ import { useUser } from '@clerk/nextjs';
 import { parseCSV, buildRaces } from '@/lib/csvParser';
 import { scoreGroup, getDefaultWeights, GRP_KEYS, calcPaceMap } from '@/lib/scoring';
 import { normaliseVenue } from '@/lib/venues';
+import { paidPlacesForFieldSize, estimatePlacePrice } from '@/lib/placePrice';
 import ProfileRail from '@/components/ProfileRail';
 import UpgradeModal from '@/components/UpgradeModal';
 import useIsMobile from '@/hooks/useIsMobile';
@@ -133,10 +134,13 @@ function placeIcon(place) {
 
 function TopPicksPanel({ data }) {
   if (!data) return <NoCsvMsg />;
-  const { wins, places, total, roi, strikeRate, placeRate, avgPlace, details } = data;
+  const { wins, places, total, roi, ewRoi, strikeRate, placeRate, avgPlace, details } = data;
   const roiPct = total ? (roi / total) * 100 : 0;
   const roiColor = roiPct >= 0 ? '#065f46' : '#991b1b';
   const roiBg = roiPct >= 0 ? '#d1fae5' : '#fee2e2';
+  const ewRoiPct = total ? (ewRoi / (total * 2)) * 100 : 0;
+  const ewRoiColor = ewRoiPct >= 0 ? '#065f46' : '#991b1b';
+  const ewRoiBg = ewRoiPct >= 0 ? '#d1fae5' : '#fee2e2';
   return (
     <div style={{ paddingTop: 8 }}>
       <div style={{ display: 'flex', gap: 6, marginBottom: 10, flexWrap: 'wrap' }}>
@@ -156,6 +160,12 @@ function TopPicksPanel({ data }) {
           <span style={{ color: '#374151' }}>ROI </span>
           <span style={{ fontWeight: 700, color: roiColor, fontFamily: 'JetBrains Mono, monospace' }}>
             {roiPct >= 0 ? '+' : ''}{roiPct.toFixed(1)}%
+          </span>
+        </div>
+        <div style={{ padding: '3px 6px', borderRadius: 5, background: ewRoiBg, fontSize: 10 }}>
+          <span style={{ color: '#374151' }}>E/W ROI (est.) </span>
+          <span style={{ fontWeight: 700, color: ewRoiColor, fontFamily: 'JetBrains Mono, monospace' }}>
+            {ewRoiPct >= 0 ? '+' : ''}{ewRoiPct.toFixed(1)}%
           </span>
         </div>
         <div style={{ padding: '3px 6px', borderRadius: 5, background: '#f1f5f9', fontSize: 10 }}>
@@ -196,10 +206,13 @@ function TopPicksPanel({ data }) {
 
 function ModelPerfPanel({ data, isPro }) {
   if (!data) return <NoCsvMsg />;
-  const { hits, total, roi, strikeRate, details } = data;
+  const { hits, total, roi, ewRoi, ewTotal, strikeRate, details } = data;
   const roiPct   = total ? (roi / total) * 100 : 0;
   const roiColor = roiPct >= 0 ? '#065f46' : '#991b1b';
   const roiBg    = roiPct >= 0 ? '#d1fae5' : '#fee2e2';
+  const ewRoiPct   = ewTotal ? (ewRoi / (ewTotal * 2)) * 100 : 0;
+  const ewRoiColor = ewRoiPct >= 0 ? '#065f46' : '#991b1b';
+  const ewRoiBg    = ewRoiPct >= 0 ? '#d1fae5' : '#fee2e2';
   return (
     <div style={{ paddingTop: 8 }}>
       <div style={{ display: 'flex', gap: 6, marginBottom: 10, flexWrap: 'wrap' }}>
@@ -215,6 +228,14 @@ function ModelPerfPanel({ data, isPro }) {
             {roiPct >= 0 ? '+' : ''}{roiPct.toFixed(1)}%
           </span>
         </div>
+        {ewTotal > 0 && (
+          <div style={{ padding: '3px 6px', borderRadius: 5, background: ewRoiBg, fontSize: 10 }}>
+            <span style={{ color: '#374151' }}>E/W ROI (est.) </span>
+            <span style={{ fontWeight: 700, color: ewRoiColor, fontFamily: 'JetBrains Mono, monospace' }}>
+              {ewRoiPct >= 0 ? '+' : ''}{ewRoiPct.toFixed(1)}%
+            </span>
+          </div>
+        )}
       </div>
       {details.length === 0 ? (
         <div style={{ color: '#6b7280', fontSize: 10 }}>No model data yet.</div>
@@ -716,12 +737,15 @@ export default function ResultsPage() {
 
   const modelPerf = useMemo(() => {
     if (!hasCsv || !meetingResulted.length) return null;
-    let hits = 0, total = 0, roi = 0;
+    let hits = 0, total = 0, roi = 0, ewRoi = 0, ewTotal = 0;
     const details = [];
     meetingResulted.forEach(({ raceNum, results }) => {
       const rankMap = getSysRanks(effectiveRaces, effectiveVenues, selectedMeeting, raceNum, weights, dbScratchings) || {};
       if (!Object.keys(rankMap).length) return;
-      const winner = (results.runners || []).find(r => r.place === 1);
+      const runners = results.runners || [];
+      const pickName = Object.keys(rankMap).find(n => rankMap[n] === 1);
+      const pickRunner = pickName ? runners.find(r => normName(r.name) === pickName) : null;
+      const winner = runners.find(r => r.place === 1);
       if (!winner) return;
       const rank = rankMap[normName(winner.name)] ?? null;
       const hit  = rank === 1;
@@ -729,35 +753,56 @@ export default function ResultsPage() {
       if (hit) hits++;
       total++;
       details.push({ raceNum, horse: winner.name, rank, sp: winner.sp, hit });
+
+      // E/W ROI simulates $1 each-way ($2 total) on the model's #1 ranked runner (may differ from the winner)
+      if (pickRunner) {
+        ewTotal++;
+        const paidPlaces = paidPlacesForFieldSize(runners.length);
+        const placePrice = estimatePlacePrice(pickRunner.sp, paidPlaces);
+        if (pickRunner.place === 1) {
+          ewRoi += (Number(pickRunner.sp) - 1) + (placePrice - 1);
+        } else if (pickRunner.place != null && pickRunner.place <= paidPlaces) {
+          ewRoi += (placePrice - 1) - 1;
+        } else {
+          ewRoi += -2;
+        }
+      }
     });
     if (total === 0) return null;
-    return { hits, total, roi, strikeRate: hits / total, details };
+    return { hits, total, roi, ewRoi, ewTotal, strikeRate: hits / total, details };
   }, [meetingResulted, effectiveRaces, effectiveVenues, selectedMeeting, weights, dbScratchings, hasCsv]);
 
   const topPicksPerf = useMemo(() => {
     if (!hasCsv || !meetingResulted.length) return null;
-    let wins = 0, places = 0, total = 0, roi = 0;
+    let wins = 0, places = 0, total = 0, roi = 0, ewRoi = 0;
     const details = [];
     meetingResulted.forEach(({ raceNum, results }) => {
       const rankMap = getSysRanks(effectiveRaces, effectiveVenues, selectedMeeting, raceNum, weights, dbScratchings) || {};
       if (!Object.keys(rankMap).length) return;
       const pickName = Object.keys(rankMap).find(n => rankMap[n] === 1);
       if (!pickName) return;
-      const runner = (results.runners || []).find(r => normName(r.name) === pickName);
+      const runners = results.runners || [];
+      const runner = runners.find(r => normName(r.name) === pickName);
       if (!runner) return;
       const place = runner.place ?? null;
       const sp = Number(runner.sp) || 0;
       const win = place === 1;
-      const placed = place != null && place <= 3;
+      const paidPlaces = paidPlacesForFieldSize(runners.length);
+      const placed = place != null && place <= paidPlaces;
       roi += win ? (sp - 1) : -1;
       if (win) wins++;
       if (placed) places++;
       total++;
       details.push({ raceNum, horse: runner.name, place, sp, win, placed });
+
+      const placePrice = estimatePlacePrice(sp, paidPlaces);
+      if (win) ewRoi += (sp - 1) + (placePrice - 1);
+      else if (placed) ewRoi += (placePrice - 1) - 1;
+      else ewRoi += -2;
     });
     if (total === 0) return null;
     const avgPlace = details.reduce((a, d) => a + (d.place || 0), 0) / total;
-    return { wins, places, total, roi, strikeRate: wins / total, placeRate: places / total, avgPlace, details };
+    return { wins, places, total, roi, ewRoi, strikeRate: wins / total, placeRate: places / total, avgPlace, details };
   }, [meetingResulted, effectiveRaces, effectiveVenues, selectedMeeting, weights, dbScratchings, hasCsv]);
 
   const barrierBias = useMemo(() => {
