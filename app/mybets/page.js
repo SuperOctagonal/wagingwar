@@ -12,6 +12,7 @@ import { awardPoints } from '@/lib/points';
 import { parseCSV, buildRaces } from '@/lib/csvParser';
 import { normaliseVenue } from '@/lib/venues';
 import { validateBetForm } from '@/lib/betValidation';
+import { hasRaceJumped } from '@/lib/raceTime';
 import {
   LineChart, Line, AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine,
@@ -1570,7 +1571,7 @@ export default function MybetsPage() {
                             const isImminent = isPending && b.date === todayISO && secsToRace !== null && secsToRace < 900 && secsToRace > -240;
                             const isEditing = editingId === b.id;
                             const isHovered = hoveredId === b.id;
-                            const isLocked  = b.date < todayISO || (secsToRace !== null && secsToRace <= 0);
+                            const isLocked  = b.date < todayISO || hasRaceJumped(b.date, raceT);
                             const rowBg = isImminent ? 'rgba(251,191,36,0.10)' : 'transparent';
                             const typePill = typePillCfg(b.bet_type);
                             const isEwOrPlace = (b.bet_type || '').toLowerCase() === 'place' || (b.bet_type || '').toLowerCase().includes('each');
@@ -2164,7 +2165,10 @@ export default function MybetsPage() {
         const b = bets.find(x => x.id === mobileMenuId);
         if (!b) return null;
         const isEwOrPlace = (b.bet_type || '').toLowerCase() === 'place' || (b.bet_type || '').toLowerCase().includes('each');
-        const isEditable = !b.status || b.status === 'pending';
+        const isPendingStatus = !b.status || b.status === 'pending';
+        const raceT = raceTimeMap[b.id] || b.race_time;
+        const jumped = b.date < todayISO || hasRaceJumped(b.date, raceT);
+        const isEditable = isPendingStatus && !jumped;
         return (
           <BottomSheet isOpen={true} onClose={() => setMobileMenuId(null)} title={b.horse_name || 'Bet'}>
             <div style={{ padding: 16 }}>
@@ -2206,7 +2210,9 @@ export default function MybetsPage() {
               )}
               {!isEditable && (
                 <div style={{ fontSize: 10, color: '#92400e', background: '#fef3c7', borderRadius: 5, padding: '5px 8px', marginBottom: 12 }}>
-                  This bet has been settled ({(b.status || '').toUpperCase()}) and can no longer be edited.
+                  {!isPendingStatus
+                    ? `This bet has been settled (${(b.status || '').toUpperCase()}) and can no longer be edited.`
+                    : 'This race has already jumped and can no longer be edited.'}
                 </div>
               )}
               <div style={{ display: 'flex', gap: 8 }}>
