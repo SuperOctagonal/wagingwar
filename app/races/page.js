@@ -1114,36 +1114,58 @@ function BetModal({ horse, onClose }) {
         ))}
       </div>
 
-      {/* Stake + Odds */}
-      <div className="flex gap-2">
-        <div className="flex-1">
-          <label className="block text-[10px] font-semibold text-gray-500 mb-1">Stake ($)</label>
-          <input
-            type="number" min="0.01" step="0.01" placeholder="10.00"
-            value={stake} onChange={e => setStake(e.target.value)}
-            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-semibold focus:outline-none focus:border-brand"
-          />
-        </div>
-        <div className="flex-1">
-          <label className="block text-[10px] font-semibold text-gray-500 mb-1">
-            {betType === 'place' ? 'Place Odds ($)' : betType === 'each-way' ? 'Win Odds ($)' : 'Odds ($)'}
-          </label>
-          <input
-            type="number" min="1.01" step="0.01" placeholder="3.50"
-            value={odds} onChange={e => setOdds(e.target.value)}
-            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-semibold focus:outline-none focus:border-brand"
-          />
-        </div>
-      </div>
-
-      {betType === 'each-way' && (
-        <div className="flex-1">
-          <label className="block text-[10px] font-semibold text-gray-500 mb-1">Place Odds ($)</label>
-          <input
-            type="number" min="1.01" step="0.01" placeholder="1.80"
-            value={placeOdds} onChange={e => setPlaceOdds(e.target.value)}
-            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-semibold focus:outline-none focus:border-brand"
-          />
+      {betType === 'each-way' ? (
+        <>
+          {/* Stake (full width) */}
+          <div>
+            <label className="block text-[10px] font-semibold text-gray-500 mb-1">Stake ($)</label>
+            <input
+              type="number" min="0.01" step="0.01" placeholder="10.00"
+              value={stake} onChange={e => setStake(e.target.value)}
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-semibold focus:outline-none focus:border-brand"
+            />
+          </div>
+          {/* Win Odds + Place Odds, side by side (wraps to stacked if the container is too narrow) */}
+          <div className="flex gap-2 flex-wrap">
+            <div className="flex-1 min-w-[120px]">
+              <label className="block text-[10px] font-semibold text-gray-500 mb-1">Win Odds ($)</label>
+              <input
+                type="number" min="1.01" step="0.01" placeholder="3.50"
+                value={odds} onChange={e => setOdds(e.target.value)}
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-semibold focus:outline-none focus:border-brand"
+              />
+            </div>
+            <div className="flex-1 min-w-[120px]">
+              <label className="block text-[10px] font-semibold text-gray-500 mb-1">Place Odds ($)</label>
+              <input
+                type="number" min="1.01" step="0.01" placeholder="1.80"
+                value={placeOdds} onChange={e => setPlaceOdds(e.target.value)}
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-semibold focus:outline-none focus:border-brand"
+              />
+            </div>
+          </div>
+        </>
+      ) : (
+        /* Stake + Odds */
+        <div className="flex gap-2">
+          <div className="flex-1">
+            <label className="block text-[10px] font-semibold text-gray-500 mb-1">Stake ($)</label>
+            <input
+              type="number" min="0.01" step="0.01" placeholder="10.00"
+              value={stake} onChange={e => setStake(e.target.value)}
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-semibold focus:outline-none focus:border-brand"
+            />
+          </div>
+          <div className="flex-1">
+            <label className="block text-[10px] font-semibold text-gray-500 mb-1">
+              {betType === 'place' ? 'Place Odds ($)' : 'Odds ($)'}
+            </label>
+            <input
+              type="number" min="1.01" step="0.01" placeholder="3.50"
+              value={odds} onChange={e => setOdds(e.target.value)}
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-semibold focus:outline-none focus:border-brand"
+            />
+          </div>
         </div>
       )}
 
