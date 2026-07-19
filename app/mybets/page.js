@@ -1160,7 +1160,10 @@ export default function MybetsPage() {
 
   return (
     <>
-    <style>{`.ww-bets-table td, .ww-bets-table th { padding: ${tablePad} !important; font-size: ${tableFs}px !important; }`}</style>
+    <style>{`
+      .ww-bets-table td, .ww-bets-table th { padding: ${tablePad} !important; font-size: ${tableFs}px !important; }
+      .ww-edit-sheet { max-height: 85vh; max-height: 90dvh; overflow-y: auto; }
+    `}</style>
     <div className="mob-page" style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
       <ProfileRail>
         <div style={{ borderTop: '1px solid #e5e7eb', padding: '10px 12px' }}>
@@ -1372,7 +1375,7 @@ export default function MybetsPage() {
 
         {/* MOBILE: filter pills + mobile table */}
         {isMobile && (
-        <div style={{ display: 'flex', flexDirection: 'column' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, overflow: 'hidden' }}>
           <div style={{ flexShrink: 0, display: 'flex', gap: 4, padding: '6px 10px', background: '#0D1C13', borderBottom: '1px solid #1a3a25' }}>
             {['All','Win','Place','Loss','Upcoming','Resulted'].map(t => {
               const key = t.toLowerCase();
@@ -1388,8 +1391,8 @@ export default function MybetsPage() {
               );
             })}
           </div>
-          <div style={{ background: '#11241A' }}>
-            <div style={{ padding: '4px 10px', fontSize: 9, color: '#fff', borderBottom: '1px solid #1a3a25' }}>
+          <div style={{ background: '#11241A', flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+            <div style={{ flexShrink: 0, padding: '4px 10px', fontSize: 9, color: '#fff', borderBottom: '1px solid #1a3a25' }}>
               Horse name stays fixed · swipe right for more →
             </div>
             {loading ? (
@@ -1397,7 +1400,7 @@ export default function MybetsPage() {
             ) : sortedLedgerBets.length === 0 ? (
               <div style={{ padding: 20, textAlign: 'center', color: '#fff', fontSize: 11 }}>No bets for this period</div>
             ) : (
-              <div style={{ overflowX: 'auto' }}>
+              <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', overflowX: 'auto' }}>
                 <table className="ww-bets-table" style={{ borderCollapse: 'collapse', fontSize: 11 }}>
                   <thead>
                     <tr style={{ background: '#0D1C13' }}>
@@ -2162,7 +2165,7 @@ export default function MybetsPage() {
         const isEwOrPlace = (b.bet_type || '').toLowerCase() === 'place' || (b.bet_type || '').toLowerCase().includes('each');
         return (
           <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 60, display: 'flex', alignItems: 'flex-end' }} onClick={() => setMobileMenuId(null)}>
-            <div style={{ background: '#fff', borderRadius: '12px 12px 0 0', width: '100%', padding: 16, boxShadow: '0 -4px 24px rgba(0,0,0,0.18)', maxHeight: '85vh', overflowY: 'auto', boxSizing: 'border-box' }} onClick={e => e.stopPropagation()}>
+            <div className="ww-edit-sheet" style={{ background: '#fff', borderRadius: '12px 12px 0 0', width: '100%', padding: 16, boxShadow: '0 -4px 24px rgba(0,0,0,0.18)', boxSizing: 'border-box' }} onClick={e => e.stopPropagation()}>
               <div style={{ fontWeight: 700, fontSize: 14, color: '#111827', marginBottom: 4 }}>{b.horse_name || 'Bet'}</div>
               <div style={{ fontSize: 11, color: '#6b7280', marginBottom: 12 }}>{b.track || b.venue || ''}{(b.race_number || b.race_num) ? ` R${b.race_number || b.race_num}` : ''} · {b.date}</div>
               <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
