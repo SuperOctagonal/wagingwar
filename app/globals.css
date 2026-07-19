@@ -34,7 +34,9 @@ html, body { height: 100%; }
 }
 
 /* ── Mobile responsive ──────────────────────────────────────────────────────── */
-@media (max-width: 768px) {
+/* min(width,height) <= 768, matching hooks/useIsMobile.js — a landscape phone can
+   be 800-930px wide but only ~375-430px tall and still needs the mobile layout. */
+@media (max-width: 768px), (max-height: 768px) {
   body { overflow-x: hidden; }
 
   /* Clear the 56px bottom nav + 24px RG banner on all page main areas */
