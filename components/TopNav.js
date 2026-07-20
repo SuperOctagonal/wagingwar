@@ -5,6 +5,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useUser, useClerk } from '@clerk/nextjs';
 import { useState, useEffect, useRef } from 'react';
 import useIsPro from '@/hooks/useIsPro';
+import useIsMobile from '@/hooks/useIsMobile';
 import { isSiteAdmin } from '@/lib/admin';
 
 const SURL = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -38,6 +39,7 @@ export default function TopNav() {
   const { user, isLoaded } = useUser();
   const { signOut, openSignIn } = useClerk();
   const isPro = useIsPro();
+  const isMobile = useIsMobile();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [showRacesMenu, setShowRacesMenu] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -120,7 +122,7 @@ export default function TopNav() {
         </Link>
 
         {/* Desktop nav links */}
-        <div className="hidden md:flex h-full flex-1">
+        <div className={isMobile ? 'hidden' : 'flex h-full flex-1'}>
           {NAV_LINKS.map(link => {
             if (link.id === 'races') {
               const racesActive = currentPage === 'races' || currentPage === 'today';
@@ -211,12 +213,14 @@ export default function TopNav() {
           </button>
 
           {/* Mobile hamburger */}
-          <button
-            className="md:hidden flex items-center justify-center w-[36px] h-[36px] rounded text-white/80 hover:text-white"
-            onClick={() => setDrawerOpen(true)}
-          >
-            <i className="ti ti-menu-2" style={{ fontSize: 20 }} />
-          </button>
+          {isMobile && (
+            <button
+              className="flex items-center justify-center w-[36px] h-[36px] rounded text-white/80 hover:text-white"
+              onClick={() => setDrawerOpen(true)}
+            >
+              <i className="ti ti-menu-2" style={{ fontSize: 20 }} />
+            </button>
+          )}
 
           {/* Account button + dropdown */}
           <div className="relative" ref={dropdownRef}>
@@ -294,17 +298,17 @@ export default function TopNav() {
       </nav>
 
       {/* ── MOBILE NAV DRAWER ── */}
-      {drawerOpen && (
+      {drawerOpen && isMobile && (
         <>
           {/* Overlay */}
           <div
-            className="md:hidden fixed inset-0 z-[9997]"
+            className="fixed inset-0 z-[9997]"
             style={{ background: 'rgba(0,0,0,0.5)' }}
             onClick={() => setDrawerOpen(false)}
           />
           {/* Drawer */}
           <div
-            className="md:hidden fixed top-0 left-0 bottom-0 flex flex-col z-[9998]"
+            className="fixed top-0 left-0 bottom-0 flex flex-col z-[9998]"
             style={{ width: 280, background: '#1B4332', transform: 'translateX(0)', transition: 'transform 0.25s ease' }}
           >
             {/* Drawer header */}
@@ -378,7 +382,8 @@ export default function TopNav() {
       )}
 
       {/* ── MOBILE TAB BAR ── */}
-      <div className="md:hidden fixed bottom-0 left-0 right-0 bg-brand border-t border-white/10 z-[1000] h-14 flex overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
+      {isMobile && (
+      <div className="fixed bottom-0 left-0 right-0 bg-brand border-t border-white/10 z-[1000] h-14 flex overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
         {MOB_TABS.map(tab => (
           <button
             key={tab.id}
@@ -401,6 +406,7 @@ export default function TopNav() {
           </button>
         ))}
       </div>
+      )}
     </>
   );
 }
