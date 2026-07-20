@@ -202,8 +202,9 @@ export default function PostDetailPage() {
       if (result && result.length) {
         setReplies(rs => [...rs, { ...result[0], author: userProfile }]);
         const newCount = (post.reply_count || 0) + 1;
-        await sb(`posts?id=eq.${post.id}`, { method: 'PATCH', body: { reply_count: newCount }, prefer: 'return=minimal' });
-        setPost(p => ({ ...p, reply_count: newCount }));
+        const newActivityAt = new Date().toISOString();
+        await sb(`posts?id=eq.${post.id}`, { method: 'PATCH', body: { reply_count: newCount, last_activity_at: newActivityAt }, prefer: 'return=minimal' });
+        setPost(p => ({ ...p, reply_count: newCount, last_activity_at: newActivityAt }));
         setReplyText('');
         window.dispatchEvent(new Event('ww:profile:refresh'));
         awardPoints(userId, 'community_reply', replyText.trim().slice(0, 100)).catch(() => {});

@@ -89,7 +89,7 @@ async function sbCount(table) {
 
 async function loadPosts(section) {
   const filter = section && section !== 'all' ? `&section=eq.${section}` : '';
-  const posts = await sb(`posts?select=*${filter}&order=created_at.desc&limit=60`);
+  const posts = await sb(`posts?select=*${filter}&order=last_activity_at.desc&limit=60`);
   if (!posts || !posts.length) return [];
   const uids = [...new Set(posts.map(p => p.user_id).filter(Boolean))];
   let profileMap = {};
