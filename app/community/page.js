@@ -150,17 +150,11 @@ function CatBadge({ section }) {
 // ─── post table ──────────────────────────────────────────────────────────────
 
 function PostTable({ posts, section, loading, onNavigate, isMobile = false }) {
-  let rows;
-  if (section === 'all') {
-    const map = {};
-    posts.forEach(p => { if (!map[p.section]) map[p.section] = []; map[p.section].push(p); });
-    rows = SECTIONS.filter(s => s.id !== 'all' && map[s.id]).flatMap(s => [
-      { type: 'cat', key: `cat-${s.id}`, label: s.label },
-      ...map[s.id].map(p => ({ type: 'post', key: p.id, post: p })),
-    ]);
-  } else {
-    rows = posts.map(p => ({ type: 'post', key: p.id, post: p }));
-  }
+  // Flat list, always sorted purely by last_activity_at (posts arrive pre-sorted
+  // from loadPosts) — no section-header grouping, so the newest-activity post is
+  // always the first row regardless of which section it's in. Section context is
+  // preserved via the CatBadge pill on each row instead.
+  const rows = posts.map(p => ({ type: 'post', key: p.id, post: p }));
 
   return (
     <table style={{ width: '100%', borderCollapse: 'collapse', border: '1px solid #D1D5DB', fontSize: 11 }}>
@@ -181,15 +175,6 @@ function PostTable({ posts, section, loading, onNavigate, isMobile = false }) {
           <tr><td colSpan={isMobile ? 3 : 5} style={{ padding: 24, textAlign: 'center', color: '#9CA3AF' }}>No posts yet — be the first to post!</td></tr>
         )}
         {!loading && rows.map(row => {
-          if (row.type === 'cat') {
-            return (
-              <tr key={row.key}>
-                <td colSpan={isMobile ? 3 : 5} style={{ padding: '5px 12px', background: '#FAFAF8', borderTop: '1px solid #E5E7EB', borderBottom: '1px solid #E5E7EB' }}>
-                  <span style={{ fontSize: 9, fontWeight: 700, color: '#374151', textTransform: 'uppercase', letterSpacing: '.07em' }}>{row.label}</span>
-                </td>
-              </tr>
-            );
-          }
           const p = row.post;
           return (
             <tr key={row.key}
@@ -199,7 +184,10 @@ function PostTable({ posts, section, loading, onNavigate, isMobile = false }) {
               onMouseLeave={e => e.currentTarget.style.background = '#fff'}
             >
               <td style={{ padding: '9px 12px', borderRight: '1px solid #E5E7EB' }}>
-                <div style={{ fontSize: 12, fontWeight: 700, color: '#111827', marginBottom: 2 }}>{p.title}</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+                  {section === 'all' && <CatBadge section={p.section} />}
+                  <div style={{ fontSize: 12, fontWeight: 700, color: '#111827' }}>{p.title}</div>
+                </div>
                 <div style={{ fontSize: 10, color: '#6B7280' }}>Started by <span style={{ fontWeight: 600 }}>{p.author?.display_name || 'Anonymous'}</span></div>
               </td>
               <td style={{ padding: '9px 6px', textAlign: 'center', fontWeight: 700, color: '#374151', borderRight: '1px solid #E5E7EB' }}>{p.votes || 0}</td>
