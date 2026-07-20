@@ -966,6 +966,20 @@ function CommunityPageInner() {
     loadPosts(section).then(data => { setPosts(data || []); setLoading(false); });
   }, [section]);
 
+  // Re-fetch on focus (not just [section]) so the list doesn't show stale data
+  // when the Next.js Router Cache restores this page from a client-side
+  // navigation (e.g. returning from a post detail page) without remounting it.
+  useEffect(() => {
+    const onFocus = () => { loadPosts(section).then(data => setPosts(data || [])); };
+    const onVisibility = () => { if (document.visibilityState === 'visible') onFocus(); };
+    window.addEventListener('focus', onFocus);
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => {
+      window.removeEventListener('focus', onFocus);
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
+  }, [section]);
+
   useEffect(() => {
     if (!userId) return;
     (async () => {

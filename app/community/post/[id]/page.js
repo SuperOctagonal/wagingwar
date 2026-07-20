@@ -182,6 +182,7 @@ export default function PostDetailPage() {
     if (!post) return;
     await sb(`posts?id=eq.${post.id}`, { method: 'DELETE' });
     router.push('/community');
+    router.refresh();
   }, [post, router]);
 
   const handleDeleteReply = useCallback(async (replyId) => {
@@ -242,7 +243,7 @@ export default function PostDetailPage() {
     return (
       <main style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10, background: '#f1f5f9' }}>
         <span style={{ fontSize: 13, color: '#374151' }}>Post not found.</span>
-        <button onClick={() => router.push('/community')}
+        <button onClick={() => { router.push('/community'); router.refresh(); }}
           style={{ fontSize: 11, color: '#00471b', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}>
           ← Back to Community
         </button>
@@ -256,7 +257,7 @@ export default function PostDetailPage() {
 
         {/* Breadcrumb */}
         <div style={{ padding: '10px 16px', display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: '#6B7280', flexWrap: 'wrap' }}>
-          <button onClick={() => router.push('/community')}
+          <button onClick={() => { router.push('/community'); router.refresh(); }}
             style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#00471b', fontWeight: 700, fontSize: 11, padding: 0 }}>
             ← Community
           </button>
