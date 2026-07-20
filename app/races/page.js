@@ -13,6 +13,7 @@ import { awardPoints } from '@/lib/points';
 import { normaliseVenue, stripSponsorPrefix, SPONSOR_PREFIXES } from '@/lib/venues';
 import { isRacesAdmin } from '@/lib/admin';
 import { validateBetForm } from '@/lib/betValidation';
+import { estimatePlacePrice, paidPlacesForFieldSize } from '@/lib/placePrice';
 
 const SURL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SKEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -1009,7 +1010,11 @@ function BetModal({ horse, onClose }) {
         if (!s) return;
         if (s.defStake)     setStake(String(s.defStake));
         if (s.defBookmaker) setBookie(s.defBookmaker);
-        if (s.defBetType)   setBetType(s.defBetType.toLowerCase());
+        if (s.defBetType) {
+          const dbt = s.defBetType.toLowerCase();
+          setBetType(dbt);
+          if (dbt === 'place') setOdds('');
+        }
         if (s.stakingAlert) setStakingAlert(String(s.stakingAlert));
       })
       .catch(() => {});
@@ -1091,6 +1096,12 @@ function BetModal({ horse, onClose }) {
     }
   };
 
+  // Estimated place price from the entered win odds + race field size — placeholder only,
+  // never a real value the field is auto-filled with.
+  const placeOddsPlaceholder = (odds && +odds > 1 && horse._fieldSize)
+    ? estimatePlacePrice(+odds, paidPlacesForFieldSize(horse._fieldSize)).toFixed(2)
+    : '1.80';
+
   // Shared form body (used in both mobile sheet and desktop modal)
   const betBody = (
     <div className="p-4 space-y-3">
@@ -1105,7 +1116,14 @@ function BetModal({ horse, onClose }) {
       <div className="flex rounded-lg overflow-hidden border border-gray-200">
         {['win','each-way','place'].map(t => (
           <button key={t}
-            onClick={() => setBetType(t)}
+            onClick={() => {
+              setBetType(t);
+              if (t === 'place') {
+                setOdds('');
+              } else if (!odds) {
+                setOdds(horse.rawOdds ? horse.rawOdds.toFixed(2) : '');
+              }
+            }}
             className={['flex-1 py-1.5 text-[11px] font-semibold capitalize transition-colors',
               betType === t ? 'bg-brand text-white' : 'bg-white text-gray-500 hover:bg-gray-50',
             ].join(' ')}>
@@ -1138,7 +1156,7 @@ function BetModal({ horse, onClose }) {
             <div className="flex-1 min-w-[120px]">
               <label className="block text-[10px] font-semibold text-gray-500 mb-1">Place Odds ($)</label>
               <input
-                type="number" min="1.01" step="0.01" placeholder="1.80"
+                type="number" min="1.01" step="0.01" placeholder={placeOddsPlaceholder}
                 value={placeOdds} onChange={e => setPlaceOdds(e.target.value)}
                 className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-semibold focus:outline-none focus:border-brand"
               />
@@ -2392,8 +2410,8 @@ function RacesPageInner() {
     const rc = allRaces[selectedKey];
     const raceAt = rc ? parseRaceTime(rc.time, rc.date) : null;
     if (raceAt && raceAt.getTime() <= Date.now()) return;
-    setBetTarget({ ...runner, _rank: rank, _venue: rc?.venue, _raceNum: rc?.num, _raceName: rc?.name || null, _meetingDate: rc?.date || null, _trackCond: trackCond, _myOdds: runner.rawOdds, _raceTime: rc?.time || null });
-  }, [allRaces, selectedKey, trackCond, isPro]);
+    setBetTarget({ ...runner, _rank: rank, _venue: rc?.venue, _raceNum: rc?.num, _raceName: rc?.name || null, _meetingDate: rc?.date || null, _trackCond: trackCond, _myOdds: runner.rawOdds, _raceTime: rc?.time || null, _fieldSize: results.length || null });
+  }, [allRaces, selectedKey, trackCond, isPro, results]);
   const hideTimerRef = useRef(null);
 
   useEffect(() => {
@@ -2418,11 +2436,12 @@ function RacesPageInner() {
         _raceName: rc?.name || null,
         _meetingDate: rc?.date || null,
         _trackCond: trackCond,
-        _myOdds: data.rawOdds
+        _myOdds: data.rawOdds,
+        _fieldSize: results.length || null,
       });
     };
     return () => { delete window.__addToBlackbook; delete window.__logBet; };
-  }, [allRaces, selectedKey, trackCond, isPro, isHistoricalMode]);
+  }, [allRaces, selectedKey, trackCond, isPro, isHistoricalMode, results]);
 
   const loadCSV = useCallback((text, name, selectKey) => {
     try {

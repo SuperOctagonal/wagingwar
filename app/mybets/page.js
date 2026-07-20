@@ -13,6 +13,7 @@ import { parseCSV, buildRaces } from '@/lib/csvParser';
 import { normaliseVenue } from '@/lib/venues';
 import { validateBetForm } from '@/lib/betValidation';
 import { hasRaceJumped } from '@/lib/raceTime';
+import { estimatePlacePrice, paidPlacesForFieldSize } from '@/lib/placePrice';
 import {
   LineChart, Line, AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine,
@@ -451,6 +452,7 @@ export default function MybetsPage() {
     const mappedView  = viewMap[settings.mybetsView];
     if (mappedRange) setDateRange(mappedRange);
     if (mappedView)  setBetView(mappedView);
+    if (settings.defBetType) setQlBetType(settings.defBetType.toLowerCase());
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [settingsLoading]);
 
@@ -1144,6 +1146,11 @@ export default function MybetsPage() {
     qlRaceDate === qlAestDateISO && qlRaceMins <= qlAestMins;
   const qlBtnDisabled = qlSaving || raceHasPassed || !qlHorse.trim() || !!validateBetForm({ betType: qlBetType, stake: qlStake, odds: qlOdds, placeOdds: qlPlaceOdds });
 
+  // Estimated place price from the entered win odds + race field size — placeholder only.
+  const qlPlaceOddsPlaceholder = (qlOdds && +qlOdds > 1 && csvHorses.length > 0)
+    ? estimatePlacePrice(+qlOdds, paidPlacesForFieldSize(csvHorses.length)).toFixed(2)
+    : '1.80';
+
   const sbPnl = tabStats.pnl;
   const sbPnlPos = sbPnl !== null && sbPnl >= 0;
   const sbPnlColor = sbPnl === null ? '#9ca3af' : sbPnlPos ? '#0F6E56' : '#dc2626';
@@ -1183,14 +1190,23 @@ export default function MybetsPage() {
               : Array.from({ length: 12 }, (_, i) => i + 1).map(n => <option key={n} value={n}>R{n}</option>)}
           </select>
           {csvHorses.length > 0 ? (
-            <select value={qlHorse} onChange={e => { const h = csvHorses.find(x => x.name === e.target.value); setQlHorse(e.target.value); if (h?.odds) setQlOdds(h.odds.toFixed(2)); setQlTab(h?.tab ? String(h.tab) : ''); }} style={{ ...inp, marginBottom: 5 }}>
+            <select value={qlHorse} onChange={e => { const h = csvHorses.find(x => x.name === e.target.value); setQlHorse(e.target.value); if (h?.odds && qlBetType !== 'place') setQlOdds(h.odds.toFixed(2)); setQlTab(h?.tab ? String(h.tab) : ''); }} style={{ ...inp, marginBottom: 5 }}>
               <option value="">Horse…</option>
               {csvHorses.map(h => <option key={h.name} value={h.name}>{h.tab ? `${h.tab}. ` : ''}{h.name}{h.odds ? ` ($${h.odds.toFixed(1)})` : ''}</option>)}
             </select>
           ) : (
             <input value={qlHorse} onChange={e => setQlHorse(e.target.value)} placeholder="Horse *" style={{ ...inp, marginBottom: 5 }} />
           )}
-          <select value={qlBetType} onChange={e => setQlBetType(e.target.value)} style={{ ...inp, marginBottom: 5 }}>
+          <select value={qlBetType} onChange={e => {
+            const bt = e.target.value;
+            setQlBetType(bt);
+            if (bt === 'place') {
+              setQlOdds('');
+            } else if (!qlOdds) {
+              const h = csvHorses.find(x => x.name === qlHorse);
+              if (h?.odds) setQlOdds(h.odds.toFixed(2));
+            }
+          }} style={{ ...inp, marginBottom: 5 }}>
             <option value="win">Win</option>
             <option value="place">Place</option>
             <option value="each-way">E/W</option>
@@ -1202,7 +1218,7 @@ export default function MybetsPage() {
               </div>
               <div style={{ display: 'flex', gap: 5, marginBottom: 5 }}>
                 <input value={qlOdds} onChange={e => setQlOdds(e.target.value)} type="number" placeholder="$Win Odds" min="1.01" step="0.01" style={{ ...inp, flex: 1 }} />
-                <input value={qlPlaceOdds} onChange={e => setQlPlaceOdds(e.target.value)} type="number" placeholder="$Place Odds" min="1.01" step="0.01" style={{ ...inp, flex: 1 }} />
+                <input value={qlPlaceOdds} onChange={e => setQlPlaceOdds(e.target.value)} type="number" placeholder={qlPlaceOddsPlaceholder} min="1.01" step="0.01" style={{ ...inp, flex: 1 }} />
               </div>
             </>
           ) : (
@@ -1448,8 +1464,8 @@ export default function MybetsPage() {
                         const venue = b.track || b.venue || '—';
                         const cs = { border: '1px solid #1a3a25', padding: '5px 8px', whiteSpace: 'nowrap' };
                         const typePill = typePillCfg(b.bet_type);
-                        const resultColor = b.status === 'win' ? '#4ade80' : b.status === 'place' ? '#60a5fa' : '#f87171';
-                        const resultLabel = b.status === 'win' ? 'WIN' : b.status === 'place' ? 'PLACE' : pos ? String(pos) : '—';
+                        const resultColor = b.status === 'win' ? '#4ade80' : b.status === 'place' ? '#2563eb' : '#f87171';
+                        const resultLabel = b.status === 'win' ? 'WIN' : pos ? String(pos) : '—';
                         return (
                           <tr key={b.id}>
                             <td style={{ ...cs, position: 'sticky', left: 0, zIndex: 1, background: '#11241A' }}>
@@ -1575,8 +1591,8 @@ export default function MybetsPage() {
                             const rowBg = isImminent ? 'rgba(251,191,36,0.10)' : 'transparent';
                             const typePill = typePillCfg(b.bet_type);
                             const isEwOrPlace = (b.bet_type || '').toLowerCase() === 'place' || (b.bet_type || '').toLowerCase().includes('each');
-                            const resultColor = b.status === 'win' ? '#4ade80' : b.status === 'place' ? '#60a5fa' : '#f87171';
-                            const resultLabel = b.status === 'win' ? 'WIN' : b.status === 'place' ? 'PLACE' : pos ? String(pos) : '—';
+                            const resultColor = b.status === 'win' ? '#4ade80' : b.status === 'place' ? '#2563eb' : '#f87171';
+                            const resultLabel = b.status === 'win' ? 'WIN' : pos ? String(pos) : '—';
                             return (
                               <tr key={b.id}
                                 style={{ background: rowBg }}
@@ -1630,11 +1646,9 @@ export default function MybetsPage() {
                                       <button onClick={() => handleEditSave(b.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#4ade80', padding: 2, lineHeight: 1 }}><i className="ti ti-check" style={{ fontSize: 13 }} /></button>
                                       <button onClick={() => setEditingId(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#f87171', padding: 2, lineHeight: 1 }}><i className="ti ti-x" style={{ fontSize: 13 }} /></button>
                                     </span>
-                                  ) : isHovered ? (
+                                  ) : isHovered && !isLocked && isPending ? (
                                     <span style={{ display: 'inline-flex', gap: 3 }}>
-                                      {!isLocked && isPending && (
-                                        <button onClick={() => { setEditingId(b.id); setEditStake(String(b.stake || '')); setEditOdds(String(b.odds || '')); setEditPlaceOdds(String(b.place_odds || '')); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', padding: 2, lineHeight: 1 }}><i className="ti ti-pencil" style={{ fontSize: 12 }} /></button>
-                                      )}
+                                      <button onClick={() => { setEditingId(b.id); setEditStake(String(b.stake || '')); setEditOdds(String(b.odds || '')); setEditPlaceOdds(String(b.place_odds || '')); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', padding: 2, lineHeight: 1 }}><i className="ti ti-pencil" style={{ fontSize: 12 }} /></button>
                                       <button onClick={() => handleDeleteBet(b.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#f87171', padding: 2, lineHeight: 1 }}><i className="ti ti-trash" style={{ fontSize: 12 }} /></button>
                                     </span>
                                   ) : null}
@@ -2227,7 +2241,9 @@ export default function MybetsPage() {
                     setMobileMenuId(null);
                   }} style={{ flex: 1, padding: '10px 0', background: '#059669', color: '#fff', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Save</button>
                 )}
-                <button onClick={async () => { handleDeleteBet(mobileMenuId); setMobileMenuId(null); }} style={{ flex: 1, padding: '10px 0', background: '#dc2626', color: '#fff', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Delete</button>
+                {isEditable && (
+                  <button onClick={async () => { handleDeleteBet(mobileMenuId); setMobileMenuId(null); }} style={{ flex: 1, padding: '10px 0', background: '#dc2626', color: '#fff', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Delete</button>
+                )}
                 <button onClick={() => setMobileMenuId(null)} style={{ padding: '10px 16px', background: '#f3f4f6', color: '#374151', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>Cancel</button>
               </div>
             </div>
