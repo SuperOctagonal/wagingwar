@@ -2410,8 +2410,8 @@ function RacesPageInner() {
     const rc = allRaces[selectedKey];
     const raceAt = rc ? parseRaceTime(rc.time, rc.date) : null;
     if (raceAt && raceAt.getTime() <= Date.now()) return;
-    setBetTarget({ ...runner, _rank: rank, _venue: rc?.venue, _raceNum: rc?.num, _raceName: rc?.name || null, _meetingDate: rc?.date || null, _trackCond: trackCond, _myOdds: runner.rawOdds, _raceTime: rc?.time || null, _fieldSize: results.length || null });
-  }, [allRaces, selectedKey, trackCond, isPro, results]);
+    setBetTarget({ ...runner, _rank: rank, _venue: rc?.venue, _raceNum: rc?.num, _raceName: rc?.name || null, _meetingDate: rc?.date || null, _trackCond: trackCond, _myOdds: runner.rawOdds, _raceTime: rc?.time || null, _fieldSize: (rc?.horses ? rc.horses.filter(h => !h.scratched).length : 0) || null });
+  }, [allRaces, selectedKey, trackCond, isPro]);
   const hideTimerRef = useRef(null);
 
   useEffect(() => {
@@ -2437,11 +2437,11 @@ function RacesPageInner() {
         _meetingDate: rc?.date || null,
         _trackCond: trackCond,
         _myOdds: data.rawOdds,
-        _fieldSize: results.length || null,
+        _fieldSize: (rc?.horses ? rc.horses.filter(h => !h.scratched).length : 0) || null,
       });
     };
     return () => { delete window.__addToBlackbook; delete window.__logBet; };
-  }, [allRaces, selectedKey, trackCond, isPro, isHistoricalMode, results]);
+  }, [allRaces, selectedKey, trackCond, isPro, isHistoricalMode]);
 
   const loadCSV = useCallback((text, name, selectKey) => {
     try {
