@@ -203,8 +203,12 @@ export default function PostDetailPage() {
         setReplies(rs => [...rs, { ...result[0], author: userProfile }]);
         const newCount = (post.reply_count || 0) + 1;
         const newActivityAt = new Date().toISOString();
-        await sb(`posts?id=eq.${post.id}`, { method: 'PATCH', body: { reply_count: newCount, last_activity_at: newActivityAt }, prefer: 'return=minimal' });
-        setPost(p => ({ ...p, reply_count: newCount, last_activity_at: newActivityAt }));
+        const patched = await sb(`posts?id=eq.${post.id}`, { method: 'PATCH', body: { reply_count: newCount, last_activity_at: newActivityAt }, prefer: 'return=representation' });
+        if (patched && patched.length) {
+          setPost(p => ({ ...p, ...patched[0] }));
+        } else {
+          console.error('[handleAddReply] posts PATCH failed or returned no row — reply_count/last_activity_at not updated for post', post.id);
+        }
         setReplyText('');
         window.dispatchEvent(new Event('ww:profile:refresh'));
         awardPoints(userId, 'community_reply', replyText.trim().slice(0, 100)).catch(() => {});

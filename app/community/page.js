@@ -207,7 +207,7 @@ function PostTable({ posts, section, loading, onNavigate, isMobile = false }) {
               {!isMobile && <td style={{ padding: '9px 6px', textAlign: 'center', color: '#9CA3AF', borderRight: '1px solid #E5E7EB' }}>—</td>}
               {!isMobile && (
                 <td style={{ padding: '9px 12px', textAlign: 'right' }}>
-                  <div style={{ fontSize: 11, color: '#374151', fontWeight: 600 }}>{timeAgo(p.created_at)}</div>
+                  <div style={{ fontSize: 11, color: '#374151', fontWeight: 600 }}>{timeAgo(p.last_activity_at || p.created_at)}</div>
                   <div style={{ fontSize: 10, color: '#6B7280' }}>by {p.author?.display_name || 'Anonymous'}</div>
                 </td>
               )}
