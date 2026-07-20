@@ -599,7 +599,7 @@ function RaceCountdown({ rc }) {
 
 // ─── race header ──────────────────────────────────────────────────────────────
 
-function RaceHeader({ rc, trackCond, setTrackCond, weights, setWeights, runnerCount, onUpgrade, isPro }) {
+function RaceHeader({ rc, trackCond, setTrackCond, weights, setWeights, runnerCount, onUpgrade, isPro, isMobile }) {
   const [tcOpen, setTcOpen] = useState(false);
   return (
     <div className="px-2.5 md:px-4 py-1.5 md:py-2.5 bg-white flex flex-wrap items-center justify-between gap-3 flex-shrink-0" style={{ borderBottom: '4px solid #00471B' }}>
@@ -619,37 +619,40 @@ function RaceHeader({ rc, trackCond, setTrackCond, weights, setWeights, runnerCo
       </div>
       <div className="flex items-center gap-2 flex-wrap relative">
         {/* Track condition — desktop inline, mobile dropdown */}
-        <div className="hidden md:flex items-center gap-0.5 bg-gray-50 rounded-lg p-0.5 border border-gray-100">
-          {TC_OPTIONS.map(tc => (
-            <button key={tc.key} onClick={() => { if (!isPro) { onUpgrade(); } else { setTrackCond(tc.key); } }}
-              className={['text-[9px] font-bold px-2 py-1 rounded-md transition-colors',
-                trackCond === tc.key ? `${tc.bg} ${tc.text}` : 'text-gray-400 hover:text-gray-600',
-              ].join(' ')}>
-              {tc.label}
+        {!isMobile ? (
+          <div className="flex items-center gap-0.5 bg-gray-50 rounded-lg p-0.5 border border-gray-100">
+            {TC_OPTIONS.map(tc => (
+              <button key={tc.key} onClick={() => { if (!isPro) { onUpgrade(); } else { setTrackCond(tc.key); } }}
+                className={['text-[9px] font-bold px-2 py-1 rounded-md transition-colors',
+                  trackCond === tc.key ? `${tc.bg} ${tc.text}` : 'text-gray-400 hover:text-gray-600',
+                ].join(' ')}>
+                {tc.label}
+              </button>
+            ))}
+          </div>
+        ) : (
+          <div className="relative">
+            <button
+              onClick={() => setTcOpen(o => !o)}
+              style={{ fontSize: 10, fontWeight: 700, padding: '5px 10px', borderRadius: 6, border: '1px solid #e5e7eb', background: '#fff', color: '#6b7280', cursor: 'pointer', whiteSpace: 'nowrap' }}
+            >
+              {TC_OPTIONS.find(t => t.key === trackCond)?.label || 'Good'} ▾
             </button>
-          ))}
-        </div>
-        <div className="md:hidden relative">
-          <button
-            onClick={() => setTcOpen(o => !o)}
-            style={{ fontSize: 10, fontWeight: 700, padding: '5px 10px', borderRadius: 6, border: '1px solid #e5e7eb', background: '#fff', color: '#6b7280', cursor: 'pointer', whiteSpace: 'nowrap' }}
-          >
-            {TC_OPTIONS.find(t => t.key === trackCond)?.label || 'Good'} ▾
-          </button>
-          {tcOpen && (
-            <div style={{ position: 'absolute', top: '100%', right: 0, zIndex: 20, marginTop: 4, background: '#fff', border: '1px solid #e5e7eb', borderRadius: 6, overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}>
-              {TC_OPTIONS.map(tc => (
-                <button
-                  key={tc.key}
-                  onClick={() => { if (!isPro) { onUpgrade(); setTcOpen(false); } else { setTrackCond(tc.key); setTcOpen(false); } }}
-                  style={{ display: 'block', width: '100%', textAlign: 'left', padding: '8px 12px', fontSize: 10, fontWeight: 600, color: trackCond === tc.key ? '#00471b' : '#6b7280', background: trackCond === tc.key ? '#f0fdf4' : '#fff', border: 'none', cursor: 'pointer', borderBottom: tc.key !== TC_OPTIONS[TC_OPTIONS.length-1].key ? '1px solid #f3f4f6' : 'none' }}
-                >
-                  {tc.label}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
+            {tcOpen && (
+              <div style={{ position: 'absolute', top: '100%', right: 0, zIndex: 20, marginTop: 4, background: '#fff', border: '1px solid #e5e7eb', borderRadius: 6, overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}>
+                {TC_OPTIONS.map(tc => (
+                  <button
+                    key={tc.key}
+                    onClick={() => { if (!isPro) { onUpgrade(); setTcOpen(false); } else { setTrackCond(tc.key); setTcOpen(false); } }}
+                    style={{ display: 'block', width: '100%', textAlign: 'left', padding: '8px 12px', fontSize: 10, fontWeight: 600, color: trackCond === tc.key ? '#00471b' : '#6b7280', background: trackCond === tc.key ? '#f0fdf4' : '#fff', border: 'none', cursor: 'pointer', borderBottom: tc.key !== TC_OPTIONS[TC_OPTIONS.length-1].key ? '1px solid #f3f4f6' : 'none' }}
+                  >
+                    {tc.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
         {/* Weights */}
         <WeightsPanel weights={weights} setWeights={setWeights} onUpgrade={onUpgrade} />
       </div>
@@ -1320,7 +1323,7 @@ function MobileRacePicker({ allVenues, allRaces, selectedRaceKey, onSelect }) {
   const nextTime  = currentRc?.time || '';
 
   return (
-    <div className="md:hidden" style={{ background: '#fff', flexShrink: 0, position: 'relative', borderBottom: '1px solid #e5e7eb' }}>
+    <div style={{ background: '#fff', flexShrink: 0, position: 'relative', borderBottom: '1px solid #e5e7eb' }}>
       {/* Track switcher header */}
       <div style={{ fontSize: 8, fontWeight: 700, color: '#111827', textTransform: 'uppercase', letterSpacing: '0.3px', padding: '4px 12px 0' }}>Select Meeting</div>
       <div style={{ display: 'flex', alignItems: 'center', overflow: 'hidden' }}>
@@ -1661,7 +1664,7 @@ function RunnerRow({ runner, rank, rc, trackCond, onLogBet, onShowPopup, onHideP
   );
 }
 
-function FieldView({ results, scratched, rc, trackCond, onLogBet, onShowPopup, onHidePopup, isResulted, betBlocked = false, isPro, onUpgrade, scratchingsSet = new Set(), colVis = DEFAULT_COL_VIS, todayBets = {} }) {
+function FieldView({ results, scratched, rc, trackCond, onLogBet, onShowPopup, onHidePopup, isResulted, betBlocked = false, isPro, onUpgrade, scratchingsSet = new Set(), colVis = DEFAULT_COL_VIS, todayBets = {}, isMobile }) {
   const tcLabel = { good:'Good', soft:'Soft', heavy:'Heavy', synthetic:'Synth' }[trackCond] || 'Good';
   const scrKey = h => `${normaliseVenue(rc.venue)}||${rc.num}||${stripCountry(h.name).toUpperCase()}`;
   const activeResults = results.filter(h => !scratchingsSet.has(scrKey(h)));
@@ -1675,7 +1678,7 @@ function FieldView({ results, scratched, rc, trackCond, onLogBet, onShowPopup, o
   return (
     <>
       {/* Desktop table */}
-      <div className="hidden md:block flex-1 overflow-y-auto overflow-x-hidden">
+      <div className={!isMobile ? 'flex-1 overflow-y-auto overflow-x-hidden' : 'hidden'}>
         <table className="ww-race-table w-full border-collapse" style={{ tableLayout: 'auto' }}>
           <thead>
             <tr className="border-b border-gray-200">
@@ -1716,7 +1719,7 @@ function FieldView({ results, scratched, rc, trackCond, onLogBet, onShowPopup, o
       </div>
 
       {/* Mobile section */}
-      <div className="md:hidden flex-1 flex flex-col overflow-hidden">
+      <div className={isMobile ? 'flex-1 flex flex-col overflow-hidden' : 'hidden'}>
         {/* Toggle pills: Top picks | Form detail | Score breakdown | Pace map */}
         <div style={{ flexShrink: 0, display: 'flex', gap: 6, overflowX: 'auto', padding: '6px 10px', background: '#fff', borderBottom: '1px solid #e5e7eb' }}>
           {[['picks','Top picks'],['form','Form detail'],['scores','Score breakdown'],['pace','Pace map']].map(([key, label]) => (
@@ -1761,7 +1764,7 @@ function FieldView({ results, scratched, rc, trackCond, onLogBet, onShowPopup, o
         </div>
 
         {/* Scrollable runner cards */}
-        <div className="mob-page" style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden' }}>
+        <div className="mob-page" style={{ flex: 1, minHeight: 0, overflowY: 'auto', overflowX: 'hidden' }}>
           {mobDisplayResults.map(r => (
             <MobileRunnerCard key={r.tab || r.name} runner={r} rank={mobRankMap.get(r.tab || r.name)} rc={rc} trackCond={trackCond}
               onLogBet={onLogBet} isResulted={isResulted} betBlocked={betBlocked} isPro={isPro} onUpgrade={onUpgrade} layers={layers} />
@@ -2308,6 +2311,7 @@ function RacesPageInner() {
   const router       = useRouter();
   const { user }     = useUser();
   const isPro        = useIsPro();
+  const isMobile     = useIsMobile();
   const { settings: userSettings, loading: settingsLoading } = useUserSettings();
   const preferredViewRef = useRef('field');
   console.log('[Tier] isPro:', isPro, 'plan:', user?.publicMetadata?.plan);
@@ -2749,8 +2753,8 @@ function RacesPageInner() {
     <style>{`.ww-race-table td { padding: ${tablePad} !important; font-size: ${tableFs}px !important; }`}</style>
     <div className="flex flex-1 overflow-hidden">
       {/* Left rail — desktop only */}
-      {hasData && (
-        <div className="hidden md:flex">
+      {hasData && !isMobile && (
+        <div className="flex">
           <LeftRail allVenues={allVenues} allRaces={allRaces} selectedRaceKey={selectedKey} onSelect={handleSelectRace} trackConds={trackConds} raceResults={raceResults} abandonedVenues={venueAbandoned} minRunners={userSettings.racesMinRunners} />
         </div>
       )}
@@ -2770,13 +2774,18 @@ function RacesPageInner() {
               {isPro !== true && <i className="ti ti-lock" style={{ fontSize: 7, color: '#9ca3af', marginLeft: 2 }} />}
             </button>
             {isPro === true && (
+              // Desktop: pointer-events none, button is the sole click target and opens the
+              // picker via showPicker(). Mobile: showPicker() support is unreliable across
+              // mobile browsers and the button has no fallback once the input can't be tapped,
+              // so let the (still invisible) input receive the tap directly — native mobile
+              // date inputs open their own picker sheet on tap/focus with no JS needed.
               <input
                 ref={dateInputRef}
                 type="date"
                 value={selectedDate}
                 max={todayISO}
                 onChange={e => { if (e.target.value) setSelectedDate(e.target.value); }}
-                style={{ position: 'absolute', inset: 0, opacity: 0, width: '100%', height: '100%', cursor: 'default', pointerEvents: 'none' }}
+                style={{ position: 'absolute', inset: 0, opacity: 0, width: '100%', height: '100%', cursor: 'default', pointerEvents: isMobile ? 'auto' : 'none' }}
               />
             )}
           </div>
@@ -2823,7 +2832,7 @@ function RacesPageInner() {
         ) : (
           <>
             {/* Mobile race picker */}
-            <MobileRacePicker allVenues={allVenues} allRaces={allRaces} selectedRaceKey={selectedKey} onSelect={handleSelectRace} />
+            {isMobile && <MobileRacePicker allVenues={allVenues} allRaces={allRaces} selectedRaceKey={selectedKey} onSelect={handleSelectRace} />}
 
             {/* CSV toolbar — admin only, hidden in historical mode */}
             {isRacesAdmin(user?.id) && !isHistoricalMode && (
@@ -2856,7 +2865,7 @@ function RacesPageInner() {
                 )}
                 <RaceHeader rc={currentRace} trackCond={trackCond} setTrackCond={setTrackCond}
                   weights={weights} setWeights={setWeights} runnerCount={results.length}
-                  onUpgrade={() => setUpgradeOpen(true)} isPro={isPro} />
+                  onUpgrade={() => setUpgradeOpen(true)} isPro={isPro} isMobile={isMobile} />
                 {(() => {
                   const venueRaces = (allVenues[currentRace.venue] || [])
                     .slice()
@@ -2888,7 +2897,7 @@ function RacesPageInner() {
                     </div>
                   );
                 })()}
-                <div className="hidden md:block"><ViewTabBar view={view} setView={setView} runnerCount={results.length} isHistoricalMode={isHistoricalMode} /></div>
+                {!isMobile && <ViewTabBar view={view} setView={setView} runnerCount={results.length} isHistoricalMode={isHistoricalMode} />}
                 {currentRaceResult && (
                   <div style={{ background:'#f0fdf4', borderBottom:'1px solid #86efac', padding:'5px 12px', display:'flex', alignItems:'center', gap:8 }}>
                     <i className="ti ti-flag-check" style={{ color:'#16a34a', fontSize:13 }} />
@@ -2908,7 +2917,7 @@ function RacesPageInner() {
                         onShowPopup={showHorsePopup} onHidePopup={hideHorsePopup}
                         isResulted={!!currentRaceResult} betBlocked={betBlocked}
                         isPro={isPro} onUpgrade={() => setUpgradeOpen(true)}
-                        scratchingsSet={scratchingsSet} colVis={colVis} todayBets={todayBets} />
+                        scratchingsSet={scratchingsSet} colVis={colVis} todayBets={todayBets} isMobile={isMobile} />
                     </div>
                   )}
                   {view === 'form' && (
@@ -2927,8 +2936,8 @@ function RacesPageInner() {
       </main>
 
       {/* Right rail — desktop only, hidden in historical mode */}
-      {hasData && !isHistoricalMode && (
-        <div className="hidden md:flex">
+      {hasData && !isHistoricalMode && !isMobile && (
+        <div className="flex">
           <RightRail allRaces={allRaces} allVenues={allVenues} selectedRaceKey={selectedKey} onSelect={handleSelectRace} isPro={isPro} userId={user?.id} todayBets={todayBets} />
         </div>
       )}

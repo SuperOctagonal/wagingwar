@@ -451,7 +451,7 @@ export default function InsightsPage() {
       ['R5+', -14.2, 12],
     ];
     return (
-      <div style={{ flex: 1, overflowY: 'auto', background: '#f3f4f6', position: 'relative' }}>
+      <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', background: '#f3f4f6', position: 'relative' }}>
         <div style={{ opacity: 0.18, filter: 'blur(2px)', pointerEvents: 'none', userSelect: 'none' }}>
           {/* Header */}
           <div style={{ background: G, padding: '14px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
@@ -563,7 +563,7 @@ export default function InsightsPage() {
 
   // ─── render ──────────────────────────────────────────────────────────────────
   return (
-    <div style={{ flex: 1, overflowY: 'auto', background: '#f3f4f6' }}>
+    <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', background: '#f3f4f6' }}>
 
       {/* Header */}
       <div style={{ background: G, padding: '14px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
