@@ -3,15 +3,19 @@ import { useState, useEffect } from 'react';
 export default function useIsMobile() {
   const [isMobile, setIsMobile] = useState(false);
   useEffect(() => {
-    // min(width, height) rather than width alone — a landscape phone can be
-    // 800-930px wide but only ~375-430px tall, and still needs the touch-
-    // optimized mobile layout, not the desktop branch built for a real monitor.
-    // Deferred by one frame: on iOS Safari, resize/orientationchange can fire
-    // before innerWidth/innerHeight finish updating to the new orientation,
-    // so reading them synchronously can capture stale pre-rotation values.
+    // Narrow width = mobile always (portrait phones). Short height only counts
+    // as mobile on a genuine touch device (coarse pointer) — a landscape phone
+    // can be 800-930px wide but only ~375-430px tall and still needs the mobile
+    // layout, but a maximized laptop browser (short viewport, fine pointer)
+    // must stay on desktop. Deferred by one frame: on iOS Safari, resize/
+    // orientationchange can fire before innerWidth/innerHeight finish updating
+    // to the new orientation, so reading them synchronously can capture stale
+    // pre-rotation values.
     const check = () => {
       requestAnimationFrame(() => {
-        setIsMobile(Math.min(window.innerWidth, window.innerHeight) <= 768);
+        const coarse = window.matchMedia('(pointer: coarse)').matches;
+        const w = window.innerWidth, h = window.innerHeight;
+        setIsMobile(w <= 768 || (coarse && Math.min(w, h) <= 768));
       });
     };
     check();
