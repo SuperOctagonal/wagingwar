@@ -1696,7 +1696,7 @@ function FieldView({ results, scratched, rc, trackCond, onLogBet, onShowPopup, o
   return (
     <>
       {/* Desktop table */}
-      <div id="races-middle-scroll" className={!isMobile ? 'mob-page flex-1 overflow-y-auto overflow-x-hidden' : 'hidden'}>
+      <div id="races-middle-scroll" className={!isMobile ? 'mob-page overflow-x-hidden' : 'hidden'} style={!isMobile ? { flex: 1, minHeight: 0, overflowY: 'auto' } : undefined}>
         <table className="ww-race-table w-full border-collapse" style={{ tableLayout: 'auto' }}>
           <thead>
             <tr className="border-b border-gray-200">
