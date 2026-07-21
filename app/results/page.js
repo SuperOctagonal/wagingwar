@@ -119,20 +119,9 @@ function getSysRanks(allRaces, allVenues, venue, raceNum, weights, dbScratchings
   return null;
 }
 
-// Track condition string (e.g. "Soft5", "Heavy8", "Synthetic") -> the scoring
-// lib's expected param. scoring.js only special-cases 'soft'/'heavy'; every
-// other condition (good, synthetic, unknown) scores against the 'good' bucket
-// — that's existing behaviour in lib/scoring.js, not something changed here.
-function tcToScoringParam(tc) {
-  const t = (tc || 'good').toLowerCase();
-  if (t.startsWith('soft'))  return 'soft';
-  if (t.startsWith('heavy')) return 'heavy';
-  return 'good';
-}
-
 // Display-only bucketing for the daily summary's track-condition breakdown —
-// distinct from tcToScoringParam, since the summary wants a 4-way split
-// (Good/Soft/Heavy/Synthetic) even though scoring itself only distinguishes 3.
+// scoring itself is always 'good' now (see getRankedScores), this is just
+// for the 4-way Good/Soft/Heavy/Synthetic display split.
 function tcBucket(tc) {
   const t = (tc || '').toLowerCase();
   if (t.startsWith('good'))  return 'Good';
@@ -142,18 +131,24 @@ function tcBucket(tc) {
   return null;
 }
 
-// Same rank computation as getSysRanks, but scored with the race's own actual
-// track condition instead of a hardcoded 'good', and returns the full sorted
-// {name,total} list (not just rank-1) plus the race's dist/cls fields —
-// used by the daily model summary, which spans every venue/condition/race for
-// the day and needs the rank-1/rank-2 score gap for the confidence-band card.
+// Same rank computation as getSysRanks (and — deliberately — the SAME hardcoded
+// 'good' track condition, for consistency: this used to score with the race's
+// actual condition, but that meant it could disagree with every other rank-1
+// reference on this page (getSysRanks, used by the race detail view, ModelPerfPanel,
+// TopPicksPanel, biggestUpsets) whenever a race's real condition wasn't Good —
+// e.g. Regal Vanguard surfaced as "Best Result of the Day" while the race detail
+// page correctly showed Ngongotaha as rank 1, because Moe R3 wasn't a Good track
+// and only this function was scoring with the real condition. trackCond is still
+// accepted (used elsewhere for display/banding) but no longer affects scoring.
+// Returns the full sorted {name,total} list (not just rank-1) plus dist/cls —
+// used by the daily model summary, which needs the rank-1/rank-2 score gap too.
 function getRankedScores(allRaces, allVenues, venue, raceNum, weights, trackCond, dbScratchings = []) {
   const normVenue = normaliseVenue(venue);
   const dbScrNames = new Set(
     dbScratchings.filter(r => normaliseVenue(r.venue) === normVenue && String(r.race_num) === String(raceNum))
       .map(r => normName(r.horse_name || ''))
   );
-  const tcParam = tcToScoringParam(trackCond);
+  const tcParam = 'good';
   for (const keys of Object.values(allVenues)) {
     for (const k of keys) {
       const rc = allRaces[k];
