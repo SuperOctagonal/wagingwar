@@ -523,6 +523,7 @@ export default function MybetsPage() {
   // Reset sort to sensible default when switching date ranges
   useEffect(() => {
     if (dateRange === 'today') { setSortCol('time'); setSortDir('asc'); }
+    else if (dateRange === 'upcoming') { setSortCol('date'); setSortDir('asc'); }
     else { setSortCol('date'); setSortDir('desc'); }
   }, [dateRange]);
 
@@ -810,6 +811,7 @@ export default function MybetsPage() {
     switch (dateRange) {
       case 'today':      return bets.filter(b => b.date === todayISO);
       case 'yesterday':  return bets.filter(b => b.date === yesterdayISO);
+      case 'upcoming':   return bets.filter(b => b.date > todayISO);
       case 'this_week':  return bets.filter(b => b.date >= weekStartISO);
       case 'this_month': return bets.filter(b => b.date >= monthStartISO);
       case 'custom':     return bets.filter(b => (!customStart || b.date >= customStart) && (!customEnd || b.date <= customEnd));
@@ -1154,7 +1156,7 @@ export default function MybetsPage() {
   const sbPnl = tabStats.pnl;
   const sbPnlPos = sbPnl !== null && sbPnl >= 0;
   const sbPnlColor = sbPnl === null ? '#9ca3af' : sbPnlPos ? '#0F6E56' : '#dc2626';
-  const _rl = { today: "Today's P&L", yesterday: "Yesterday's P&L", this_week: "This Week's P&L", this_month: "This Month's P&L", all_time: "All-Time P&L", custom: "Period P&L" };
+  const _rl = { today: "Today's P&L", yesterday: "Yesterday's P&L", upcoming: "Upcoming (pending)", this_week: "This Week's P&L", this_month: "This Month's P&L", all_time: "All-Time P&L", custom: "Period P&L" };
   const sbPeriodLabel = activeTab !== 'all'
     ? `${activeTab.charAt(0).toUpperCase() + activeTab.slice(1)} P&L`
     : _rl[dateRange] || "P&L";
@@ -1350,7 +1352,7 @@ export default function MybetsPage() {
 
         {/* DATE RANGE SWITCHER */}
         <div className="mb-date-switch" style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 4, padding: '5px 10px', background: '#fff', border: '1px solid #e5e7eb', borderRadius: 6, margin: '6px 8px 0', ...(isMobile ? { overflowX: 'auto', flexWrap: 'nowrap', scrollbarWidth: 'none' } : { flexWrap: 'wrap' }) }}>
-          {[['today','Today'],['yesterday','Yesterday'],['this_week','This Week'],['this_month','This Month'],['all_time','All Time'],['custom','Custom']].map(([v,l]) => (
+          {[['today','Today'],['yesterday','Yesterday'],['upcoming','Upcoming'],['this_week','This Week'],['this_month','This Month'],['all_time','All Time'],['custom','Custom']].map(([v,l]) => (
             <button key={v} onClick={() => setDateRange(v)}
               style={{ padding: '3px 10px', borderRadius: 4, fontSize: 10, fontWeight: 600, cursor: 'pointer', border: 'none', flexShrink: 0,
                 background: dateRange === v ? '#00471b' : '#f3f4f6', color: dateRange === v ? '#fff' : '#374151' }}>
