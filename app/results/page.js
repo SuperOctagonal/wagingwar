@@ -79,10 +79,12 @@ function tcBucket(tc) {
   return null;
 }
 
-// Same rank-1 computation as getSysRanks, but scored with the race's own
-// actual track condition instead of a hardcoded 'good' — used by the daily
-// model summary, which spans every venue/condition for the day.
-function getRank1Name(allRaces, allVenues, venue, raceNum, weights, trackCond, dbScratchings = []) {
+// Same rank computation as getSysRanks, but scored with the race's own actual
+// track condition instead of a hardcoded 'good', and returns the full sorted
+// {name,total} list (not just rank-1) plus the race's dist/cls fields —
+// used by the daily model summary, which spans every venue/condition/race for
+// the day and needs the rank-1/rank-2 score gap for the confidence-band card.
+function getRankedScores(allRaces, allVenues, venue, raceNum, weights, trackCond, dbScratchings = []) {
   const normVenue = normaliseVenue(venue);
   const dbScrNames = new Set(
     dbScratchings.filter(r => normaliseVenue(r.venue) === normVenue && String(r.race_num) === String(raceNum))
@@ -103,7 +105,7 @@ function getRank1Name(allRaces, allVenues, venue, raceNum, weights, trackCond, d
         const total = GRP_KEYS.reduce((a, gk) => a + grpScores[gk].total, 0);
         return { name: h.name, total };
       }).sort((a, b) => b.total - a.total);
-      return scored[0]?.name || null;
+      return { scored, dist: rc.dist || '', cls: rc.cls || '' };
     }
   }
   return null;
@@ -646,9 +648,25 @@ function SummaryCard({ icon, label, children }) {
   );
 }
 
+function BandRows({ rows }) {
+  if (!rows.length) return <div style={{ fontSize: 10, color: '#9ca3af' }}>—</div>;
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+      {rows.map(r => (
+        <div key={r.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 10 }}>
+          <span style={{ color: '#111827', fontWeight: 600 }}>{r.label} <span style={{ color: '#9ca3af', fontWeight: 400 }}>({r.total})</span></span>
+          <span style={{ color: '#374151', fontFamily: 'JetBrains Mono, monospace' }}>
+            W {Math.round(r.winPct * 100)}% · P {Math.round(r.placePct * 100)}%
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function DailyModelSummary({ data }) {
   if (!data) return null;
-  const { total, wins, places, winPct, placePct, best, condRows, maxWin, maxLoss, venueRows } = data;
+  const { total, wins, places, winPct, placePct, best, condRows, maxWin, maxLoss, venueRows, oddsRows, distRows, confRows } = data;
 
   return (
     <div style={{ marginBottom: 18 }}>
@@ -724,18 +742,53 @@ function DailyModelSummary({ data }) {
           {venueRows.length === 0 ? (
             <div style={{ fontSize: 10, color: '#9ca3af' }}>—</div>
           ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 3, maxHeight: 90, overflowY: 'auto' }}>
-              {venueRows.map(v => (
-                <div key={v.venue} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 10 }}>
-                  <span style={{ color: '#111827', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginRight: 6 }}>{v.venue}</span>
-                  <span style={{ color: '#374151', fontFamily: 'JetBrains Mono, monospace', flexShrink: 0 }}>
-                    W {Math.round(v.winPct * 100)}% · P {Math.round(v.placePct * 100)}%
-                  </span>
-                </div>
-              ))}
+            <div style={{ maxHeight: 130, overflowY: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 9 }}>
+                <thead>
+                  <tr style={{ borderBottom: '1px solid #f3f4f6' }}>
+                    <th style={{ textAlign: 'left',  padding: '2px 4px 2px 0', color: '#9ca3af', fontWeight: 600 }}>Venue</th>
+                    <th style={{ textAlign: 'right', padding: '2px 4px', color: '#9ca3af', fontWeight: 600 }}>Starts</th>
+                    <th style={{ textAlign: 'right', padding: '2px 4px', color: '#9ca3af', fontWeight: 600 }}>1st</th>
+                    <th style={{ textAlign: 'right', padding: '2px 4px', color: '#9ca3af', fontWeight: 600 }}>2nd</th>
+                    <th style={{ textAlign: 'right', padding: '2px 4px', color: '#9ca3af', fontWeight: 600 }}>3rd</th>
+                    <th style={{ textAlign: 'right', padding: '2px 0 2px 4px', color: '#9ca3af', fontWeight: 600 }}>W% / P%</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {venueRows.map(v => (
+                    <tr key={v.venue} style={{ borderBottom: '0.5px solid #f9fafb' }}>
+                      <td style={{ padding: '2px 4px 2px 0', color: '#111827', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 80 }}>{v.venue}</td>
+                      <td style={{ padding: '2px 4px', textAlign: 'right', color: '#374151', fontFamily: 'JetBrains Mono, monospace' }}>{v.starts}</td>
+                      <td style={{ padding: '2px 4px', textAlign: 'right', color: '#374151', fontFamily: 'JetBrains Mono, monospace' }}>{v.firsts}</td>
+                      <td style={{ padding: '2px 4px', textAlign: 'right', color: '#374151', fontFamily: 'JetBrains Mono, monospace' }}>{v.seconds}</td>
+                      <td style={{ padding: '2px 4px', textAlign: 'right', color: '#374151', fontFamily: 'JetBrains Mono, monospace' }}>{v.thirds}</td>
+                      <td style={{ padding: '2px 0 2px 4px', textAlign: 'right', color: '#374151', fontFamily: 'JetBrains Mono, monospace', whiteSpace: 'nowrap' }}>
+                        {Math.round(v.winPct * 100)}% / {Math.round(v.placePct * 100)}%
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           )}
         </SummaryCard>
+
+        <SummaryCard icon="ti-coin" label="Odds band performance">
+          <BandRows rows={oddsRows} />
+        </SummaryCard>
+
+        {distRows.length > 0 && (
+          <SummaryCard icon="ti-ruler-2" label="Distance breakdown">
+            <BandRows rows={distRows} />
+          </SummaryCard>
+        )}
+
+        {confRows.length > 0 && (
+          <SummaryCard icon="ti-gauge" label="Confidence-band picks">
+            <BandRows rows={confRows} />
+            <div style={{ fontSize: 8, color: '#9ca3af', marginTop: 4, lineHeight: 1.4 }}>Tiers based on today&apos;s own rank1-vs-rank2 score-gap distribution</div>
+          </SummaryCard>
+        )}
 
       </div>
     </div>
@@ -1092,13 +1145,24 @@ export default function ResultsPage() {
     const records = [];
     Object.values(grouped).forEach(res => {
       if (!res.runners || !res.runners.length) return;
-      const rank1Name = getRank1Name(effectiveRaces, effectiveVenues, res.venue, res.raceNum, weights, res.trackCond, dbScratchings);
-      if (!rank1Name) return;
+      const ranked = getRankedScores(effectiveRaces, effectiveVenues, res.venue, res.raceNum, weights, res.trackCond, dbScratchings);
+      if (!ranked || !ranked.scored.length) return;
+      const rank1Name = ranked.scored[0].name;
       const runner = res.runners.find(r => normName(r.name) === normName(rank1Name));
       if (!runner || runner.place == null) return;
+      // Margin between rank-1 and rank-2's total score — null for a 1-runner field.
+      const margin = ranked.scored.length >= 2 ? ranked.scored[0].total - ranked.scored[1].total : null;
+      // res.dist (the DB result row's own dist) is always populated regardless of
+      // whether effectiveRaces is CSV- or /api/race-cards-sourced; rc.dist/rc.cls
+      // from the CSV race object are not reliably present across both sources, so
+      // distance banding uses res.dist. race_results has no class/grade column
+      // mapped anywhere in this page's fetch (`grouped` only carries dist/l600/
+      // trackCond/raceTime) — confirmed absent, so class/grade breakdown is
+      // skipped entirely rather than faked.
       records.push({
         venue: res.venue, raceNum: res.raceNum, trackCond: res.trackCond || 'good',
-        horse: rank1Name, place: runner.place, sp: Number(runner.sp) || 0,
+        dist: parseInt(res.dist, 10) || null,
+        horse: rank1Name, place: runner.place, sp: Number(runner.sp) || 0, margin,
       });
     });
     if (!records.length) return null;
@@ -1134,18 +1198,77 @@ export default function ResultsPage() {
       maxLoss = Math.max(maxLoss, curLoss);
     });
 
+    // Venue performance: full breakdown — starts, 1st/2nd/3rd counts, win%, place%.
     const venueMap = {};
     records.forEach(r => {
-      if (!venueMap[r.venue]) venueMap[r.venue] = { total: 0, wins: 0, places: 0 };
-      venueMap[r.venue].total++;
-      if (r.place === 1) venueMap[r.venue].wins++;
-      if (r.place <= 3) venueMap[r.venue].places++;
+      if (!venueMap[r.venue]) venueMap[r.venue] = { starts: 0, firsts: 0, seconds: 0, thirds: 0 };
+      const v = venueMap[r.venue];
+      v.starts++;
+      if (r.place === 1) v.firsts++;
+      else if (r.place === 2) v.seconds++;
+      else if (r.place === 3) v.thirds++;
     });
     const venueRows = Object.entries(venueMap)
-      .map(([venue, v]) => ({ venue, winPct: v.wins / v.total, placePct: v.places / v.total }))
+      .map(([venue, v]) => ({
+        venue, starts: v.starts, firsts: v.firsts, seconds: v.seconds, thirds: v.thirds,
+        winPct: v.firsts / v.starts, placePct: (v.firsts + v.seconds + v.thirds) / v.starts,
+      }))
       .sort((a, b) => a.venue.localeCompare(b.venue));
 
-    return { total, wins, places, winPct, placePct, best, condRows, maxWin, maxLoss, venueRows };
+    // Odds band performance — bucket rank-1 picks by their own SP.
+    const oddsBands = [
+      { label: '$2–4',  min: 2,  max: 4 },
+      { label: '$4–8',  min: 4,  max: 8 },
+      { label: '$8–15', min: 8,  max: 15 },
+      { label: '$15+',  min: 15, max: Infinity },
+    ];
+    const oddsRows = oddsBands.map(b => {
+      const inBand = records.filter(r => r.sp >= b.min && r.sp < b.max);
+      if (!inBand.length) return null;
+      const w = inBand.filter(r => r.place === 1).length;
+      const p = inBand.filter(r => r.place <= 3).length;
+      return { label: b.label, total: inBand.length, winPct: w / inBand.length, placePct: p / inBand.length };
+    }).filter(Boolean);
+
+    // Distance band performance — sprint/mid/staying, only if dist data exists.
+    const distBands = [
+      { label: 'Sprint (≤1200m)',   min: 0,    max: 1200 },
+      { label: 'Mid (1201–1800m)',  min: 1201, max: 1800 },
+      { label: 'Staying (1800m+)',  min: 1801, max: Infinity },
+    ];
+    const withDist = records.filter(r => r.dist);
+    const distRows = withDist.length ? distBands.map(b => {
+      const inBand = withDist.filter(r => r.dist >= b.min && r.dist <= b.max);
+      if (!inBand.length) return null;
+      const w = inBand.filter(r => r.place === 1).length;
+      const p = inBand.filter(r => r.place <= 3).length;
+      return { label: b.label, total: inBand.length, winPct: w / inBand.length, placePct: p / inBand.length };
+    }).filter(Boolean) : [];
+
+    // Confidence-band picks — tier by rank1-vs-rank2 score margin, using
+    // terciles of today's own margin distribution (not fixed thresholds) so
+    // "narrow/moderate/big" tracks whatever spread actually occurred today.
+    const margins = records.map(r => r.margin).filter(m => m != null).sort((a, b) => a - b);
+    let confRows = [];
+    if (margins.length >= 3) {
+      const q1 = margins[Math.floor(margins.length / 3)];
+      const q2 = margins[Math.floor((margins.length * 2) / 3)];
+      const tierOf = m => m == null ? null : m <= q1 ? 'Narrow gap' : m <= q2 ? 'Moderate gap' : 'Big gap';
+      const tierMap = {};
+      records.forEach(r => {
+        const t = tierOf(r.margin);
+        if (!t) return;
+        if (!tierMap[t]) tierMap[t] = { total: 0, wins: 0, places: 0 };
+        tierMap[t].total++;
+        if (r.place === 1) tierMap[t].wins++;
+        if (r.place <= 3) tierMap[t].places++;
+      });
+      confRows = ['Narrow gap', 'Moderate gap', 'Big gap']
+        .filter(k => tierMap[k])
+        .map(k => ({ label: k, total: tierMap[k].total, winPct: tierMap[k].wins / tierMap[k].total, placePct: tierMap[k].places / tierMap[k].total }));
+    }
+
+    return { total, wins, places, winPct, placePct, best, condRows, maxWin, maxLoss, venueRows, oddsRows, distRows, confRows };
   }, [grouped, effectiveRaces, effectiveVenues, weights, dbScratchings, hasCsv]);
 
   const tablePad = settings.density === 'Compact' ? '1px 2px' : '3px 4px';
@@ -1284,8 +1407,6 @@ export default function ResultsPage() {
           </>
         ) : (
           <>
-            <DailyModelSummary data={dailySummary} />
-
             {/* Meetings grid */}
             {venueNames.length === 0 ? (
               <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:200, gap:10, color:'#374151' }}>
@@ -1350,6 +1471,8 @@ export default function ResultsPage() {
                 </div>
               </>
             )}
+
+            <DailyModelSummary data={dailySummary} />
           </>
         ))}
       </div>
