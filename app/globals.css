@@ -103,4 +103,13 @@ html, body { height: 100%; }
   .comm-section-pills { height: 32px !important; padding: 4px 16px !important; }
   .comm-post-header { padding: 6px 16px !important; }
   .comm-stats-bar { padding: 3px 16px !important; }
+
+  /* Drop the bottom tab bar — the hamburger menu already provides navigation,
+     and its 56px is the single biggest recoverable block on a ~372px viewport.
+     Benefits Races/My Bets/Community alike since --mobile-chrome-height
+     (MobileChromeVars.js) measures live rendered heights and will pick up
+     the now-zero tab-bar height automatically. RG banner stays (compliance)
+     but drops to bottom:0 to fill the gap left by the tab bar. */
+  #mobile-tab-bar { display: none !important; }
+  #mobile-rg-banner { bottom: 0 !important; }
 }
