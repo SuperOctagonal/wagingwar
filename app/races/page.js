@@ -534,7 +534,7 @@ const VIEW_TABS = [
   { id: 'sectionals', label: 'Sectionals', icon: 'ti-chart-line', locked: true },
 ];
 
-function ViewTabBar({ view, setView, runnerCount, isHistoricalMode }) {
+function ViewTabBar({ view, setView, runnerCount, isPast }) {
   return (
     <div className="flex items-center border-b border-gray-200 bg-white px-2 flex-shrink-0 h-10">
       {VIEW_TABS.map(t => (
@@ -556,7 +556,7 @@ function ViewTabBar({ view, setView, runnerCount, isHistoricalMode }) {
           {t.premium && !t.locked && <span className="text-[8px] text-amber-500 font-bold">★</span>}
         </button>
       ))}
-      {!isHistoricalMode && (
+      {!isPast && (
         <button
           onClick={() => window.location.reload()}
           title="Refresh page"
@@ -2338,9 +2338,20 @@ function RacesPageInner() {
   console.log('[Tier] isPro:', isPro, 'plan:', user?.publicMetadata?.plan);
 
   const todayISO = new Date().toLocaleDateString('sv-SE', { timeZone: 'Australia/Brisbane' });
+  // Only tomorrow's card is actually populated by the pipeline right now — cap
+  // the picker there rather than leaving it unbounded. Bump this once further-
+  // ahead data exists instead of hardcoding a wider window blind.
+  const maxSelectableDate = new Date(Date.now() + 24 * 60 * 60 * 1000).toLocaleDateString('sv-SE', { timeZone: 'Australia/Brisbane' });
   const [selectedDate, setSelectedDate] = useState(todayISO);
   const [histLoading,  setHistLoading]  = useState(false);
+  // isHistoricalMode = "not today" (either direction) — used for framing that's
+  // genuinely shared both ways (date label, "back to today", today-only API gates).
+  // isPast/isFuture split out specifically for betting-enablement and copy that
+  // must NOT apply to tomorrow the same way it applies to a real past date.
   const isHistoricalMode = selectedDate !== todayISO;
+  const isToday  = selectedDate === todayISO;
+  const isFuture = selectedDate > todayISO;
+  const isPast   = !isToday && !isFuture;
   const wasHistoricalRef = useRef(false);
   const dateInputRef     = useRef(null);
 
@@ -2421,14 +2432,14 @@ function RacesPageInner() {
   const setTrackCond = useCallback(tc => {
     if (!currentRace) return;
     setTrackConds(prev => ({ ...prev, [currentRace.venue]: tc }));
-    if (isHistoricalMode) return; // local-only in historical mode — don't overwrite today's DB record
+    if (!isToday) return; // this endpoint always writes today's date — never valid for a past OR future selection
     const todayISO = new Date().toLocaleDateString('sv-SE', { timeZone: 'Australia/Brisbane' });
     fetch('/api/set-track-condition', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ venue: normaliseVenue(currentRace.venue), date: todayISO, condition: tc }),
     }).catch(e => console.error('[TC override]', e));
-  }, [currentRace, isHistoricalMode]);
+  }, [currentRace, isToday]);
 
   const handleLogBet = useCallback((runner, rank) => {
     if (!isPro) { setUpgradeOpen(true); return; }
@@ -2447,7 +2458,7 @@ function RacesPageInner() {
       setBbTarget(typeof data === 'string' ? { name: data } : data);
     };
     window.__logBet = (data) => {
-      if (isHistoricalMode) return; // popup log-bet blocked in historical mode
+      if (isPast) return; // popup log-bet blocked only for genuinely past dates — tomorrow stays bettable
       if (!isPro) { setUpgradeOpen(true); return; }
       const rc = allRaces[selectedKey];
       const raceAt = rc ? parseRaceTime(rc.time, rc.date) : null;
@@ -2466,7 +2477,7 @@ function RacesPageInner() {
       });
     };
     return () => { delete window.__addToBlackbook; delete window.__logBet; };
-  }, [allRaces, selectedKey, trackCond, isPro, isHistoricalMode]);
+  }, [allRaces, selectedKey, trackCond, isPro, isPast]);
 
   const loadCSV = useCallback((text, name, selectKey) => {
     try {
@@ -2675,7 +2686,7 @@ function RacesPageInner() {
   })();
 
   const isRacePassed = !!currentRace && (parseRaceTime(currentRace.time, currentRace.date)?.getTime() ?? Infinity) <= now;
-  const betBlocked   = isHistoricalMode || !!currentRaceResult || isRacePassed;
+  const betBlocked   = isPast || !!currentRaceResult || isRacePassed;
 
   // Compute scored results once per race/trackCond/weights change
   const { results, scratched, scratchingsSet, allHorsesForDisplay } = useMemo(() => {
@@ -2775,7 +2786,7 @@ function RacesPageInner() {
   // flex patches here kept fixing one column while another regressed. Grid tracks have a definite
   // size from the template itself, not inherited flex math, so this failure mode doesn't apply.
   const showLeftRail  = hasData && !isNarrow;
-  const showRightRail = hasData && !isHistoricalMode && !isNarrow;
+  const showRightRail = hasData && !isPast && !isNarrow;
   const gridCols = `${showLeftRail ? '202px ' : ''}1fr${showRightRail ? ' 200px' : ''}`;
   const railScrollStyle = { overflowY: 'auto', height: '100%', WebkitOverflowScrolling: 'touch', overflowX: 'hidden' };
 
@@ -2802,7 +2813,7 @@ function RacesPageInner() {
           <div style={{ position: 'relative', display: 'inline-flex' }}>
             <button
               onClick={() => { if (isPro !== true) { setUpgradeOpen(true); return; } dateInputRef.current?.showPicker?.(); }}
-              style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 10, color: isHistoricalMode ? '#d97706' : '#374151', fontWeight: isHistoricalMode ? 700 : 400, background: 'none', border: '1px solid #e5e7eb', borderRadius: 4, padding: '2px 7px', cursor: 'pointer' }}
+              style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 10, color: isPast ? '#d97706' : isFuture ? '#2563eb' : '#374151', fontWeight: isHistoricalMode ? 700 : 400, background: 'none', border: '1px solid #e5e7eb', borderRadius: 4, padding: '2px 7px', cursor: 'pointer' }}
             >
               <i className="ti ti-calendar" style={{ fontSize: 9 }} />
               {isHistoricalMode ? selectedDate : 'Today'}
@@ -2818,7 +2829,7 @@ function RacesPageInner() {
                 ref={dateInputRef}
                 type="date"
                 value={selectedDate}
-                max={todayISO}
+                max={maxSelectableDate}
                 onChange={e => { if (e.target.value) setSelectedDate(e.target.value); }}
                 style={{ position: 'absolute', inset: 0, opacity: 0, width: '100%', height: '100%', cursor: 'default', pointerEvents: isMobile ? 'auto' : 'none' }}
               />
@@ -2840,7 +2851,18 @@ function RacesPageInner() {
                 <div className="text-sm">{histLoading ? 'Loading historical races…' : 'Loading today\'s races…'}</div>
               </div>
             </div>
-          ) : isHistoricalMode ? (
+          ) : isFuture ? (
+            <div className="flex-1 flex items-center justify-center p-8">
+              <div style={{ textAlign: 'center', color: '#6b7280', maxWidth: 320 }}>
+                <i className="ti ti-calendar-off text-3xl block mb-3" style={{ color: '#d1d5db' }} />
+                <div style={{ fontSize: 14, fontWeight: 600, color: '#374151', marginBottom: 6 }}>
+                  No race cards available yet for {new Date(selectedDate + 'T12:00:00').toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'long', year: 'numeric' })}
+                </div>
+                <div style={{ fontSize: 12, color: '#9ca3af', marginBottom: 16 }}>Not published yet — check back shortly.</div>
+                <button onClick={() => setSelectedDate(todayISO)} style={{ fontSize: 12, fontWeight: 600, padding: '7px 18px', borderRadius: 6, background: '#00471b', color: '#fff', border: 'none', cursor: 'pointer' }}>← Back to today</button>
+              </div>
+            </div>
+          ) : isPast ? (
             <div className="flex-1 flex items-center justify-center p-8">
               <div style={{ textAlign: 'center', color: '#6b7280', maxWidth: 320 }}>
                 <i className="ti ti-calendar-off text-3xl block mb-3" style={{ color: '#d1d5db' }} />
@@ -2869,8 +2891,8 @@ function RacesPageInner() {
             {/* Mobile race picker */}
             {isNarrow && <MobileRacePicker allVenues={allVenues} allRaces={allRaces} selectedRaceKey={selectedKey} onSelect={handleSelectRace} />}
 
-            {/* CSV toolbar — admin only, hidden in historical mode */}
-            {isRacesAdmin(user?.id) && !isHistoricalMode && (
+            {/* CSV toolbar — admin only, today's live-upload flow, hidden any other date */}
+            {isRacesAdmin(user?.id) && isToday && (
               <div className="flex items-center gap-2 px-4 py-1.5 bg-white border-b border-gray-100 text-[10px] text-gray-500 flex-shrink-0">
                 <i className="ti ti-file-type-csv text-sm text-gray-400" />
                 <span className="font-medium text-gray-700">{fileName}</span>
@@ -2889,13 +2911,22 @@ function RacesPageInner() {
             {currentRace ? (() => {
               const headerBlock = (
                 <>
-                  {isHistoricalMode && (
+                  {isPast && (
                     <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 8, padding: '5px 12px', background: '#fef3c7', borderBottom: '1px solid #fde68a', fontSize: 10, color: '#92400e' }}>
                       <i className="ti ti-history" style={{ fontSize: 11 }} />
                       <span style={{ fontWeight: 700 }}>Historical mode</span>
                       <span style={{ opacity: 0.5 }}>·</span>
                       <span>{new Date(selectedDate + 'T12:00:00').toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}</span>
                       <span style={{ opacity: 0.5 }}>· Live betting disabled</span>
+                      <button onClick={() => setSelectedDate(todayISO)} style={{ marginLeft: 'auto', fontSize: 9, color: '#059669', fontWeight: 700, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>← Back to today</button>
+                    </div>
+                  )}
+                  {isFuture && (
+                    <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 8, padding: '5px 12px', background: '#dbeafe', borderBottom: '1px solid #bfdbfe', fontSize: 10, color: '#1e40af' }}>
+                      <i className="ti ti-calendar-event" style={{ fontSize: 11 }} />
+                      <span style={{ fontWeight: 700 }}>Upcoming</span>
+                      <span style={{ opacity: 0.5 }}>·</span>
+                      <span>{new Date(selectedDate + 'T12:00:00').toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}</span>
                       <button onClick={() => setSelectedDate(todayISO)} style={{ marginLeft: 'auto', fontSize: 9, color: '#059669', fontWeight: 700, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>← Back to today</button>
                     </div>
                   )}
@@ -2933,7 +2964,7 @@ function RacesPageInner() {
                       </div>
                     );
                   })()}
-                  {!isNarrow && <ViewTabBar view={view} setView={setView} runnerCount={results.length} isHistoricalMode={isHistoricalMode} />}
+                  {!isNarrow && <ViewTabBar view={view} setView={setView} runnerCount={results.length} isPast={isPast} />}
                   {currentRaceResult && (
                     <div style={{ background:'#f0fdf4', borderBottom:'1px solid #86efac', padding:'5px 12px', display:'flex', alignItems:'center', gap:8 }}>
                       <i className="ti ti-flag-check" style={{ color:'#16a34a', fontSize:13 }} />
