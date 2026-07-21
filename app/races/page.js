@@ -619,7 +619,7 @@ function RaceCountdown({ rc }) {
 
 // ─── race header ──────────────────────────────────────────────────────────────
 
-function RaceHeader({ rc, trackCond, setTrackCond, weights, setWeights, runnerCount, onUpgrade, isPro, isMobile }) {
+function RaceHeader({ rc, trackCond, trackCondConfirmed, setTrackCond, weights, setWeights, runnerCount, onUpgrade, isPro, isMobile }) {
   const [tcOpen, setTcOpen] = useState(false);
   return (
     <div id="rh-outer" className="px-2.5 md:px-4 py-1.5 md:py-2.5 bg-white flex flex-nowrap items-center justify-between gap-3 flex-shrink-0 overflow-x-auto" style={{ borderBottom: '4px solid #00471B' }}>
@@ -638,25 +638,36 @@ function RaceHeader({ rc, trackCond, setTrackCond, weights, setWeights, runnerCo
         </div>
       </div>
       <div id="rh-right-block" className="flex items-center gap-2 flex-wrap relative">
-        {/* Track condition — desktop inline, mobile dropdown */}
+        {/* Track condition — desktop inline, mobile dropdown. trackCond always
+            resolves to a real value ('good' default) so scoring always has
+            something to score against — trackCondConfirmed tracks separately
+            whether that value is real (DB-confirmed or user-picked) vs just the
+            unset fallback, so an unconfirmed race (e.g. tomorrow, before the
+            track is rated) shows a neutral "not yet confirmed" state instead of
+            silently pretending Good is the confirmed condition. */}
         {!isMobile ? (
-          <div className="flex items-center gap-0.5 bg-gray-50 rounded-lg p-0.5 border border-gray-100">
-            {TC_OPTIONS.map(tc => (
-              <button key={tc.key} onClick={() => { if (!isPro) { onUpgrade(); } else { setTrackCond(tc.key); } }}
-                className={['text-[9px] font-bold px-2 py-1 rounded-md transition-colors',
-                  trackCond === tc.key ? `${tc.bg} ${tc.text}` : 'text-gray-400 hover:text-gray-600',
-                ].join(' ')}>
-                {tc.label}
-              </button>
-            ))}
+          <div className="flex items-center gap-1">
+            <div className="flex items-center gap-0.5 bg-gray-50 rounded-lg p-0.5 border border-gray-100">
+              {TC_OPTIONS.map(tc => (
+                <button key={tc.key} onClick={() => { if (!isPro) { onUpgrade(); } else { setTrackCond(tc.key); } }}
+                  className={['text-[9px] font-bold px-2 py-1 rounded-md transition-colors',
+                    trackCondConfirmed && trackCond === tc.key ? `${tc.bg} ${tc.text}` : 'text-gray-400 hover:text-gray-600',
+                  ].join(' ')}>
+                  {tc.label}
+                </button>
+              ))}
+            </div>
+            {!trackCondConfirmed && (
+              <span style={{ fontSize: 9, color: '#9ca3af', fontStyle: 'italic', whiteSpace: 'nowrap' }}>Not yet confirmed</span>
+            )}
           </div>
         ) : (
           <div className="relative">
             <button
               onClick={() => setTcOpen(o => !o)}
-              style={{ fontSize: 10, fontWeight: 700, padding: '5px 10px', borderRadius: 6, border: '1px solid #e5e7eb', background: '#fff', color: '#6b7280', cursor: 'pointer', whiteSpace: 'nowrap' }}
+              style={{ fontSize: 10, fontWeight: 700, padding: '5px 10px', borderRadius: 6, border: '1px solid #e5e7eb', background: '#fff', color: trackCondConfirmed ? '#6b7280' : '#9ca3af', cursor: 'pointer', whiteSpace: 'nowrap', fontStyle: trackCondConfirmed ? 'normal' : 'italic' }}
             >
-              {TC_OPTIONS.find(t => t.key === trackCond)?.label || 'Good'} ▾
+              {trackCondConfirmed ? (TC_OPTIONS.find(t => t.key === trackCond)?.label || 'Good') : 'Not confirmed'} ▾
             </button>
             {tcOpen && (
               <div style={{ position: 'absolute', top: '100%', right: 0, zIndex: 20, marginTop: 4, background: '#fff', border: '1px solid #e5e7eb', borderRadius: 6, overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}>
@@ -664,7 +675,7 @@ function RaceHeader({ rc, trackCond, setTrackCond, weights, setWeights, runnerCo
                   <button
                     key={tc.key}
                     onClick={() => { if (!isPro) { onUpgrade(); setTcOpen(false); } else { setTrackCond(tc.key); setTcOpen(false); } }}
-                    style={{ display: 'block', width: '100%', textAlign: 'left', padding: '8px 12px', fontSize: 10, fontWeight: 600, color: trackCond === tc.key ? '#00471b' : '#6b7280', background: trackCond === tc.key ? '#f0fdf4' : '#fff', border: 'none', cursor: 'pointer', borderBottom: tc.key !== TC_OPTIONS[TC_OPTIONS.length-1].key ? '1px solid #f3f4f6' : 'none' }}
+                    style={{ display: 'block', width: '100%', textAlign: 'left', padding: '8px 12px', fontSize: 10, fontWeight: 600, color: trackCondConfirmed && trackCond === tc.key ? '#00471b' : '#6b7280', background: trackCondConfirmed && trackCond === tc.key ? '#f0fdf4' : '#fff', border: 'none', cursor: 'pointer', borderBottom: tc.key !== TC_OPTIONS[TC_OPTIONS.length-1].key ? '1px solid #f3f4f6' : 'none' }}
                   >
                     {tc.label}
                   </button>
@@ -2429,6 +2440,12 @@ function RacesPageInner() {
 
   const currentRace = selectedKey ? allRaces[selectedKey] : null;
   const trackCond = (currentRace && trackConds[currentRace.venue]) || 'good';
+  // Distinct from trackCond itself: whether that value is real (DB-confirmed via
+  // today_meetings, or the user manually picked one) vs just the unset 'good'
+  // fallback — a future date never gets the DB auto-apply (today_meetings is
+  // today-only), so without this it would silently look identical to a real
+  // confirmed "Good" reading.
+  const trackCondConfirmed = !!(currentRace && trackConds[currentRace.venue]);
   const setTrackCond = useCallback(tc => {
     if (!currentRace) return;
     setTrackConds(prev => ({ ...prev, [currentRace.venue]: tc }));
@@ -2930,7 +2947,7 @@ function RacesPageInner() {
                       <button onClick={() => setSelectedDate(todayISO)} style={{ marginLeft: 'auto', fontSize: 9, color: '#059669', fontWeight: 700, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>← Back to today</button>
                     </div>
                   )}
-                  <RaceHeader rc={currentRace} trackCond={trackCond} setTrackCond={setTrackCond}
+                  <RaceHeader rc={currentRace} trackCond={trackCond} trackCondConfirmed={trackCondConfirmed} setTrackCond={setTrackCond}
                     weights={weights} setWeights={setWeights} runnerCount={results.length}
                     onUpgrade={() => setUpgradeOpen(true)} isPro={isPro} isMobile={isNarrow} />
                   {(() => {
