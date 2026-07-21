@@ -56,6 +56,65 @@ function getSysRanks(allRaces, allVenues, venue, raceNum, weights, dbScratchings
   return null;
 }
 
+// Track condition string (e.g. "Soft5", "Heavy8", "Synthetic") -> the scoring
+// lib's expected param. scoring.js only special-cases 'soft'/'heavy'; every
+// other condition (good, synthetic, unknown) scores against the 'good' bucket
+// — that's existing behaviour in lib/scoring.js, not something changed here.
+function tcToScoringParam(tc) {
+  const t = (tc || 'good').toLowerCase();
+  if (t.startsWith('soft'))  return 'soft';
+  if (t.startsWith('heavy')) return 'heavy';
+  return 'good';
+}
+
+// Display-only bucketing for the daily summary's track-condition breakdown —
+// distinct from tcToScoringParam, since the summary wants a 4-way split
+// (Good/Soft/Heavy/Synthetic) even though scoring itself only distinguishes 3.
+function tcBucket(tc) {
+  const t = (tc || '').toLowerCase();
+  if (t.startsWith('good'))  return 'Good';
+  if (t.startsWith('soft'))  return 'Soft';
+  if (t.startsWith('heavy')) return 'Heavy';
+  if (t.startsWith('synth')) return 'Synthetic';
+  return null;
+}
+
+// Same rank-1 computation as getSysRanks, but scored with the race's own
+// actual track condition instead of a hardcoded 'good' — used by the daily
+// model summary, which spans every venue/condition for the day.
+function getRank1Name(allRaces, allVenues, venue, raceNum, weights, trackCond, dbScratchings = []) {
+  const normVenue = normaliseVenue(venue);
+  const dbScrNames = new Set(
+    dbScratchings.filter(r => normaliseVenue(r.venue) === normVenue && String(r.race_num) === String(raceNum))
+      .map(r => normName(r.horse_name || ''))
+  );
+  const tcParam = tcToScoringParam(trackCond);
+  for (const keys of Object.values(allVenues)) {
+    for (const k of keys) {
+      const rc = allRaces[k];
+      if (!rc) continue;
+      if (normaliseVenue(rc.venue) !== normVenue) continue;
+      if (String(rc.num) !== String(raceNum)) continue;
+      const active = (rc.horses || []).filter(h => !h.scratched && !dbScrNames.has(normName(h.name || '')));
+      if (!active.length) return null;
+      const scored = active.map(h => {
+        const grpScores = {};
+        GRP_KEYS.forEach(gk => { grpScores[gk] = scoreGroup(h, gk, weights, tcParam); });
+        const total = GRP_KEYS.reduce((a, gk) => a + grpScores[gk].total, 0);
+        return { name: h.name, total };
+      }).sort((a, b) => b.total - a.total);
+      return scored[0]?.name || null;
+    }
+  }
+  return null;
+}
+
+const RESULT_BADGE = {
+  WON:    { bg: '#d1fae5', color: '#065f46' },
+  PLACED: { bg: '#fef3c7', color: '#92400e' },
+  LOST:   { bg: '#f3f4f6', color: '#9ca3af' },
+};
+
 function getBarrierFromCSV(allRaces, allVenues, venue, raceNum, horseName) {
   const normV = normaliseVenue(venue);
   for (const keys of Object.values(allVenues)) {
@@ -566,6 +625,123 @@ function ResultsDetail({ meeting, venue, allRaces, allVenues, weights, dbScratch
   );
 }
 
+function Badge({ label }) {
+  const s = RESULT_BADGE[label];
+  return (
+    <span style={{ fontSize: 9, fontWeight: 700, padding: '2px 6px', borderRadius: 5, background: s.bg, color: s.color, textTransform: 'uppercase', letterSpacing: '.3px' }}>
+      {label}
+    </span>
+  );
+}
+
+function SummaryCard({ icon, label, children }) {
+  return (
+    <div style={{ background: '#fff', border: '0.5px solid #e5e7eb', borderRadius: 8, padding: '10px 12px', minWidth: 0 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 6 }}>
+        <i className={`ti ${icon}`} style={{ fontSize: 11, color: '#6b7280' }} />
+        <span style={{ fontSize: 9, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '.4px' }}>{label}</span>
+      </div>
+      {children}
+    </div>
+  );
+}
+
+function DailyModelSummary({ data }) {
+  if (!data) return null;
+  const { total, wins, places, winPct, placePct, best, condRows, maxWin, maxLoss, venueRows } = data;
+
+  return (
+    <div style={{ marginBottom: 18 }}>
+      <div style={{ fontSize: 10, fontWeight: 600, color: '#374151', textTransform: 'uppercase', letterSpacing: '.5px', marginBottom: 8 }}>
+        Daily Model Summary
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 8, maxWidth: 1000 }}>
+
+        <SummaryCard icon="ti-target" label="Rank 1 strike rate">
+          <div style={{ display: 'flex', gap: 14 }}>
+            <div>
+              <div style={{ fontSize: 18, fontWeight: 700, color: '#111827', fontFamily: 'JetBrains Mono, monospace' }}>{wins}/{total}</div>
+              <div style={{ fontSize: 9, color: '#9ca3af' }}>Wins ({Math.round(winPct * 100)}%)</div>
+            </div>
+            <div>
+              <div style={{ fontSize: 18, fontWeight: 700, color: '#111827', fontFamily: 'JetBrains Mono, monospace' }}>{places}/{total}</div>
+              <div style={{ fontSize: 9, color: '#9ca3af' }}>Placed ({Math.round(placePct * 100)}%)</div>
+            </div>
+          </div>
+        </SummaryCard>
+
+        <SummaryCard icon="ti-trophy" label="Best result of the day">
+          {best ? (
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+                <span style={{ fontSize: 16, fontWeight: 700, color: '#065f46', fontFamily: 'JetBrains Mono, monospace' }}>${best.sp.toFixed(2)}</span>
+                <Badge label="WON" />
+              </div>
+              <div style={{ fontSize: 11, color: '#111827', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{best.horse}</div>
+              <div style={{ fontSize: 9, color: '#9ca3af' }}>{best.venue} R{best.raceNum}</div>
+            </div>
+          ) : (
+            <div style={{ fontSize: 12, color: '#9ca3af' }}>—</div>
+          )}
+        </SummaryCard>
+
+        <SummaryCard icon="ti-droplet" label="Track condition breakdown">
+          {condRows.length === 0 ? (
+            <div style={{ fontSize: 10, color: '#9ca3af' }}>—</div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+              {condRows.map(c => (
+                <div key={c.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 10 }}>
+                  <span style={{ color: '#111827', fontWeight: 600 }}>{c.label}</span>
+                  <span style={{ color: '#374151', fontFamily: 'JetBrains Mono, monospace' }}>
+                    W {Math.round(c.winPct * 100)}% · P {Math.round(c.placePct * 100)}%
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </SummaryCard>
+
+        <SummaryCard icon="ti-flame" label="Longest streak">
+          <div style={{ display: 'flex', gap: 14 }}>
+            <div>
+              <div style={{ fontSize: 14, fontWeight: 700, color: '#065f46' }}>{maxWin > 0 ? `${maxWin} win${maxWin === 1 ? '' : 's'}` : '—'}</div>
+              <div style={{ fontSize: 9, color: '#9ca3af' }}>in a row</div>
+            </div>
+            <div>
+              <div style={{ fontSize: 14, fontWeight: 700, color: '#991b1b' }}>{maxLoss > 0 ? `${maxLoss} loss${maxLoss === 1 ? '' : 'es'}` : '—'}</div>
+              <div style={{ fontSize: 9, color: '#9ca3af' }}>in a row</div>
+            </div>
+          </div>
+        </SummaryCard>
+
+        <SummaryCard icon="ti-horseshoe" label="Placegetter accuracy">
+          <div style={{ fontSize: 18, fontWeight: 700, color: '#111827', fontFamily: 'JetBrains Mono, monospace' }}>{Math.round(placePct * 100)}%</div>
+          <div style={{ fontSize: 9, color: '#9ca3af' }}>Rank 1 picks finishing top 3 — for each-way bettors</div>
+        </SummaryCard>
+
+        <SummaryCard icon="ti-map-pin" label="Venue performance">
+          {venueRows.length === 0 ? (
+            <div style={{ fontSize: 10, color: '#9ca3af' }}>—</div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 3, maxHeight: 90, overflowY: 'auto' }}>
+              {venueRows.map(v => (
+                <div key={v.venue} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 10 }}>
+                  <span style={{ color: '#111827', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginRight: 6 }}>{v.venue}</span>
+                  <span style={{ color: '#374151', fontFamily: 'JetBrains Mono, monospace', flexShrink: 0 }}>
+                    W {Math.round(v.winPct * 100)}% · P {Math.round(v.placePct * 100)}%
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </SummaryCard>
+
+      </div>
+    </div>
+  );
+}
+
 export default function ResultsPage() {
   const isMobile = useIsMobile();
   const { user } = useUser();
@@ -908,6 +1084,70 @@ export default function ResultsPage() {
     return roles;
   }, [meetingResulted, effectiveRaces, effectiveVenues, selectedMeeting, dbScratchings, hasCsv]);
 
+  // Daily Model Summary — spans every venue for the selected date (not just the
+  // open meeting), built once from `grouped` (all resulted races for the date)
+  // rather than per-meeting like the panels above. Skips races with no result yet.
+  const dailySummary = useMemo(() => {
+    if (!hasCsv) return null;
+    const records = [];
+    Object.values(grouped).forEach(res => {
+      if (!res.runners || !res.runners.length) return;
+      const rank1Name = getRank1Name(effectiveRaces, effectiveVenues, res.venue, res.raceNum, weights, res.trackCond, dbScratchings);
+      if (!rank1Name) return;
+      const runner = res.runners.find(r => normName(r.name) === normName(rank1Name));
+      if (!runner || runner.place == null) return;
+      records.push({
+        venue: res.venue, raceNum: res.raceNum, trackCond: res.trackCond || 'good',
+        horse: rank1Name, place: runner.place, sp: Number(runner.sp) || 0,
+      });
+    });
+    if (!records.length) return null;
+    records.sort((a, b) => a.venue.localeCompare(b.venue) || a.raceNum - b.raceNum);
+
+    const total = records.length;
+    const wins = records.filter(r => r.place === 1).length;
+    const places = records.filter(r => r.place >= 1 && r.place <= 3).length;
+    const winPct = wins / total;
+    const placePct = places / total;
+
+    const winners = records.filter(r => r.place === 1);
+    const best = winners.length ? winners.reduce((a, b) => (b.sp > a.sp ? b : a)) : null;
+
+    const condMap = {};
+    records.forEach(r => {
+      const bucket = tcBucket(r.trackCond);
+      if (!bucket) return;
+      if (!condMap[bucket]) condMap[bucket] = { total: 0, wins: 0, places: 0 };
+      condMap[bucket].total++;
+      if (r.place === 1) condMap[bucket].wins++;
+      if (r.place <= 3) condMap[bucket].places++;
+    });
+    const condOrder = ['Good', 'Soft', 'Heavy', 'Synthetic'];
+    const condRows = condOrder
+      .filter(k => condMap[k])
+      .map(k => ({ label: k, winPct: condMap[k].wins / condMap[k].total, placePct: condMap[k].places / condMap[k].total }));
+
+    let curWin = 0, curLoss = 0, maxWin = 0, maxLoss = 0;
+    records.forEach(r => {
+      if (r.place === 1) { curWin++; curLoss = 0; } else { curLoss++; curWin = 0; }
+      maxWin = Math.max(maxWin, curWin);
+      maxLoss = Math.max(maxLoss, curLoss);
+    });
+
+    const venueMap = {};
+    records.forEach(r => {
+      if (!venueMap[r.venue]) venueMap[r.venue] = { total: 0, wins: 0, places: 0 };
+      venueMap[r.venue].total++;
+      if (r.place === 1) venueMap[r.venue].wins++;
+      if (r.place <= 3) venueMap[r.venue].places++;
+    });
+    const venueRows = Object.entries(venueMap)
+      .map(([venue, v]) => ({ venue, winPct: v.wins / v.total, placePct: v.places / v.total }))
+      .sort((a, b) => a.venue.localeCompare(b.venue));
+
+    return { total, wins, places, winPct, placePct, best, condRows, maxWin, maxLoss, venueRows };
+  }, [grouped, effectiveRaces, effectiveVenues, weights, dbScratchings, hasCsv]);
+
   const tablePad = settings.density === 'Compact' ? '1px 2px' : '3px 4px';
   const tableFs  = settings.fontSize === 'Small' ? 10 : settings.fontSize === 'Large' ? 13 : 11;
 
@@ -1044,6 +1284,8 @@ export default function ResultsPage() {
           </>
         ) : (
           <>
+            <DailyModelSummary data={dailySummary} />
+
             {/* Meetings grid */}
             {venueNames.length === 0 ? (
               <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:200, gap:10, color:'#374151' }}>
