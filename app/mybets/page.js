@@ -801,6 +801,8 @@ export default function MybetsPage() {
     });
   }, [pendingBets, csvRaces, csvVenues]);
 
+  const hasUpcomingBets = useMemo(() => bets.some(b => b.date > todayISO), [bets, todayISO]);
+
   const dateFilteredBets = useMemo(() => {
     const anchor = new Date(todayISO + 'T12:00:00Z');
     const yesterdayISO = dateMath(todayISO, -1);
@@ -1352,7 +1354,9 @@ export default function MybetsPage() {
 
         {/* DATE RANGE SWITCHER */}
         <div className="mb-date-switch" style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 4, padding: '5px 10px', background: '#fff', border: '1px solid #e5e7eb', borderRadius: 6, margin: '6px 8px 0', ...(isMobile ? { overflowX: 'auto', flexWrap: 'nowrap', scrollbarWidth: 'none' } : { flexWrap: 'wrap' }) }}>
-          {[['today','Today'],['yesterday','Yesterday'],['upcoming','Upcoming'],['this_week','This Week'],['this_month','This Month'],['all_time','All Time'],['custom','Custom']].map(([v,l]) => (
+          {[['today','Today'],['yesterday','Yesterday'],['upcoming','Upcoming'],['this_week','This Week'],['this_month','This Month'],['all_time','All Time'],['custom','Custom']]
+            .filter(([v]) => v !== 'upcoming' || hasUpcomingBets)
+            .map(([v,l]) => (
             <button key={v} onClick={() => setDateRange(v)}
               style={{ padding: '3px 10px', borderRadius: 4, fontSize: 10, fontWeight: 600, cursor: 'pointer', border: 'none', flexShrink: 0,
                 background: dateRange === v ? '#00471b' : '#f3f4f6', color: dateRange === v ? '#fff' : '#374151' }}>
