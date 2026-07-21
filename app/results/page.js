@@ -27,6 +27,69 @@ async function fetchResultsForDate(dateStr) {
   } catch { return []; }
 }
 
+// One request for a whole date range (used by the rolling-trend/all-time
+// windows) instead of one request per day — 39 days of data is a few
+// thousand rows at most, well within a single fetch, but the explicit
+// limit avoids PostgREST's default 1000-row cap silently truncating it.
+async function fetchResultsRange(startDate, endDate) {
+  if (!SURL || !SKEY) return [];
+  try {
+    const res = await fetch(
+      `${SURL}/rest/v1/race_results?select=*&date=gte.${startDate}&date=lte.${endDate}&order=date,venue,race_num,finish_pos&limit=20000`,
+      { headers: { apikey: SKEY, Authorization: `Bearer ${SKEY}` } }
+    );
+    if (!res.ok) return [];
+    return res.json();
+  } catch { return []; }
+}
+
+// Groups race_results rows into { "date||venue||raceNum": {date,venue,raceNum,trackCond,dist,runners} }
+// — same shape `grouped` uses for a single date, but keyed with date included
+// so rows from different days in a rolling window don't collide.
+function groupResultsByDateRace(rows) {
+  const g = {};
+  (rows || []).forEach(row => {
+    const norm = normaliseVenue(row.venue);
+    const key = `${row.date}||${norm}||${row.race_num}`;
+    if (!g[key]) g[key] = {
+      date: row.date, venue: norm, raceNum: row.race_num,
+      trackCond: row.track_cond || '', dist: row.dist || '', runners: [],
+    };
+    if (row.finish_pos) g[key].runners.push({ place: row.finish_pos, name: row.horse_name, sp: row.sp || 0 });
+  });
+  return g;
+}
+
+// Fetches race_cards (the CSV-equivalent field data needed to score, not just
+// results) for each date via the existing Pro-gated /api/race-cards route —
+// looped per date since that route is single-date and enforces the Pro gate
+// server-side for historical dates; must not be bypassed with a direct
+// Supabase call. Returns { [date]: { allRaces, allVenues } }, with a date
+// simply missing/empty if no card rows exist or the request was 403'd
+// (non-Pro) — buildRank1Records already skips races with no card match.
+async function fetchCardsForDates(dates) {
+  const results = await Promise.all(dates.map(async d => {
+    try {
+      const r = await fetch(`/api/race-cards?date=${d}`);
+      if (!r.ok) return [d, []];
+      return [d, await r.json()];
+    } catch { return [d, []]; }
+  }));
+  const byDate = {};
+  results.forEach(([d, rows]) => {
+    const ar = {}, av = {};
+    (rows || []).forEach(row => {
+      const key = `${row.venue}_R${row.race_num}`;
+      if (!ar[key]) ar[key] = { venue: row.venue, num: row.race_num, horses: [] };
+      if (row.form_data) ar[key].horses.push(row.form_data);
+      if (!av[row.venue]) av[row.venue] = [];
+      if (!av[row.venue].includes(key)) av[row.venue].push(key);
+    });
+    byDate[d] = { allRaces: ar, allVenues: av };
+  });
+  return byDate;
+}
+
 function normName(n) { return (n || '').replace(/\s*\([A-Z]{2,4}\)\s*$/i, '').trim().toUpperCase().replace(/[^A-Z0-9]/g, ''); }
 
 function getSysRanks(allRaces, allVenues, venue, raceNum, weights, dbScratchings = []) {
@@ -116,6 +179,142 @@ const RESULT_BADGE = {
   PLACED: { bg: '#fef3c7', color: '#92400e' },
   LOST:   { bg: '#f3f4f6', color: '#9ca3af' },
 };
+
+// Given a map of resulted races (each with venue/raceNum/trackCond/dist/runners,
+// same shape as `grouped`) plus the allRaces/allVenues to score against, builds
+// the rank-1 pick record array. Shared by the single-day summary and the
+// rolling-window summary (which calls this once per date with that date's own
+// allRaces/allVenues, then concatenates).
+function buildRank1Records(groupedResults, allRaces, allVenues, weights, dbScratchings, extra = {}) {
+  const records = [];
+  Object.values(groupedResults).forEach(res => {
+    if (!res.runners || !res.runners.length) return;
+    const ranked = getRankedScores(allRaces, allVenues, res.venue, res.raceNum, weights, res.trackCond, dbScratchings);
+    if (!ranked || !ranked.scored.length) return;
+    const rank1Name = ranked.scored[0].name;
+    const runner = res.runners.find(r => normName(r.name) === normName(rank1Name));
+    if (!runner || runner.place == null) return;
+    const margin = ranked.scored.length >= 2 ? ranked.scored[0].total - ranked.scored[1].total : null;
+    records.push({
+      venue: res.venue, raceNum: res.raceNum, trackCond: res.trackCond || 'good',
+      dist: parseInt(res.dist, 10) || null,
+      horse: rank1Name, place: runner.place, sp: Number(runner.sp) || 0, margin,
+      ...extra,
+    });
+  });
+  return records;
+}
+
+// Pure aggregation: records -> all the stats/cards the Daily Model Summary
+// renders. Reused as-is by both the single-day view and the rolling-window
+// (7-day/30-day/all-time) view — same math, different record set.
+function buildSummaryFromRecords(records) {
+  if (!records.length) return null;
+  records = [...records].sort((a, b) => a.venue.localeCompare(b.venue) || a.raceNum - b.raceNum);
+
+  const total = records.length;
+  const wins = records.filter(r => r.place === 1).length;
+  const places = records.filter(r => r.place >= 1 && r.place <= 3).length;
+  const winPct = wins / total;
+  const placePct = places / total;
+
+  const winners = records.filter(r => r.place === 1);
+  const best = winners.length ? winners.reduce((a, b) => (b.sp > a.sp ? b : a)) : null;
+
+  const condMap = {};
+  records.forEach(r => {
+    const bucket = tcBucket(r.trackCond);
+    if (!bucket) return;
+    if (!condMap[bucket]) condMap[bucket] = { total: 0, wins: 0, places: 0 };
+    condMap[bucket].total++;
+    if (r.place === 1) condMap[bucket].wins++;
+    if (r.place <= 3) condMap[bucket].places++;
+  });
+  const condOrder = ['Good', 'Soft', 'Heavy', 'Synthetic'];
+  const condRows = condOrder
+    .filter(k => condMap[k])
+    .map(k => ({ label: k, winPct: condMap[k].wins / condMap[k].total, placePct: condMap[k].places / condMap[k].total }));
+
+  let curWin = 0, curLoss = 0, maxWin = 0, maxLoss = 0;
+  records.forEach(r => {
+    if (r.place === 1) { curWin++; curLoss = 0; } else { curLoss++; curWin = 0; }
+    maxWin = Math.max(maxWin, curWin);
+    maxLoss = Math.max(maxLoss, curLoss);
+  });
+
+  // Venue performance: full breakdown — starts, 1st/2nd/3rd counts, win%, place%.
+  const venueMap = {};
+  records.forEach(r => {
+    if (!venueMap[r.venue]) venueMap[r.venue] = { starts: 0, firsts: 0, seconds: 0, thirds: 0 };
+    const v = venueMap[r.venue];
+    v.starts++;
+    if (r.place === 1) v.firsts++;
+    else if (r.place === 2) v.seconds++;
+    else if (r.place === 3) v.thirds++;
+  });
+  const venueRows = Object.entries(venueMap)
+    .map(([venue, v]) => ({
+      venue, starts: v.starts, firsts: v.firsts, seconds: v.seconds, thirds: v.thirds,
+      winPct: v.firsts / v.starts, placePct: (v.firsts + v.seconds + v.thirds) / v.starts,
+    }))
+    .sort((a, b) => a.venue.localeCompare(b.venue));
+
+  // Odds band performance — bucket rank-1 picks by their own SP.
+  const oddsBands = [
+    { label: '$2–4',  min: 2,  max: 4 },
+    { label: '$4–8',  min: 4,  max: 8 },
+    { label: '$8–15', min: 8,  max: 15 },
+    { label: '$15+',  min: 15, max: Infinity },
+  ];
+  const oddsRows = oddsBands.map(b => {
+    const inBand = records.filter(r => r.sp >= b.min && r.sp < b.max);
+    if (!inBand.length) return null;
+    const w = inBand.filter(r => r.place === 1).length;
+    const p = inBand.filter(r => r.place <= 3).length;
+    return { label: b.label, total: inBand.length, winPct: w / inBand.length, placePct: p / inBand.length };
+  }).filter(Boolean);
+
+  // Distance band performance — sprint/mid/staying, only if dist data exists.
+  const distBands = [
+    { label: 'Sprint (≤1200m)',   min: 0,    max: 1200 },
+    { label: 'Mid (1201–1800m)',  min: 1201, max: 1800 },
+    { label: 'Staying (1800m+)',  min: 1801, max: Infinity },
+  ];
+  const withDist = records.filter(r => r.dist);
+  const distRows = withDist.length ? distBands.map(b => {
+    const inBand = withDist.filter(r => r.dist >= b.min && r.dist <= b.max);
+    if (!inBand.length) return null;
+    const w = inBand.filter(r => r.place === 1).length;
+    const p = inBand.filter(r => r.place <= 3).length;
+    return { label: b.label, total: inBand.length, winPct: w / inBand.length, placePct: p / inBand.length };
+  }).filter(Boolean) : [];
+
+  // Confidence-band picks — tier by rank1-vs-rank2 score margin, using
+  // terciles of this record set's own margin distribution (not fixed
+  // thresholds) so "narrow/moderate/big" tracks whatever spread actually
+  // occurred in the window being viewed.
+  const margins = records.map(r => r.margin).filter(m => m != null).sort((a, b) => a - b);
+  let confRows = [];
+  if (margins.length >= 3) {
+    const q1 = margins[Math.floor(margins.length / 3)];
+    const q2 = margins[Math.floor((margins.length * 2) / 3)];
+    const tierOf = m => m == null ? null : m <= q1 ? 'Narrow gap' : m <= q2 ? 'Moderate gap' : 'Big gap';
+    const tierMap = {};
+    records.forEach(r => {
+      const t = tierOf(r.margin);
+      if (!t) return;
+      if (!tierMap[t]) tierMap[t] = { total: 0, wins: 0, places: 0 };
+      tierMap[t].total++;
+      if (r.place === 1) tierMap[t].wins++;
+      if (r.place <= 3) tierMap[t].places++;
+    });
+    confRows = ['Narrow gap', 'Moderate gap', 'Big gap']
+      .filter(k => tierMap[k])
+      .map(k => ({ label: k, total: tierMap[k].total, winPct: tierMap[k].wins / tierMap[k].total, placePct: tierMap[k].places / tierMap[k].total }));
+  }
+
+  return { total, wins, places, winPct, placePct, best, condRows, maxWin, maxLoss, venueRows, oddsRows, distRows, confRows };
+}
 
 function getBarrierFromCSV(allRaces, allVenues, venue, raceNum, horseName) {
   const normV = normaliseVenue(venue);
@@ -664,15 +863,45 @@ function BandRows({ rows }) {
   );
 }
 
-function DailyModelSummary({ data }) {
-  if (!data) return null;
-  const { total, wins, places, winPct, placePct, best, condRows, maxWin, maxLoss, venueRows, oddsRows, distRows, confRows } = data;
+function DailyModelSummary({ data, trendWindow, setTrendWindow, rollingLoading, allTimeWinPct }) {
+  const isToday = trendWindow === 'today';
+  const showComparison = isToday && allTimeWinPct != null && data;
 
   return (
     <div style={{ marginBottom: 18 }}>
-      <div style={{ fontSize: 10, fontWeight: 600, color: '#374151', textTransform: 'uppercase', letterSpacing: '.5px', marginBottom: 8 }}>
-        Daily Model Summary
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, marginBottom: 8 }}>
+        <div style={{ fontSize: 10, fontWeight: 600, color: '#374151', textTransform: 'uppercase', letterSpacing: '.5px' }}>
+          Daily Model Summary
+        </div>
+        <div style={{ display: 'flex', gap: 4 }}>
+          {[['today', 'Today'], ['7d', '7-day'], ['30d', '30-day']].map(([key, label]) => (
+            <button
+              key={key}
+              type="button"
+              onClick={() => setTrendWindow(key)}
+              style={{ padding: '4px 10px', borderRadius: 14, fontSize: 10, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', border: '0.5px solid', background: trendWindow === key ? '#1e2936' : '#fff', color: trendWindow === key ? '#fff' : '#374151', borderColor: trendWindow === key ? '#1e2936' : '#e5e7eb' }}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
       </div>
+
+      {!isToday && rollingLoading && (
+        <div style={{ fontSize: 10, color: '#9ca3af', padding: '8px 0' }}>Loading {trendWindow === '7d' ? '7-day' : '30-day'} window…</div>
+      )}
+      {!isToday && !rollingLoading && !data && (
+        <div style={{ fontSize: 10, color: '#9ca3af', padding: '8px 0' }}>No resulted races in this window yet.</div>
+      )}
+      {data && <DailyModelSummaryCards data={data} showComparison={showComparison} allTimeWinPct={allTimeWinPct} />}
+    </div>
+  );
+}
+
+function DailyModelSummaryCards({ data, showComparison, allTimeWinPct }) {
+  const { total, wins, places, winPct, placePct, best, condRows, maxWin, maxLoss, venueRows, oddsRows, distRows, confRows } = data;
+
+  return (
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 8, maxWidth: 1000 }}>
 
         <SummaryCard icon="ti-target" label="Rank 1 strike rate">
@@ -686,6 +915,11 @@ function DailyModelSummary({ data }) {
               <div style={{ fontSize: 9, color: '#9ca3af' }}>Placed ({Math.round(placePct * 100)}%)</div>
             </div>
           </div>
+          {showComparison && (
+            <div style={{ fontSize: 9, color: '#9ca3af', marginTop: 6, paddingTop: 6, borderTop: '0.5px solid #f3f4f6' }}>
+              {Math.round(winPct * 100)}% today · {Math.round(allTimeWinPct * 100)}% avg
+            </div>
+          )}
         </SummaryCard>
 
         <SummaryCard icon="ti-trophy" label="Best result of the day">
@@ -786,12 +1020,11 @@ function DailyModelSummary({ data }) {
         {confRows.length > 0 && (
           <SummaryCard icon="ti-gauge" label="Confidence-band picks">
             <BandRows rows={confRows} />
-            <div style={{ fontSize: 8, color: '#9ca3af', marginTop: 4, lineHeight: 1.4 }}>Tiers based on today&apos;s own rank1-vs-rank2 score-gap distribution</div>
+            <div style={{ fontSize: 8, color: '#9ca3af', marginTop: 4, lineHeight: 1.4 }}>Tiers based on this window&apos;s own rank1-vs-rank2 score-gap distribution</div>
           </SummaryCard>
         )}
 
       </div>
-    </div>
   );
 }
 
@@ -813,6 +1046,10 @@ export default function ResultsPage() {
   const [sidePanel, setSidePanel] = useState('model');
   const [cardRows, setCardRows] = useState([]);
   const [upgradeOpen, setUpgradeOpen] = useState(false);
+  const [trendWindow, setTrendWindow] = useState('today'); // 'today' | '7d' | '30d'
+  const [rollingSummary, setRollingSummary] = useState(null);
+  const [rollingLoading, setRollingLoading] = useState(false);
+  const [allTimeWinPct, setAllTimeWinPct] = useState(null);
   const todayAEST = new Date().toLocaleDateString('sv-SE', { timeZone: 'Australia/Brisbane' });
   const isToday = selectedDate === todayAEST;
   const weights = useMemo(() => getDefaultWeights(), []);
@@ -1140,136 +1377,80 @@ export default function ResultsPage() {
   // Daily Model Summary — spans every venue for the selected date (not just the
   // open meeting), built once from `grouped` (all resulted races for the date)
   // rather than per-meeting like the panels above. Skips races with no result yet.
-  const dailySummary = useMemo(() => {
-    if (!hasCsv) return null;
-    const records = [];
-    Object.values(grouped).forEach(res => {
-      if (!res.runners || !res.runners.length) return;
-      const ranked = getRankedScores(effectiveRaces, effectiveVenues, res.venue, res.raceNum, weights, res.trackCond, dbScratchings);
-      if (!ranked || !ranked.scored.length) return;
-      const rank1Name = ranked.scored[0].name;
-      const runner = res.runners.find(r => normName(r.name) === normName(rank1Name));
-      if (!runner || runner.place == null) return;
-      // Margin between rank-1 and rank-2's total score — null for a 1-runner field.
-      const margin = ranked.scored.length >= 2 ? ranked.scored[0].total - ranked.scored[1].total : null;
-      // res.dist (the DB result row's own dist) is always populated regardless of
-      // whether effectiveRaces is CSV- or /api/race-cards-sourced; rc.dist/rc.cls
-      // from the CSV race object are not reliably present across both sources, so
-      // distance banding uses res.dist. race_results has no class/grade column
-      // mapped anywhere in this page's fetch (`grouped` only carries dist/l600/
-      // trackCond/raceTime) — confirmed absent, so class/grade breakdown is
-      // skipped entirely rather than faked.
-      records.push({
-        venue: res.venue, raceNum: res.raceNum, trackCond: res.trackCond || 'good',
-        dist: parseInt(res.dist, 10) || null,
-        horse: rank1Name, place: runner.place, sp: Number(runner.sp) || 0, margin,
-      });
-    });
-    if (!records.length) return null;
-    records.sort((a, b) => a.venue.localeCompare(b.venue) || a.raceNum - b.raceNum);
-
-    const total = records.length;
-    const wins = records.filter(r => r.place === 1).length;
-    const places = records.filter(r => r.place >= 1 && r.place <= 3).length;
-    const winPct = wins / total;
-    const placePct = places / total;
-
-    const winners = records.filter(r => r.place === 1);
-    const best = winners.length ? winners.reduce((a, b) => (b.sp > a.sp ? b : a)) : null;
-
-    const condMap = {};
-    records.forEach(r => {
-      const bucket = tcBucket(r.trackCond);
-      if (!bucket) return;
-      if (!condMap[bucket]) condMap[bucket] = { total: 0, wins: 0, places: 0 };
-      condMap[bucket].total++;
-      if (r.place === 1) condMap[bucket].wins++;
-      if (r.place <= 3) condMap[bucket].places++;
-    });
-    const condOrder = ['Good', 'Soft', 'Heavy', 'Synthetic'];
-    const condRows = condOrder
-      .filter(k => condMap[k])
-      .map(k => ({ label: k, winPct: condMap[k].wins / condMap[k].total, placePct: condMap[k].places / condMap[k].total }));
-
-    let curWin = 0, curLoss = 0, maxWin = 0, maxLoss = 0;
-    records.forEach(r => {
-      if (r.place === 1) { curWin++; curLoss = 0; } else { curLoss++; curWin = 0; }
-      maxWin = Math.max(maxWin, curWin);
-      maxLoss = Math.max(maxLoss, curLoss);
-    });
-
-    // Venue performance: full breakdown — starts, 1st/2nd/3rd counts, win%, place%.
-    const venueMap = {};
-    records.forEach(r => {
-      if (!venueMap[r.venue]) venueMap[r.venue] = { starts: 0, firsts: 0, seconds: 0, thirds: 0 };
-      const v = venueMap[r.venue];
-      v.starts++;
-      if (r.place === 1) v.firsts++;
-      else if (r.place === 2) v.seconds++;
-      else if (r.place === 3) v.thirds++;
-    });
-    const venueRows = Object.entries(venueMap)
-      .map(([venue, v]) => ({
-        venue, starts: v.starts, firsts: v.firsts, seconds: v.seconds, thirds: v.thirds,
-        winPct: v.firsts / v.starts, placePct: (v.firsts + v.seconds + v.thirds) / v.starts,
-      }))
-      .sort((a, b) => a.venue.localeCompare(b.venue));
-
-    // Odds band performance — bucket rank-1 picks by their own SP.
-    const oddsBands = [
-      { label: '$2–4',  min: 2,  max: 4 },
-      { label: '$4–8',  min: 4,  max: 8 },
-      { label: '$8–15', min: 8,  max: 15 },
-      { label: '$15+',  min: 15, max: Infinity },
-    ];
-    const oddsRows = oddsBands.map(b => {
-      const inBand = records.filter(r => r.sp >= b.min && r.sp < b.max);
-      if (!inBand.length) return null;
-      const w = inBand.filter(r => r.place === 1).length;
-      const p = inBand.filter(r => r.place <= 3).length;
-      return { label: b.label, total: inBand.length, winPct: w / inBand.length, placePct: p / inBand.length };
-    }).filter(Boolean);
-
-    // Distance band performance — sprint/mid/staying, only if dist data exists.
-    const distBands = [
-      { label: 'Sprint (≤1200m)',   min: 0,    max: 1200 },
-      { label: 'Mid (1201–1800m)',  min: 1201, max: 1800 },
-      { label: 'Staying (1800m+)',  min: 1801, max: Infinity },
-    ];
-    const withDist = records.filter(r => r.dist);
-    const distRows = withDist.length ? distBands.map(b => {
-      const inBand = withDist.filter(r => r.dist >= b.min && r.dist <= b.max);
-      if (!inBand.length) return null;
-      const w = inBand.filter(r => r.place === 1).length;
-      const p = inBand.filter(r => r.place <= 3).length;
-      return { label: b.label, total: inBand.length, winPct: w / inBand.length, placePct: p / inBand.length };
-    }).filter(Boolean) : [];
-
-    // Confidence-band picks — tier by rank1-vs-rank2 score margin, using
-    // terciles of today's own margin distribution (not fixed thresholds) so
-    // "narrow/moderate/big" tracks whatever spread actually occurred today.
-    const margins = records.map(r => r.margin).filter(m => m != null).sort((a, b) => a - b);
-    let confRows = [];
-    if (margins.length >= 3) {
-      const q1 = margins[Math.floor(margins.length / 3)];
-      const q2 = margins[Math.floor((margins.length * 2) / 3)];
-      const tierOf = m => m == null ? null : m <= q1 ? 'Narrow gap' : m <= q2 ? 'Moderate gap' : 'Big gap';
-      const tierMap = {};
-      records.forEach(r => {
-        const t = tierOf(r.margin);
-        if (!t) return;
-        if (!tierMap[t]) tierMap[t] = { total: 0, wins: 0, places: 0 };
-        tierMap[t].total++;
-        if (r.place === 1) tierMap[t].wins++;
-        if (r.place <= 3) tierMap[t].places++;
-      });
-      confRows = ['Narrow gap', 'Moderate gap', 'Big gap']
-        .filter(k => tierMap[k])
-        .map(k => ({ label: k, total: tierMap[k].total, winPct: tierMap[k].wins / tierMap[k].total, placePct: tierMap[k].places / tierMap[k].total }));
-    }
-
-    return { total, wins, places, winPct, placePct, best, condRows, maxWin, maxLoss, venueRows, oddsRows, distRows, confRows };
+  const dailyRecords = useMemo(() => {
+    if (!hasCsv) return [];
+    return buildRank1Records(grouped, effectiveRaces, effectiveVenues, weights, dbScratchings);
   }, [grouped, effectiveRaces, effectiveVenues, weights, dbScratchings, hasCsv]);
+
+  const dailySummary = useMemo(() => buildSummaryFromRecords(dailyRecords), [dailyRecords]);
+
+  // Rolling trend (7-day / 30-day, "last N racing days with data ending on the
+  // selected date"). Historical CSV/race-field data (needed to score, not just
+  // the result) is confirmed available per-date via /api/race-cards — same
+  // route the single-day view already uses — but it's Pro-gated for non-today
+  // dates and fetched once per date in the window, so this only runs when the
+  // toggle is actually switched off "today", not on every render.
+  // Simplification: historical scratchings aren't fetched per past date (would
+  // need yet another per-date query) — past-day scoring may include a horse
+  // that was later scratched from that specific race, a minor accuracy
+  // tradeoff versus the exact scratching-aware scoring the single-day view gets.
+  useEffect(() => {
+    if (trendWindow === 'today') { setRollingSummary(null); return; }
+    if (!hasCsv) return;
+    let cancelled = false;
+    const n = trendWindow === '7d' ? 7 : 30;
+    setRollingLoading(true);
+    (async () => {
+      // 2026-05-16 is the earliest date confirmed to have race_results data —
+      // a wide-enough lookback to cover any N-day window ending on selectedDate.
+      const rows = await fetchResultsRange('2026-05-16', selectedDate);
+      const distinctDates = [...new Set(rows.map(r => r.date))].filter(d => d <= selectedDate).sort().reverse();
+      const targetDates = distinctDates.slice(0, n);
+      if (!targetDates.length) { if (!cancelled) { setRollingSummary(null); setRollingLoading(false); } return; }
+      const targetSet = new Set(targetDates);
+      const windowRows = rows.filter(r => targetSet.has(r.date));
+      const cardsByDate = await fetchCardsForDates(targetDates);
+      if (cancelled) return;
+      let allRecords = [];
+      targetDates.forEach(d => {
+        const dayRows = windowRows.filter(r => r.date === d);
+        const dayGrouped = groupResultsByDateRace(dayRows);
+        const cards = cardsByDate[d] || { allRaces: {}, allVenues: {} };
+        allRecords = allRecords.concat(buildRank1Records(dayGrouped, cards.allRaces, cards.allVenues, weights, []));
+      });
+      if (!cancelled) { setRollingSummary(buildSummaryFromRecords(allRecords)); setRollingLoading(false); }
+    })();
+    return () => { cancelled = true; };
+  }, [trendWindow, selectedDate, hasCsv, weights]);
+
+  // All-time average win% ("on this day" comparison line) — computed once
+  // across every day with data (currently 2026-05-16 to 2026-07-21, 39 days),
+  // not refetched on every date change. Requires Pro (historical race_cards
+  // are Pro-gated) — silently stays null for free users rather than showing
+  // a broken/partial number.
+  useEffect(() => {
+    if (isPro !== true || allTimeWinPct !== null) return;
+    let cancelled = false;
+    (async () => {
+      const rows = await fetchResultsRange('2026-05-16', todayAEST);
+      const distinctDates = [...new Set(rows.map(r => r.date))].sort();
+      if (!distinctDates.length) return;
+      const cardsByDate = await fetchCardsForDates(distinctDates);
+      if (cancelled) return;
+      let allRecords = [];
+      distinctDates.forEach(d => {
+        const dayRows = rows.filter(r => r.date === d);
+        const dayGrouped = groupResultsByDateRace(dayRows);
+        const cards = cardsByDate[d] || { allRaces: {}, allVenues: {} };
+        allRecords = allRecords.concat(buildRank1Records(dayGrouped, cards.allRaces, cards.allVenues, weights, []));
+      });
+      if (!cancelled && allRecords.length) {
+        const wins = allRecords.filter(r => r.place === 1).length;
+        setAllTimeWinPct(wins / allRecords.length);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [isPro, todayAEST, weights, allTimeWinPct]);
 
   const tablePad = settings.density === 'Compact' ? '1px 2px' : '3px 4px';
   const tableFs  = settings.fontSize === 'Small' ? 10 : settings.fontSize === 'Large' ? 13 : 11;
@@ -1472,7 +1653,13 @@ export default function ResultsPage() {
               </>
             )}
 
-            <DailyModelSummary data={dailySummary} />
+            <DailyModelSummary
+              data={trendWindow === 'today' ? dailySummary : rollingSummary}
+              trendWindow={trendWindow}
+              setTrendWindow={setTrendWindow}
+              rollingLoading={rollingLoading}
+              allTimeWinPct={allTimeWinPct}
+            />
           </>
         ))}
       </div>
