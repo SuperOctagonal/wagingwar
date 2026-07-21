@@ -866,23 +866,35 @@ function BandRows({ rows }) {
   );
 }
 
-const thStyle = (align) => ({ textAlign: align, padding: align === 'left' ? '3px 4px 3px 0' : '3px 4px', color: '#6b7280', fontWeight: 700, fontSize: 9, textTransform: 'uppercase', letterSpacing: '.3px' });
-const tdStyle = (align, isName) => ({ textAlign: align, padding: align === 'left' ? '3px 4px 3px 6px' : '3px 4px', color: '#111827', fontFamily: isName ? undefined : 'JetBrains Mono, monospace', fontWeight: isName ? 600 : 400, overflow: isName ? 'hidden' : undefined, textOverflow: isName ? 'ellipsis' : undefined, whiteSpace: 'nowrap', maxWidth: isName ? 100 : undefined });
+const thStyle = (align) => ({ textAlign: align, padding: align === 'left' ? '2px 2px 2px 0' : '2px 2px', color: '#6b7280', fontWeight: 700, fontSize: 8, textTransform: 'uppercase', letterSpacing: '.2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' });
+const tdStyle = (align, isName) => ({ textAlign: align, padding: align === 'left' ? '2px 2px 2px 4px' : '2px 2px', color: '#111827', fontFamily: isName ? undefined : 'JetBrains Mono, monospace', fontSize: isName ? 9 : 8, fontWeight: isName ? 600 : 400, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' });
 
 // Shared table for the 4 row-based cards (Venue, Track Condition, Odds Band,
 // Distance Breakdown) — zebra striping, muted uppercase column headers, dark
 // body text throughout, win% colored green (the only place color carries
 // signal), and a left border accent: green if that row's win% beats the
 // day's overall average, grey otherwise — an at-a-glance over/under signal.
+// table-layout:fixed + an explicit <colgroup> keeps all 7 columns inside the
+// card width (no horizontal scroll) regardless of name length — the name
+// column gets whatever's left, the count/pct columns are narrow and fixed.
 function MetricTable({ rows, nameKey, nameLabel, avgWinPct }) {
   if (!rows.length) return <div style={{ fontSize: 10, color: '#111827' }}>—</div>;
   return (
     <div style={{ maxHeight: 140, overflowY: 'auto' }}>
-      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 9 }}>
+      <table style={{ width: '100%', tableLayout: 'fixed', borderCollapse: 'collapse', fontSize: 9 }}>
+        <colgroup>
+          <col style={{ width: 'auto' }} />
+          <col style={{ width: 22 }} />
+          <col style={{ width: 18 }} />
+          <col style={{ width: 18 }} />
+          <col style={{ width: 18 }} />
+          <col style={{ width: 24 }} />
+          <col style={{ width: 24 }} />
+        </colgroup>
         <thead>
           <tr style={{ borderBottom: '1px solid #e5e7eb' }}>
             <th style={thStyle('left')}>{nameLabel}</th>
-            <th style={thStyle('right')}>Starts</th>
+            <th style={thStyle('right')}>St</th>
             <th style={thStyle('right')}>1st</th>
             <th style={thStyle('right')}>2nd</th>
             <th style={thStyle('right')}>3rd</th>
