@@ -848,25 +848,65 @@ function SummaryCard({ icon, label, children }) {
   );
 }
 
+// Used only by Confidence-Band Picks now (no starts/1st/2nd/3rd breakdown
+// available for that card) — the other 4 row-based cards use MetricTable.
 function BandRows({ rows }) {
-  if (!rows.length) return <div style={{ fontSize: 10, color: '#9ca3af' }}>—</div>;
+  if (!rows.length) return <div style={{ fontSize: 10, color: '#111827' }}>—</div>;
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
       {rows.map(r => (
-        <div key={r.label} style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 10 }}>
-            <span style={{ color: '#111827', fontWeight: 600 }}>{r.label} <span style={{ color: '#9ca3af', fontWeight: 400 }}>({r.starts ?? r.total})</span></span>
-            <span style={{ color: '#374151', fontFamily: 'JetBrains Mono, monospace' }}>
-              W {Math.round(r.winPct * 100)}% · P {Math.round(r.placePct * 100)}%
-            </span>
-          </div>
-          {r.starts != null && (
-            <div style={{ fontSize: 8, color: '#9ca3af', fontFamily: 'JetBrains Mono, monospace' }}>
-              Starts {r.starts} · 1st {r.firsts} · 2nd {r.seconds} · 3rd {r.thirds}
-            </div>
-          )}
+        <div key={r.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 10 }}>
+          <span style={{ color: '#111827', fontWeight: 600 }}>{r.label} <span style={{ color: '#111827', fontWeight: 400 }}>({r.total})</span></span>
+          <span style={{ color: '#111827', fontFamily: 'JetBrains Mono, monospace' }}>
+            W <span style={{ color: '#16a34a', fontWeight: 700 }}>{Math.round(r.winPct * 100)}%</span> · P {Math.round(r.placePct * 100)}%
+          </span>
         </div>
       ))}
+    </div>
+  );
+}
+
+const thStyle = (align) => ({ textAlign: align, padding: align === 'left' ? '3px 4px 3px 0' : '3px 4px', color: '#6b7280', fontWeight: 700, fontSize: 9, textTransform: 'uppercase', letterSpacing: '.3px' });
+const tdStyle = (align, isName) => ({ textAlign: align, padding: align === 'left' ? '3px 4px 3px 6px' : '3px 4px', color: '#111827', fontFamily: isName ? undefined : 'JetBrains Mono, monospace', fontWeight: isName ? 600 : 400, overflow: isName ? 'hidden' : undefined, textOverflow: isName ? 'ellipsis' : undefined, whiteSpace: 'nowrap', maxWidth: isName ? 100 : undefined });
+
+// Shared table for the 4 row-based cards (Venue, Track Condition, Odds Band,
+// Distance Breakdown) — zebra striping, muted uppercase column headers, dark
+// body text throughout, win% colored green (the only place color carries
+// signal), and a left border accent: green if that row's win% beats the
+// day's overall average, grey otherwise — an at-a-glance over/under signal.
+function MetricTable({ rows, nameKey, nameLabel, avgWinPct }) {
+  if (!rows.length) return <div style={{ fontSize: 10, color: '#111827' }}>—</div>;
+  return (
+    <div style={{ maxHeight: 140, overflowY: 'auto' }}>
+      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 9 }}>
+        <thead>
+          <tr style={{ borderBottom: '1px solid #e5e7eb' }}>
+            <th style={thStyle('left')}>{nameLabel}</th>
+            <th style={thStyle('right')}>Starts</th>
+            <th style={thStyle('right')}>1st</th>
+            <th style={thStyle('right')}>2nd</th>
+            <th style={thStyle('right')}>3rd</th>
+            <th style={thStyle('right')}>W%</th>
+            <th style={thStyle('right')}>P%</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((r, i) => {
+            const above = r.winPct > avgWinPct;
+            return (
+              <tr key={r[nameKey]} style={{ background: i % 2 === 0 ? '#fff' : '#f8fafc', borderLeft: `3px solid ${above ? '#16a34a' : '#d1d5db'}` }}>
+                <td style={tdStyle('left', true)}>{r[nameKey]}</td>
+                <td style={tdStyle('right')}>{r.starts}</td>
+                <td style={tdStyle('right')}>{r.firsts}</td>
+                <td style={tdStyle('right')}>{r.seconds}</td>
+                <td style={tdStyle('right')}>{r.thirds}</td>
+                <td style={{ ...tdStyle('right'), color: '#16a34a', fontWeight: 700 }}>{Math.round(r.winPct * 100)}%</td>
+                <td style={tdStyle('right')}>{Math.round(r.placePct * 100)}%</td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
     </div>
   );
 }
@@ -916,16 +956,16 @@ function DailyModelSummaryCards({ data, showComparison, allTimeWinPct }) {
           <div style={{ display: 'flex', gap: 14 }}>
             <div>
               <div style={{ fontSize: 18, fontWeight: 700, color: '#111827', fontFamily: 'JetBrains Mono, monospace' }}>{wins}/{total}</div>
-              <div style={{ fontSize: 9, color: '#9ca3af' }}>Wins ({Math.round(winPct * 100)}%)</div>
+              <div style={{ fontSize: 9, color: '#111827' }}>Wins (<span style={{ color: '#16a34a', fontWeight: 700 }}>{Math.round(winPct * 100)}%</span>)</div>
             </div>
             <div>
               <div style={{ fontSize: 18, fontWeight: 700, color: '#111827', fontFamily: 'JetBrains Mono, monospace' }}>{places}/{total}</div>
-              <div style={{ fontSize: 9, color: '#9ca3af' }}>Placed ({Math.round(placePct * 100)}%)</div>
+              <div style={{ fontSize: 9, color: '#111827' }}>Placed ({Math.round(placePct * 100)}%)</div>
             </div>
           </div>
           {showComparison && (
-            <div style={{ fontSize: 9, color: '#9ca3af', marginTop: 6, paddingTop: 6, borderTop: '0.5px solid #f3f4f6' }}>
-              {Math.round(winPct * 100)}% today · {Math.round(allTimeWinPct * 100)}% avg
+            <div style={{ fontSize: 9, color: '#111827', marginTop: 6, paddingTop: 6, borderTop: '0.5px solid #f3f4f6' }}>
+              <span style={{ color: '#16a34a', fontWeight: 700 }}>{Math.round(winPct * 100)}%</span> today · {Math.round(allTimeWinPct * 100)}% avg
             </div>
           )}
         </SummaryCard>
@@ -938,97 +978,53 @@ function DailyModelSummaryCards({ data, showComparison, allTimeWinPct }) {
                 <Badge label="WON" />
               </div>
               <div style={{ fontSize: 11, color: '#111827', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{best.horse}</div>
-              <div style={{ fontSize: 9, color: '#9ca3af' }}>{best.venue} R{best.raceNum}</div>
+              <div style={{ fontSize: 9, color: '#111827' }}>{best.venue} R{best.raceNum}</div>
             </div>
           ) : (
-            <div style={{ fontSize: 12, color: '#9ca3af' }}>—</div>
+            <div style={{ fontSize: 12, color: '#111827' }}>—</div>
           )}
         </SummaryCard>
 
         <SummaryCard icon="ti-droplet" label="Track condition breakdown">
-          {condRows.length === 0 ? (
-            <div style={{ fontSize: 10, color: '#9ca3af' }}>—</div>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-              {condRows.map(c => (
-                <div key={c.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 10 }}>
-                  <span style={{ color: '#111827', fontWeight: 600 }}>{c.label}</span>
-                  <span style={{ color: '#374151', fontFamily: 'JetBrains Mono, monospace' }}>
-                    W {Math.round(c.winPct * 100)}% · P {Math.round(c.placePct * 100)}%
-                  </span>
-                </div>
-              ))}
-            </div>
-          )}
+          <MetricTable rows={condRows} nameKey="label" nameLabel="Condition" avgWinPct={winPct} />
         </SummaryCard>
 
         <SummaryCard icon="ti-flame" label="Longest streak">
           <div style={{ display: 'flex', gap: 14 }}>
             <div>
-              <div style={{ fontSize: 14, fontWeight: 700, color: '#065f46' }}>{maxWin > 0 ? `${maxWin} win${maxWin === 1 ? '' : 's'}` : '—'}</div>
-              <div style={{ fontSize: 9, color: '#9ca3af' }}>in a row</div>
+              <div style={{ fontSize: 14, fontWeight: 700, color: '#16a34a' }}>{maxWin > 0 ? `${maxWin} win${maxWin === 1 ? '' : 's'}` : '—'}</div>
+              <div style={{ fontSize: 9, color: '#111827' }}>in a row</div>
             </div>
             <div>
               <div style={{ fontSize: 14, fontWeight: 700, color: '#991b1b' }}>{maxLoss > 0 ? `${maxLoss} loss${maxLoss === 1 ? '' : 'es'}` : '—'}</div>
-              <div style={{ fontSize: 9, color: '#9ca3af' }}>in a row</div>
+              <div style={{ fontSize: 9, color: '#111827' }}>in a row</div>
             </div>
           </div>
         </SummaryCard>
 
         <SummaryCard icon="ti-horseshoe" label="Placegetter accuracy">
           <div style={{ fontSize: 18, fontWeight: 700, color: '#111827', fontFamily: 'JetBrains Mono, monospace' }}>{Math.round(placePct * 100)}%</div>
-          <div style={{ fontSize: 9, color: '#9ca3af' }}>Rank 1 picks finishing top 3 — for each-way bettors</div>
+          <div style={{ fontSize: 9, color: '#111827' }}>Rank 1 picks finishing top 3 — for each-way bettors</div>
         </SummaryCard>
 
         <SummaryCard icon="ti-map-pin" label="Venue performance">
-          {venueRows.length === 0 ? (
-            <div style={{ fontSize: 10, color: '#9ca3af' }}>—</div>
-          ) : (
-            <div style={{ maxHeight: 130, overflowY: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 9 }}>
-                <thead>
-                  <tr style={{ borderBottom: '1px solid #f3f4f6' }}>
-                    <th style={{ textAlign: 'left',  padding: '2px 4px 2px 0', color: '#9ca3af', fontWeight: 600 }}>Venue</th>
-                    <th style={{ textAlign: 'right', padding: '2px 4px', color: '#9ca3af', fontWeight: 600 }}>Starts</th>
-                    <th style={{ textAlign: 'right', padding: '2px 4px', color: '#9ca3af', fontWeight: 600 }}>1st</th>
-                    <th style={{ textAlign: 'right', padding: '2px 4px', color: '#9ca3af', fontWeight: 600 }}>2nd</th>
-                    <th style={{ textAlign: 'right', padding: '2px 4px', color: '#9ca3af', fontWeight: 600 }}>3rd</th>
-                    <th style={{ textAlign: 'right', padding: '2px 0 2px 4px', color: '#9ca3af', fontWeight: 600 }}>W% / P%</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {venueRows.map(v => (
-                    <tr key={v.venue} style={{ borderBottom: '0.5px solid #f9fafb' }}>
-                      <td style={{ padding: '2px 4px 2px 0', color: '#111827', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 80 }}>{v.venue}</td>
-                      <td style={{ padding: '2px 4px', textAlign: 'right', color: '#374151', fontFamily: 'JetBrains Mono, monospace' }}>{v.starts}</td>
-                      <td style={{ padding: '2px 4px', textAlign: 'right', color: '#374151', fontFamily: 'JetBrains Mono, monospace' }}>{v.firsts}</td>
-                      <td style={{ padding: '2px 4px', textAlign: 'right', color: '#374151', fontFamily: 'JetBrains Mono, monospace' }}>{v.seconds}</td>
-                      <td style={{ padding: '2px 4px', textAlign: 'right', color: '#374151', fontFamily: 'JetBrains Mono, monospace' }}>{v.thirds}</td>
-                      <td style={{ padding: '2px 0 2px 4px', textAlign: 'right', color: '#374151', fontFamily: 'JetBrains Mono, monospace', whiteSpace: 'nowrap' }}>
-                        {Math.round(v.winPct * 100)}% / {Math.round(v.placePct * 100)}%
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+          <MetricTable rows={venueRows} nameKey="venue" nameLabel="Venue" avgWinPct={winPct} />
         </SummaryCard>
 
         <SummaryCard icon="ti-coin" label="Odds band performance">
-          <BandRows rows={oddsRows} />
+          <MetricTable rows={oddsRows} nameKey="label" nameLabel="Band" avgWinPct={winPct} />
         </SummaryCard>
 
         {distRows.length > 0 && (
           <SummaryCard icon="ti-ruler-2" label="Distance breakdown">
-            <BandRows rows={distRows} />
+            <MetricTable rows={distRows} nameKey="label" nameLabel="Distance" avgWinPct={winPct} />
           </SummaryCard>
         )}
 
         {confRows.length > 0 && (
           <SummaryCard icon="ti-gauge" label="Confidence-band picks">
             <BandRows rows={confRows} />
-            <div style={{ fontSize: 8, color: '#9ca3af', marginTop: 4, lineHeight: 1.4 }}>Tiers based on this window&apos;s own rank1-vs-rank2 score-gap distribution</div>
+            <div style={{ fontSize: 8, color: '#111827', marginTop: 4, lineHeight: 1.4 }}>Tiers based on this window&apos;s own rank1-vs-rank2 score-gap distribution</div>
           </SummaryCard>
         )}
 
