@@ -1171,7 +1171,7 @@ export default function MybetsPage() {
   return (
     <>
     <style>{`.ww-bets-table td, .ww-bets-table th { padding: ${tablePad} !important; font-size: ${tableFs}px !important; }`}</style>
-    <div className="mob-page" style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
+    <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
       <ProfileRail>
         <div style={{ borderTop: '1px solid #e5e7eb', padding: '10px 12px' }}>
           <div style={{ fontSize: 10, fontWeight: 700, color: '#374151', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 8 }}>Log a Bet</div>

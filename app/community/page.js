@@ -1038,7 +1038,7 @@ function CommunityPageInner() {
   const sectionLabel = SECTIONS.find(s => s.id === section)?.label || 'All Posts';
 
   return (
-    <div className="comm-outer mob-page" style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 56px)', overflow: 'hidden', background: '#f1f5f9' }}>
+    <div className="comm-outer" style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 56px)', overflow: 'hidden', background: '#f1f5f9' }}>
       {/* Mobile section pills */}
       {isMobile && (
         <div style={{ display: 'flex', overflowX: 'auto', gap: 6, padding: '8px 16px', height: 44, alignItems: 'center', background: '#fff', borderBottom: '0.5px solid #e5e7eb', flexShrink: 0, scrollbarWidth: 'none' }}>
