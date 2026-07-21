@@ -11,6 +11,7 @@ export default function sitemap() {
     '/blackbook',
     '/community',
     '/how-it-works',
+    '/faq',
   ];
 
   return routes.map((route) => ({

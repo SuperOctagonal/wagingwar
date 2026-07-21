@@ -32,6 +32,7 @@ export default function FooterChrome() {
         <a href="/privacy"                 className="hover:text-gray-600 transition-colors">Privacy Policy</a>
         <a href="/terms"                   className="hover:text-gray-600 transition-colors">Terms of Service</a>
         <a href="/responsible-gambling"    className="hover:text-gray-600 transition-colors">Responsible Gambling</a>
+        <a href="/faq"                     className="hover:text-gray-600 transition-colors">FAQ</a>
         <a href="/upcoming"                className="hover:text-gray-600 transition-colors">Upcoming Features</a>
         <a href="mailto:support@wagingwar.com.au" className="hover:text-gray-600 transition-colors">Contact</a>
       </footer>
