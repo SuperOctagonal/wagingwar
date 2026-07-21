@@ -1416,7 +1416,7 @@ export default function MybetsPage() {
             ) : sortedLedgerBets.length === 0 ? (
               <div style={{ padding: 20, textAlign: 'center', color: '#fff', fontSize: 11 }}>No bets for this period</div>
             ) : (
-              <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', overflowX: 'auto' }}>
+              <div className="mob-page" style={{ flex: 1, minHeight: 0, overflowY: 'auto', overflowX: 'auto' }}>
                 <table className="ww-bets-table" style={{ borderCollapse: 'collapse', fontSize: 11 }}>
                   <thead>
                     <tr style={{ background: '#0D1C13' }}>

@@ -40,8 +40,10 @@ html, body { height: 100%; }
 @media (max-width: 768px), ((pointer: coarse) and (max-height: 768px)) {
   body { overflow-x: hidden; }
 
-  /* Clear the 56px bottom nav + 24px RG banner on all page main areas */
-  .mob-page { padding-bottom: 80px !important; }
+  /* Clear the fixed bottom nav + RG banner on all page main areas. The var is set
+     dynamically from their real rendered heights (components/MobileChromeVars.js);
+     80px is only the fallback for before that JS runs. */
+  .mob-page { padding-bottom: var(--mobile-chrome-height, 80px) !important; }
 
   /* Hide desktop-only elements */
   .mob-hidden { display: none !important; }

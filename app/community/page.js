@@ -1097,7 +1097,7 @@ function CommunityPageInner() {
         </div>
 
         {/* Post list table */}
-        <div style={{ flex: 1, overflowY: 'auto' }}>
+        <div className="mob-page" style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
           <PostTable
             posts={posts}
             section={section}
