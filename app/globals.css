@@ -119,9 +119,14 @@ html, body { height: 100%; }
      compact line, consuming nearly all vertical space and collapsing the
      middle column's scroll area to ~23px. Force it into a single row here
      and cap its height so the middle column always gets the remainder. */
-  #rh-outer { max-height: 44px !important; overflow-x: auto !important; overflow-y: hidden !important; }
-  #rh-left-block { display: flex !important; align-items: baseline !important; gap: 8px !important; min-width: 0 !important; }
-  #rh-tags-row { margin-top: 0 !important; flex-wrap: nowrap !important; }
-  #rh-left-block h2 { white-space: nowrap !important; }
-  #rh-right-block { flex-wrap: nowrap !important; flex-shrink: 0 !important; }
+  /* justify-content:space-between (Tailwind's justify-between) combined with
+     overflow-x:auto on the same flex row is a known WebKit bug — content can
+     render overlapping/mispositioned instead of scrolling. Switch to
+     flex-start + margin-left:auto on the right block, and truncate the title
+     with ellipsis instead of relying on horizontal scroll, to avoid it. */
+  #rh-outer { max-height: 44px !important; overflow: hidden !important; justify-content: flex-start !important; }
+  #rh-left-block { display: flex !important; align-items: baseline !important; gap: 8px !important; min-width: 0 !important; overflow: hidden !important; flex-shrink: 1 !important; }
+  #rh-left-block h2 { white-space: nowrap !important; overflow: hidden !important; text-overflow: ellipsis !important; max-width: 140px !important; }
+  #rh-tags-row { margin-top: 0 !important; flex-wrap: nowrap !important; overflow: hidden !important; flex-shrink: 0 !important; }
+  #rh-right-block { flex-wrap: nowrap !important; flex-shrink: 0 !important; margin-left: auto !important; }
 }

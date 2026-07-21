@@ -454,12 +454,13 @@ function RightRail({ allRaces, allVenues, selectedRaceKey, onSelect, isPro, user
   const thS = { padding: '4px 8px', fontSize: 9, fontWeight: 600, color: 'rgba(255,255,255,0.70)', textTransform: 'uppercase', letterSpacing: '0.4px', borderBottom: '0.5px solid rgba(255,255,255,0.15)', background: 'transparent', textAlign: 'left', whiteSpace: 'nowrap' };
 
   return (
-    <aside className="mob-page" style={{ width: 200, flexShrink: 0, background: '#fff', borderLeft: '0.5px solid #e5e7eb', overflowY: 'auto', overflowX: 'hidden', display: 'flex', flexDirection: 'column' }}>
+    <aside style={{ width: 200, flexShrink: 0, background: '#fff', borderLeft: '0.5px solid #e5e7eb', height: '100%', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
       {/* Header */}
       <div style={{ background: '#00471b', color: '#fff', fontSize: 10, fontWeight: 700, padding: '6px 10px', letterSpacing: '0.5px', textTransform: 'uppercase', flexShrink: 0 }}>
         Up Next
       </div>
 
+      <div className="mob-page" style={{ flex: 1, minHeight: 0, overflowY: 'auto', overflowX: 'hidden' }}>
       <table style={{ width: '100%', tableLayout: 'fixed', borderCollapse: 'collapse', fontSize: 10 }}>
         <thead>
           <tr style={{ background: '#1a2634' }}>
@@ -519,6 +520,7 @@ function RightRail({ allRaces, allVenues, selectedRaceKey, onSelect, isPro, user
           })}
         </tbody>
       </table>
+      </div>
     </aside>
   );
 }
