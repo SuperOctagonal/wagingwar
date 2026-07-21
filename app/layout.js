@@ -5,7 +5,6 @@ import TopNav from '@/components/TopNav';
 import FooterChrome from '@/components/FooterChrome';
 import CookieBanner from '@/components/CookieBanner';
 import MobileChromeVars from '@/components/MobileChromeVars';
-import DebugOverlay from '@/components/DebugOverlay';
 import './globals.css';
 
 const spaceGrotesk = Space_Grotesk({ subsets:['latin'], variable:'--font-space-grotesk', weight:['400','500','600','700'], display:'swap' });
@@ -68,7 +67,6 @@ export default function RootLayout({ children }) {
         </head>
         <body className="font-space text-[13px] bg-slate-100 text-gray-900 h-full flex flex-col overflow-hidden">
           <MobileChromeVars />
-          <DebugOverlay />
           <TopNav />
           {children}
           {/* Responsible gambling banner + footer — desktop/mobile variant chosen by useIsMobile */}

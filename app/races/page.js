@@ -2945,7 +2945,7 @@ function RacesPageInner() {
                 </>
               );
               const contentBlock = (
-                <div id="races-middle-scroll" className={isNarrow ? 'flex-1 overflow-hidden flex flex-col' : 'mob-page'} style={isNarrow ? undefined : { overflowY: 'auto', height: '100%', WebkitOverflowScrolling: 'touch' }}>
+                <div id="races-middle-scroll" className={isNarrow ? 'flex-1 overflow-hidden flex flex-col' : 'mob-page'} style={isNarrow ? undefined : { overflowY: 'auto', height: '100%', flex: 1, minHeight: 0, WebkitOverflowScrolling: 'touch' }}>
                   {view === 'field' && (
                     <FieldView results={allHorsesForDisplay} scratched={scratched} rc={currentRace}
                       trackCond={trackCond} onLogBet={handleLogBet}

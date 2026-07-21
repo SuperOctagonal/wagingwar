@@ -112,4 +112,16 @@ html, body { height: 100%; }
      but drops to bottom:0 to fill the gap left by the tab bar. */
   #mobile-tab-bar { display: none !important; }
   #mobile-rg-banner { bottom: 0 !important; }
+
+  /* Races: RaceHeader was rendering as 3 stacked blocks (title row, tags row,
+     condition-toggle row are separate sibling divs — not flex-wrap, so the
+     earlier nowrap fix on the outer row never touched this) instead of one
+     compact line, consuming nearly all vertical space and collapsing the
+     middle column's scroll area to ~23px. Force it into a single row here
+     and cap its height so the middle column always gets the remainder. */
+  #rh-outer { max-height: 44px !important; overflow-x: auto !important; overflow-y: hidden !important; }
+  #rh-left-block { display: flex !important; align-items: baseline !important; gap: 8px !important; min-width: 0 !important; }
+  #rh-tags-row { margin-top: 0 !important; flex-wrap: nowrap !important; }
+  #rh-left-block h2 { white-space: nowrap !important; }
+  #rh-right-block { flex-wrap: nowrap !important; flex-shrink: 0 !important; }
 }
