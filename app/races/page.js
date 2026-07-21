@@ -1696,7 +1696,7 @@ function FieldView({ results, scratched, rc, trackCond, onLogBet, onShowPopup, o
   return (
     <>
       {/* Desktop table */}
-      <div id="races-middle-scroll" className={!isMobile ? 'mob-page overflow-x-hidden' : 'hidden'} style={!isMobile ? { flex: 1, minHeight: 0, overflowY: 'auto' } : undefined}>
+      <div className={!isMobile ? 'overflow-x-hidden' : 'hidden'}>
         <table className="ww-race-table w-full border-collapse" style={{ tableLayout: 'auto' }}>
           <thead>
             <tr className="border-b border-gray-200">
@@ -2767,13 +2767,26 @@ function RacesPageInner() {
   const tablePad = userSettings.density === 'Compact' ? '1px 2px' : '3px 4px';
   const tableFs  = userSettings.fontSize === 'Small' ? 10 : userSettings.fontSize === 'Large' ? 13 : 11;
 
+  // Landscape (!isNarrow) 3-column layout: CSS Grid instead of nested flex-grow chains.
+  // iOS Safari has a well-documented bug (flexbugs #106/#217) where nested flex + overflow:auto
+  // silently collapses height unless min-height:0 is set on every single ancestor level — repeated
+  // flex patches here kept fixing one column while another regressed. Grid tracks have a definite
+  // size from the template itself, not inherited flex math, so this failure mode doesn't apply.
+  const showLeftRail  = hasData && !isNarrow;
+  const showRightRail = hasData && !isHistoricalMode && !isNarrow;
+  const gridCols = `${showLeftRail ? '202px ' : ''}1fr${showRightRail ? ' 200px' : ''}`;
+  const railScrollStyle = { overflowY: 'auto', height: '100%', WebkitOverflowScrolling: 'touch', overflowX: 'hidden' };
+
   return (
     <>
     <style>{`.ww-race-table td { padding: ${tablePad} !important; font-size: ${tableFs}px !important; }`}</style>
-    <div className="flex flex-1 overflow-hidden">
+    <div
+      className={isNarrow ? 'flex flex-1 overflow-hidden' : undefined}
+      style={isNarrow ? undefined : { display: 'grid', gridTemplateColumns: gridCols, height: '100%', overflow: 'hidden' }}
+    >
       {/* Left rail — width-based, not touch-based: a wide landscape phone still gets it */}
-      {hasData && !isNarrow && (
-        <div className="flex">
+      {showLeftRail && (
+        <div className={isNarrow ? 'flex' : 'mob-page'} style={isNarrow ? undefined : railScrollStyle}>
           <LeftRail allVenues={allVenues} allRaces={allRaces} selectedRaceKey={selectedKey} onSelect={handleSelectRace} trackConds={trackConds} raceResults={raceResults} abandonedVenues={venueAbandoned} minRunners={userSettings.racesMinRunners} />
         </div>
       )}
@@ -2870,74 +2883,75 @@ function RacesPageInner() {
               </div>
             )}
 
-            {currentRace ? (
-              <div className="flex-1 flex flex-col overflow-hidden">
-                {isHistoricalMode && (
-                  <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 8, padding: '5px 12px', background: '#fef3c7', borderBottom: '1px solid #fde68a', fontSize: 10, color: '#92400e' }}>
-                    <i className="ti ti-history" style={{ fontSize: 11 }} />
-                    <span style={{ fontWeight: 700 }}>Historical mode</span>
-                    <span style={{ opacity: 0.5 }}>·</span>
-                    <span>{new Date(selectedDate + 'T12:00:00').toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}</span>
-                    <span style={{ opacity: 0.5 }}>· Live betting disabled</span>
-                    <button onClick={() => setSelectedDate(todayISO)} style={{ marginLeft: 'auto', fontSize: 9, color: '#059669', fontWeight: 700, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>← Back to today</button>
-                  </div>
-                )}
-                <RaceHeader rc={currentRace} trackCond={trackCond} setTrackCond={setTrackCond}
-                  weights={weights} setWeights={setWeights} runnerCount={results.length}
-                  onUpgrade={() => setUpgradeOpen(true)} isPro={isPro} isMobile={isNarrow} />
-                {(() => {
-                  const venueRaces = (allVenues[currentRace.venue] || [])
-                    .slice()
-                    .sort((a, b) => (allRaces[a]?.num || 0) - (allRaces[b]?.num || 0));
-                  if (venueRaces.length < 2) return null;
-                  return (
-                    <div style={{ display:'flex', alignItems:'center', gap:4, padding:'4px 10px', borderBottom:'1px solid #e5e7eb', overflowX:'auto', flexShrink:0, background:'#fafafa' }}>
-                      {venueRaces.map(key => {
-                        const rn = allRaces[key]?.num;
-                        const active = key === selectedKey;
-                        const tabBetKey = `${normaliseVenue(currentRace.venue)}||${String(rn)}`;
-                          const tabHasBet = isPro && (todayBets[tabBetKey]?.length > 0);
-                          return (
-                          <button
-                            key={key}
-                            onClick={() => setSelectedKey(key)}
-                            style={{
-                              minWidth:28, height:40, fontSize:12, fontWeight: active ? 700 : 500,
-                              borderRadius:5, border: active ? '1.5px solid #1D9E75' : '1px solid #d1d5db',
-                              background: active ? '#1D9E75' : '#fff', color: active ? '#fff' : '#374151',
-                              cursor:'pointer', flexShrink:0, padding:'0 5px', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:2,
-                            }}
-                          >
-                            <span>R{rn}</span>
-                            {tabHasBet && <span style={{ width:5, height:5, borderRadius:'50%', background: active ? '#fff' : '#00471b', flexShrink:0 }} />}
-                          </button>
-                        );
-                      })}
+            {currentRace ? (() => {
+              const headerBlock = (
+                <>
+                  {isHistoricalMode && (
+                    <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 8, padding: '5px 12px', background: '#fef3c7', borderBottom: '1px solid #fde68a', fontSize: 10, color: '#92400e' }}>
+                      <i className="ti ti-history" style={{ fontSize: 11 }} />
+                      <span style={{ fontWeight: 700 }}>Historical mode</span>
+                      <span style={{ opacity: 0.5 }}>·</span>
+                      <span>{new Date(selectedDate + 'T12:00:00').toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}</span>
+                      <span style={{ opacity: 0.5 }}>· Live betting disabled</span>
+                      <button onClick={() => setSelectedDate(todayISO)} style={{ marginLeft: 'auto', fontSize: 9, color: '#059669', fontWeight: 700, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>← Back to today</button>
                     </div>
-                  );
-                })()}
-                {!isNarrow && <ViewTabBar view={view} setView={setView} runnerCount={results.length} isHistoricalMode={isHistoricalMode} />}
-                {currentRaceResult && (
-                  <div style={{ background:'#f0fdf4', borderBottom:'1px solid #86efac', padding:'5px 12px', display:'flex', alignItems:'center', gap:8 }}>
-                    <i className="ti ti-flag-check" style={{ color:'#16a34a', fontSize:13 }} />
-                    <span style={{ fontSize:11, fontWeight:600, color:'#065f46' }}>Race resulted</span>
-                    <button onClick={() => setResultPopup(currentRaceResult)}
-                      style={{ marginLeft:8, padding:'3px 10px', background:'#059669', color:'#fff', border:'none', borderRadius:5, fontSize:11, fontWeight:600, cursor:'pointer' }}>
-                      View Results
-                    </button>
-                  </div>
-                )}
-                {/* View content */}
-                <div className="flex-1 overflow-hidden flex flex-col">
+                  )}
+                  <RaceHeader rc={currentRace} trackCond={trackCond} setTrackCond={setTrackCond}
+                    weights={weights} setWeights={setWeights} runnerCount={results.length}
+                    onUpgrade={() => setUpgradeOpen(true)} isPro={isPro} isMobile={isNarrow} />
+                  {(() => {
+                    const venueRaces = (allVenues[currentRace.venue] || [])
+                      .slice()
+                      .sort((a, b) => (allRaces[a]?.num || 0) - (allRaces[b]?.num || 0));
+                    if (venueRaces.length < 2) return null;
+                    return (
+                      <div style={{ display:'flex', alignItems:'center', gap:4, padding:'4px 10px', borderBottom:'1px solid #e5e7eb', overflowX:'auto', flexShrink:0, background:'#fafafa' }}>
+                        {venueRaces.map(key => {
+                          const rn = allRaces[key]?.num;
+                          const active = key === selectedKey;
+                          const tabBetKey = `${normaliseVenue(currentRace.venue)}||${String(rn)}`;
+                            const tabHasBet = isPro && (todayBets[tabBetKey]?.length > 0);
+                            return (
+                            <button
+                              key={key}
+                              onClick={() => setSelectedKey(key)}
+                              style={{
+                                minWidth:28, height:40, fontSize:12, fontWeight: active ? 700 : 500,
+                                borderRadius:5, border: active ? '1.5px solid #1D9E75' : '1px solid #d1d5db',
+                                background: active ? '#1D9E75' : '#fff', color: active ? '#fff' : '#374151',
+                                cursor:'pointer', flexShrink:0, padding:'0 5px', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:2,
+                              }}
+                            >
+                              <span>R{rn}</span>
+                              {tabHasBet && <span style={{ width:5, height:5, borderRadius:'50%', background: active ? '#fff' : '#00471b', flexShrink:0 }} />}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    );
+                  })()}
+                  {!isNarrow && <ViewTabBar view={view} setView={setView} runnerCount={results.length} isHistoricalMode={isHistoricalMode} />}
+                  {currentRaceResult && (
+                    <div style={{ background:'#f0fdf4', borderBottom:'1px solid #86efac', padding:'5px 12px', display:'flex', alignItems:'center', gap:8 }}>
+                      <i className="ti ti-flag-check" style={{ color:'#16a34a', fontSize:13 }} />
+                      <span style={{ fontSize:11, fontWeight:600, color:'#065f46' }}>Race resulted</span>
+                      <button onClick={() => setResultPopup(currentRaceResult)}
+                        style={{ marginLeft:8, padding:'3px 10px', background:'#059669', color:'#fff', border:'none', borderRadius:5, fontSize:11, fontWeight:600, cursor:'pointer' }}>
+                        View Results
+                      </button>
+                    </div>
+                  )}
+                </>
+              );
+              const contentBlock = (
+                <div id="races-middle-scroll" className={isNarrow ? 'flex-1 overflow-hidden flex flex-col' : 'mob-page'} style={isNarrow ? undefined : { overflowY: 'auto', height: '100%', WebkitOverflowScrolling: 'touch' }}>
                   {view === 'field' && (
-                    <div className="flex-1 overflow-hidden flex flex-col">
-                      <FieldView results={allHorsesForDisplay} scratched={scratched} rc={currentRace}
-                        trackCond={trackCond} onLogBet={handleLogBet}
-                        onShowPopup={showHorsePopup} onHidePopup={hideHorsePopup}
-                        isResulted={!!currentRaceResult} betBlocked={betBlocked}
-                        isPro={isPro} onUpgrade={() => setUpgradeOpen(true)}
-                        scratchingsSet={scratchingsSet} colVis={colVis} todayBets={todayBets} isMobile={isNarrow} />
-                    </div>
+                    <FieldView results={allHorsesForDisplay} scratched={scratched} rc={currentRace}
+                      trackCond={trackCond} onLogBet={handleLogBet}
+                      onShowPopup={showHorsePopup} onHidePopup={hideHorsePopup}
+                      isResulted={!!currentRaceResult} betBlocked={betBlocked}
+                      isPro={isPro} onUpgrade={() => setUpgradeOpen(true)}
+                      scratchingsSet={scratchingsSet} colVis={colVis} todayBets={todayBets} isMobile={isNarrow} />
                   )}
                   {view === 'form' && (
                     <FormView results={allHorsesForDisplay} scratched={scratched} onLogBet={handleLogBet} isResulted={!!currentRaceResult} betBlocked={betBlocked} rc={currentRace} isPro={isPro} onUpgrade={() => setUpgradeOpen(true)} scratchingsSet={scratchingsSet} />
@@ -2946,8 +2960,19 @@ function RacesPageInner() {
                     <PaceMapView results={allHorsesForDisplay} scratched={scratched} rc={currentRace} trackCond={trackCond} isPro={isPro} onUpgrade={() => setUpgradeOpen(true)} scratchingsSet={scratchingsSet} />
                   )}
                 </div>
-              </div>
-            ) : (
+              );
+              return isNarrow ? (
+                <div className="flex-1 flex flex-col overflow-hidden">
+                  {headerBlock}
+                  {contentBlock}
+                </div>
+              ) : (
+                <div style={{ display: 'grid', gridTemplateRows: 'auto 1fr', flex: 1, minHeight: 0, overflow: 'hidden' }}>
+                  <div>{headerBlock}</div>
+                  {contentBlock}
+                </div>
+              );
+            })() : (
               <div className="flex-1 flex items-center justify-center text-gray-400 text-sm">Select a race from the left</div>
             )}
           </>
@@ -2955,8 +2980,8 @@ function RacesPageInner() {
       </main>
 
       {/* Right rail — width-based, not touch-based: a wide landscape phone still gets it */}
-      {hasData && !isHistoricalMode && !isNarrow && (
-        <div className="flex">
+      {showRightRail && (
+        <div className={isNarrow ? 'flex' : 'mob-page'} style={isNarrow ? undefined : railScrollStyle}>
           <RightRail allRaces={allRaces} allVenues={allVenues} selectedRaceKey={selectedKey} onSelect={handleSelectRace} isPro={isPro} userId={user?.id} todayBets={todayBets} />
         </div>
       )}
