@@ -2578,7 +2578,7 @@ function RacesPageInner() {
           const ar = {}, av = {};
           rows.forEach(row => {
             const key = `${row.venue}_R${row.race_num}`;
-            if (!ar[key]) ar[key] = { venue: row.venue, num: row.race_num, horses: [] };
+            if (!ar[key]) ar[key] = { venue: row.venue, num: row.race_num, date: row.date, horses: [] };
             if (row.form_data) ar[key].horses.push(row.form_data);
             if (!av[row.venue]) av[row.venue] = [];
             if (!av[row.venue].includes(key)) av[row.venue].push(key);
