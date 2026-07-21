@@ -1041,7 +1041,7 @@ function CommunityPageInner() {
     <div className="comm-outer" style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 56px)', overflow: 'hidden', background: '#f1f5f9' }}>
       {/* Mobile section pills */}
       {isMobile && (
-        <div style={{ display: 'flex', overflowX: 'auto', gap: 6, padding: '8px 16px', height: 44, alignItems: 'center', background: '#fff', borderBottom: '0.5px solid #e5e7eb', flexShrink: 0, scrollbarWidth: 'none' }}>
+        <div className="comm-section-pills" style={{ display: 'flex', overflowX: 'auto', gap: 6, padding: '8px 16px', height: 44, alignItems: 'center', background: '#fff', borderBottom: '0.5px solid #e5e7eb', flexShrink: 0, scrollbarWidth: 'none' }}>
           {SECTIONS.map(s => (
             <button key={s.id} onClick={() => setSection(s.id)}
               style={{ padding: '6px 14px', borderRadius: 20, fontSize: 11, fontWeight: 600, whiteSpace: 'nowrap', cursor: 'pointer', flexShrink: 0, minHeight: 36,
@@ -1070,7 +1070,7 @@ function CommunityPageInner() {
 
       <div style={{ display: 'flex', flexDirection: 'column', background: '#fff', borderRight: '0.5px solid #e5e7eb', overflow: 'hidden' }}>
         {/* Header */}
-        <div style={{ padding: '10px 16px', borderBottom: '0.5px solid #e5e7eb', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
+        <div className="comm-post-header" style={{ padding: '10px 16px', borderBottom: '0.5px solid #e5e7eb', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
           <span style={{ fontSize: 18, fontWeight: 800, color: '#111827', letterSpacing: '0.02em' }}>Community</span>
           <button className="mob-hidden" onClick={() => isPro ? setNewPostModal(true) : setUpgradeOpen(true)}
             style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px', background: '#00471b', color: '#fff', border: 'none', borderRadius: 6, fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
@@ -1089,7 +1089,7 @@ function CommunityPageInner() {
         )}
 
         {/* Stats bar */}
-        <div style={{ padding: '5px 16px', borderBottom: '0.5px solid #e5e7eb', display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+        <div className="comm-stats-bar" style={{ padding: '5px 16px', borderBottom: '0.5px solid #e5e7eb', display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
           <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 10, background: '#f3f4f6', color: '#374151' }}>{posts.length} posts</span>
           <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 10, background: '#f3f4f6', color: '#374151' }}>▲ {totalVotes}</span>
           <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 10, background: '#f3f4f6', color: '#374151' }}>💬 {totalReplies}</span>

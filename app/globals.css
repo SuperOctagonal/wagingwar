@@ -66,7 +66,9 @@ html, body { height: 100%; }
   .community-grid { grid-template-columns: 1fr !important; }
   .comm-left-sidebar { display: none !important; }
   .comm-right-sidebar { display: none !important; }
-  .comm-outer { height: calc(100vh - 112px) !important; }
+  /* 44px = TopNav's real fixed height (h-11); the rest reuses the same dynamic
+     RG-banner+tab-bar var .mob-page uses, instead of a flat guess. */
+  .comm-outer { height: calc(100vh - 44px - var(--mobile-chrome-height, 80px)) !important; }
 
   /* My Bets: hide left filter sidebar */
   .mybets-sidebar { display: none !important; }
@@ -80,4 +82,25 @@ html, body { height: 100%; }
 
   /* Learn: reduce side padding */
   .learn-content { padding: 16px !important; }
+}
+
+/* ── Landscape phone only (short viewport, coarse pointer) ──────────────────
+   Portrait mobile has plenty of vertical room; landscape phones (e.g. 844×390)
+   don't, so compact the stacked fixed-height chrome rows further here only. */
+@media (pointer: coarse) and (orientation: landscape) and (max-height: 500px) {
+  /* My Bets: headline P&L only, hide record/streak sub-lines */
+  .mb-scoreboard { min-height: 40px !important; }
+  .mb-scoreboard-detail { display: none !important; }
+
+  /* My Bets: tighten the date-range switcher + ledger/charts tab bar rows */
+  .mb-date-switch { margin: 0 8px !important; padding: 2px 8px !important; }
+  .mb-tab-bar { margin: 2px 8px !important; padding: 2px 8px !important; }
+
+  /* My Bets: drop the portrait-oriented swipe hint — not needed with more width */
+  .mb-swipe-hint { display: none !important; }
+
+  /* Community: tighten section pills, post-list header, and stats bar */
+  .comm-section-pills { height: 32px !important; padding: 4px 16px !important; }
+  .comm-post-header { padding: 6px 16px !important; }
+  .comm-stats-bar { padding: 3px 16px !important; }
 }

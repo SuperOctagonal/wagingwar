@@ -1274,7 +1274,7 @@ export default function MybetsPage() {
       <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: '#f3f4f6' }}>
 
         {/* 3-COLUMN SCOREBOARD HEADER */}
-        <div style={{ flexShrink: 0, display: 'flex', background: '#fff', borderBottom: '1px solid #e5e7eb', minHeight: isMobile ? 68 : 120 }}>
+        <div className="mb-scoreboard" style={{ flexShrink: 0, display: 'flex', background: '#fff', borderBottom: '1px solid #e5e7eb', minHeight: isMobile ? 68 : 120 }}>
 
           {/* Col 1 — P&L + record + streak */}
           <div style={{ flex: 1, padding: isMobile ? '8px 12px' : '12px 18px', borderRight: '1px solid #e5e7eb', display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 3 }}>
@@ -1282,10 +1282,12 @@ export default function MybetsPage() {
             <div style={{ fontSize: isMobile ? 22 : 28, fontWeight: 800, fontFamily: 'monospace', color: sbPnlColor, lineHeight: 1 }}>
               {sbPnl === null ? '—' : (sbPnlPos ? '+$' : '-$') + Math.abs(sbPnl).toFixed(2)}
             </div>
-            <div style={{ fontSize: 11, fontFamily: 'monospace', color: '#374151', letterSpacing: '.04em', marginTop: 2 }}>{heroRecord}</div>
-            {heroStreak && (
-              <div style={{ fontSize: 11, fontWeight: 700, color: sbStreakColor }}>{sbStreakLabel} streak</div>
-            )}
+            <div className="mb-scoreboard-detail">
+              <div style={{ fontSize: 11, fontFamily: 'monospace', color: '#374151', letterSpacing: '.04em', marginTop: 2 }}>{heroRecord}</div>
+              {heroStreak && (
+                <div style={{ fontSize: 11, fontWeight: 700, color: sbStreakColor }}>{sbStreakLabel} streak</div>
+              )}
+            </div>
           </div>
 
           {/* Col 2 — Cumulative chart (desktop only) */}
@@ -1347,7 +1349,7 @@ export default function MybetsPage() {
 
 
         {/* DATE RANGE SWITCHER */}
-        <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 4, padding: '5px 10px', background: '#fff', border: '1px solid #e5e7eb', borderRadius: 6, margin: '6px 8px 0', ...(isMobile ? { overflowX: 'auto', flexWrap: 'nowrap', scrollbarWidth: 'none' } : { flexWrap: 'wrap' }) }}>
+        <div className="mb-date-switch" style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 4, padding: '5px 10px', background: '#fff', border: '1px solid #e5e7eb', borderRadius: 6, margin: '6px 8px 0', ...(isMobile ? { overflowX: 'auto', flexWrap: 'nowrap', scrollbarWidth: 'none' } : { flexWrap: 'wrap' }) }}>
           {[['today','Today'],['yesterday','Yesterday'],['this_week','This Week'],['this_month','This Month'],['all_time','All Time'],['custom','Custom']].map(([v,l]) => (
             <button key={v} onClick={() => setDateRange(v)}
               style={{ padding: '3px 10px', borderRadius: 4, fontSize: 10, fontWeight: 600, cursor: 'pointer', border: 'none', flexShrink: 0,
@@ -1363,7 +1365,7 @@ export default function MybetsPage() {
         </div>
 
         {/* TAB BAR */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '5px 10px', background: '#fff', border: '1px solid #e5e7eb', borderRadius: 6, flexShrink: 0, gap: 8, margin: '4px 8px 6px' }}>
+        <div className="mb-tab-bar" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '5px 10px', background: '#fff', border: '1px solid #e5e7eb', borderRadius: 6, flexShrink: 0, gap: 8, margin: '4px 8px 6px' }}>
           <div style={{ display: 'flex', gap: 4, ...(isMobile && { flex: 1 }) }}>
             {[['ledger', 'Ledger'], ['charts', 'Charts']].map(([v, l]) => (
               <button key={v} onClick={() => setMainTab(v)}
@@ -1408,7 +1410,7 @@ export default function MybetsPage() {
             })}
           </div>
           <div style={{ background: '#11241A', flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-            <div style={{ flexShrink: 0, padding: '4px 10px', fontSize: 9, color: '#fff', borderBottom: '1px solid #1a3a25' }}>
+            <div className="mb-swipe-hint" style={{ flexShrink: 0, padding: '4px 10px', fontSize: 9, color: '#fff', borderBottom: '1px solid #1a3a25' }}>
               Horse name stays fixed · swipe right for more →
             </div>
             {loading ? (
