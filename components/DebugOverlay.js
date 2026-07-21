@@ -50,12 +50,28 @@ export default function DebugOverlay() {
     document.addEventListener('touchstart', onStart, { capture: true, passive: true });
     document.addEventListener('touchmove', onMove, { capture: true, passive: true });
 
-    const describe = (id) => {
-      const el = document.getElementById(id);
+    const describeEl = (el) => {
       if (!el) return null;
       const cs = getComputedStyle(el);
       const r = el.getBoundingClientRect();
-      return { id, left: Math.round(r.left), right: Math.round(r.right), width: Math.round(r.width), overflowY: cs.overflowY };
+      return {
+        tag: el.tagName, id: el.id || '(none)',
+        left: Math.round(r.left), right: Math.round(r.right), width: Math.round(r.width),
+        overflowY: cs.overflowY,
+        clientHeight: el.clientHeight, scrollHeight: el.scrollHeight,
+      };
+    };
+
+    const describe = (id) => {
+      const el = document.getElementById(id);
+      if (!el) return null;
+      const d = describeEl(el);
+      // Also report the first element child — reveals whether overflow-y:auto
+      // is actually on this wrapper or on a nested child instead (e.g. RightRail's
+      // own <aside> also sets overflow-y:auto independently of its #races-right-col
+      // wrapper), and whether that child's content actually exceeds its own height.
+      const child = el.firstElementChild;
+      return { ...d, child: child ? describeEl(child) : null };
     };
 
     const measure = () => {
@@ -105,7 +121,19 @@ export default function DebugOverlay() {
         const d = info[k];
         return (
           <div key={k} style={{ borderTop: '1px solid rgba(255,255,255,0.3)', marginTop: 2, paddingTop: 2 }}>
-            <b>{k}</b>: {d ? `left:${d.left} right:${d.right} width:${d.width} overflow-y:${d.overflowY}` : 'not found'}
+            <b>{k}</b> (#{d?.id}): overflow-y:{d?.overflowY} clientH:<b>{d?.clientHeight}</b> scrollH:<b>{d?.scrollHeight}</b>
+            {d?.clientHeight != null && d?.scrollHeight != null && (
+              <span style={{ color: d.scrollHeight > d.clientHeight ? '#86efac' : '#fde047' }}>
+                {' '}{d.scrollHeight > d.clientHeight ? '(has overflow to scroll)' : '(NOTHING TO SCROLL)'}
+              </span>
+            )}
+            {!d && ' not found'}
+            {d?.child && (
+              <div style={{ marginLeft: 8 }}>
+                ↳ child &lt;{d.child.tag}&gt; id={d.child.id}: overflow-y:{d.child.overflowY} clientH:<b>{d.child.clientHeight}</b> scrollH:<b>{d.child.scrollHeight}</b>
+                {d.child.scrollHeight > d.child.clientHeight && <span style={{ color: '#86efac' }}> (has overflow to scroll)</span>}
+              </div>
+            )}
           </div>
         );
       })}
