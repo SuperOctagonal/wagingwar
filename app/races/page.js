@@ -2610,7 +2610,7 @@ function RacesPageInner() {
         const ar = {}, av = {};
         rows.forEach(row => {
           const key = `${row.venue}_R${row.race_num}`;
-          if (!ar[key]) ar[key] = { venue: row.venue, num: row.race_num, horses: [] };
+          if (!ar[key]) ar[key] = { venue: row.venue, num: row.race_num, date: row.date, horses: [] };
           if (row.form_data) ar[key].horses.push(row.form_data);
           if (!av[row.venue]) av[row.venue] = [];
           if (!av[row.venue].includes(key)) av[row.venue].push(key);
@@ -2855,6 +2855,11 @@ function RacesPageInner() {
           {isHistoricalMode && (
             <button onClick={() => setSelectedDate(todayISO)} style={{ fontSize: 9, color: '#059669', fontWeight: 600, background: 'none', border: 'none', cursor: 'pointer', padding: '2px 0' }}>
               ← Today
+            </button>
+          )}
+          {selectedDate !== maxSelectableDate && (
+            <button onClick={() => setSelectedDate(maxSelectableDate)} style={{ fontSize: 9, color: '#059669', fontWeight: 600, background: 'none', border: 'none', cursor: 'pointer', padding: '2px 0' }}>
+              Tomorrow →
             </button>
           )}
           {histLoading && <span style={{ fontSize: 9, color: '#9ca3af' }}>Loading…</span>}
