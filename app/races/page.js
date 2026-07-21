@@ -2781,12 +2781,13 @@ function RacesPageInner() {
     <>
     <style>{`.ww-race-table td { padding: ${tablePad} !important; font-size: ${tableFs}px !important; }`}</style>
     <div
+      id="races-grid-outer"
       className={isNarrow ? 'flex flex-1 overflow-hidden' : undefined}
       style={isNarrow ? undefined : { display: 'grid', gridTemplateColumns: gridCols, height: '100%', overflow: 'hidden' }}
     >
       {/* Left rail — width-based, not touch-based: a wide landscape phone still gets it */}
       {showLeftRail && (
-        <div className={isNarrow ? 'flex' : 'mob-page'} style={isNarrow ? undefined : railScrollStyle}>
+        <div id="races-left-col" className={isNarrow ? 'flex' : 'mob-page'} style={isNarrow ? undefined : railScrollStyle}>
           <LeftRail allVenues={allVenues} allRaces={allRaces} selectedRaceKey={selectedKey} onSelect={handleSelectRace} trackConds={trackConds} raceResults={raceResults} abandonedVenues={venueAbandoned} minRunners={userSettings.racesMinRunners} />
         </div>
       )}
@@ -2981,7 +2982,7 @@ function RacesPageInner() {
 
       {/* Right rail — width-based, not touch-based: a wide landscape phone still gets it */}
       {showRightRail && (
-        <div className={isNarrow ? 'flex' : 'mob-page'} style={isNarrow ? undefined : railScrollStyle}>
+        <div id="races-right-col" className={isNarrow ? 'flex' : 'mob-page'} style={isNarrow ? undefined : railScrollStyle}>
           <RightRail allRaces={allRaces} allVenues={allVenues} selectedRaceKey={selectedKey} onSelect={handleSelectRace} isPro={isPro} userId={user?.id} todayBets={todayBets} />
         </div>
       )}
