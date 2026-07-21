@@ -216,19 +216,29 @@ function buildSummaryFromRecords(records) {
   const winners = records.filter(r => r.place === 1);
   const best = winners.length ? winners.reduce((a, b) => (b.sp > a.sp ? b : a)) : null;
 
+  // Shared tally: starts + 1st/2nd/3rd counts + derived win%/place% for a
+  // subset of records — same counts Venue Performance already exposes.
+  const tally = (subset) => {
+    const t = { starts: subset.length, firsts: 0, seconds: 0, thirds: 0 };
+    subset.forEach(r => {
+      if (r.place === 1) t.firsts++;
+      else if (r.place === 2) t.seconds++;
+      else if (r.place === 3) t.thirds++;
+    });
+    return { ...t, winPct: t.firsts / t.starts, placePct: (t.firsts + t.seconds + t.thirds) / t.starts };
+  };
+
   const condMap = {};
   records.forEach(r => {
     const bucket = tcBucket(r.trackCond);
     if (!bucket) return;
-    if (!condMap[bucket]) condMap[bucket] = { total: 0, wins: 0, places: 0 };
-    condMap[bucket].total++;
-    if (r.place === 1) condMap[bucket].wins++;
-    if (r.place <= 3) condMap[bucket].places++;
+    if (!condMap[bucket]) condMap[bucket] = [];
+    condMap[bucket].push(r);
   });
   const condOrder = ['Good', 'Soft', 'Heavy', 'Synthetic'];
   const condRows = condOrder
     .filter(k => condMap[k])
-    .map(k => ({ label: k, winPct: condMap[k].wins / condMap[k].total, placePct: condMap[k].places / condMap[k].total }));
+    .map(k => ({ label: k, ...tally(condMap[k]) }));
 
   let curWin = 0, curLoss = 0, maxWin = 0, maxLoss = 0;
   records.forEach(r => {
@@ -264,9 +274,7 @@ function buildSummaryFromRecords(records) {
   const oddsRows = oddsBands.map(b => {
     const inBand = records.filter(r => r.sp >= b.min && r.sp < b.max);
     if (!inBand.length) return null;
-    const w = inBand.filter(r => r.place === 1).length;
-    const p = inBand.filter(r => r.place <= 3).length;
-    return { label: b.label, total: inBand.length, winPct: w / inBand.length, placePct: p / inBand.length };
+    return { label: b.label, ...tally(inBand) };
   }).filter(Boolean);
 
   // Distance band performance — sprint/mid/staying, only if dist data exists.
@@ -279,9 +287,7 @@ function buildSummaryFromRecords(records) {
   const distRows = withDist.length ? distBands.map(b => {
     const inBand = withDist.filter(r => r.dist >= b.min && r.dist <= b.max);
     if (!inBand.length) return null;
-    const w = inBand.filter(r => r.place === 1).length;
-    const p = inBand.filter(r => r.place <= 3).length;
-    return { label: b.label, total: inBand.length, winPct: w / inBand.length, placePct: p / inBand.length };
+    return { label: b.label, ...tally(inBand) };
   }).filter(Boolean) : [];
 
   // Confidence-band picks — tier by rank1-vs-rank2 score margin, using
@@ -847,11 +853,18 @@ function BandRows({ rows }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
       {rows.map(r => (
-        <div key={r.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 10 }}>
-          <span style={{ color: '#111827', fontWeight: 600 }}>{r.label} <span style={{ color: '#9ca3af', fontWeight: 400 }}>({r.total})</span></span>
-          <span style={{ color: '#374151', fontFamily: 'JetBrains Mono, monospace' }}>
-            W {Math.round(r.winPct * 100)}% · P {Math.round(r.placePct * 100)}%
-          </span>
+        <div key={r.label} style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 10 }}>
+            <span style={{ color: '#111827', fontWeight: 600 }}>{r.label} <span style={{ color: '#9ca3af', fontWeight: 400 }}>({r.starts ?? r.total})</span></span>
+            <span style={{ color: '#374151', fontFamily: 'JetBrains Mono, monospace' }}>
+              W {Math.round(r.winPct * 100)}% · P {Math.round(r.placePct * 100)}%
+            </span>
+          </div>
+          {r.starts != null && (
+            <div style={{ fontSize: 8, color: '#9ca3af', fontFamily: 'JetBrains Mono, monospace' }}>
+              Starts {r.starts} · 1st {r.firsts} · 2nd {r.seconds} · 3rd {r.thirds}
+            </div>
+          )}
         </div>
       ))}
     </div>
