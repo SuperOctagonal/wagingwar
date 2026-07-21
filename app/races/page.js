@@ -620,22 +620,22 @@ function RaceCountdown({ rc }) {
 function RaceHeader({ rc, trackCond, setTrackCond, weights, setWeights, runnerCount, onUpgrade, isPro, isMobile }) {
   const [tcOpen, setTcOpen] = useState(false);
   return (
-    <div className="px-2.5 md:px-4 py-1.5 md:py-2.5 bg-white flex flex-nowrap items-center justify-between gap-3 flex-shrink-0 overflow-x-auto" style={{ borderBottom: '4px solid #00471B' }}>
-      <div>
+    <div id="rh-outer" className="px-2.5 md:px-4 py-1.5 md:py-2.5 bg-white flex flex-nowrap items-center justify-between gap-3 flex-shrink-0 overflow-x-auto" style={{ borderBottom: '4px solid #00471B' }}>
+      <div id="rh-left-block">
         <div className="flex items-baseline gap-2">
           <h2 className="font-bebas text-[19px] md:text-[22px] tracking-widest text-gray-900 leading-none">
             {rc.venue} R{rc.num}
           </h2>
           {rc.name && <span style={{ fontSize: 14, fontWeight: 600, color: '#111827' }}>{rc.name}</span>}
         </div>
-        <div className="flex flex-wrap items-center gap-1.5 mt-1">
+        <div id="rh-tags-row" className="flex flex-wrap items-center gap-1.5 mt-1">
           {rc.dist && <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700">{rc.dist}m</span>}
           {rc.cls  && <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-gray-100 text-gray-600">{rc.cls}</span>}
           {rc.prize && <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-gray-100 text-gray-500">${rc.prize}</span>}
           <RaceCountdown rc={rc} />
         </div>
       </div>
-      <div className="flex items-center gap-2 flex-wrap relative">
+      <div id="rh-right-block" className="flex items-center gap-2 flex-wrap relative">
         {/* Track condition — desktop inline, mobile dropdown */}
         {!isMobile ? (
           <div className="flex items-center gap-0.5 bg-gray-50 rounded-lg p-0.5 border border-gray-100">
@@ -1696,7 +1696,7 @@ function FieldView({ results, scratched, rc, trackCond, onLogBet, onShowPopup, o
   return (
     <>
       {/* Desktop table */}
-      <div className={!isMobile ? 'mob-page flex-1 overflow-y-auto overflow-x-hidden' : 'hidden'}>
+      <div id="races-middle-scroll" className={!isMobile ? 'mob-page flex-1 overflow-y-auto overflow-x-hidden' : 'hidden'}>
         <table className="ww-race-table w-full border-collapse" style={{ tableLayout: 'auto' }}>
           <thead>
             <tr className="border-b border-gray-200">
