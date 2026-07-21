@@ -18,6 +18,24 @@ import { estimatePlacePrice, paidPlacesForFieldSize } from '@/lib/placePrice';
 const SURL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SKEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 import { parseCSV, buildRaces } from '@/lib/csvParser';
+
+// Races-specific: the 3-column rail layout is a width decision, not a touch/coarse-pointer
+// one — a landscape phone (e.g. 844x390, coarse pointer) is plenty wide enough for
+// LeftRail + middle + RightRail, so this deliberately does NOT use useIsMobile.
+function useIsNarrowWidth() {
+  const [isNarrow, setIsNarrow] = useState(false);
+  useEffect(() => {
+    const check = () => setIsNarrow(window.innerWidth <= 768);
+    check();
+    window.addEventListener('resize', check);
+    window.addEventListener('orientationchange', check);
+    return () => {
+      window.removeEventListener('resize', check);
+      window.removeEventListener('orientationchange', check);
+    };
+  }, []);
+  return isNarrow;
+}
 import {
   scoreHorse, scoreGroup, calculateMatrixOdds, calcPaceMap,
   formatRacingOdds, getDefaultWeights, FACTORS, FACTOR_GROUPS_DEF, GRP_KEYS, GRP_LABELS,
@@ -399,7 +417,7 @@ function LeftRail({ allVenues, allRaces, selectedRaceKey, onSelect, trackConds, 
         )}
       </div>
 
-      <div style={{ flex: 1, overflowY: 'auto', paddingBottom: 8 }}>
+      <div className="mob-page" style={{ flex: 1, overflowY: 'auto', paddingBottom: 8 }}>
         {pinnedVenues.map(renderTile)}
         {pinnedVenues.length > 0 && unpinnedVenues.length > 0 && (
           <div style={{ margin: '4px 10px 2px', borderTop: '1px solid rgba(255,255,255,0.14)' }} />
@@ -436,7 +454,7 @@ function RightRail({ allRaces, allVenues, selectedRaceKey, onSelect, isPro, user
   const thS = { padding: '4px 8px', fontSize: 9, fontWeight: 600, color: 'rgba(255,255,255,0.70)', textTransform: 'uppercase', letterSpacing: '0.4px', borderBottom: '0.5px solid rgba(255,255,255,0.15)', background: 'transparent', textAlign: 'left', whiteSpace: 'nowrap' };
 
   return (
-    <aside style={{ width: 200, flexShrink: 0, background: '#fff', borderLeft: '0.5px solid #e5e7eb', overflowY: 'auto', overflowX: 'hidden', display: 'flex', flexDirection: 'column' }}>
+    <aside className="mob-page" style={{ width: 200, flexShrink: 0, background: '#fff', borderLeft: '0.5px solid #e5e7eb', overflowY: 'auto', overflowX: 'hidden', display: 'flex', flexDirection: 'column' }}>
       {/* Header */}
       <div style={{ background: '#00471b', color: '#fff', fontSize: 10, fontWeight: 700, padding: '6px 10px', letterSpacing: '0.5px', textTransform: 'uppercase', flexShrink: 0 }}>
         Up Next
@@ -1678,7 +1696,7 @@ function FieldView({ results, scratched, rc, trackCond, onLogBet, onShowPopup, o
   return (
     <>
       {/* Desktop table */}
-      <div className={!isMobile ? 'flex-1 overflow-y-auto overflow-x-hidden' : 'hidden'}>
+      <div className={!isMobile ? 'mob-page flex-1 overflow-y-auto overflow-x-hidden' : 'hidden'}>
         <table className="ww-race-table w-full border-collapse" style={{ tableLayout: 'auto' }}>
           <thead>
             <tr className="border-b border-gray-200">
@@ -2312,6 +2330,7 @@ function RacesPageInner() {
   const { user }     = useUser();
   const isPro        = useIsPro();
   const isMobile     = useIsMobile();
+  const isNarrow     = useIsNarrowWidth();
   const { settings: userSettings, loading: settingsLoading } = useUserSettings();
   const preferredViewRef = useRef('field');
   console.log('[Tier] isPro:', isPro, 'plan:', user?.publicMetadata?.plan);
@@ -2752,8 +2771,8 @@ function RacesPageInner() {
     <>
     <style>{`.ww-race-table td { padding: ${tablePad} !important; font-size: ${tableFs}px !important; }`}</style>
     <div className="flex flex-1 overflow-hidden">
-      {/* Left rail — desktop only */}
-      {hasData && !isMobile && (
+      {/* Left rail — width-based, not touch-based: a wide landscape phone still gets it */}
+      {hasData && !isNarrow && (
         <div className="flex">
           <LeftRail allVenues={allVenues} allRaces={allRaces} selectedRaceKey={selectedKey} onSelect={handleSelectRace} trackConds={trackConds} raceResults={raceResults} abandonedVenues={venueAbandoned} minRunners={userSettings.racesMinRunners} />
         </div>
@@ -2832,7 +2851,7 @@ function RacesPageInner() {
         ) : (
           <>
             {/* Mobile race picker */}
-            {isMobile && <MobileRacePicker allVenues={allVenues} allRaces={allRaces} selectedRaceKey={selectedKey} onSelect={handleSelectRace} />}
+            {isNarrow && <MobileRacePicker allVenues={allVenues} allRaces={allRaces} selectedRaceKey={selectedKey} onSelect={handleSelectRace} />}
 
             {/* CSV toolbar — admin only, hidden in historical mode */}
             {isRacesAdmin(user?.id) && !isHistoricalMode && (
@@ -2865,7 +2884,7 @@ function RacesPageInner() {
                 )}
                 <RaceHeader rc={currentRace} trackCond={trackCond} setTrackCond={setTrackCond}
                   weights={weights} setWeights={setWeights} runnerCount={results.length}
-                  onUpgrade={() => setUpgradeOpen(true)} isPro={isPro} isMobile={isMobile} />
+                  onUpgrade={() => setUpgradeOpen(true)} isPro={isPro} isMobile={isNarrow} />
                 {(() => {
                   const venueRaces = (allVenues[currentRace.venue] || [])
                     .slice()
@@ -2897,7 +2916,7 @@ function RacesPageInner() {
                     </div>
                   );
                 })()}
-                {!isMobile && <ViewTabBar view={view} setView={setView} runnerCount={results.length} isHistoricalMode={isHistoricalMode} />}
+                {!isNarrow && <ViewTabBar view={view} setView={setView} runnerCount={results.length} isHistoricalMode={isHistoricalMode} />}
                 {currentRaceResult && (
                   <div style={{ background:'#f0fdf4', borderBottom:'1px solid #86efac', padding:'5px 12px', display:'flex', alignItems:'center', gap:8 }}>
                     <i className="ti ti-flag-check" style={{ color:'#16a34a', fontSize:13 }} />
@@ -2917,7 +2936,7 @@ function RacesPageInner() {
                         onShowPopup={showHorsePopup} onHidePopup={hideHorsePopup}
                         isResulted={!!currentRaceResult} betBlocked={betBlocked}
                         isPro={isPro} onUpgrade={() => setUpgradeOpen(true)}
-                        scratchingsSet={scratchingsSet} colVis={colVis} todayBets={todayBets} isMobile={isMobile} />
+                        scratchingsSet={scratchingsSet} colVis={colVis} todayBets={todayBets} isMobile={isNarrow} />
                     </div>
                   )}
                   {view === 'form' && (
@@ -2935,8 +2954,8 @@ function RacesPageInner() {
         )}
       </main>
 
-      {/* Right rail — desktop only, hidden in historical mode */}
-      {hasData && !isHistoricalMode && !isMobile && (
+      {/* Right rail — width-based, not touch-based: a wide landscape phone still gets it */}
+      {hasData && !isHistoricalMode && !isNarrow && (
         <div className="flex">
           <RightRail allRaces={allRaces} allVenues={allVenues} selectedRaceKey={selectedKey} onSelect={handleSelectRace} isPro={isPro} userId={user?.id} todayBets={todayBets} />
         </div>
