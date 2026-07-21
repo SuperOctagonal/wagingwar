@@ -50,6 +50,12 @@ const TC_LABELS = { good: 'Good', soft: 'Soft', heavy: 'Heavy', synthetic: 'Synt
 
 function normName(n) { return (n || '').toUpperCase().replace(/[^A-Z0-9]/g, ''); }
 
+function ordinal(n) {
+  const s = ['th', 'st', 'nd', 'rd'];
+  const v = n % 100;
+  return `${n}${s[(v - 20) % 10] || s[v] || s[0]}`;
+}
+
 function getTopPicks(allRaces, allVenues, weights, dbScratchings = new Set()) {
   const picks = [];
   Object.values(allVenues).forEach(keys => {
@@ -271,6 +277,9 @@ export default function TodayPage() {
                       {picks.map((p, i) => {
                         const rkBg  = i===0?'#fbbf24':i===1?'#e5e7eb':'#fed7aa';
                         const rkTxt = i===0?'#78350f':i===1?'#374151':'#92400e';
+                        const resKey = `${normaliseVenue(p.venue)}||${p.num}`;
+                        const res = results[resKey];
+                        const runner = res?.runners.find(r => normName(r.name) === normName(p.name));
                         return (
                           <div key={p.name} style={{ background:'#fff', border:'0.5px solid #e5e7eb', borderRadius:8, padding:'8px 10px', display:'flex', alignItems:'center', gap:8 }}>
                             <span style={{ width:22, height:22, borderRadius:'50%', display:'inline-flex', alignItems:'center', justifyContent:'center', fontSize:10, fontWeight:700, flexShrink:0, background:rkBg, color:rkTxt }}>{i+1}</span>
@@ -279,8 +288,29 @@ export default function TodayPage() {
                               <div style={{ fontSize:10, color:'#9ca3af' }}>{p.venue} R{p.num}</div>
                             </div>
                             <div style={{ textAlign:'right', flexShrink:0 }}>
-                              <div style={{ fontSize:11, fontWeight:600, color:'#059669', fontFamily:'JetBrains Mono, monospace' }}>{p.myOdds ? `$${formatRacingOdds(p.myOdds)}` : '—'}</div>
-                              <div style={{ fontSize:10, color:'#111827', fontFamily:'JetBrains Mono, monospace' }}>{p.rawOdds ? `$${p.rawOdds.toFixed(2)}` : '—'}</div>
+                              {runner ? (
+                                runner.place === 1 ? (
+                                  <>
+                                    <div style={{ fontSize:9, fontWeight:700, padding:'2px 6px', borderRadius:5, background:'#d1fae5', color:'#065f46', display:'inline-block', textTransform:'uppercase', letterSpacing:'.3px' }}>Won</div>
+                                    {runner.sp > 0 && <div style={{ fontSize:10, color:'#111827', fontFamily:'JetBrains Mono, monospace', marginTop:2 }}>${Number(runner.sp).toFixed(2)}</div>}
+                                  </>
+                                ) : (runner.place === 2 || runner.place === 3) ? (
+                                  <>
+                                    <div style={{ fontSize:9, fontWeight:700, padding:'2px 6px', borderRadius:5, background:'#fef3c7', color:'#92400e', display:'inline-block', textTransform:'uppercase', letterSpacing:'.3px' }}>Placed</div>
+                                    <div style={{ fontSize:10, color:'#9ca3af', marginTop:2 }}>{ordinal(runner.place)}</div>
+                                  </>
+                                ) : (
+                                  <>
+                                    <div style={{ fontSize:9, fontWeight:700, padding:'2px 6px', borderRadius:5, background:'#f3f4f6', color:'#9ca3af', display:'inline-block', textTransform:'uppercase', letterSpacing:'.3px' }}>Lost</div>
+                                    <div style={{ fontSize:10, color:'#9ca3af', marginTop:2 }}>{ordinal(runner.place)}</div>
+                                  </>
+                                )
+                              ) : (
+                                <>
+                                  <div style={{ fontSize:11, fontWeight:600, color:'#059669', fontFamily:'JetBrains Mono, monospace' }}>{p.myOdds ? `$${formatRacingOdds(p.myOdds)}` : '—'}</div>
+                                  <div style={{ fontSize:10, color:'#111827', fontFamily:'JetBrains Mono, monospace' }}>{p.rawOdds ? `$${p.rawOdds.toFixed(2)}` : '—'}</div>
+                                </>
+                              )}
                             </div>
                           </div>
                         );
