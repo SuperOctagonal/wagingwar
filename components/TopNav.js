@@ -383,7 +383,7 @@ export default function TopNav() {
 
       {/* ── MOBILE TAB BAR ── */}
       {isMobile && (
-      <div className="fixed bottom-0 left-0 right-0 bg-brand border-t border-white/10 z-[1000] h-14 flex overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
+      <div id="mobile-tab-bar" className="fixed bottom-0 left-0 right-0 bg-brand border-t border-white/10 z-[1000] h-14 flex overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
         {MOB_TABS.map(tab => (
           <button
             key={tab.id}

@@ -10,7 +10,7 @@ export default function FooterChrome() {
 
   if (isMobile) {
     return (
-      <div className="fixed bottom-14 left-0 right-0 z-[1001] flex items-center justify-center gap-2 px-3 py-1 bg-gray-800 text-[10px] text-gray-300">
+      <div id="mobile-rg-banner" className="fixed bottom-14 left-0 right-0 z-[1001] flex items-center justify-center gap-2 px-3 py-1 bg-gray-800 text-[10px] text-gray-300">
         Gamble responsibly.
         <a href="/responsible-gambling" className="underline">
           Help: 1800&nbsp;858&nbsp;858
