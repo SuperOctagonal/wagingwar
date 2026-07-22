@@ -229,9 +229,6 @@ export default function CompetitionsPage() {
   const [allTimePoints, setAllTimePoints] = useState(null);
   const [mainTab, setMainTab]         = useState('today');
   const [now, setNow]                 = useState(Date.now());
-  const [submitting, setSubmitting]   = useState(false);
-  const [submitToast, setSubmitToast] = useState(null);
-  const [hasSubmitted, setHasSubmitted] = useState(false);
 
   const [lbTab, setLbTab]           = useState('alltime');
   const [lbRows, setLbRows]         = useState([]);
@@ -348,7 +345,6 @@ export default function CompetitionsPage() {
 
   const userRank     = useMemo(() => todayLeaderboard.find(e => e.isMe)?.rank ?? null, [todayLeaderboard]);
   const entrantCount = useMemo(() => new Set(allPicksData.map(r => r.clerk_id)).size, [allPicksData]);
-  const pickedCount  = useMemo(() => compRaces.filter(r => picks[rk(r.venue, r.num)]).length, [compRaces, picks]);
 
   const decidedCount = useMemo(() => compRaces.filter(r => {
     const k = rk(r.venue, r.num); return liveWinnerMap[k] || results[k];
@@ -500,7 +496,6 @@ export default function CompetitionsPage() {
         const p = {};
         rows.forEach(r => { p[rk(r.venue, r.race_num)] = r.horse_name; });
         setPicks(p);
-        if (rows.length > 0) setHasSubmitted(true);
       });
   }, [user?.id, today]);
 
@@ -680,34 +675,6 @@ export default function CompetitionsPage() {
     setSavingKey(null);
   }
 
-  async function submitAllPicks() {
-    if (!user?.id || !SURL || !SKEY || pickedCount === 0) return;
-    setSubmitting(true);
-    let allOk = true;
-    for (const race of compRaces) {
-      const key = rk(race.venue, race.num);
-      const horse = picks[key];
-      if (!horse) continue;
-      const res = await sbFetch('comp_picks?on_conflict=clerk_id,comp_date,venue,race_num', {
-        method: 'POST',
-        prefer: 'resolution=merge-duplicates,return=minimal',
-        body: { clerk_id: user.id, comp_date: today, venue: normaliseVenue(race.venue||''), race_num: +race.num, horse_name: horse, username: uname, hide_picks: settings.compShowPicks === false },
-      });
-      if (res === null) allOk = false;
-    }
-    const rows = await sbFetch(`comp_picks?comp_date=eq.${today}&select=clerk_id,username,venue,race_num,horse_name`);
-    if (Array.isArray(rows)) setAllPicksData(rows);
-    setSubmitting(false);
-    if (allOk) {
-      setHasSubmitted(true);
-      setSubmitToast('success');
-      setTimeout(() => setSubmitToast(null), 4000);
-    } else {
-      setSubmitToast('error');
-      setTimeout(() => setSubmitToast(null), 4000);
-    }
-  }
-
   // ─── Loading gate ─────────────────────────────────────────────────────────────
   if (!isLoaded) return null;
 
@@ -849,44 +816,45 @@ export default function CompetitionsPage() {
   // matching the results/blackbook/my-bets header convention.
   const headerDateStr = new Date().toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'long', timeZone: 'Australia/Brisbane' }).replace(',', '');
 
-  // Shared hairline-table cell styles, lifted from results/page.js's
-  // MetricTable (thStyle/tdStyle) — 0.5px borders, #111827 body text, 9px
-  // uppercase #6b7280 headers, JetBrains Mono for numeric columns.
-  const thStyle = (align) => ({ textAlign: align, padding: '5px 8px', color: '#6b7280', fontWeight: 700, fontSize: 9, textTransform: 'uppercase', letterSpacing: '.3px', whiteSpace: 'nowrap', borderBottom: `0.5px solid ${CT_LINE}` });
-  const tdStyle = (align, opts = {}) => ({ textAlign: align, padding: '6px 8px', color: '#111827', fontFamily: opts.mono ? MONO : undefined, fontSize: opts.fs || 11, fontWeight: opts.bold ? 700 : 400, whiteSpace: 'nowrap', overflow: opts.ellipsis ? 'hidden' : undefined, textOverflow: opts.ellipsis ? 'ellipsis' : undefined });
+  // Dense bordered-grid cell styles for the two real tables (Your Campaign,
+  // Field/Leaderboard) — 1px solid #d1d5db on every cell, #f9fafb header bg.
+  // Distinct from a plain hairline-divider table: every cell is boxed.
+  const gridThStyle = (align) => ({ textAlign: align, padding: '6px 8px', color: '#374151', fontWeight: 700, fontSize: 9, textTransform: 'uppercase', letterSpacing: '.3px', whiteSpace: 'nowrap', background: '#f9fafb', border: '1px solid #d1d5db' });
+  const gridTdStyle = (align, opts = {}) => ({ textAlign: align, padding: '6px 8px', color: '#111827', fontFamily: opts.mono ? MONO : undefined, fontSize: opts.fs || 11, fontWeight: opts.bold ? 700 : 400, border: '1px solid #d1d5db', whiteSpace: 'nowrap', overflow: opts.ellipsis ? 'hidden' : undefined, textOverflow: opts.ellipsis ? 'ellipsis' : undefined });
 
   // ─── Leaderboard table — one shared component for both the live Today tab
-  // and the historical All-time tab. Today has no real streak data (streak is
-  // a comp_scores column only populated once a day settles server-side), so
-  // those rows pass streak: null and get a plain "—" rather than a fabricated
-  // value. User's own row: pale gold background + "(you)" — no other styling.
+  // ("Field") and the historical All-time tab. Today has no real streak data
+  // (streak is a comp_scores column only populated once a day settles
+  // server-side), so those rows pass streak: null and get a plain "—" rather
+  // than a fabricated value. User's own row: pale gold background + "(you)"
+  // in brown — no other row styling.
   function LeaderboardTable({ rows }) {
     if (!rows.length) return <div style={{ fontSize: 11, color: '#9ca3af', padding: '10px 2px' }}>No entrants yet.</div>;
     return (
       <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
         <thead>
           <tr>
-            <th style={thStyle('left')}>#</th>
-            <th style={thStyle('left')}>Tipster</th>
-            <th style={thStyle('right')}>Hit%</th>
-            <th style={thStyle('left')}>Streak</th>
-            <th style={thStyle('right')}>Pts</th>
+            <th style={gridThStyle('left')}>#</th>
+            <th style={gridThStyle('left')}>Tipster</th>
+            <th style={gridThStyle('right')}>Hit%</th>
+            <th style={gridThStyle('left')}>Streak</th>
+            <th style={gridThStyle('right')}>Pts</th>
           </tr>
         </thead>
         <tbody>
           {rows.map(u => (
-            <tr key={u.clerk_id} style={{ borderBottom: '0.5px solid #f3f4f6', background: u.isMe ? '#fffbea' : 'transparent' }}>
-              <td style={tdStyle('left', { bold: true })}>{u.rank}</td>
-              <td style={tdStyle('left', { ellipsis: true })}>
-                {u.username}{u.isMe && <span style={{ color: '#6b7280', fontWeight: 400 }}> (you)</span>}
+            <tr key={u.clerk_id} style={{ background: u.isMe ? '#fffbea' : 'transparent' }}>
+              <td style={gridTdStyle('left', { mono: true, bold: true })}>{u.rank}</td>
+              <td style={gridTdStyle('left', { ellipsis: true })}>
+                {u.username}{u.isMe && <span style={{ color: '#854F0B', fontWeight: 600 }}> (you)</span>}
               </td>
-              <td style={tdStyle('right')}>{u.hitPct != null ? `${u.hitPct.toFixed(0)}%` : '—'}</td>
-              <td style={tdStyle('left')}>
+              <td style={gridTdStyle('right', { mono: true })}>{u.hitPct != null ? `${u.hitPct.toFixed(0)}%` : '—'}</td>
+              <td style={gridTdStyle('left')}>
                 {u.streak
                   ? <span style={{ color: u.streak > 0 ? '#16a34a' : '#dc2626', fontWeight: 700 }}>{u.streak > 0 ? `${u.streak}W` : `${Math.abs(u.streak)}L`}</span>
                   : <span style={{ color: '#9ca3af' }}>—</span>}
               </td>
-              <td style={tdStyle('right', { mono: true, bold: true, fs: 12 })}>{u.score}</td>
+              <td style={gridTdStyle('right', { mono: true, bold: true, fs: 12 })}>{u.score}</td>
             </tr>
           ))}
         </tbody>
@@ -894,164 +862,169 @@ export default function CompetitionsPage() {
     );
   }
 
-  // ─── Header bar ──────────────────────────────────────────────────────────────
-  const headerBar = (
-    <div style={{ background: '#f9fafb', borderBottom: `0.5px solid ${CT_LINE}`, padding: '10px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0, flexWrap: 'wrap', gap: 8 }}>
-      <span style={{ fontSize: 12, color: '#374151' }}>
-        <b style={{ color: '#111827' }}>{headerDateStr}</b> daily comp · {decidedCount}/{compRaces.length || 0} picks decided
-      </span>
-      {userRank === 1 ? (
-        <span style={{ fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 4, background: '#fbbf24', color: '#412402' }}>Leading</span>
-      ) : userRank ? (
-        <span style={{ fontSize: 11, fontWeight: 600, color: '#6b7280' }}>#{userRank} of {entrantCount}</span>
-      ) : null}
+  // ─── Hero block — replaces the old header bar + footer bar entirely; PTS
+  // and P&L now live in the stat strip here instead of a separate footer.
+  const userLbEntry = todayLeaderboard.find(e => e.isMe);
+  const userHitPct  = userLbEntry && userLbEntry.decided > 0 ? (userLbEntry.correct / userLbEntry.decided * 100) : null;
+  const heroSuffix  = userRank ? ordinal(userRank).slice(String(userRank).length) : '';
+  const plPositive  = todayPL >= 0;
+  const plStr       = (plPositive ? '+$' : '-$') + Math.abs(todayPL).toFixed(2);
+
+  const heroBlock = (
+    <div style={{ background: '#fff', borderBottom: `0.5px solid ${CT_LINE}`, padding: '14px 16px', flexShrink: 0 }}>
+      <div style={{ fontSize: 9, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '.4px', marginBottom: 10 }}>
+        {headerDateStr.toUpperCase()} · DAILY COMP · {decidedCount}/{compRaces.length || 0} DECIDED
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 24, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', fontFamily: MONO, lineHeight: 1 }}>
+            {userRank ? (
+              <>
+                <span style={{ fontSize: 44, fontWeight: 800, color: userRank === 1 ? '#0d5f2b' : '#111827' }}>{userRank}</span>
+                <span style={{ fontSize: 16, fontWeight: 700, color: '#854F0B', marginTop: 4 }}>{heroSuffix}</span>
+              </>
+            ) : (
+              <span style={{ fontSize: 44, fontWeight: 800, color: '#d1d5db' }}>—</span>
+            )}
+          </div>
+          <div>
+            <div style={{ fontSize: 14, fontWeight: 700, color: '#111827' }}>{titleCase(uname)}</div>
+            <div style={{ fontSize: 11, color: '#9ca3af' }}>{userRank ? `of ${entrantCount} tipsters today` : 'not yet ranked'}</div>
+          </div>
+        </div>
+        <div style={{ display: 'flex', marginLeft: 'auto' }}>
+          {[
+            ['PTS', userScore, undefined],
+            ['HIT%', userHitPct != null ? `${userHitPct.toFixed(0)}%` : '—', undefined],
+            ['P&L', plStr, plPositive ? '#16a34a' : '#dc2626'],
+          ].map(([label, val, color], i) => (
+            <div key={label} style={{ padding: '0 16px', borderLeft: i > 0 ? '1px solid #e5e7eb' : 'none', textAlign: 'center' }}>
+              <div style={{ fontSize: 9, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '.3px', marginBottom: 3 }}>{label}</div>
+              <div style={{ fontSize: 15, fontWeight: 700, fontFamily: MONO, color: color || '#111827' }}>{val}</div>
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   );
 
-  // ─── Footer bar ──────────────────────────────────────────────────────────────
-  function FooterBar({ compact }) {
-    const plPositive = todayPL >= 0;
-    const plStr = (plPositive ? '+$' : '-$') + Math.abs(todayPL).toFixed(2);
-    const allLocked = compRaces.length > 0 && compRaces.every(r => isLocked(r));
-    let btnBg, btnColor, btnLabel, btnDisabled;
-    if (allLocked)                      { btnBg = '#e5e7eb'; btnColor = '#9ca3af'; btnLabel = 'Picks locked';           btnDisabled = true; }
-    else if (submitting)                { btnBg = '#e5e7eb'; btnColor = '#6b7280'; btnLabel = 'Saving…';                btnDisabled = true; }
-    else if (submitToast === 'success') { btnBg = '#d1fae5'; btnColor = '#065f46'; btnLabel = `✓ ${pickedCount} saved`; btnDisabled = true; }
-    else if (submitToast === 'error')   { btnBg = '#fee2e2'; btnColor = '#dc2626'; btnLabel = '✗ Save failed — retry';  btnDisabled = false; }
-    else if (hasSubmitted)              { btnBg = '#d1fae5'; btnColor = '#065f46'; btnLabel = 'Submitted ✓';            btnDisabled = false; }
-    else if (pickedCount > 0)           { btnBg = '#111827'; btnColor = '#fff';    btnLabel = 'Submit picks';           btnDisabled = false; }
-    else                                 { btnBg = '#e5e7eb'; btnColor = '#9ca3af'; btnLabel = 'Submit picks';           btnDisabled = true; }
-    return (
-      <div style={{ background: '#f9fafb', borderTop: `0.5px solid ${CT_LINE}`, padding: compact ? '8px 12px' : '8px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexShrink: 0 }}>
-        <span style={{ fontSize: 11, color: '#374151' }}>
-          {decidedCount} of {compRaces.length} decided · <span style={{ fontWeight: 700, color: '#111827' }}>+{userScore} pts</span>
-        </span>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <span style={{ fontSize: 11, fontWeight: 700, color: plPositive ? '#16a34a' : '#dc2626', fontFamily: MONO }}>{plStr}</span>
-          <button
-            onClick={btnDisabled || allLocked ? undefined : submitAllPicks}
-            disabled={btnDisabled}
-            style={{ padding: '5px 10px', borderRadius: 4, fontSize: 10, fontWeight: 700, border: 'none', cursor: btnDisabled ? 'default' : 'pointer', background: btnBg, color: btnColor, whiteSpace: 'nowrap' }}
-          >
-            {btnLabel}
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  // ─── Your Picks table ────────────────────────────────────────────────────────
-  const picksPanel = (() => {
+  // ─── Your Campaign table ─────────────────────────────────────────────────────
+  const campaignPanel = (() => {
     const activeRaces = racesByVenue[selCompVenue] || [];
     return (
-      <div style={{ background: '#fff', display: 'flex', flexDirection: 'column', overflow: isMobile ? 'visible' : 'hidden', flex: isMobile ? undefined : 1, minWidth: 0 }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 16px 6px', flexWrap: 'wrap', gap: 6 }}>
-          <span style={{ fontSize: 9, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '.4px' }}>Your Picks</span>
-          <span style={{ fontSize: 10, color: '#9ca3af' }}>3-2-1 pts scale · +3 bonus for 4/4</span>
+      <div style={{ background: '#fff', padding: '14px 16px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8, flexWrap: 'wrap', gap: 6 }}>
+          <span style={{ fontSize: 9, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '.4px' }}>Your Campaign</span>
+          <span style={{ fontSize: 10, color: '#9ca3af' }}>3-2-1 scale · +3 for 4/4</span>
         </div>
         {selVenues.length > 1 && (
-          <div style={{ display: 'flex', gap: 6, padding: '0 16px 8px', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', gap: 6, marginBottom: 10, flexWrap: 'wrap' }}>
             {selVenues.map(v => (
               <button key={v} onClick={() => { setSelCompVenue(v); setOpenPickKey(null); }}
-                style={{ padding: '4px 10px', borderRadius: 4, fontSize: 10, fontWeight: 600, border: `0.5px solid ${selCompVenue === v ? '#111827' : CT_LINE}`, cursor: 'pointer', fontFamily: 'inherit', background: selCompVenue === v ? '#111827' : '#fff', color: selCompVenue === v ? '#fff' : '#374151' }}>
+                style={{ padding: '4px 10px', borderRadius: 4, fontSize: 10, fontWeight: 600, border: `1px solid ${selCompVenue === v ? '#111827' : '#d1d5db'}`, cursor: 'pointer', fontFamily: 'inherit', background: selCompVenue === v ? '#111827' : '#fff', color: selCompVenue === v ? '#fff' : '#374151' }}>
                 {v}
               </button>
             ))}
           </div>
         )}
-        <div style={{ flex: isMobile ? undefined : 1, overflowY: isMobile ? 'visible' : 'auto', padding: '0 16px' }}>
-          {csvStaleDate && <div style={{ textAlign: 'center', padding: '24px 8px', color: '#6b7280', fontSize: 12 }}>Data from {csvStaleDate} — today&apos;s comp opens when new data loads</div>}
-          {!csvRaces && !csvStaleDate && <div style={{ textAlign: 'center', padding: '24px 8px', color: '#6b7280', fontSize: 12 }}>Loading race data…</div>}
-          {csvRaces && compRaces.length === 0 && <div style={{ textAlign: 'center', padding: '24px 8px', color: '#6b7280', fontSize: 12 }}>No races available today</div>}
-          {csvRaces && compRaces.length > 0 && (
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
-              <thead>
-                <tr>
-                  <th style={thStyle('left')}>Race</th>
-                  <th style={thStyle('left')}>Selection</th>
-                  <th style={thStyle('right')}>Result</th>
-                </tr>
-              </thead>
-              <tbody>
-                {activeRaces.map(race => {
-                  const key = rk(race.venue, race.num);
-                  const locked = isLocked(race);
-                  const pick = picks[key];
-                  const winner = liveWinnerMap[key] || results[key];
-                  const isScratched = pick && scratchings.has(`${key}||${pick.toUpperCase()}`);
-                  const canOpen = !locked || !!isScratched;
-                  const isOpen = openPickKey === key;
-                  const activeHorses = (race.horses || []).filter(h => !h.scratched && !scratchings.has(`${key}||${(h.name || '').toUpperCase()}`));
-                  let pts = null, finishPos = null;
-                  if (winner && pick) {
-                    const rr = todayFinishPos[`${key}||${pick.toUpperCase()}`];
-                    finishPos = rr?.pos ?? null;
-                    pts = finishPos != null ? scorePick(finishPos) : (winner.toLowerCase() === pick.toLowerCase() ? 3 : 0);
-                  }
-                  return (
-                    <Fragment key={key}>
-                      {isScratched ? (
-                        <tr style={{ background: '#fef2f2', borderBottom: '0.5px solid #f3f4f6' }}>
-                          <td style={tdStyle('left', { mono: true, bold: true })}>R{race.num}</td>
-                          <td colSpan={2} onClick={() => canOpen && setOpenPickKey(isOpen ? null : key)} style={{ padding: '6px 8px', fontSize: 11, color: '#dc2626', fontWeight: 600, cursor: canOpen ? 'pointer' : 'default' }}>
-                            <i className="ti ti-alert-triangle" style={{ fontSize: 11, marginRight: 4 }} />
-                            {pick} scratched — please re-pick
-                          </td>
-                        </tr>
-                      ) : (
-                        <tr onClick={() => canOpen && setOpenPickKey(isOpen ? null : key)} style={{ borderBottom: '0.5px solid #f3f4f6', cursor: canOpen ? 'pointer' : 'default' }}>
-                          <td style={tdStyle('left', { mono: true, bold: true })}>R{race.num}</td>
-                          <td style={tdStyle('left', { ellipsis: true })}>
-                            {pick || (canOpen ? <span style={{ color: '#9ca3af' }}>Pick ▾</span> : <span style={{ color: '#9ca3af' }}>—</span>)}
-                          </td>
-                          <td style={tdStyle('right')}>
-                            {winner ? (
-                              !pick ? <span style={{ color: '#9ca3af' }}>no pick</span>
-                              : pts > 0 ? <span style={{ color: '#16a34a', fontWeight: 700 }}>{finishPos ? `${ordinal(finishPos)} · +${pts}` : `Won · +${pts}`}</span>
-                              : <span style={{ color: '#dc2626', fontWeight: 700 }}>{finishPos ? `${ordinal(finishPos)} · 0` : '0'}</span>
-                            ) : <span style={{ color: '#9ca3af' }}>pending</span>}
-                          </td>
-                        </tr>
-                      )}
-                      {isOpen && (
-                        <tr>
-                          <td colSpan={3} style={{ padding: '6px 8px', background: '#f9fafb' }}>
-                            {activeHorses.length === 0 ? <div style={{ fontSize: 11, color: '#9ca3af' }}>No horses available</div> : (
-                              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-                                {activeHorses.map(h => (
-                                  <button key={h.name} onClick={(e) => { e.stopPropagation(); savePick(race, h.name); setOpenPickKey(null); }}
-                                    style={{ padding: '4px 8px', fontSize: 10, fontWeight: 600, borderRadius: 4, cursor: 'pointer', fontFamily: 'inherit', background: pick === h.name ? '#d1fae5' : '#fff', color: '#111827', border: `0.5px solid ${pick === h.name ? '#16a34a' : CT_LINE}` }}>
-                                    {h.name}
-                                  </button>
-                                ))}
-                              </div>
-                            )}
-                          </td>
-                        </tr>
-                      )}
-                    </Fragment>
-                  );
-                })}
-              </tbody>
-            </table>
-          )}
-        </div>
-        <FooterBar compact={isMobile} />
+        {csvStaleDate && <div style={{ textAlign: 'center', padding: '24px 8px', color: '#6b7280', fontSize: 12 }}>Data from {csvStaleDate} — today&apos;s comp opens when new data loads</div>}
+        {!csvRaces && !csvStaleDate && <div style={{ textAlign: 'center', padding: '24px 8px', color: '#6b7280', fontSize: 12 }}>Loading race data…</div>}
+        {csvRaces && compRaces.length === 0 && <div style={{ textAlign: 'center', padding: '24px 8px', color: '#6b7280', fontSize: 12 }}>No races available today</div>}
+        {csvRaces && compRaces.length > 0 && (
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
+            <thead>
+              <tr>
+                <th style={gridThStyle('left')}>Race</th>
+                <th style={gridThStyle('left')}>Selection</th>
+                <th style={gridThStyle('right')}>Result</th>
+                <th style={gridThStyle('right')}>Pts</th>
+              </tr>
+            </thead>
+            <tbody>
+              {activeRaces.map(race => {
+                const key = rk(race.venue, race.num);
+                const locked = isLocked(race);
+                const pick = picks[key];
+                const winner = liveWinnerMap[key] || results[key];
+                const isScratched = pick && scratchings.has(`${key}||${pick.toUpperCase()}`);
+                const canOpen = !locked || !!isScratched;
+                const isOpen = openPickKey === key;
+                const activeHorses = (race.horses || []).filter(h => !h.scratched && !scratchings.has(`${key}||${(h.name || '').toUpperCase()}`));
+                let pts = null, finishPos = null;
+                if (winner && pick) {
+                  const rr = todayFinishPos[`${key}||${pick.toUpperCase()}`];
+                  finishPos = rr?.pos ?? null;
+                  pts = finishPos != null ? scorePick(finishPos) : (winner.toLowerCase() === pick.toLowerCase() ? 3 : 0);
+                }
+                const raceCode = `${normaliseVenue(race.venue || '').slice(0, 4).toUpperCase()} R${race.num}`;
+                return (
+                  <Fragment key={key}>
+                    {isScratched ? (
+                      <tr style={{ background: '#fef2f2' }}>
+                        <td style={gridTdStyle('left', { mono: true, bold: true })}>{raceCode}</td>
+                        <td onClick={() => canOpen && setOpenPickKey(isOpen ? null : key)} style={{ ...gridTdStyle('left'), color: '#dc2626', fontWeight: 600, cursor: canOpen ? 'pointer' : 'default' }}>
+                          <i className="ti ti-alert-triangle" style={{ fontSize: 11, marginRight: 4 }} />re-pick
+                        </td>
+                        <td style={gridTdStyle('right')}></td>
+                        <td style={gridTdStyle('right')}></td>
+                      </tr>
+                    ) : (
+                      <tr onClick={() => canOpen && setOpenPickKey(isOpen ? null : key)} style={{ cursor: canOpen ? 'pointer' : 'default' }}>
+                        <td style={gridTdStyle('left', { mono: true, bold: true })}>{raceCode}</td>
+                        <td style={gridTdStyle('left', { ellipsis: true })}>
+                          {pick || (canOpen ? <span style={{ color: '#9ca3af' }}>Pick ▾</span> : <span style={{ color: '#9ca3af' }}>—</span>)}
+                        </td>
+                        <td style={gridTdStyle('right')}>
+                          {winner ? (
+                            !pick ? <span style={{ color: '#9ca3af' }}>no pick</span>
+                            : pts > 0 ? <span style={{ color: '#16a34a', fontWeight: 700 }}>{finishPos ? ordinal(finishPos) : '1st'}</span>
+                            : <span style={{ color: '#dc2626' }}>{finishPos ? ordinal(finishPos) : '—'}</span>
+                          ) : <span style={{ color: '#9ca3af' }}>pending</span>}
+                        </td>
+                        <td style={gridTdStyle('right', { mono: true, bold: true })}>
+                          {winner
+                            ? (pts > 0 ? <span style={{ color: '#16a34a' }}>{`+${pts}`}</span> : <span style={{ color: '#9ca3af' }}>0</span>)
+                            : <span style={{ color: '#9ca3af' }}>—</span>}
+                        </td>
+                      </tr>
+                    )}
+                    {isOpen && (
+                      <tr>
+                        <td colSpan={4} style={{ padding: '6px 8px', background: '#f9fafb', border: '1px solid #d1d5db' }}>
+                          {activeHorses.length === 0 ? <div style={{ fontSize: 11, color: '#9ca3af' }}>No horses available</div> : (
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                              {activeHorses.map(h => (
+                                <button key={h.name} onClick={(e) => { e.stopPropagation(); savePick(race, h.name); setOpenPickKey(null); }}
+                                  style={{ padding: '4px 8px', fontSize: 10, fontWeight: 600, borderRadius: 4, cursor: 'pointer', fontFamily: 'inherit', background: pick === h.name ? '#d1fae5' : '#fff', color: '#111827', border: `1px solid ${pick === h.name ? '#16a34a' : '#d1d5db'}` }}>
+                                  {h.name}
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    )}
+                  </Fragment>
+                );
+              })}
+            </tbody>
+          </table>
+        )}
       </div>
     );
   })();
 
-  // ─── Today tab ───────────────────────────────────────────────────────────────
+  // ─── Field (Today's live leaderboard) ───────────────────────────────────────
   const todayLbRows = todayLeaderboard.map(e => ({
     clerk_id: e.clerk_id, rank: e.rank, username: e.uname,
     hitPct: e.decided > 0 ? (e.correct / e.decided * 100) : null,
     streak: null, score: e.score, isMe: e.isMe,
   }));
 
-  const leaderboardCard = (
-    <div style={{ background: '#fff', padding: '14px 16px', overflowY: isMobile ? 'visible' : 'auto' }}>
+  const fieldPanel = (
+    <div style={{ background: '#fff', padding: '14px 16px' }}>
       <div style={{ fontSize: 9, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '.4px', marginBottom: 8 }}>
-        Leaderboard <span style={{ fontWeight: 400, color: '#9ca3af', textTransform: 'none' }}>· {entrantCount} entrant{entrantCount !== 1 ? 's' : ''}</span>
+        Field <span style={{ fontWeight: 400, color: '#9ca3af', textTransform: 'none' }}>· {entrantCount} entrant{entrantCount !== 1 ? 's' : ''}</span>
       </div>
       <LeaderboardTable rows={todayLbRows} />
       <button onClick={() => setMainTab('alltime')} style={{ marginTop: 10, background: 'none', border: 'none', cursor: 'pointer', fontSize: 10, fontWeight: 700, color: '#111827', padding: 0 }}>
@@ -1061,8 +1034,8 @@ export default function CompetitionsPage() {
   );
 
   const todayTab = (
-    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: isMobile ? 'auto' : 'hidden', background: '#fff' }}>
-      {headerBar}
+    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'auto', background: '#fff' }}>
+      {heroBlock}
       {scratchAlerts.length > 0 && (
         <div style={{ background: '#fef2f2', borderBottom: '0.5px solid #fecaca', padding: '6px 16px', flexShrink: 0 }}>
           {scratchAlerts.map(race => (
@@ -1073,12 +1046,8 @@ export default function CompetitionsPage() {
           ))}
         </div>
       )}
-      <div style={{ flex: 1, display: isMobile ? 'flex' : 'grid', flexDirection: isMobile ? 'column' : undefined, gridTemplateColumns: isMobile ? undefined : '38fr 62fr', overflow: isMobile ? 'visible' : 'hidden' }}>
-        <div style={{ borderRight: isMobile ? 'none' : `0.5px solid ${CT_LINE}`, borderBottom: isMobile ? `0.5px solid ${CT_LINE}` : 'none' }}>
-          {leaderboardCard}
-        </div>
-        {picksPanel}
-      </div>
+      {campaignPanel}
+      {fieldPanel}
     </div>
   );
 
