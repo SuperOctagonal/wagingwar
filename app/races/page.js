@@ -874,25 +874,32 @@ function buildPopupHTML(h) {
     </tr>`;
   }
 
+  // w/p left as raw (possibly undefined) — undefined means the field was
+  // stripped for free tier, distinct from a genuine 0. Only treat a category
+  // as "known" when both win and place counts are actually present, so a
+  // free user never sees an allowed count (e.g. courseStarts) paired with a
+  // fabricated 0W/0P from a stripped field in the same category.
   const stats = [
-    { label:'Joc 12m',   w:h.jocLoc12mW||0,  p:h.jocLoc12mP||0,  s:h.jocLoc12mS||0  },
-    { label:'Trn 12m',   w:h.trnLoc12mW||0,  p:h.trnLoc12mP||0,  s:h.trnLoc12mS||0  },
-    { label:'J/T Combo', w:h.jocTrnWins||0,  p:h.jocTrnPlaces||0, s:h.jocTrnStarts||0 },
-    { label:'Course',    w:h.courseWins||0,   p:h.coursePlaces||0, s:h.courseStarts||0 },
-    { label:'Distance',  w:h.distWins||0,     p:h.distPlaces||0,   s:h.distStarts||0   },
-    { label:'1st-up',    w:h.prepRuns1W||0,  p:h.prepRuns1P||0,  s:h.prepRuns1S||0   },
+    { label:'Joc 12m',   w:h.jocLoc12mW,  p:h.jocLoc12mP,  s:h.jocLoc12mS  },
+    { label:'Trn 12m',   w:h.trnLoc12mW,  p:h.trnLoc12mP,  s:h.trnLoc12mS },
+    { label:'J/T Combo', w:h.jocTrnWins,  p:h.jocTrnPlaces, s:h.jocTrnStarts },
+    { label:'Course',    w:h.courseWins,  p:h.coursePlaces, s:h.courseStarts },
+    { label:'Distance',  w:h.distWins,    p:h.distPlaces,   s:h.distStarts   },
+    { label:'1st-up',    w:h.prepRuns1W,  p:h.prepRuns1P,  s:h.prepRuns1S   },
   ];
 
-  const stColor = (w, s) => !s ? '#d1d5db' : w/s>=0.25 ? '#059669' : w/s>=0.12 ? '#d97706' : '#374151';
+  const stColor = (w, s, known) => !known || !s ? '#d1d5db' : w/s>=0.25 ? '#059669' : w/s>=0.12 ? '#d97706' : '#374151';
   const pct2    = (w, s) => s > 0 ? `${Math.round(w/s*100)}%` : '0%';
 
-  const statsHTML = stats.map((st, i) =>
-    `<div style="padding:8px 10px;${i%3!==0?'border-left:1px solid #f3f4f6;':''}${i>=3?'border-top:1px solid #f3f4f6;':''}">
+  const statsHTML = stats.map((st, i) => {
+    const known = st.w !== undefined && st.p !== undefined;
+    const s = st.s || 0, w = st.w || 0, p = st.p || 0;
+    return `<div style="padding:8px 10px;${i%3!==0?'border-left:1px solid #f3f4f6;':''}${i>=3?'border-top:1px solid #f3f4f6;':''}">
       <div style="font-size:8px;font-weight:700;color:#374151;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:2px">${st.label}</div>
-      <div style="font-size:11px;font-weight:600;color:${stColor(st.w,st.s)}">${st.s?`${st.s}S ${st.w}W ${st.p}P`:'—'}</div>
-      <div style="font-size:9px;color:#374151;margin-top:1px">${pct2(st.w,st.s)} win · ${pct2(st.p,st.s)} plc</div>
-    </div>`
-  ).join('');
+      <div style="font-size:11px;font-weight:600;color:${stColor(w,s,known)}">${known && s?`${s}S ${w}W ${p}P`:'—'}</div>
+      <div style="font-size:9px;color:#374151;margin-top:1px">${known && s>0 ? `${pct2(w,s)} win · ${pct2(p,s)} plc` : ''}</div>
+    </div>`;
+  }).join('');
 
   const winColor = winPct>=25?'#059669':winPct>=12?'#d97706':'#4b5563';
   const plcColor = plcPct>=45?'#059669':plcPct>=25?'#d97706':'#4b5563';
@@ -933,7 +940,7 @@ function buildPopupHTML(h) {
     ${breedLine2 ? `<span style="font-size:9px;color:rgba(255,255,255,0.55)">${breedLine2}</span>` : ''}
     ${prizeStr2 ? `<span style="font-size:9px;color:rgba(255,255,255,0.55)">${prizeStr2}</span>` : ''}
   </div>` : ''}
-  <table border="0" cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse">
+  ${runRowsHTML ? `<table border="0" cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse">
     <tr style="background:#f9fafb">
       <td style="padding:1px 5px;font-size:8px;color:#9ca3af;font-weight:700;text-transform:uppercase">Date</td>
       <td style="padding:1px 4px;font-size:8px;color:#9ca3af;font-weight:700;text-transform:uppercase">Pos</td>
@@ -945,7 +952,7 @@ function buildPopupHTML(h) {
       <td style="padding:1px 5px;font-size:8px;color:#9ca3af;font-weight:700;text-transform:uppercase">Margin</td>
     </tr>
     ${runRowsHTML}
-  </table>
+  </table>` : ''}
   <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr 1fr 1fr;border-top:1px solid #f3f4f6;background:#f9fafb">
     ${statsHTML}
   </div>
@@ -1424,12 +1431,14 @@ function MobileRunnerCard({ runner, rank, rc, trackCond, onLogBet, isResulted, b
   const pm  = calcPaceMap(runner, rc.venue, +rc.dist, trackCond);
   const rfs = runner.rfs || 0;
   const prepCell1 = rfs >= 2
-    ? { label:'2nd-up', w:runner.prepRuns2W||0, p:runner.prepRuns2P||0, s:runner.prepRuns2S||0 }
-    : { label:'1st-up', w:runner.prepRuns1W||0, p:runner.prepRuns1P||0, s:runner.prepRuns1S||0 };
+    ? { label:'2nd-up', w:runner.prepRuns2W, p:runner.prepRuns2P, s:runner.prepRuns2S }
+    : { label:'1st-up', w:runner.prepRuns1W, p:runner.prepRuns1P, s:runner.prepRuns1S };
   const prepCell2 = rfs >= 2
-    ? { label:'3rd-up', w:runner.prepRuns3W||0, p:runner.prepRuns3P||0, s:runner.prepRuns3S||0 }
-    : { label:'2nd-up', w:runner.prepRuns2W||0, p:runner.prepRuns2P||0, s:runner.prepRuns2S||0 };
-  const stColor = (w, s) => { if (!s) return '#d1d5db'; const rv = w/s; return rv>=0.25?'#059669':rv>=0.12?'#d97706':'#374151'; };
+    ? { label:'3rd-up', w:runner.prepRuns3W, p:runner.prepRuns3P, s:runner.prepRuns3S }
+    : { label:'2nd-up', w:runner.prepRuns2W, p:runner.prepRuns2P, s:runner.prepRuns2S };
+  // w/p left raw (possibly undefined) — undefined means stripped for free
+  // tier, distinct from a genuine 0; `known` below gates on that.
+  const stColor = (w, s, known) => { if (!known || !s) return '#d1d5db'; const rv = w/s; return rv>=0.25?'#059669':rv>=0.12?'#d97706':'#374151'; };
   const finArr = Array.isArray(runner.lastFin) ? runner.lastFin : [runner.lastFin,null,null,null];
   const spArr  = Array.isArray(runner.lastSP)  ? runner.lastSP  : [runner.lastSP,null,null,null];
   const last4  = finArr.slice(0,4).filter(v => v!==null && v!==undefined && v!=='').reverse().map(v => +v>9?'0':v).join(' ');
@@ -1502,11 +1511,11 @@ function MobileRunnerCard({ runner, rank, rc, trackCond, onLogBet, isResulted, b
           runRows.push({ ri, date: fmtDate(dtl.date), pos: n, track: dtl.crse, cls: dtl.cls, dist: dtl.dist, wgt: dtl.wt, sp: fmtSP(sp), margin: mgTxt, mgColor });
         }
         const statItems = [
-          { label:'Jockey 12m',    w:runner.jocLoc12mW||0,  p:runner.jocLoc12mP||0,  s:runner.jocLoc12mS||0 },
-          { label:'Trainer 12m',   w:runner.trnLoc12mW||0,  p:runner.trnLoc12mP||0,  s:runner.trnLoc12mS||0 },
-          { label:'Joc/Trn Combo', w:runner.jocTrnWins||0,  p:runner.jocTrnPlaces||0, s:runner.jocTrnStarts||0 },
+          { label:'Jockey 12m',    w:runner.jocLoc12mW,  p:runner.jocLoc12mP,  s:runner.jocLoc12mS },
+          { label:'Trainer 12m',   w:runner.trnLoc12mW,  p:runner.trnLoc12mP,  s:runner.trnLoc12mS },
+          { label:'Joc/Trn Combo', w:runner.jocTrnWins,  p:runner.jocTrnPlaces, s:runner.jocTrnStarts },
           prepCell1, prepCell2,
-          { label:'Course/Dist',   w:runner.courseWins||0,  p:runner.coursePlaces||0, s:runner.courseStarts||0 },
+          { label:'Course/Dist',   w:runner.courseWins,  p:runner.coursePlaces, s:runner.courseStarts },
         ];
         return (
           <div style={{ margin: '3px 0 3px 42px', paddingBottom: 4, borderBottom: '1px solid #f1f5f9' }}>
@@ -1528,13 +1537,17 @@ function MobileRunnerCard({ runner, rank, rc, trackCond, onLogBet, isResulted, b
               </div>
             )}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '4px 6px', fontSize: 7 }}>
-              {statItems.map(st => (
-                <div key={st.label}>
-                  <div style={{ fontWeight: 700, color: '#9ca3af', marginBottom: 1, textTransform: 'uppercase', letterSpacing: '0.2px' }}>{st.label}</div>
-                  <div style={{ fontFamily: 'monospace', fontWeight: 600, color: stColor(st.w, st.s) }}>{st.s ? `${st.s}S ${st.w}W ${st.p}P` : '—'}</div>
-                  <div style={{ color: '#6b7280' }}>{st.s>0?`${Math.round(st.w/st.s*100)}% win`:'0% win'}</div>
-                </div>
-              ))}
+              {statItems.map(st => {
+                const known = st.w !== undefined && st.p !== undefined;
+                const s = st.s || 0, w = st.w || 0, p = st.p || 0;
+                return (
+                  <div key={st.label}>
+                    <div style={{ fontWeight: 700, color: '#9ca3af', marginBottom: 1, textTransform: 'uppercase', letterSpacing: '0.2px' }}>{st.label}</div>
+                    <div style={{ fontFamily: 'monospace', fontWeight: 600, color: stColor(w, s, known) }}>{known && s ? `${s}S ${w}W ${p}P` : '—'}</div>
+                    <div style={{ color: '#6b7280' }}>{known && s>0 ? `${Math.round(w/s*100)}% win` : ''}</div>
+                  </div>
+                );
+              })}
             </div>
           </div>
         );
@@ -1840,22 +1853,24 @@ function FormCard({ runner: r, rank, onLogBet, isResulted, betBlocked = false, r
   const rankTxt = rank<=3?'#78350f':'#fff';
 
   const prepCell1 = rfs >= 2
-    ? { label:'2nd-up', w:r.prepRuns2W||0, p:r.prepRuns2P||0, s:r.prepRuns2S||0 }
-    : { label:'1st-up', w:r.prepRuns1W||0, p:r.prepRuns1P||0, s:r.prepRuns1S||0 };
+    ? { label:'2nd-up', w:r.prepRuns2W, p:r.prepRuns2P, s:r.prepRuns2S }
+    : { label:'1st-up', w:r.prepRuns1W, p:r.prepRuns1P, s:r.prepRuns1S };
   const prepCell2 = rfs >= 2
-    ? { label:'3rd-up', w:r.prepRuns3W||0, p:r.prepRuns3P||0, s:r.prepRuns3S||0 }
-    : { label:'2nd-up', w:r.prepRuns2W||0, p:r.prepRuns2P||0, s:r.prepRuns2S||0 };
+    ? { label:'3rd-up', w:r.prepRuns3W, p:r.prepRuns3P, s:r.prepRuns3S }
+    : { label:'2nd-up', w:r.prepRuns2W, p:r.prepRuns2P, s:r.prepRuns2S };
 
+  // w/p left raw (possibly undefined) — undefined means stripped for free
+  // tier, distinct from a genuine 0; `known` in the render below gates on that.
   const statItems = [
-    { label:'Jockey 12m',    w:r.jocLoc12mW||0,  p:r.jocLoc12mP||0,  s:r.jocLoc12mS||0   },
-    { label:'Trainer 12m',   w:r.trnLoc12mW||0,  p:r.trnLoc12mP||0,  s:r.trnLoc12mS||0   },
-    { label:'Joc/Trn Combo', w:r.jocTrnWins||0,  p:r.jocTrnPlaces||0, s:r.jocTrnStarts||0 },
+    { label:'Jockey 12m',    w:r.jocLoc12mW,  p:r.jocLoc12mP,  s:r.jocLoc12mS   },
+    { label:'Trainer 12m',   w:r.trnLoc12mW,  p:r.trnLoc12mP,  s:r.trnLoc12mS   },
+    { label:'Joc/Trn Combo', w:r.jocTrnWins,  p:r.jocTrnPlaces, s:r.jocTrnStarts },
     prepCell1,
     prepCell2,
-    { label:'Course/Dist',   w:r.courseWins||0,  p:r.coursePlaces||0, s:r.courseStarts||0  },
+    { label:'Course/Dist',   w:r.courseWins,  p:r.coursePlaces, s:r.courseStarts  },
   ];
 
-  const stColor = (w, s) => { if (!s) return '#d1d5db'; const rv = w/s; return rv>=0.25?'#059669':rv>=0.12?'#d97706':'#374151'; };
+  const stColor = (w, s, known) => { if (!known || !s) return '#d1d5db'; const rv = w/s; return rv>=0.25?'#059669':rv>=0.12?'#d97706':'#374151'; };
 
   const finArr = Array.isArray(r.lastFin) ? r.lastFin : [r.lastFin,null,null,null];
   const spArr  = Array.isArray(r.lastSP)  ? r.lastSP  : [r.lastSP,null,null,null];
@@ -1968,15 +1983,19 @@ function FormCard({ runner: r, rank, onLogBet, isResulted, betBlocked = false, r
 
       {/* Stats footer */}
       <div style={{ display:'grid', gridTemplateColumns:'repeat(6,1fr)', border:'0.5px solid #e5e7eb', borderTop:'none', borderRadius:'0 0 6px 6px', overflow:'hidden', background:'#fff' }}>
-        {statItems.map((st, i) => (
-          <div key={st.label} style={{ padding:'5px 6px', borderRight: i < 5 ? '0.5px solid #e5e7eb' : 'none' }}>
-            <div style={{ fontSize:9, color:'#9ca3af', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.4px', marginBottom:2 }}>{st.label}</div>
-            <div style={{ fontSize:11, fontWeight:500, color:stColor(st.w, st.s) }}>
-              {st.s ? `${st.s}S ${st.w}W ${st.p}P` : '—'}
+        {statItems.map((st, i) => {
+          const known = st.w !== undefined && st.p !== undefined;
+          const s = st.s || 0, w = st.w || 0, p = st.p || 0;
+          return (
+            <div key={st.label} style={{ padding:'5px 6px', borderRight: i < 5 ? '0.5px solid #e5e7eb' : 'none' }}>
+              <div style={{ fontSize:9, color:'#9ca3af', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.4px', marginBottom:2 }}>{st.label}</div>
+              <div style={{ fontSize:11, fontWeight:500, color:stColor(w, s, known) }}>
+                {known && s ? `${s}S ${w}W ${p}P` : '—'}
+              </div>
+              <div style={{ fontSize:10, color:'#111827', marginTop:1 }}>{known && s>0 ? `${Math.round(w/s*100)}% win` : ''}</div>
             </div>
-            <div style={{ fontSize:10, color:'#111827', marginTop:1 }}>{st.s>0?`${Math.round(st.w/st.s*100)}% win`:'0% win'}</div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
