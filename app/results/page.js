@@ -243,6 +243,13 @@ function buildSummaryFromRecords(records) {
     return { ...t, winPct: t.firsts / t.starts, placePct: (t.firsts + t.seconds + t.thirds) / t.starts };
   };
 
+  // Day-level Starts/Wins/2nds/3rds for the Rank 1 Strike Rate card.
+  const dayTally = tally(records);
+
+  // Notional $1-level-stakes P&L: $1 win bet on every rank-1 pick, using each
+  // pick's actual SP. +$( sp - 1 ) on a win, -$1 on anything else.
+  const notionalPnl = records.reduce((s, r) => s + (r.place === 1 ? (r.sp - 1) : -1), 0);
+
   const condMap = {};
   records.forEach(r => {
     const bucket = tcBucket(r.trackCond);
@@ -329,7 +336,7 @@ function buildSummaryFromRecords(records) {
       .map(k => ({ label: k, total: tierMap[k].total, winPct: tierMap[k].wins / tierMap[k].total, placePct: tierMap[k].places / tierMap[k].total }));
   }
 
-  return { total, wins, places, winPct, placePct, best, condRows, maxWin, maxLoss, venueRows, oddsRows, distRows, confRows };
+  return { total, wins, places, winPct, placePct, best, condRows, maxWin, maxLoss, venueRows, oddsRows, distRows, confRows, dayTally, notionalPnl };
 }
 
 function getBarrierFromCSV(allRaces, allVenues, venue, raceNum, horseName) {
@@ -765,8 +772,12 @@ function ResultsDetail({ meeting, venue, allRaces, allVenues, weights, dbScratch
     );
   }
 
-  const sysRankMap = isPro ? (getSysRanks(allRaces, allVenues, venue, meeting.raceNum, weights, dbScratchings) || {}) : {};
-  const hasSysRank = isPro && Object.keys(sysRankMap).length > 0;
+  // Post-race ranks are proof of model performance, not actionable betting
+  // info (the race has already happened) — shown to all users on Results,
+  // unlike the pre-race ranks on Races/Today which stay Pro-gated since
+  // those are the actual paid, actionable value.
+  const sysRankMap = getSysRanks(allRaces, allVenues, venue, meeting.raceNum, weights, dbScratchings) || {};
+  const hasSysRank = Object.keys(sysRankMap).length > 0;
 
   return (
     <div style={{ display:'inline-block', minWidth:420, width:'fit-content' }}>
@@ -974,21 +985,25 @@ function DailyModelSummary({ data, trendWindow, setTrendWindow, rollingLoading, 
 }
 
 function DailyModelSummaryCards({ data, showComparison, allTimeWinPct }) {
-  const { total, wins, places, winPct, placePct, best, condRows, maxWin, maxLoss, venueRows, oddsRows, distRows, confRows } = data;
+  const { total, wins, places, winPct, placePct, best, condRows, maxWin, maxLoss, venueRows, oddsRows, distRows, confRows, dayTally, notionalPnl } = data;
 
   return (
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 8, maxWidth: 1000 }}>
 
         <SummaryCard icon="ti-target" label="Rank 1 strike rate">
-          <div style={{ display: 'flex', gap: 14 }}>
-            <div>
-              <div style={{ fontSize: 18, fontWeight: 700, color: '#111827', fontFamily: 'JetBrains Mono, monospace' }}>{wins}/{total}</div>
-              <div style={{ fontSize: 9, color: '#111827' }}>Wins (<span style={{ color: '#16a34a', fontWeight: 700 }}>{Math.round(winPct * 100)}%</span>)</div>
-            </div>
-            <div>
-              <div style={{ fontSize: 18, fontWeight: 700, color: '#111827', fontFamily: 'JetBrains Mono, monospace' }}>{places}/{total}</div>
-              <div style={{ fontSize: 9, color: '#111827' }}>Placed ({Math.round(placePct * 100)}%)</div>
-            </div>
+          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 6 }}>
+            {[['Starts', dayTally.starts], ['Wins', dayTally.firsts], ['2nds', dayTally.seconds], ['3rds', dayTally.thirds]].map(([label, val]) => (
+              <div key={label}>
+                <div style={{ fontSize: 16, fontWeight: 700, color: '#111827', fontFamily: 'JetBrains Mono, monospace' }}>{val}</div>
+                <div style={{ fontSize: 8, color: '#111827' }}>{label}</div>
+              </div>
+            ))}
+          </div>
+          <div style={{ fontSize: 9, color: '#111827' }}>
+            Win <span style={{ color: '#16a34a', fontWeight: 700 }}>{Math.round(winPct * 100)}%</span> · Place {Math.round(placePct * 100)}%
+          </div>
+          <div style={{ fontSize: 9, color: '#111827', marginTop: 6, paddingTop: 6, borderTop: '0.5px solid #f3f4f6' }}>
+            $1-level P&amp;L: <span style={{ color: notionalPnl >= 0 ? '#16a34a' : '#dc2626', fontWeight: 700, fontFamily: 'JetBrains Mono, monospace' }}>{notionalPnl >= 0 ? '+' : '-'}${Math.abs(notionalPnl).toFixed(2)}</span>
           </div>
           {showComparison && (
             <div style={{ fontSize: 9, color: '#111827', marginTop: 6, paddingTop: 6, borderTop: '0.5px solid #f3f4f6' }}>
