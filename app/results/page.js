@@ -67,14 +67,29 @@ function groupResultsByDateRace(rows) {
 // Supabase call. Returns { [date]: { allRaces, allVenues } }, with a date
 // simply missing/empty if no card rows exist or the request was 403'd
 // (non-Pro) — buildRank1Records already skips races with no card match.
+// Hard cap regardless of caller — a stray/buggy caller can never fan this out
+// into an unbounded burst of concurrent /api/race-cards requests.
+const MAX_CARD_FETCH_DATES = 30;
+const CARD_FETCH_CHUNK_SIZE = 5;
+
 async function fetchCardsForDates(dates) {
-  const results = await Promise.all(dates.map(async d => {
-    try {
-      const r = await fetch(`/api/race-cards?date=${d}`);
-      if (!r.ok) return [d, []];
-      return [d, await r.json()];
-    } catch { return [d, []]; }
-  }));
+  const capped = dates.slice(0, MAX_CARD_FETCH_DATES);
+  const results = [];
+  // Chunked concurrency (5 at a time) instead of one Promise.all over every
+  // date — firing up to 30 concurrent /api/race-cards requests at once held
+  // ~30 full days of race_cards JSON in server memory simultaneously and was
+  // the direct cause of repeated OOM kills on wagingwar-app.
+  for (let i = 0; i < capped.length; i += CARD_FETCH_CHUNK_SIZE) {
+    const chunk = capped.slice(i, i + CARD_FETCH_CHUNK_SIZE);
+    const chunkResults = await Promise.all(chunk.map(async d => {
+      try {
+        const r = await fetch(`/api/race-cards?date=${d}`);
+        if (!r.ok) return [d, []];
+        return [d, await r.json()];
+      } catch { return [d, []]; }
+    }));
+    results.push(...chunkResults);
+  }
   const byDate = {};
   results.forEach(([d, rows]) => {
     const ar = {}, av = {};

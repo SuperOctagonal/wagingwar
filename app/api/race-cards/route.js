@@ -24,7 +24,7 @@ export async function GET(req) {
     }
   }
 
-  const r = await fetch(`${SURL}/rest/v1/race_cards?date=eq.${date}&select=*`, {
+  const r = await fetch(`${SURL}/rest/v1/race_cards?date=eq.${date}&select=date,venue,race_num,form_data`, {
     headers: { apikey: SKEY, Authorization: `Bearer ${SKEY}` },
   });
 
