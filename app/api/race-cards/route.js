@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { auth, clerkClient } from '@clerk/nextjs/server';
+import { stripHorseFields } from '@/lib/freeTierFields';
 
 const SURL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SKEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -16,12 +17,12 @@ export async function GET(req) {
 
   const todayAEST = new Date().toLocaleDateString('sv-SE', { timeZone: 'Australia/Brisbane' });
 
-  if (date !== todayAEST) {
-    const client = await clerkClient();
-    const user = await client.users.getUser(userId);
-    if (user?.publicMetadata?.plan !== 'pro') {
-      return NextResponse.json({ error: 'Pro required for historical race cards' }, { status: 403 });
-    }
+  const client = await clerkClient();
+  const user = await client.users.getUser(userId);
+  const isPro = user?.publicMetadata?.plan === 'pro';
+
+  if (date !== todayAEST && !isPro) {
+    return NextResponse.json({ error: 'Pro required for historical race cards' }, { status: 403 });
   }
 
   const r = await fetch(`${SURL}/rest/v1/race_cards?date=eq.${date}&select=date,venue,race_num,form_data`, {
@@ -29,6 +30,14 @@ export async function GET(req) {
   });
 
   if (!r.ok) return NextResponse.json({ error: `Supabase ${r.status}` }, { status: 502 });
-  const data = await r.json();
+  let data = await r.json();
+
+  // Real server-side gate — free tier never receives scoring-input fields in
+  // form_data, not just a hidden UI column. See lib/freeTierFields.js for the
+  // allowlist and how it was determined.
+  if (!isPro) {
+    data = data.map(row => ({ ...row, form_data: stripHorseFields(row.form_data) }));
+  }
+
   return NextResponse.json(data);
 }
