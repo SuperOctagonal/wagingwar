@@ -195,7 +195,9 @@ export default function TopNav() {
         {/* Right side */}
         <div className="ml-auto flex gap-2 items-center">
           <style>{`@keyframes ww-spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}`}</style>
-          {user && (
+          {/* ww:refresh only has a listener on My Bets (app/mybets/page.js) —
+              hide the button everywhere else instead of showing a no-op. */}
+          {user && currentPage === 'mybets' && (
             <button
               onClick={handleRefresh}
               title="Refresh data"
