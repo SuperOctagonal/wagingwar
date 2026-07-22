@@ -60,48 +60,37 @@ function groupResultsByDateRace(rows) {
   return g;
 }
 
-// Fetches race_cards (the CSV-equivalent field data needed to score, not just
-// results) for each date via the existing Pro-gated /api/race-cards route —
-// looped per date since that route is single-date and enforces the Pro gate
-// server-side for historical dates; must not be bypassed with a direct
-// Supabase call. Returns { [date]: { allRaces, allVenues } }, with a date
-// simply missing/empty if no card rows exist or the request was 403'd
-// (non-Pro) — buildRank1Records already skips races with no card match.
+// Fetches server-computed ranks (never raw scoring inputs) for each date via
+// /api/results-ranks — looped per date since that route is single-date. Auth
+// required but NOT Pro-gated: post-race ranks are visible to every tier, and
+// the route itself only ever returns { ranks, margin } per race. Returns
+// { [date]: rankDataForThatDate } shaped exactly like the route's response
+// (result[venue][raceNum] = {ranks, margin}), with a date simply missing/empty
+// if no card rows exist for it — buildRank1Records already skips races with
+// no rank match.
 // Hard cap regardless of caller — a stray/buggy caller can never fan this out
-// into an unbounded burst of concurrent /api/race-cards requests.
+// into an unbounded burst of concurrent requests.
 const MAX_CARD_FETCH_DATES = 30;
 const CARD_FETCH_CHUNK_SIZE = 5;
 
-async function fetchCardsForDates(dates) {
+async function fetchRankDataForDates(dates) {
   const capped = dates.slice(0, MAX_CARD_FETCH_DATES);
-  const results = [];
+  const byDate = {};
   // Chunked concurrency (5 at a time) instead of one Promise.all over every
-  // date — firing up to 30 concurrent /api/race-cards requests at once held
+  // date — firing up to 30 concurrent card-scoring requests at once held
   // ~30 full days of race_cards JSON in server memory simultaneously and was
   // the direct cause of repeated OOM kills on wagingwar-app.
   for (let i = 0; i < capped.length; i += CARD_FETCH_CHUNK_SIZE) {
     const chunk = capped.slice(i, i + CARD_FETCH_CHUNK_SIZE);
     const chunkResults = await Promise.all(chunk.map(async d => {
       try {
-        const r = await fetch(`/api/race-cards?date=${d}`);
-        if (!r.ok) return [d, []];
+        const r = await fetch(`/api/results-ranks?date=${d}`);
+        if (!r.ok) return [d, {}];
         return [d, await r.json()];
-      } catch { return [d, []]; }
+      } catch { return [d, {}]; }
     }));
-    results.push(...chunkResults);
+    chunkResults.forEach(([d, data]) => { byDate[d] = data || {}; });
   }
-  const byDate = {};
-  results.forEach(([d, rows]) => {
-    const ar = {}, av = {};
-    (rows || []).forEach(row => {
-      const key = `${row.venue}_R${row.race_num}`;
-      if (!ar[key]) ar[key] = { venue: row.venue, num: row.race_num, horses: [] };
-      if (row.form_data) ar[key].horses.push(row.form_data);
-      if (!av[row.venue]) av[row.venue] = [];
-      if (!av[row.venue].includes(key)) av[row.venue].push(key);
-    });
-    byDate[d] = { allRaces: ar, allVenues: av };
-  });
   return byDate;
 }
 
@@ -135,7 +124,7 @@ function getSysRanks(allRaces, allVenues, venue, raceNum, weights, dbScratchings
 }
 
 // Display-only bucketing for the daily summary's track-condition breakdown —
-// scoring itself is always 'good' now (see getRankedScores), this is just
+// scoring itself is always 'good' now (see getSysRanks), this is just
 // for the 4-way Good/Soft/Heavy/Synthetic display split.
 function tcBucket(tc) {
   const t = (tc || '').toLowerCase();
@@ -146,44 +135,6 @@ function tcBucket(tc) {
   return null;
 }
 
-// Same rank computation as getSysRanks (and — deliberately — the SAME hardcoded
-// 'good' track condition, for consistency: this used to score with the race's
-// actual condition, but that meant it could disagree with every other rank-1
-// reference on this page (getSysRanks, used by the race detail view, ModelPerfPanel,
-// TopPicksPanel, biggestUpsets) whenever a race's real condition wasn't Good —
-// e.g. Regal Vanguard surfaced as "Best Result of the Day" while the race detail
-// page correctly showed Ngongotaha as rank 1, because Moe R3 wasn't a Good track
-// and only this function was scoring with the real condition. trackCond is still
-// accepted (used elsewhere for display/banding) but no longer affects scoring.
-// Returns the full sorted {name,total} list (not just rank-1) plus dist/cls —
-// used by the daily model summary, which needs the rank-1/rank-2 score gap too.
-function getRankedScores(allRaces, allVenues, venue, raceNum, weights, trackCond, dbScratchings = []) {
-  const normVenue = normaliseVenue(venue);
-  const dbScrNames = new Set(
-    dbScratchings.filter(r => normaliseVenue(r.venue) === normVenue && String(r.race_num) === String(raceNum))
-      .map(r => normName(r.horse_name || ''))
-  );
-  const tcParam = 'good';
-  for (const keys of Object.values(allVenues)) {
-    for (const k of keys) {
-      const rc = allRaces[k];
-      if (!rc) continue;
-      if (normaliseVenue(rc.venue) !== normVenue) continue;
-      if (String(rc.num) !== String(raceNum)) continue;
-      const active = (rc.horses || []).filter(h => !h.scratched && !dbScrNames.has(normName(h.name || '')));
-      if (!active.length) return null;
-      const scored = active.map(h => {
-        const grpScores = {};
-        GRP_KEYS.forEach(gk => { grpScores[gk] = scoreGroup(h, gk, weights, tcParam); });
-        const total = GRP_KEYS.reduce((a, gk) => a + grpScores[gk].total, 0);
-        return { name: h.name, total };
-      }).sort((a, b) => b.total - a.total);
-      return { scored, dist: rc.dist || '', cls: rc.cls || '' };
-    }
-  }
-  return null;
-}
-
 const RESULT_BADGE = {
   WON:    { bg: '#d1fae5', color: '#065f46' },
   PLACED: { bg: '#fef3c7', color: '#92400e' },
@@ -191,24 +142,28 @@ const RESULT_BADGE = {
 };
 
 // Given a map of resulted races (each with venue/raceNum/trackCond/dist/runners,
-// same shape as `grouped`) plus the allRaces/allVenues to score against, builds
+// same shape as `grouped`) plus rankDataByRace (the server-computed
+// { [venue]: { [raceNum]: {ranks, margin} } } from /api/results-ranks), builds
 // the rank-1 pick record array. Shared by the single-day summary and the
 // rolling-window summary (which calls this once per date with that date's own
-// allRaces/allVenues, then concatenates).
-function buildRank1Records(groupedResults, allRaces, allVenues, weights, dbScratchings, extra = {}) {
+// rank data, then concatenates). Rank-1 name/margin come entirely from the
+// server response — no scoring happens client-side here, so this is safe and
+// correct regardless of the viewer's Pro status.
+function buildRank1Records(groupedResults, rankDataByRace, extra = {}) {
   const records = [];
   Object.values(groupedResults).forEach(res => {
     if (!res.runners || !res.runners.length) return;
-    const ranked = getRankedScores(allRaces, allVenues, res.venue, res.raceNum, weights, res.trackCond, dbScratchings);
-    if (!ranked || !ranked.scored.length) return;
-    const rank1Name = ranked.scored[0].name;
-    const runner = res.runners.find(r => normName(r.name) === normName(rank1Name));
+    const normVenue = normaliseVenue(res.venue);
+    const raceRanks = rankDataByRace?.[normVenue]?.[res.raceNum];
+    if (!raceRanks || !raceRanks.ranks) return;
+    const rank1Norm = Object.keys(raceRanks.ranks).find(k => raceRanks.ranks[k] === 1);
+    if (!rank1Norm) return;
+    const runner = res.runners.find(r => normName(r.name) === rank1Norm);
     if (!runner || runner.place == null) return;
-    const margin = ranked.scored.length >= 2 ? ranked.scored[0].total - ranked.scored[1].total : null;
     records.push({
       venue: res.venue, raceNum: res.raceNum, trackCond: res.trackCond || 'good',
       dist: parseInt(res.dist, 10) || null,
-      horse: rank1Name, place: runner.place, sp: Number(runner.sp) || 0, margin,
+      horse: runner.name, place: runner.place, sp: Number(runner.sp) || 0, margin: raceRanks.margin,
       ...extra,
     });
   });
@@ -762,7 +717,7 @@ function TrackBiasPanel({ data }) {
   );
 }
 
-function ResultsDetail({ meeting, venue, allRaces, allVenues, weights, dbScratchings, isPro }) {
+function ResultsDetail({ meeting, venue, rankData, isPro }) {
   if (!meeting || !meeting.runners || !meeting.runners.length) {
     return (
       <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:160, gap:10, color:'#374151' }}>
@@ -775,8 +730,11 @@ function ResultsDetail({ meeting, venue, allRaces, allVenues, weights, dbScratch
   // Post-race ranks are proof of model performance, not actionable betting
   // info (the race has already happened) — shown to all users on Results,
   // unlike the pre-race ranks on Races/Today which stay Pro-gated since
-  // those are the actual paid, actionable value.
-  const sysRankMap = getSysRanks(allRaces, allVenues, venue, meeting.raceNum, weights, dbScratchings) || {};
+  // those are the actual paid, actionable value. Computed server-side via
+  // /api/results-ranks (unstripped data, ranks-only response) so free users
+  // get the SAME correct rank as Pro — client never sees the raw scoring
+  // inputs either way.
+  const sysRankMap = rankData?.[venue]?.[meeting.raceNum]?.ranks || {};
   const hasSysRank = Object.keys(sysRankMap).length > 0;
 
   return (
@@ -1091,6 +1049,7 @@ export default function ResultsPage() {
   const [selectedRace, setSelectedRace] = useState(null);
   const [sidePanel, setSidePanel] = useState('model');
   const [cardRows, setCardRows] = useState([]);
+  const [rankData, setRankData] = useState({});
   const [upgradeOpen, setUpgradeOpen] = useState(false);
   const [trendWindow, setTrendWindow] = useState('today'); // 'today' | '7d' | '30d'
   const [rollingSummary, setRollingSummary] = useState(null);
@@ -1119,6 +1078,7 @@ export default function ResultsPage() {
     setSidePanel('model');
     setVenueAbandoned(new Set());
     setCardRows([]);
+    setRankData({});
     setUpgradeOpen(false);
     const hdrs = (SURL && SKEY) ? { apikey: SKEY, Authorization: `Bearer ${SKEY}` } : null;
     const scrFetch = hdrs
@@ -1143,11 +1103,18 @@ export default function ResultsPage() {
         })
       : Promise.resolve([]);
     const resultsFetch = fetchResultsForDate(selectedDate);
-    Promise.all([resultsFetch, scrFetch, abandonedFetch, cardFetch]).then(([rows, scrRows, abandoned, cards]) => {
+    // Unconditional — no isPro gate — since post-race ranks are meant to be
+    // visible to every tier equally; the route itself never returns raw
+    // scoring inputs regardless of who's asking.
+    const rankFetch = user?.id
+      ? fetch(`/api/results-ranks?date=${selectedDate}`).then(r => r.ok ? r.json() : {})
+      : Promise.resolve({});
+    Promise.all([resultsFetch, scrFetch, abandonedFetch, cardFetch, rankFetch]).then(([rows, scrRows, abandoned, cards, ranks]) => {
       setDbRows(rows || []);
       setDbScratchings(scrRows || []);
       setVenueAbandoned(abandoned);
       setCardRows(cards || []);
+      setRankData(ranks || {});
       setLoading(false);
     });
   }, [selectedDate, user?.id, isPro]);
@@ -1424,9 +1391,9 @@ export default function ResultsPage() {
   // open meeting), built once from `grouped` (all resulted races for the date)
   // rather than per-meeting like the panels above. Skips races with no result yet.
   const dailyRecords = useMemo(() => {
-    if (!hasCsv) return [];
-    return buildRank1Records(grouped, effectiveRaces, effectiveVenues, weights, dbScratchings);
-  }, [grouped, effectiveRaces, effectiveVenues, weights, dbScratchings, hasCsv]);
+    if (!Object.keys(rankData).length) return [];
+    return buildRank1Records(grouped, rankData);
+  }, [grouped, rankData]);
 
   const dailySummary = useMemo(() => buildSummaryFromRecords(dailyRecords), [dailyRecords]);
 
@@ -1442,7 +1409,6 @@ export default function ResultsPage() {
   // tradeoff versus the exact scratching-aware scoring the single-day view gets.
   useEffect(() => {
     if (trendWindow === 'today') { setRollingSummary(null); return; }
-    if (!hasCsv) return;
     let cancelled = false;
     const n = trendWindow === '7d' ? 7 : 30;
     setRollingLoading(true);
@@ -1455,19 +1421,18 @@ export default function ResultsPage() {
       if (!targetDates.length) { if (!cancelled) { setRollingSummary(null); setRollingLoading(false); } return; }
       const targetSet = new Set(targetDates);
       const windowRows = rows.filter(r => targetSet.has(r.date));
-      const cardsByDate = await fetchCardsForDates(targetDates);
+      const rankDataByDate = await fetchRankDataForDates(targetDates);
       if (cancelled) return;
       let allRecords = [];
       targetDates.forEach(d => {
         const dayRows = windowRows.filter(r => r.date === d);
         const dayGrouped = groupResultsByDateRace(dayRows);
-        const cards = cardsByDate[d] || { allRaces: {}, allVenues: {} };
-        allRecords = allRecords.concat(buildRank1Records(dayGrouped, cards.allRaces, cards.allVenues, weights, []));
+        allRecords = allRecords.concat(buildRank1Records(dayGrouped, rankDataByDate[d] || {}));
       });
       if (!cancelled) { setRollingSummary(buildSummaryFromRecords(allRecords)); setRollingLoading(false); }
     })();
     return () => { cancelled = true; };
-  }, [trendWindow, selectedDate, hasCsv, weights]);
+  }, [trendWindow, selectedDate]);
 
   // All-time average win% ("on this day" comparison line) — computed once
   // across every day with data (currently 2026-05-16 to 2026-07-21, 39 days),
@@ -1481,14 +1446,13 @@ export default function ResultsPage() {
       const rows = await fetchResultsRange('2026-05-16', todayAEST);
       const distinctDates = [...new Set(rows.map(r => r.date))].sort();
       if (!distinctDates.length) return;
-      const cardsByDate = await fetchCardsForDates(distinctDates);
+      const rankDataByDate = await fetchRankDataForDates(distinctDates);
       if (cancelled) return;
       let allRecords = [];
       distinctDates.forEach(d => {
         const dayRows = rows.filter(r => r.date === d);
         const dayGrouped = groupResultsByDateRace(dayRows);
-        const cards = cardsByDate[d] || { allRaces: {}, allVenues: {} };
-        allRecords = allRecords.concat(buildRank1Records(dayGrouped, cards.allRaces, cards.allVenues, weights, []));
+        allRecords = allRecords.concat(buildRank1Records(dayGrouped, rankDataByDate[d] || {}));
       });
       if (!cancelled && allRecords.length) {
         const wins = allRecords.filter(r => r.place === 1).length;
@@ -1496,7 +1460,7 @@ export default function ResultsPage() {
       }
     })();
     return () => { cancelled = true; };
-  }, [isPro, todayAEST, weights, allTimeWinPct]);
+  }, [isPro, todayAEST, allTimeWinPct]);
 
   const tablePad = settings.density === 'Compact' ? '1px 2px' : '3px 4px';
   const tableFs  = settings.fontSize === 'Small' ? 10 : settings.fontSize === 'Large' ? 13 : 11;
@@ -1586,10 +1550,7 @@ export default function ResultsPage() {
                   <ResultsDetail
                     meeting={activeRaceData}
                     venue={selectedMeeting}
-                    allRaces={effectiveRaces}
-                    allVenues={effectiveVenues}
-                    weights={weights}
-                    dbScratchings={dbScratchings}
+                    rankData={rankData}
                     isPro={isPro}
                   />
                 </div>
