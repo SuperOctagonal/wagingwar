@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { auth, clerkClient } from '@clerk/nextjs/server';
 import { normaliseVenue } from '@/lib/venues';
-import { brisbaneDateTimeToInstant, brisbaneTodayISO } from '@/lib/raceTime';
+import { brisbaneTodayISO } from '@/lib/raceTime';
 
 const SURL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SKEY = process.env.SUPABASE_SERVICE_KEY;
@@ -23,8 +23,13 @@ export async function POST(req) {
 
   const betDate = body.date ?? new Date().toISOString().slice(0, 10);
 
-  // Jump-time gate — only applies to bets dated today or later. Backdated/historical
-  // entries skip this check entirely.
+  // Resulted gate — only applies to bets dated today or later. Backdated/historical
+  // entries skip this check entirely. Logging remains allowed after the race has
+  // jumped (post time passed) right up until the race is actually resulted — the
+  // same "has this race resulted" signal used by mybets/page.js's settlement
+  // matching (a race_results row existing for this date/venue/race_num), not a
+  // jump-time cutoff. The mybets ledger tags any bet logged after jump time as
+  // "logged late" using its stored created_at timestamp.
   if (betDate >= brisbaneTodayISO()) {
     if (!SURL || !SKEY) return NextResponse.json({ error: 'Server config missing' }, { status: 500 });
 
@@ -33,25 +38,20 @@ export async function POST(req) {
       return NextResponse.json({ error: 'Venue and race number are required to log a bet on today\'s racing' }, { status: 400 });
     }
 
-    const scheduleRes = await fetch(
-      `${SURL}/rest/v1/race_schedule?date=eq.${betDate}&race_num=eq.${raceNumStr}&select=venue,post_time`,
+    const resultsRes = await fetch(
+      `${SURL}/rest/v1/race_results?date=eq.${betDate}&race_num=eq.${raceNumStr}&select=venue&limit=50`,
       { headers: { apikey: SKEY, Authorization: `Bearer ${SKEY}` } }
     );
-    if (!scheduleRes.ok) {
-      console.error('[log-bet] race_schedule lookup failed:', scheduleRes.status, await scheduleRes.text());
-      return NextResponse.json({ error: 'Could not verify race time' }, { status: 502 });
+    if (!resultsRes.ok) {
+      console.error('[log-bet] race_results lookup failed:', resultsRes.status, await resultsRes.text());
+      return NextResponse.json({ error: 'Could not verify race status' }, { status: 502 });
     }
-    const scheduleRows = await scheduleRes.json();
-    const match = (Array.isArray(scheduleRows) ? scheduleRows : [])
-      .find(row => normaliseVenue(row.venue) === normaliseVenue(body.venue));
+    const resultRows = await resultsRes.json();
+    const isResulted = (Array.isArray(resultRows) ? resultRows : [])
+      .some(row => normaliseVenue(row.venue) === normaliseVenue(body.venue));
 
-    if (!match?.post_time) {
-      return NextResponse.json({ error: 'No race schedule found for this race — cannot verify jump time' }, { status: 422 });
-    }
-
-    const raceInstant = brisbaneDateTimeToInstant(betDate, match.post_time);
-    if (raceInstant && raceInstant.getTime() <= Date.now()) {
-      return NextResponse.json({ error: 'This race has already jumped — bet cannot be logged' }, { status: 409 });
+    if (isResulted) {
+      return NextResponse.json({ error: 'This race has already been resulted — bet cannot be logged' }, { status: 409 });
     }
   }
 

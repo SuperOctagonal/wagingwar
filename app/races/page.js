@@ -2737,8 +2737,10 @@ function RacesPageInner() {
     return raceResults[key] || null;
   })();
 
-  const isRacePassed = !!currentRace && (parseRaceTime(currentRace.time, currentRace.date)?.getTime() ?? Infinity) <= now;
-  const betBlocked   = isPast || !!currentRaceResult || isRacePassed;
+  // Logging stays open once the race has jumped, right up until it's actually
+  // resulted (currentRaceResult) — matches the log-bet API's resulted gate and
+  // mybets/page.js's settlement-matching signal, rather than a jump-time cutoff.
+  const betBlocked = isPast || !!currentRaceResult;
 
   // Compute scored results once per race/trackCond/weights change
   const { results, scratched, scratchingsSet, allHorsesForDisplay } = useMemo(() => {

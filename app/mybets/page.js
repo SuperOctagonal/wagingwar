@@ -12,7 +12,7 @@ import { awardPoints } from '@/lib/points';
 import { parseCSV, buildRaces } from '@/lib/csvParser';
 import { normaliseVenue } from '@/lib/venues';
 import { validateBetForm } from '@/lib/betValidation';
-import { hasRaceJumped } from '@/lib/raceTime';
+import { brisbaneDateTimeToInstant } from '@/lib/raceTime';
 import { estimatePlacePrice, paidPlacesForFieldSize } from '@/lib/placePrice';
 import {
   LineChart, Line, AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
@@ -66,6 +66,25 @@ async function patchBet(id, fields) {
 
 function normName(n) { return (n || '').toUpperCase().replace(/[^A-Z0-9]/g, ''); }
 
+// True when a bet's created_at timestamp is after its race's actual jump
+// instant — i.e. it was logged during the now-allowed "jumped but not yet
+// resulted" window rather than before the race started. Fails closed (false)
+// when the race time or created_at can't be resolved, same convention as
+// hasRaceJumped.
+function isLoggedLate(bet, raceTimeMap) {
+  const raceT = raceTimeMap[bet.id] || bet.race_time;
+  if (!raceT || !bet.created_at || !bet.date) return false;
+  const raceInstant = brisbaneDateTimeToInstant(bet.date, raceT);
+  if (!raceInstant) return false;
+  return new Date(bet.created_at).getTime() > raceInstant.getTime();
+}
+
+function fmtLogTime(iso) {
+  if (!iso) return null;
+  try {
+    return new Date(iso).toLocaleString('en-AU', { timeZone: 'Australia/Brisbane', hour: 'numeric', minute: '2-digit', hour12: true, day: 'numeric', month: 'short' });
+  } catch { return null; }
+}
 
 function ordinal(n) { if (!n) return ''; const s = ['th','st','nd','rd']; const v = n % 100; return n + (s[(v-20)%10] || s[v] || s[0]); }
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
@@ -1474,10 +1493,14 @@ export default function MybetsPage() {
                         const typePill = typePillCfg(b.bet_type);
                         const resultColor = b.status === 'win' ? '#4ade80' : b.status === 'place' ? '#2563eb' : '#f87171';
                         const resultLabel = b.status === 'win' ? 'WIN' : pos ? String(pos) : '—';
+                        const isLate = isLoggedLate(b, raceTimeMap);
                         return (
                           <tr key={b.id}>
                             <td style={{ ...cs, position: 'sticky', left: 0, zIndex: 1, background: '#11241A' }}>
-                              <div style={{ width: 94, color: '#fff', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b.horse_name || '—'}</div>
+                              <div style={{ width: 94, color: '#fff', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                {b.horse_name || '—'}
+                                {isLate && <i className="ti ti-clock-exclamation" title={`Logged late — ${fmtLogTime(b.created_at)}`} style={{ fontSize: 10, color: '#fbbf24', marginLeft: 4 }} />}
+                              </div>
                             </td>
                             <td style={{ ...cs, textAlign: 'center' }}>
                               <span style={{ fontSize: 8, fontWeight: 700, padding: '2px 5px', borderRadius: 3, background: typePill.bg, color: '#fff' }}>{typePill.label}</span>
@@ -1595,7 +1618,7 @@ export default function MybetsPage() {
                             const isImminent = isPending && b.date === todayISO && secsToRace !== null && secsToRace < 900 && secsToRace > -240;
                             const isEditing = editingId === b.id;
                             const isHovered = hoveredId === b.id;
-                            const isLocked  = b.date < todayISO || hasRaceJumped(b.date, raceT);
+                            const isLate = isLoggedLate(b, raceTimeMap);
                             const rowBg = isImminent ? 'rgba(251,191,36,0.10)' : 'transparent';
                             const typePill = typePillCfg(b.bet_type);
                             const isEwOrPlace = (b.bet_type || '').toLowerCase() === 'place' || (b.bet_type || '').toLowerCase().includes('each');
@@ -1624,18 +1647,21 @@ export default function MybetsPage() {
                                   })()}
                                 </td>
                                 <td style={{ ...cs, color: '#fff', textAlign: 'right' }}>{b.tab_no || b.horse_number || '—'}</td>
-                                <td style={{ ...cs, color: '#fff', fontWeight: 600, maxWidth: 106, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b.horse_name || '—'}</td>
+                                <td style={{ ...cs, color: '#fff', fontWeight: 600, maxWidth: 106, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                  {b.horse_name || '—'}
+                                  {isLate && <i className="ti ti-clock-exclamation" title={`Logged late — ${fmtLogTime(b.created_at)}`} style={{ fontSize: 10, color: '#fbbf24', marginLeft: 4 }} />}
+                                </td>
                                 <td style={{ ...cs, textAlign: 'center' }}>
                                   <span style={{ fontSize: 8, fontWeight: 700, padding: '2px 5px', borderRadius: 3, background: typePill.bg, color: '#fff' }}>{typePill.label}</span>
                                 </td>
                                 <td style={{ ...cs, color: '#fff', textAlign: 'right', fontFamily: 'monospace' }}>
-                                  {isEditing && !isLocked ? <input type="number" value={editStake} onChange={e => setEditStake(e.target.value)} style={{ width: 40, fontSize: 10, textAlign: 'right', border: '1px solid #4ade80', background: '#1a3a25', color: '#fff', borderRadius: 3, padding: '1px 3px' }} /> : `$${(+(b.stake || 0)).toFixed(0)}`}
+                                  {isEditing && isPending ? <input type="number" value={editStake} onChange={e => setEditStake(e.target.value)} style={{ width: 40, fontSize: 10, textAlign: 'right', border: '1px solid #4ade80', background: '#1a3a25', color: '#fff', borderRadius: 3, padding: '1px 3px' }} /> : `$${(+(b.stake || 0)).toFixed(0)}`}
                                 </td>
                                 <td style={{ ...cs, color: '#fff', textAlign: 'right', fontFamily: 'monospace' }}>
-                                  {isEditing && !isLocked ? <input type="number" value={editOdds} onChange={e => setEditOdds(e.target.value)} style={{ width: 40, fontSize: 10, textAlign: 'right', border: '1px solid #4ade80', background: '#1a3a25', color: '#fff', borderRadius: 3, padding: '1px 3px' }} /> : `$${Number(b.odds || 0).toFixed(2)}`}
+                                  {isEditing && isPending ? <input type="number" value={editOdds} onChange={e => setEditOdds(e.target.value)} style={{ width: 40, fontSize: 10, textAlign: 'right', border: '1px solid #4ade80', background: '#1a3a25', color: '#fff', borderRadius: 3, padding: '1px 3px' }} /> : `$${Number(b.odds || 0).toFixed(2)}`}
                                 </td>
                                 <td style={{ ...cs, color: '#fff', textAlign: 'right', fontFamily: 'monospace' }}>
-                                  {isEditing && !isLocked && isEwOrPlace
+                                  {isEditing && isPending && isEwOrPlace
                                     ? <input type="number" value={editPlaceOdds} onChange={e => setEditPlaceOdds(e.target.value)} style={{ width: 40, fontSize: 10, textAlign: 'right', border: '1px solid #4ade80', background: '#1a3a25', color: '#fff', borderRadius: 3, padding: '1px 3px' }} />
                                     : b.place_odds != null ? `$${Number(b.place_odds).toFixed(2)}` : '—'}
                                 </td>
@@ -1649,14 +1675,16 @@ export default function MybetsPage() {
                                   {isFF ? '—' : b.margin || '—'}
                                 </td>
                                 <td style={{ ...cs, textAlign: 'center', padding: '2px 4px', width: 48 }}>
-                                  {isEditing && !isLocked && isPending ? (
+                                  {isEditing && isPending ? (
                                     <span style={{ display: 'inline-flex', gap: 3 }}>
                                       <button onClick={() => handleEditSave(b.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#4ade80', padding: 2, lineHeight: 1 }}><i className="ti ti-check" style={{ fontSize: 13 }} /></button>
                                       <button onClick={() => setEditingId(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#f87171', padding: 2, lineHeight: 1 }}><i className="ti ti-x" style={{ fontSize: 13 }} /></button>
                                     </span>
-                                  ) : isHovered && !isLocked && isPending ? (
+                                  ) : isHovered ? (
                                     <span style={{ display: 'inline-flex', gap: 3 }}>
-                                      <button onClick={() => { setEditingId(b.id); setEditStake(String(b.stake || '')); setEditOdds(String(b.odds || '')); setEditPlaceOdds(String(b.place_odds || '')); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', padding: 2, lineHeight: 1 }}><i className="ti ti-pencil" style={{ fontSize: 12 }} /></button>
+                                      {isPending && (
+                                        <button onClick={() => { setEditingId(b.id); setEditStake(String(b.stake || '')); setEditOdds(String(b.odds || '')); setEditPlaceOdds(String(b.place_odds || '')); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', padding: 2, lineHeight: 1 }}><i className="ti ti-pencil" style={{ fontSize: 12 }} /></button>
+                                      )}
                                       <button onClick={() => handleDeleteBet(b.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#f87171', padding: 2, lineHeight: 1 }}><i className="ti ti-trash" style={{ fontSize: 12 }} /></button>
                                     </span>
                                   ) : null}
@@ -2189,12 +2217,21 @@ export default function MybetsPage() {
         const isEwOrPlace = (b.bet_type || '').toLowerCase() === 'place' || (b.bet_type || '').toLowerCase().includes('each');
         const isPendingStatus = !b.status || b.status === 'pending';
         const raceT = raceTimeMap[b.id] || b.race_time;
-        const jumped = b.date < todayISO || hasRaceJumped(b.date, raceT);
-        const isEditable = isPendingStatus && !jumped;
+        // Editable while pending, regardless of jump time — matches the resulted
+        // gate used for logging. Delete is always available below, independent
+        // of this. isLate is informational only, doesn't affect either action.
+        const isEditable = isPendingStatus;
+        const isLate = isLoggedLate(b, raceTimeMap);
         return (
           <BottomSheet isOpen={true} onClose={() => setMobileMenuId(null)} title={b.horse_name || 'Bet'}>
             <div style={{ padding: 16 }}>
               <div style={{ fontSize: 11, color: '#6b7280', marginBottom: 12 }}>{b.track || b.venue || ''}{(b.race_number || b.race_num) ? ` R${b.race_number || b.race_num}` : ''} · {b.date}</div>
+              {isLate && (
+                <div style={{ fontSize: 10, color: '#92400e', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 5, padding: '5px 8px', marginBottom: 12 }}>
+                  <i className="ti ti-clock-exclamation" style={{ fontSize: 11, marginRight: 4 }} />
+                  Logged late — {fmtLogTime(b.created_at)} (after this race&apos;s post time)
+                </div>
+              )}
               {isEditable ? (
                 <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
                   <div style={{ flex: 1 }}>
@@ -2232,9 +2269,7 @@ export default function MybetsPage() {
               )}
               {!isEditable && (
                 <div style={{ fontSize: 10, color: '#92400e', background: '#fef3c7', borderRadius: 5, padding: '5px 8px', marginBottom: 12 }}>
-                  {!isPendingStatus
-                    ? `This bet has been settled (${(b.status || '').toUpperCase()}) and can no longer be edited.`
-                    : 'This race has already jumped and can no longer be edited.'}
+                  This bet has been settled ({(b.status || '').toUpperCase()}) — stake/odds can no longer be edited. Delete and re-log if you need to correct it.
                 </div>
               )}
               <div style={{ display: 'flex', gap: 8 }}>
@@ -2249,9 +2284,7 @@ export default function MybetsPage() {
                     setMobileMenuId(null);
                   }} style={{ flex: 1, padding: '10px 0', background: '#059669', color: '#fff', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Save</button>
                 )}
-                {isEditable && (
-                  <button onClick={async () => { handleDeleteBet(mobileMenuId); setMobileMenuId(null); }} style={{ flex: 1, padding: '10px 0', background: '#dc2626', color: '#fff', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Delete</button>
-                )}
+                <button onClick={async () => { handleDeleteBet(mobileMenuId); setMobileMenuId(null); }} style={{ flex: 1, padding: '10px 0', background: '#dc2626', color: '#fff', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Delete</button>
                 <button onClick={() => setMobileMenuId(null)} style={{ padding: '10px 16px', background: '#f3f4f6', color: '#374151', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>Cancel</button>
               </div>
             </div>
