@@ -733,7 +733,7 @@ function LadderPage({ profile, onClose }) {
 
 // ─── left column ─────────────────────────────────────────────────────────────
 
-function LeftColumn({ profile, userId, section, onSection, missions, badges, onShowRanks, onShowLadder }) {
+function LeftColumn({ profile, userId, section, onSection, missions, badges, onShowRanks, onShowLadder, betStats, postCount }) {
   const tier = getTier(profile?.points || 0);
   const totalPoints = profile?.points || 0;
   const allTierPts = ALL_TIERS.map(t => t.points).sort((a,b)=>a-b);
@@ -767,9 +767,9 @@ function LeftColumn({ profile, userId, section, onSection, missions, badges, onS
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 4 }}>
               {[
-                { label: 'Bets',  val: profile.total_bets || 0 },
-                { label: 'Win%',  val: profile.total_bets > 0 ? `${Math.round((profile.total_wins||0)/profile.total_bets*100)}%` : '—' },
-                { label: 'Posts', val: profile.total_posts || 0 },
+                { label: 'Bets',  val: betStats.total },
+                { label: 'Win%',  val: betStats.total > 0 ? `${Math.round(betStats.wins/betStats.total*100)}%` : '—' },
+                { label: 'Posts', val: postCount },
               ].map(s => (
                 <div key={s.label} style={{ background: '#f9fafb', borderRadius: 4, padding: '4px 6px', textAlign: 'center' }}>
                   <div style={{ fontSize: 11, fontWeight: 700, color: '#111827' }}>{s.val}</div>
@@ -948,6 +948,11 @@ function CommunityPageInner() {
   const [leaderboard,  setLeaderboard]  = useState([]);
   const [contributors, setContributors] = useState([]);
   const [stats,        setStats]        = useState({ members: 0, posts: 0 });
+  // Live-computed, not read from user_profiles.total_bets/total_wins/total_posts
+  // — nothing in this codebase ever writes to those columns (see ProfileRail.js
+  // for the same fix). app/account/page.js already computes bet stats this way.
+  const [betStats,     setBetStats]     = useState({ total: 0, wins: 0 });
+  const [postCount,    setPostCount]    = useState(0);
 
   useEffect(() => {
     setLoading(true);
@@ -987,6 +992,12 @@ function CommunityPageInner() {
         if (created && created[0]) setProfile(created[0]);
         else if (created && !Array.isArray(created)) setProfile(created);
       }
+      const [bets, posts] = await Promise.all([
+        sb(`bet_log?clerk_id=eq.${userId}&select=result`),
+        sb(`posts?user_id=eq.${userId}&select=id`),
+      ]);
+      setBetStats({ total: bets?.length || 0, wins: (bets || []).filter(b => b.result === 'win').length });
+      setPostCount(posts?.length || 0);
     })();
     setBadges([]);
     sb(`user_missions?select=*,missions(title,points)&clerk_id=eq.${userId}&limit=5`).then(r => {
@@ -1066,6 +1077,8 @@ function CommunityPageInner() {
         badges={badges}
         onShowRanks={() => setRanksModal(true)}
         onShowLadder={() => setShowLadder(true)}
+        betStats={betStats}
+        postCount={postCount}
       />
 
       <div style={{ display: 'flex', flexDirection: 'column', background: '#fff', borderRight: '0.5px solid #e5e7eb', overflow: 'hidden' }}>

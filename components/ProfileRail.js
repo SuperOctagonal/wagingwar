@@ -14,6 +14,13 @@ export default function ProfileRail({ children }) {
   const isPro = useIsPro();
   const pathname = usePathname();
   const [profile, setProfile] = useState(null);
+  // Bets/Win%/Posts are computed live from bet_log/posts, NOT read from
+  // user_profiles.total_bets/total_wins/total_posts — those columns exist in
+  // the Supabase dashboard but nothing in this codebase (frontend or backend)
+  // ever writes to them, so they were permanently stuck at 0. Same live-query
+  // approach app/account/page.js already uses for its own bet stats.
+  const [betStats, setBetStats] = useState({ total: 0, wins: 0 });
+  const [postCount, setPostCount] = useState(0);
   const userId = user?.id;
 
   useEffect(() => {
@@ -22,12 +29,29 @@ export default function ProfileRail({ children }) {
     async function load() {
       if (!userId) return;
       try {
-        const res = await fetch(`${SURL}/rest/v1/user_profiles?clerk_id=eq.${userId}&limit=1`, {
-          headers: { apikey: SKEY, Authorization: `Bearer ${SKEY}` },
-        });
-        if (!res.ok) return;
-        const data = await res.json();
-        setProfile(data?.[0] ?? {});
+        const [profRes, betRes, postRes] = await Promise.all([
+          fetch(`${SURL}/rest/v1/user_profiles?clerk_id=eq.${userId}&limit=1`, {
+            headers: { apikey: SKEY, Authorization: `Bearer ${SKEY}` },
+          }),
+          fetch(`${SURL}/rest/v1/bet_log?clerk_id=eq.${userId}&select=result`, {
+            headers: { apikey: SKEY, Authorization: `Bearer ${SKEY}` },
+          }),
+          fetch(`${SURL}/rest/v1/posts?user_id=eq.${userId}&select=id`, {
+            headers: { apikey: SKEY, Authorization: `Bearer ${SKEY}` },
+          }),
+        ]);
+        if (profRes.ok) {
+          const data = await profRes.json();
+          setProfile(data?.[0] ?? {});
+        }
+        if (betRes.ok) {
+          const bets = await betRes.json();
+          setBetStats({ total: bets.length, wins: bets.filter(b => b.result === 'win').length });
+        }
+        if (postRes.ok) {
+          const posts = await postRes.json();
+          setPostCount(posts.length);
+        }
       } catch {}
     }
 
@@ -97,9 +121,9 @@ export default function ProfileRail({ children }) {
         {/* Stats grid */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 4 }}>
           {[
-            { label: 'Bets',  val: profile.total_bets || 0 },
-            { label: 'Win%',  val: profile.total_bets > 0 ? `${Math.round((profile.total_wins || 0) / profile.total_bets * 100)}%` : '—' },
-            { label: 'Posts', val: profile.total_posts || 0 },
+            { label: 'Bets',  val: betStats.total },
+            { label: 'Win%',  val: betStats.total > 0 ? `${Math.round(betStats.wins / betStats.total * 100)}%` : '—' },
+            { label: 'Posts', val: postCount },
           ].map(s => (
             <div key={s.label} style={{ background: '#f9fafb', borderRadius: 4, padding: '4px 6px', textAlign: 'center' }}>
               <div style={{ fontSize: 11, fontWeight: 700, color: '#111827' }}>{s.val}</div>
