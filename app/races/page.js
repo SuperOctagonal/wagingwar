@@ -696,9 +696,25 @@ function RaceHeader({ rc, trackCond, trackCondConfirmed, setTrackCond, weights, 
 function WeightsPanel({ weights, setWeights, onUpgrade }) {
   const [open, setOpen]       = useState(false);
   const [openGrp, setOpenGrp] = useState(null);
+  const [pos, setPos]         = useState(null);
   const ref = useRef(null);
+  const btnRef = useRef(null);
   const isPro = useIsPro();
   const isMobile = useIsMobile();
+
+  // RaceHeader's root (#rh-outer) has overflow-x-auto for narrow-viewport
+  // horizontal scrolling, and per the CSS overflow spec that forces its
+  // overflow-y to compute to 'auto' too (a non-'visible' x with a 'visible' y
+  // isn't a legal combination) — so a `position: absolute` dropdown anchored
+  // inside it gets clipped to the header row's own height on every date, not
+  // just when the "Upcoming" banner is present. Anchoring via `position:
+  // fixed` off the button's real screen coordinates escapes that clipping
+  // entirely without touching #rh-outer's horizontal-scroll behavior.
+  useEffect(() => {
+    if (!open || isMobile || !btnRef.current) return;
+    const r = btnRef.current.getBoundingClientRect();
+    setPos({ top: r.bottom + 4, right: window.innerWidth - r.right });
+  }, [open, isMobile]);
 
   const panelInner = (
     <>
@@ -753,7 +769,7 @@ function WeightsPanel({ weights, setWeights, onUpgrade }) {
 
   return (
     <div className="relative" ref={ref}>
-      <button onClick={() => { if (!isPro) { onUpgrade(); } else { setOpen(v => !v); } }}
+      <button ref={btnRef} onClick={() => { if (!isPro) { onUpgrade(); } else { setOpen(v => !v); } }}
         className="flex items-center gap-1.5 text-[10px] font-semibold text-gray-600 border border-gray-200 bg-white rounded-md px-2.5 py-[5px] hover:bg-gray-50 transition-colors">
         <i className="ti ti-adjustments text-sm" />
         Weights
@@ -766,8 +782,8 @@ function WeightsPanel({ weights, setWeights, onUpgrade }) {
           </div>
         </>
       )}
-      {open && !isMobile && (
-        <div className="absolute top-full right-0 mt-1 z-40 bg-white border border-gray-200 rounded-xl shadow-xl w-64 p-3">
+      {open && !isMobile && pos && (
+        <div style={{ position: 'fixed', top: pos.top, right: pos.right, zIndex: 40 }} className="bg-white border border-gray-200 rounded-xl shadow-xl w-64 p-3">
           {panelInner}
         </div>
       )}
