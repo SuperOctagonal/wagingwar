@@ -2737,10 +2737,12 @@ function RacesPageInner() {
     return raceResults[key] || null;
   })();
 
-  // Logging stays open once the race has jumped, right up until it's actually
-  // resulted (currentRaceResult) — matches the log-bet API's resulted gate and
-  // mybets/page.js's settlement-matching signal, rather than a jump-time cutoff.
-  const betBlocked = isPast || !!currentRaceResult;
+  // No race-status restriction — logging is allowed before jump, after jump,
+  // and after resulting (matches /api/log-bet, which has no gate at all).
+  // isPast alone still blocks: that's the date-picker showing a different,
+  // genuinely historical day, not a race-status condition on the currently
+  // selected race.
+  const betBlocked = isPast;
 
   // Compute scored results once per race/trackCond/weights change
   const { results, scratched, scratchingsSet, allHorsesForDisplay } = useMemo(() => {

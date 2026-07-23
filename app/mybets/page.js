@@ -456,6 +456,7 @@ export default function MybetsPage() {
   const [editOdds,     setEditOdds]     = useState('');
   const [editPlaceOdds, setEditPlaceOdds] = useState('');
   const [mobileMenuId, setMobileMenuId] = useState(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState(null);
   const [lastCheckedAt, setLastCheckedAt] = useState(null);
 
   // CSV data for Quick Log
@@ -776,10 +777,16 @@ export default function MybetsPage() {
     setTimeout(() => setQlToast(null), 2500);
   }, [user?.id, todayISO, raceDate, qlHorse, qlMeeting, qlRace, qlBetType, qlStake, qlOdds, qlPlaceOdds, qlRaceTime, qlBookmaker, qlTab]);
 
-  const handleDeleteBet = useCallback(async (id) => {
-    if (!confirm('Remove this bet?')) return;
+  // Opens the in-app confirm modal (below) rather than deleting immediately —
+  // executeDeleteBet does the actual removal once confirmed there.
+  const handleDeleteBet = useCallback((id) => {
+    setConfirmDeleteId(id);
+  }, []);
+
+  const executeDeleteBet = useCallback(async (id) => {
     await removeBet(id);
     setBets(prev => prev.filter(b => b.id !== id));
+    setConfirmDeleteId(null);
   }, []);
 
   const handleEditSave = useCallback(async (id) => {
@@ -2328,6 +2335,39 @@ export default function MybetsPage() {
               </div>
             </div>
           </BottomSheet>
+        );
+      })()}
+
+      {confirmDeleteId !== null && (() => {
+        const b = bets.find(x => x.id === confirmDeleteId);
+        if (!b) return null;
+        return (
+          <div
+            style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}
+            onClick={() => setConfirmDeleteId(null)}
+          >
+            <div
+              style={{ background: '#0D1C13', border: '1px solid #1a3a25', borderRadius: 10, boxShadow: '0 8px 32px rgba(0,0,0,0.4)', width: 320, maxWidth: '100%', overflow: 'hidden' }}
+              onClick={e => e.stopPropagation()}
+            >
+              <div style={{ padding: '14px 16px', borderBottom: '1px solid #1a3a25' }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: '#fff' }}>Remove this bet?</div>
+                <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 4 }}>
+                  {b.horse_name} — {(b.track || b.venue || '').toUpperCase()} R{b.race_number ?? b.race_num} · ${(+(b.stake || 0)).toFixed(2)} @ ${Number(b.odds || 0).toFixed(2)}
+                </div>
+              </div>
+              <div style={{ padding: 12, display: 'flex', gap: 8 }}>
+                <button onClick={() => setConfirmDeleteId(null)}
+                  style={{ flex: 1, padding: '10px 0', background: 'transparent', color: '#fff', border: '1px solid #1a3a25', borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+                  Cancel
+                </button>
+                <button onClick={() => executeDeleteBet(confirmDeleteId)}
+                  style={{ flex: 1, padding: '10px 0', background: '#dc2626', color: '#fff', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
+                  Delete
+                </button>
+              </div>
+            </div>
+          </div>
         );
       })()}
 
