@@ -64,6 +64,38 @@ async function patchBet(id, fields) {
   return sbFetch(`bet_log?id=eq.${id}`, { method: 'PATCH', body: fields, prefer: 'return=minimal' });
 }
 
+// sbFetch's null return is ambiguous (also returned on a genuine 204 success
+// with an empty body), so this checks res.ok directly instead — needed to
+// safely retry without edited_at if that column doesn't exist yet (it's a
+// manual migration, not guaranteed to exist at deploy time; see
+// isEditedAfterResult). Once the column exists this always succeeds on the
+// first try and the fallback is dead weight, not a behavior change.
+async function patchBetSafe(id, fields) {
+  if (!SURL || !SKEY) return { ok: false, fields: null };
+  try {
+    const res = await fetch(`${SURL}/rest/v1/bet_log?id=eq.${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', apikey: SKEY, Authorization: `Bearer ${SKEY}`, Prefer: 'return=minimal' },
+      body: JSON.stringify(fields),
+    });
+    if (res.ok) return { ok: true, fields };
+    if ('edited_at' in fields) {
+      const { edited_at, ...rest } = fields;
+      const res2 = await fetch(`${SURL}/rest/v1/bet_log?id=eq.${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', apikey: SKEY, Authorization: `Bearer ${SKEY}`, Prefer: 'return=minimal' },
+        body: JSON.stringify(rest),
+      });
+      if (res2.ok) return { ok: true, fields: rest };
+    }
+    console.error('[MyBets patchBetSafe] failed', res.status, await res.text().catch(() => ''));
+    return { ok: false, fields: null };
+  } catch (err) {
+    console.error('[MyBets patchBetSafe] network error', err);
+    return { ok: false, fields: null };
+  }
+}
+
 function normName(n) { return (n || '').toUpperCase().replace(/[^A-Z0-9]/g, ''); }
 
 // True when a bet's created_at timestamp is after its race's actual jump
@@ -93,6 +125,22 @@ function isLoggedAfterResult(bet, resultsCreatedAtMap) {
   const resultAt = resultsCreatedAtMap[`${bet.date}|${venue}|${raceNum}`];
   if (!resultAt) return false;
   return new Date(bet.created_at).getTime() > new Date(resultAt).getTime();
+}
+
+// Same signal as isLoggedAfterResult but for edits — true when bet_log.edited_at
+// (stamped by handleEditSave, a dedicated column — NOT bet_log.updated_at,
+// which the backend scraper already writes on every automated settlement and
+// would false-positive on nearly every resulted bet) is after the race's
+// result became known. Takes precedence over both isLoggedAfterResult and
+// isLoggedLate — editing after result is necessarily the most recent action
+// in the bet's history when it applies, and the more explicit/relevant one.
+function isEditedAfterResult(bet, resultsCreatedAtMap) {
+  const venue = bet.track || bet.venue;
+  const raceNum = +(bet.race_number ?? bet.race_num ?? 0);
+  if (!bet.date || !venue || !raceNum || !bet.edited_at) return false;
+  const resultAt = resultsCreatedAtMap[`${bet.date}|${venue}|${raceNum}`];
+  if (!resultAt) return false;
+  return new Date(bet.edited_at).getTime() > new Date(resultAt).getTime();
 }
 
 function fmtLogTime(iso) {
@@ -792,12 +840,19 @@ export default function MybetsPage() {
   const handleEditSave = useCallback(async (id) => {
     if (!editStake || !editOdds) return;
     const bet = bets.find(b => b.id === id);
-    if (bet?.status && bet.status !== 'pending') return; // settled bets are frozen
+    // No status gate — editing stake/odds/selection is allowed at any time,
+    // consistent with logging having no race-status restriction. edited_at
+    // is stamped on every save (harmless pre-result; feeds the "edited after
+    // result" tag post-result) — a dedicated column, not bet_log.updated_at,
+    // since the backend scraper already writes updated_at on every automated
+    // settlement, which would make it fire for nearly every resulted bet
+    // regardless of whether the user touched anything.
     const isEwOrPlace = (bet?.bet_type || '').toLowerCase() === 'place' || (bet?.bet_type || '').toLowerCase().includes('each');
     const placeOddsVal = isEwOrPlace && editPlaceOdds ? +editPlaceOdds : (bet?.place_odds ?? null);
-    const patch = { stake: +editStake, odds: +editOdds, place_odds: placeOddsVal };
-    await patchBet(id, patch);
-    setBets(prev => prev.map(b => b.id === id ? { ...b, ...patch } : b));
+    const editedAt = new Date().toISOString();
+    const patch = { stake: +editStake, odds: +editOdds, place_odds: placeOddsVal, edited_at: editedAt };
+    const { ok, fields } = await patchBetSafe(id, patch);
+    if (ok) setBets(prev => prev.map(b => b.id === id ? { ...b, ...fields } : b));
     setEditingId(null);
   }, [editStake, editOdds, editPlaceOdds, bets]);
 
@@ -1527,13 +1582,15 @@ export default function MybetsPage() {
                         const typePill = typePillCfg(b.bet_type);
                         const resultColor = b.status === 'win' ? '#4ade80' : b.status === 'place' ? '#2563eb' : '#f87171';
                         const resultLabel = b.status === 'win' ? 'WIN' : pos ? String(pos) : '—';
-                        const isAfterResult = isLoggedAfterResult(b, resultsCreatedAtMap);
-                        const isLate = !isAfterResult && isLoggedLate(b, raceTimeMap);
+                        const isEditedAfter = isEditedAfterResult(b, resultsCreatedAtMap);
+                        const isAfterResult = !isEditedAfter && isLoggedAfterResult(b, resultsCreatedAtMap);
+                        const isLate = !isEditedAfter && !isAfterResult && isLoggedLate(b, raceTimeMap);
                         return (
                           <tr key={b.id}>
                             <td style={{ ...cs, position: 'sticky', left: 0, zIndex: 1, background: '#11241A' }}>
                               <div style={{ width: 94, color: '#fff', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                 {b.horse_name || '—'}
+                                {isEditedAfter && <i className="ti ti-edit" title={`Edited after result — ${fmtLogTime(b.edited_at)}`} style={{ fontSize: 10, color: '#f87171', marginLeft: 4 }} />}
                                 {isAfterResult && <i className="ti ti-alert-triangle" title={`Logged after result — ${fmtLogTime(b.created_at)}`} style={{ fontSize: 10, color: '#f87171', marginLeft: 4 }} />}
                                 {isLate && <i className="ti ti-clock-exclamation" title={`Logged late — ${fmtLogTime(b.created_at)}`} style={{ fontSize: 10, color: '#fbbf24', marginLeft: 4 }} />}
                               </div>
@@ -1654,8 +1711,9 @@ export default function MybetsPage() {
                             const isImminent = isPending && b.date === todayISO && secsToRace !== null && secsToRace < 900 && secsToRace > -240;
                             const isEditing = editingId === b.id;
                             const isHovered = hoveredId === b.id;
-                            const isAfterResult = isLoggedAfterResult(b, resultsCreatedAtMap);
-                            const isLate = !isAfterResult && isLoggedLate(b, raceTimeMap);
+                            const isEditedAfter = isEditedAfterResult(b, resultsCreatedAtMap);
+                            const isAfterResult = !isEditedAfter && isLoggedAfterResult(b, resultsCreatedAtMap);
+                            const isLate = !isEditedAfter && !isAfterResult && isLoggedLate(b, raceTimeMap);
                             const rowBg = isImminent ? 'rgba(251,191,36,0.10)' : 'transparent';
                             const typePill = typePillCfg(b.bet_type);
                             const isEwOrPlace = (b.bet_type || '').toLowerCase() === 'place' || (b.bet_type || '').toLowerCase().includes('each');
@@ -1686,6 +1744,7 @@ export default function MybetsPage() {
                                 <td style={{ ...cs, color: '#fff', textAlign: 'right' }}>{b.tab_no || b.horse_number || '—'}</td>
                                 <td style={{ ...cs, color: '#fff', fontWeight: 600, maxWidth: 106, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                   {b.horse_name || '—'}
+                                  {isEditedAfter && <i className="ti ti-edit" title={`Edited after result — ${fmtLogTime(b.edited_at)}`} style={{ fontSize: 10, color: '#f87171', marginLeft: 4 }} />}
                                   {isAfterResult && <i className="ti ti-alert-triangle" title={`Logged after result — ${fmtLogTime(b.created_at)}`} style={{ fontSize: 10, color: '#f87171', marginLeft: 4 }} />}
                                   {isLate && <i className="ti ti-clock-exclamation" title={`Logged late — ${fmtLogTime(b.created_at)}`} style={{ fontSize: 10, color: '#fbbf24', marginLeft: 4 }} />}
                                 </td>
@@ -1693,13 +1752,13 @@ export default function MybetsPage() {
                                   <span style={{ fontSize: 8, fontWeight: 700, padding: '2px 5px', borderRadius: 3, background: typePill.bg, color: '#fff' }}>{typePill.label}</span>
                                 </td>
                                 <td style={{ ...cs, color: '#fff', textAlign: 'right', fontFamily: 'monospace' }}>
-                                  {isEditing && isPending ? <input type="number" value={editStake} onChange={e => setEditStake(e.target.value)} style={{ width: 40, fontSize: 10, textAlign: 'right', border: '1px solid #4ade80', background: '#1a3a25', color: '#fff', borderRadius: 3, padding: '1px 3px' }} /> : `$${(+(b.stake || 0)).toFixed(0)}`}
+                                  {isEditing ? <input type="number" value={editStake} onChange={e => setEditStake(e.target.value)} style={{ width: 40, fontSize: 10, textAlign: 'right', border: '1px solid #4ade80', background: '#1a3a25', color: '#fff', borderRadius: 3, padding: '1px 3px' }} /> : `$${(+(b.stake || 0)).toFixed(0)}`}
                                 </td>
                                 <td style={{ ...cs, color: '#fff', textAlign: 'right', fontFamily: 'monospace' }}>
-                                  {isEditing && isPending ? <input type="number" value={editOdds} onChange={e => setEditOdds(e.target.value)} style={{ width: 40, fontSize: 10, textAlign: 'right', border: '1px solid #4ade80', background: '#1a3a25', color: '#fff', borderRadius: 3, padding: '1px 3px' }} /> : `$${Number(b.odds || 0).toFixed(2)}`}
+                                  {isEditing ? <input type="number" value={editOdds} onChange={e => setEditOdds(e.target.value)} style={{ width: 40, fontSize: 10, textAlign: 'right', border: '1px solid #4ade80', background: '#1a3a25', color: '#fff', borderRadius: 3, padding: '1px 3px' }} /> : `$${Number(b.odds || 0).toFixed(2)}`}
                                 </td>
                                 <td style={{ ...cs, color: '#fff', textAlign: 'right', fontFamily: 'monospace' }}>
-                                  {isEditing && isPending && isEwOrPlace
+                                  {isEditing && isEwOrPlace
                                     ? <input type="number" value={editPlaceOdds} onChange={e => setEditPlaceOdds(e.target.value)} style={{ width: 40, fontSize: 10, textAlign: 'right', border: '1px solid #4ade80', background: '#1a3a25', color: '#fff', borderRadius: 3, padding: '1px 3px' }} />
                                     : b.place_odds != null ? `$${Number(b.place_odds).toFixed(2)}` : '—'}
                                 </td>
@@ -1713,16 +1772,14 @@ export default function MybetsPage() {
                                   {isFF ? '—' : b.margin || '—'}
                                 </td>
                                 <td style={{ ...cs, textAlign: 'center', padding: '2px 4px', width: 48 }}>
-                                  {isEditing && isPending ? (
+                                  {isEditing ? (
                                     <span style={{ display: 'inline-flex', gap: 3 }}>
                                       <button onClick={() => handleEditSave(b.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#4ade80', padding: 2, lineHeight: 1 }}><i className="ti ti-check" style={{ fontSize: 13 }} /></button>
                                       <button onClick={() => setEditingId(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#f87171', padding: 2, lineHeight: 1 }}><i className="ti ti-x" style={{ fontSize: 13 }} /></button>
                                     </span>
                                   ) : isHovered ? (
                                     <span style={{ display: 'inline-flex', gap: 3 }}>
-                                      {isPending && (
-                                        <button onClick={() => { setEditingId(b.id); setEditStake(String(b.stake || '')); setEditOdds(String(b.odds || '')); setEditPlaceOdds(String(b.place_odds || '')); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', padding: 2, lineHeight: 1 }}><i className="ti ti-pencil" style={{ fontSize: 12 }} /></button>
-                                      )}
+                                      <button onClick={() => { setEditingId(b.id); setEditStake(String(b.stake || '')); setEditOdds(String(b.odds || '')); setEditPlaceOdds(String(b.place_odds || '')); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', padding: 2, lineHeight: 1 }}><i className="ti ti-pencil" style={{ fontSize: 12 }} /></button>
                                       <button onClick={() => handleDeleteBet(b.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#f87171', padding: 2, lineHeight: 1 }}><i className="ti ti-trash" style={{ fontSize: 12 }} /></button>
                                     </span>
                                   ) : null}
@@ -2253,19 +2310,24 @@ export default function MybetsPage() {
         const b = bets.find(x => x.id === mobileMenuId);
         if (!b) return null;
         const isEwOrPlace = (b.bet_type || '').toLowerCase() === 'place' || (b.bet_type || '').toLowerCase().includes('each');
-        const isPendingStatus = !b.status || b.status === 'pending';
         const raceT = raceTimeMap[b.id] || b.race_time;
-        // Editable while pending, regardless of jump time — matches the resulted
-        // gate used for logging (there is none anymore; logging is allowed any
-        // time). Delete is always available below, independent of this.
-        // isLate/isAfterResult are informational only, don't affect either action.
-        const isEditable = isPendingStatus;
-        const isAfterResult = isLoggedAfterResult(b, resultsCreatedAtMap);
-        const isLate = !isAfterResult && isLoggedLate(b, raceTimeMap);
+        // No status gate — stake/odds/selection are editable at any time,
+        // matching logging having no race-status restriction. Delete is
+        // always available below, independent of this. isLate/isAfterResult/
+        // isEditedAfter are informational only, don't affect any action.
+        const isEditedAfter = isEditedAfterResult(b, resultsCreatedAtMap);
+        const isAfterResult = !isEditedAfter && isLoggedAfterResult(b, resultsCreatedAtMap);
+        const isLate = !isEditedAfter && !isAfterResult && isLoggedLate(b, raceTimeMap);
         return (
           <BottomSheet isOpen={true} onClose={() => setMobileMenuId(null)} title={b.horse_name || 'Bet'}>
             <div style={{ padding: 16 }}>
               <div style={{ fontSize: 11, color: '#6b7280', marginBottom: 12 }}>{b.track || b.venue || ''}{(b.race_number || b.race_num) ? ` R${b.race_number || b.race_num}` : ''} · {b.date}</div>
+              {isEditedAfter && (
+                <div style={{ fontSize: 10, color: '#991b1b', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 5, padding: '5px 8px', marginBottom: 12 }}>
+                  <i className="ti ti-edit" style={{ fontSize: 11, marginRight: 4 }} />
+                  Edited after result — {fmtLogTime(b.edited_at)} (outcome was already known)
+                </div>
+              )}
               {isAfterResult && (
                 <div style={{ fontSize: 10, color: '#991b1b', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 5, padding: '5px 8px', marginBottom: 12 }}>
                   <i className="ti ti-alert-triangle" style={{ fontSize: 11, marginRight: 4 }} />
@@ -2278,58 +2340,32 @@ export default function MybetsPage() {
                   Logged late — {fmtLogTime(b.created_at)} (after this race&apos;s post time)
                 </div>
               )}
-              {isEditable ? (
-                <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 10, color: '#6b7280', marginBottom: 3 }}>Stake</div>
-                    <input type="number" value={editStake} onChange={e => setEditStake(e.target.value)} style={{ width: '100%', border: '1px solid #e5e7eb', borderRadius: 5, padding: '6px 8px', fontSize: 13, boxSizing: 'border-box' }} />
-                  </div>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 10, color: '#6b7280', marginBottom: 3 }}>{isEwOrPlace ? 'Win Odds' : 'Odds'}</div>
-                    <input type="number" value={editOdds} onChange={e => setEditOdds(e.target.value)} style={{ width: '100%', border: '1px solid #e5e7eb', borderRadius: 5, padding: '6px 8px', fontSize: 13, boxSizing: 'border-box' }} />
-                  </div>
-                  {isEwOrPlace && (
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: 10, color: '#6b7280', marginBottom: 3 }}>Place Odds</div>
-                      <input type="number" value={editPlaceOdds} onChange={e => setEditPlaceOdds(e.target.value)} style={{ width: '100%', border: '1px solid #e5e7eb', borderRadius: 5, padding: '6px 8px', fontSize: 13, boxSizing: 'border-box' }} />
-                    </div>
-                  )}
+              <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 10, color: '#6b7280', marginBottom: 3 }}>Stake</div>
+                  <input type="number" value={editStake} onChange={e => setEditStake(e.target.value)} style={{ width: '100%', border: '1px solid #e5e7eb', borderRadius: 5, padding: '6px 8px', fontSize: 13, boxSizing: 'border-box' }} />
                 </div>
-              ) : (
-                <div style={{ display: 'flex', gap: 8, marginBottom: 12, background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: 6, padding: '8px 10px' }}>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 10, color: '#6b7280', marginBottom: 3 }}>Stake</div>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: '#111827' }}>${(+(b.stake || 0)).toFixed(2)}</div>
-                  </div>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 10, color: '#6b7280', marginBottom: 3 }}>{isEwOrPlace ? 'Win Odds' : 'Odds'}</div>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: '#111827' }}>${Number(b.odds || 0).toFixed(2)}</div>
-                  </div>
-                  {isEwOrPlace && (
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: 10, color: '#6b7280', marginBottom: 3 }}>Place Odds</div>
-                      <div style={{ fontSize: 13, fontWeight: 600, color: '#111827' }}>{b.place_odds != null ? `$${Number(b.place_odds).toFixed(2)}` : '—'}</div>
-                    </div>
-                  )}
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 10, color: '#6b7280', marginBottom: 3 }}>{isEwOrPlace ? 'Win Odds' : 'Odds'}</div>
+                  <input type="number" value={editOdds} onChange={e => setEditOdds(e.target.value)} style={{ width: '100%', border: '1px solid #e5e7eb', borderRadius: 5, padding: '6px 8px', fontSize: 13, boxSizing: 'border-box' }} />
                 </div>
-              )}
-              {!isEditable && (
-                <div style={{ fontSize: 10, color: '#92400e', background: '#fef3c7', borderRadius: 5, padding: '5px 8px', marginBottom: 12 }}>
-                  This bet has been settled ({(b.status || '').toUpperCase()}) — stake/odds can no longer be edited. Delete and re-log if you need to correct it.
-                </div>
-              )}
-              <div style={{ display: 'flex', gap: 8 }}>
-                {isEditable && (
-                  <button onClick={async () => {
-                    if (isEditable && +editStake > 0 && +editOdds > 1) {
-                      const placeOddsVal = isEwOrPlace && editPlaceOdds ? +editPlaceOdds : (b.place_odds ?? null);
-                      const patch = { stake: +editStake, odds: +editOdds, place_odds: placeOddsVal };
-                      await patchBet(mobileMenuId, patch);
-                      setBets(prev => prev.map(x => x.id === mobileMenuId ? { ...x, ...patch } : x));
-                    }
-                    setMobileMenuId(null);
-                  }} style={{ flex: 1, padding: '10px 0', background: '#059669', color: '#fff', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Save</button>
+                {isEwOrPlace && (
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 10, color: '#6b7280', marginBottom: 3 }}>Place Odds</div>
+                    <input type="number" value={editPlaceOdds} onChange={e => setEditPlaceOdds(e.target.value)} style={{ width: '100%', border: '1px solid #e5e7eb', borderRadius: 5, padding: '6px 8px', fontSize: 13, boxSizing: 'border-box' }} />
+                  </div>
                 )}
+              </div>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button onClick={async () => {
+                  if (+editStake > 0 && +editOdds > 1) {
+                    const placeOddsVal = isEwOrPlace && editPlaceOdds ? +editPlaceOdds : (b.place_odds ?? null);
+                    const patch = { stake: +editStake, odds: +editOdds, place_odds: placeOddsVal, edited_at: new Date().toISOString() };
+                    const { ok, fields } = await patchBetSafe(mobileMenuId, patch);
+                    if (ok) setBets(prev => prev.map(x => x.id === mobileMenuId ? { ...x, ...fields } : x));
+                  }
+                  setMobileMenuId(null);
+                }} style={{ flex: 1, padding: '10px 0', background: '#059669', color: '#fff', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Save</button>
                 <button onClick={async () => { handleDeleteBet(mobileMenuId); setMobileMenuId(null); }} style={{ flex: 1, padding: '10px 0', background: '#dc2626', color: '#fff', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Delete</button>
                 <button onClick={() => setMobileMenuId(null)} style={{ padding: '10px 16px', background: '#f3f4f6', color: '#374151', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>Cancel</button>
               </div>
