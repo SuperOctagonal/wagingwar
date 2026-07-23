@@ -79,6 +79,22 @@ function isLoggedLate(bet, raceTimeMap) {
   return new Date(bet.created_at).getTime() > raceInstant.getTime();
 }
 
+// True when a bet's created_at is after the earliest race_results row for its
+// race was itself inserted — i.e. the outcome was already known (in our own
+// data, a close proxy for "publicly known") at the moment it was logged. More
+// specific than, and takes precedence over, isLoggedLate: every after-result
+// bet is also technically after jump time, but the ledger should show the
+// more explicit tag, not both. Fails closed (false) when the race/venue combo
+// or created_at can't be resolved.
+function isLoggedAfterResult(bet, resultsCreatedAtMap) {
+  const venue = bet.track || bet.venue;
+  const raceNum = +(bet.race_number ?? bet.race_num ?? 0);
+  if (!bet.date || !venue || !raceNum || !bet.created_at) return false;
+  const resultAt = resultsCreatedAtMap[`${bet.date}|${venue}|${raceNum}`];
+  if (!resultAt) return false;
+  return new Date(bet.created_at).getTime() > new Date(resultAt).getTime();
+}
+
 function fmtLogTime(iso) {
   if (!iso) return null;
   try {
@@ -416,6 +432,11 @@ export default function MybetsPage() {
   const [matchingResults,  setMatchingResults]  = useState(false);
   const [resultSpMap,      setResultSpMap]      = useState({});
   const [raceTimeMap,      setRaceTimeMap]      = useState({});
+  // Earliest race_results.created_at per date|venue|raceNum — our scraper's
+  // insert time, i.e. approximately when the result became known. Used to
+  // tell "logged late" (after jump, before result known) apart from "logged
+  // after result" (outcome already known at log time).
+  const [resultsCreatedAtMap, setResultsCreatedAtMap] = useState({});
 
   const [betView,          setBetView]          = useState('table');
   const [mainTab,          setMainTab]          = useState('ledger');
@@ -495,11 +516,16 @@ export default function MybetsPage() {
           if (!combos[key]) combos[key] = { date: b.date, venue, raceNum };
         }
         const initSpMap = {};
+        const initResultsCreatedAtMap = {};
         await Promise.all(Object.values(combos).map(async ({ date, venue, raceNum }) => {
           const rows = await sbFetch(
-            `race_results?date=eq.${date}&venue=eq.${encodeURIComponent(venue)}&race_num=eq.${raceNum}&select=horse_name,sp`
+            `race_results?date=eq.${date}&venue=eq.${encodeURIComponent(venue)}&race_num=eq.${raceNum}&select=horse_name,sp,created_at`
           );
           if (!Array.isArray(rows)) return;
+          if (rows.length) {
+            const earliest = rows.reduce((min, r) => !min || (r.created_at && r.created_at < min) ? r.created_at : min, null);
+            if (earliest) initResultsCreatedAtMap[`${date}|${venue}|${raceNum}`] = earliest;
+          }
           for (const b of resultedLoaded) {
             if (b.date !== date) continue;
             if ((b.track || b.venue) !== venue) continue;
@@ -509,6 +535,7 @@ export default function MybetsPage() {
           }
         }));
         if (Object.keys(initSpMap).length > 0) setResultSpMap(prev => ({ ...prev, ...initSpMap }));
+        if (Object.keys(initResultsCreatedAtMap).length > 0) setResultsCreatedAtMap(prev => ({ ...prev, ...initResultsCreatedAtMap }));
       }
 
       const pending = loaded.filter(b => !b.status || b.status === 'pending' || b.status === 'unresolved');
@@ -1493,12 +1520,14 @@ export default function MybetsPage() {
                         const typePill = typePillCfg(b.bet_type);
                         const resultColor = b.status === 'win' ? '#4ade80' : b.status === 'place' ? '#2563eb' : '#f87171';
                         const resultLabel = b.status === 'win' ? 'WIN' : pos ? String(pos) : '—';
-                        const isLate = isLoggedLate(b, raceTimeMap);
+                        const isAfterResult = isLoggedAfterResult(b, resultsCreatedAtMap);
+                        const isLate = !isAfterResult && isLoggedLate(b, raceTimeMap);
                         return (
                           <tr key={b.id}>
                             <td style={{ ...cs, position: 'sticky', left: 0, zIndex: 1, background: '#11241A' }}>
                               <div style={{ width: 94, color: '#fff', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                 {b.horse_name || '—'}
+                                {isAfterResult && <i className="ti ti-alert-triangle" title={`Logged after result — ${fmtLogTime(b.created_at)}`} style={{ fontSize: 10, color: '#f87171', marginLeft: 4 }} />}
                                 {isLate && <i className="ti ti-clock-exclamation" title={`Logged late — ${fmtLogTime(b.created_at)}`} style={{ fontSize: 10, color: '#fbbf24', marginLeft: 4 }} />}
                               </div>
                             </td>
@@ -1618,7 +1647,8 @@ export default function MybetsPage() {
                             const isImminent = isPending && b.date === todayISO && secsToRace !== null && secsToRace < 900 && secsToRace > -240;
                             const isEditing = editingId === b.id;
                             const isHovered = hoveredId === b.id;
-                            const isLate = isLoggedLate(b, raceTimeMap);
+                            const isAfterResult = isLoggedAfterResult(b, resultsCreatedAtMap);
+                            const isLate = !isAfterResult && isLoggedLate(b, raceTimeMap);
                             const rowBg = isImminent ? 'rgba(251,191,36,0.10)' : 'transparent';
                             const typePill = typePillCfg(b.bet_type);
                             const isEwOrPlace = (b.bet_type || '').toLowerCase() === 'place' || (b.bet_type || '').toLowerCase().includes('each');
@@ -1649,6 +1679,7 @@ export default function MybetsPage() {
                                 <td style={{ ...cs, color: '#fff', textAlign: 'right' }}>{b.tab_no || b.horse_number || '—'}</td>
                                 <td style={{ ...cs, color: '#fff', fontWeight: 600, maxWidth: 106, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                   {b.horse_name || '—'}
+                                  {isAfterResult && <i className="ti ti-alert-triangle" title={`Logged after result — ${fmtLogTime(b.created_at)}`} style={{ fontSize: 10, color: '#f87171', marginLeft: 4 }} />}
                                   {isLate && <i className="ti ti-clock-exclamation" title={`Logged late — ${fmtLogTime(b.created_at)}`} style={{ fontSize: 10, color: '#fbbf24', marginLeft: 4 }} />}
                                 </td>
                                 <td style={{ ...cs, textAlign: 'center' }}>
@@ -2218,14 +2249,22 @@ export default function MybetsPage() {
         const isPendingStatus = !b.status || b.status === 'pending';
         const raceT = raceTimeMap[b.id] || b.race_time;
         // Editable while pending, regardless of jump time — matches the resulted
-        // gate used for logging. Delete is always available below, independent
-        // of this. isLate is informational only, doesn't affect either action.
+        // gate used for logging (there is none anymore; logging is allowed any
+        // time). Delete is always available below, independent of this.
+        // isLate/isAfterResult are informational only, don't affect either action.
         const isEditable = isPendingStatus;
-        const isLate = isLoggedLate(b, raceTimeMap);
+        const isAfterResult = isLoggedAfterResult(b, resultsCreatedAtMap);
+        const isLate = !isAfterResult && isLoggedLate(b, raceTimeMap);
         return (
           <BottomSheet isOpen={true} onClose={() => setMobileMenuId(null)} title={b.horse_name || 'Bet'}>
             <div style={{ padding: 16 }}>
               <div style={{ fontSize: 11, color: '#6b7280', marginBottom: 12 }}>{b.track || b.venue || ''}{(b.race_number || b.race_num) ? ` R${b.race_number || b.race_num}` : ''} · {b.date}</div>
+              {isAfterResult && (
+                <div style={{ fontSize: 10, color: '#991b1b', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 5, padding: '5px 8px', marginBottom: 12 }}>
+                  <i className="ti ti-alert-triangle" style={{ fontSize: 11, marginRight: 4 }} />
+                  Logged after result — {fmtLogTime(b.created_at)} (outcome was already known)
+                </div>
+              )}
               {isLate && (
                 <div style={{ fontSize: 10, color: '#92400e', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 5, padding: '5px 8px', marginBottom: 12 }}>
                   <i className="ti ti-clock-exclamation" style={{ fontSize: 11, marginRight: 4 }} />

@@ -1499,8 +1499,8 @@ function MobileRunnerCard({ runner, rank, rc, trackCond, onLogBet, isResulted, b
           {last4 && <span>{last4}</span>}{runner.trainer && <span style={{ color: '#6b7280' }}>{last4 ? ' · ' : ''}{runner.trainer}</span>}
         </div>
         <div style={{ display: 'flex', gap: 3, flexShrink: 0 }}>
-          <button onClick={() => !betBlocked && !isResulted && onLogBet(runner, rank)} disabled={betBlocked || isResulted}
-            style={{ fontSize: 12, fontWeight: 600, padding: '8px 12px', borderRadius: 7, border: '1px solid #e5e7eb', background: '#fff', color: betBlocked || isResulted ? '#9ca3af' : '#374151', cursor: betBlocked || isResulted ? 'default' : 'pointer', whiteSpace: 'nowrap' }}>
+          <button onClick={() => !betBlocked && onLogBet(runner, rank)} disabled={betBlocked}
+            style={{ fontSize: 12, fontWeight: 600, padding: '8px 12px', borderRadius: 7, border: '1px solid #e5e7eb', background: '#fff', color: betBlocked ? '#9ca3af' : '#374151', cursor: betBlocked ? 'default' : 'pointer', whiteSpace: 'nowrap' }}>
             + Log bet
           </button>
           <button onClick={() => isPro ? window.__addToBlackbook?.(bbPayload) : onUpgrade()}
@@ -1705,7 +1705,7 @@ function RunnerRow({ runner, rank, rc, trackCond, onLogBet, onShowPopup, onHideP
         <button onClick={() => !betBlocked && onLogBet(runner, rank)} disabled={betBlocked}
           className="text-[9px] font-semibold px-2 py-[3px] rounded border whitespace-nowrap transition-colors"
           style={{ color:betBlocked?'#9ca3af':'#374151', background:betBlocked?'#f9fafb':'#fff', borderColor:'#e5e7eb', cursor:betBlocked?'default':'pointer' }}>
-          {isResulted ? 'Resulted' : betBlocked ? 'Closed' : '+ Bet'}
+          {betBlocked ? 'Closed' : '+ Bet'}
         </button>
       </td>
       {/* Pace */}
@@ -1952,9 +1952,9 @@ function FormCard({ runner: r, rank, onLogBet, isResulted, betBlocked = false, r
             <span style={{ fontSize:10, color:'rgba(255,255,255,0.75)', fontFamily:'monospace' }}>{starts}-{wins}-{secs}-{thirds}</span>
             <span style={{ fontSize:10, color:winPct>=25?'#6ee7b7':winPct>=12?'#fcd34d':'rgba(255,255,255,0.75)' }}>{winPct}%win</span>
             {dslast!=null && <span style={{ fontSize:10, color:'rgba(255,255,255,0.75)' }}>{dslast}d</span>}
-            <button type="button" onClick={() => !betBlocked && !isResulted && onLogBet(r, rank)} disabled={betBlocked || isResulted}
-              style={{ fontSize:9, fontWeight:600, padding:'2px 8px', borderRadius:3, border:'1px solid rgba(255,255,255,0.25)', color:betBlocked||isResulted?'rgba(255,255,255,0.35)':'rgba(255,255,255,0.8)', background:'transparent', cursor:betBlocked||isResulted?'default':'pointer', flexShrink:0 }}>
-              {isResulted ? 'Resulted' : betBlocked ? 'Closed' : '+ Bet'}
+            <button type="button" onClick={() => !betBlocked && onLogBet(r, rank)} disabled={betBlocked}
+              style={{ fontSize:9, fontWeight:600, padding:'2px 8px', borderRadius:3, border:'1px solid rgba(255,255,255,0.25)', color:betBlocked?'rgba(255,255,255,0.35)':'rgba(255,255,255,0.8)', background:'transparent', cursor:betBlocked?'default':'pointer', flexShrink:0 }}>
+              {betBlocked ? 'Closed' : '+ Bet'}
             </button>
             <button type="button" onClick={() => { if (!isPro) { onUpgrade(); } else { window.__addToBlackbook && window.__addToBlackbook({ name: r.name, venue: rc?.venue || '', raceNumber: rc?.num || '', distance: rc?.dist || '', cls: rc?.cls || '' }); } }}
               style={{ fontSize:9, fontWeight:600, padding:'2px 8px', borderRadius:3, border:'1px solid rgba(255,255,255,0.25)', color:'rgba(255,255,255,0.8)', background:'transparent', cursor:'pointer', flexShrink:0 }}>
