@@ -1429,7 +1429,7 @@ export default function MybetsPage() {
       </ProfileRail>
 
       {/* ── Main content ── */}
-      <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: '#f3f4f6' }}>
+      <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflowY: 'auto', overflowX: 'hidden', background: '#f3f4f6' }}>
 
         {/* 3-COLUMN SCOREBOARD HEADER */}
         <div className="mb-scoreboard" style={{ flexShrink: 0, display: 'flex', background: '#fff', borderBottom: '1px solid #e5e7eb', minHeight: isMobile ? 68 : 120, height: isMobile ? undefined : 120 }}>
@@ -1562,7 +1562,7 @@ export default function MybetsPage() {
 
         {/* MOBILE: filter pills + mobile table */}
         {isMobile && (
-        <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, overflow: 'hidden' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 200, overflow: 'hidden' }}>
           <div style={{ flexShrink: 0, display: 'flex', gap: 4, padding: '6px 10px', background: '#0D1C13', borderBottom: '1px solid #1a3a25' }}>
             {['All','Win','Place','Loss','Upcoming','Resulted'].map(t => {
               const key = t.toLowerCase();
@@ -1687,7 +1687,7 @@ export default function MybetsPage() {
         {/* DESKTOP: full-width table */}
         {!isMobile && (
 
-          <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+          <div style={{ flex: 1, minHeight: 200, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
 
             {betView === 'table' && (<>
               <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 4, padding: '6px 10px', background: '#0D1C13', borderBottom: '1px solid #1a3a25' }}>
