@@ -1,14 +1,15 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 import { normaliseVenue } from '@/lib/venues';
+import { ODDS_BANDS as ODDS_BANDS_LIST } from '@/lib/oddsBucket';
 
 const SURL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SKEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-// Same bands as app/insights/page.js's oddsBucket() — kept in sync manually
-// since that function isn't exported; if it changes, update here too.
-const ODDS_BANDS = { '2-4': [2, 4], '4-8': [4, 8], '8-15': [8, 15], '15+': [15, null] };
-const STAKE_BANDS = { under20: [0, 20], '20-50': [20, 50], '50plus': [50, null] };
+// Same bands Insights' ROI-by-Odds-Band heatmap and BetFilterPanel's Odds
+// band filter both use — see lib/oddsBucket.js, the single source of truth.
+const ODDS_BANDS = Object.fromEntries(ODDS_BANDS_LIST.map(b => [b.key, [b.lo, b.hi]]));
+const STAKE_BANDS = { under5: [0, 5], '5-10': [5, 10], '10-20': [10, 20], '20-50': [20, 50], '50plus': [50, null] };
 const DOW_MAP = { sun: 0, mon: 1, tue: 2, wed: 3, thu: 4, fri: 5, sat: 6 };
 
 // Insights page filter panel — applies filters server-side against bet_log

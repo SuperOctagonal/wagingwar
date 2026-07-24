@@ -2,15 +2,41 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { normaliseVenue } from '@/lib/venues';
+import { ODDS_BANDS } from '@/lib/oddsBucket';
 
 const G = '#00471b';
 
+// Same 5 tiers as actual bet-size distribution — matches the stakeBand
+// param /api/insights/filtered-bets expects.
+const STAKE_BANDS = [
+  { key: 'under5', label: 'Under $5' },
+  { key: '5-10',   label: '$5-10' },
+  { key: '10-20',  label: '$10-20' },
+  { key: '20-50',  label: '$20-50' },
+  { key: '50plus', label: '$50+' },
+];
+
+// Fixed display order (not alphabetical) for track condition.
+const CONDITION_ORDER = ['good', 'soft', 'heavy', 'synthetic'];
+
+function capitalize(s) {
+  const str = String(s);
+  return str ? str.charAt(0).toUpperCase() + str.slice(1) : str;
+}
+
 const FILTER_VALUE_LABELS = {
-  oddsBand: { '2-4': '$2–4', '4-8': '$4–8', '8-15': '$8–15', '15+': '$15+' },
-  stakeBand: { under20: 'Under $20', '20-50': '$20–50', '50plus': '$50+' },
+  oddsBand: Object.fromEntries(ODDS_BANDS.map(b => [b.key, b.label])),
+  stakeBand: Object.fromEntries(STAKE_BANDS.map(b => [b.key, b.label])),
   dow: { mon: 'Monday', tue: 'Tuesday', wed: 'Wednesday', thu: 'Thursday', fri: 'Friday', sat: 'Saturday', sun: 'Sunday' },
 };
-function filterValueLabel(key, value) { return FILTER_VALUE_LABELS[key]?.[value] || value; }
+// Every other filter's raw DB value gets its first letter capitalized for
+// display (bet type, bookmaker, state, result, distance, race class, track
+// condition) — the underlying value sent to the filter/API stays untouched.
+function filterValueLabel(key, value) {
+  if (FILTER_VALUE_LABELS[key]?.[value] != null) return FILTER_VALUE_LABELS[key][value];
+  if (!value) return value;
+  return capitalize(value);
+}
 
 // Extracted from app/insights/page.js — chips row + collapsible select-grid
 // panel for filtering bet_log rows. Filtering itself (the actual data fetch/
@@ -38,9 +64,13 @@ export default function BetFilterPanel({ bets, results, isMobile, onChange, excl
   // already loaded — so option lists don't shrink as filters are applied.
   const filterOptions = useMemo(() => {
     const uniq = (arr) => [...new Set(arr.filter(Boolean))].sort();
+    const conditionsPresent = new Set(bets.map(b => (b.track_condition || '').trim().toLowerCase()).filter(Boolean));
     return {
       venue:      uniq(bets.map(b => normaliseVenue(b.venue || b.track || ''))),
-      condition:  uniq(bets.map(b => (b.track_condition || '').trim())),
+      condition:  [
+        ...CONDITION_ORDER.filter(c => conditionsPresent.has(c)),
+        ...[...conditionsPresent].filter(c => !CONDITION_ORDER.includes(c)).sort(),
+      ],
       rank:       uniq(bets.map(b => b.rank != null ? String(b.rank) : null)).sort((a, b) => +a - +b),
       betType:    uniq(bets.map(b => b.bet_type)),
       bookmaker:  uniq(bets.map(b => b.bookmaker)),
@@ -56,8 +86,8 @@ export default function BetFilterPanel({ bets, results, isMobile, onChange, excl
     { key: 'condition', label: 'Track condition',  options: filterOptions.condition },
     { key: 'rank',      label: 'Model rank',       options: filterOptions.rank },
     { key: 'betType',   label: 'Bet type',         options: filterOptions.betType },
-    { key: 'oddsBand',  label: 'Odds band',        options: ['2-4', '4-8', '8-15', '15+'] },
-    { key: 'stakeBand', label: 'Stake band',       options: ['under20', '20-50', '50plus'] },
+    { key: 'oddsBand',  label: 'Odds band',        options: ODDS_BANDS.map(b => b.key) },
+    { key: 'stakeBand', label: 'Stake band',       options: STAKE_BANDS.map(b => b.key) },
     { key: 'bookmaker', label: 'Bookmaker',        options: filterOptions.bookmaker },
     { key: 'state',     label: 'State',            options: filterOptions.state },
     { key: 'result',    label: 'Result',           options: filterOptions.result },
@@ -67,7 +97,7 @@ export default function BetFilterPanel({ bets, results, isMobile, onChange, excl
   ].filter(def => !excludeKeys.includes(def.key));
 
   return (
-    <div>
+    <div style={{ position: 'relative' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
         {activeFilterEntries.map(([key, value]) => {
           const def = FILTER_DEFS.find(f => f.key === key);
@@ -89,7 +119,17 @@ export default function BetFilterPanel({ bets, results, isMobile, onChange, excl
       </div>
 
       {filterPanelOpen && (
-        <div style={{ marginTop: 8, background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, padding: 14 }}>
+        // Absolutely positioned overlay — floats over the content below
+        // rather than pushing it down, so opening/closing never changes
+        // the height or position of anything else on the page (e.g. the
+        // ledger table on My Bets).
+        <div style={{
+          position: 'absolute', top: '100%', left: 0, marginTop: 8, zIndex: 50,
+          background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, padding: 14,
+          boxShadow: '0 8px 24px rgba(0,0,0,0.15)',
+          width: isMobile ? 'calc(100vw - 32px)' : 560, maxWidth: '95vw',
+          maxHeight: '70vh', overflowY: 'auto',
+        }}>
           <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2,1fr)' : 'repeat(4,1fr)', gap: 10 }}>
             {FILTER_DEFS.map(def => (
               <div key={def.key}>

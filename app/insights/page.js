@@ -6,6 +6,7 @@ import { useUser } from '@clerk/nextjs';
 import useIsPro from '@/hooks/useIsPro';
 import useIsMobile from '@/hooks/useIsMobile';
 import BetFilterPanel from '@/components/BetFilterPanel';
+import { oddsBucket, ODDS_BANDS } from '@/lib/oddsBucket';
 
 const SURL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SKEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -94,14 +95,6 @@ function rankBucket(r) {
   return 'R5+';
 }
 
-function oddsBucket(o) {
-  const n = +o;
-  if (n < 4) return '$2-4';
-  if (n < 8) return '$4-8';
-  if (n < 15) return '$8-15';
-  return '$15+';
-}
-
 function heatBg(roiV, n) {
   if (!n || n < 3) return '#f3f4f6';
   if (roiV > 25) return '#14532d';
@@ -181,7 +174,7 @@ function EmptyState({ msg }) {
 }
 
 const RANKS_HEAT = ['R1-2', 'R3-4', 'R5+'];
-const ODDS_HEAT  = ['$2-4', '$4-8', '$8-15', '$15+'];
+const ODDS_HEAT  = ODDS_BANDS.map(b => b.label);
 
 export default function InsightsPage() {
   const { user, isLoaded } = useUser();
