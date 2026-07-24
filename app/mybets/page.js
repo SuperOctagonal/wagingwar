@@ -1432,7 +1432,7 @@ export default function MybetsPage() {
       <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: '#f3f4f6' }}>
 
         {/* 3-COLUMN SCOREBOARD HEADER */}
-        <div className="mb-scoreboard" style={{ flexShrink: 0, display: 'flex', background: '#fff', borderBottom: '1px solid #e5e7eb', minHeight: isMobile ? 68 : 120 }}>
+        <div className="mb-scoreboard" style={{ flexShrink: 0, display: 'flex', background: '#fff', borderBottom: '1px solid #e5e7eb', minHeight: isMobile ? 68 : 120, height: isMobile ? undefined : 120 }}>
 
           {/* Col 1 — P&L + record + streak */}
           <div style={{ flex: 1, padding: isMobile ? '8px 12px' : '12px 18px', borderRight: '1px solid #e5e7eb', display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 3 }}>
