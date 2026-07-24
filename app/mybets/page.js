@@ -8,6 +8,7 @@ import useIsMobile from '@/hooks/useIsMobile';
 import useUserSettings from '@/hooks/useUserSettings';
 import UpgradeModal from '@/components/UpgradeModal';
 import BottomSheet from '@/components/BottomSheet';
+import BetFilterPanel from '@/components/BetFilterPanel';
 import { awardPoints } from '@/lib/points';
 import { parseCSV, buildRaces } from '@/lib/csvParser';
 import { normaliseVenue } from '@/lib/venues';
@@ -911,7 +912,52 @@ export default function MybetsPage() {
 
   const hasUpcomingBets = useMemo(() => bets.some(b => b.date > todayISO), [bets, todayISO]);
 
+  // ─── bet filter panel ────────────────────────────────────────────────────────
+  // BetFilterPanel (shared with Insights) owns the filter-selection UI only;
+  // this page owns the resulting active-filters map, the server-side fetch it
+  // drives, and where the result plugs in. dateFilteredBets below is the one
+  // real fork point everything branches from (ledger table, hero P&L chart,
+  // and all 7 Charts-tab graphs all derive from it, directly or via
+  // dateResulted/heroChartData) — sourcing it from
+  // (serverFilteredBets ?? bets) instead of bets means all three stay in sync
+  // automatically, with zero changes needed to the table/chart code itself.
+  // When no filters are active, serverFilteredBets stays null: identical
+  // behavior to before this was added.
+  const [betResults, setBetResults] = useState([]);
+  const [activeFilters, setActiveFilters] = useState({});
+  const [serverFilteredBets, setServerFilteredBets] = useState(null);
+  const handleFilterChange = useCallback((f) => setActiveFilters(f), []);
+  const activeFilterEntries = useMemo(() => Object.entries(activeFilters).filter(([, v]) => v), [activeFilters]);
+
+  // Bulk race_results fetch, mirroring Insights' pattern exactly — purely to
+  // populate the Distance/Race Class dropdown options from real seen values.
+  // The mybets page otherwise only ever fetches race_results ad hoc (per-bet
+  // settlement, race popup), never a bulk list like this.
+  useEffect(() => {
+    if (!bets.length) return;
+    const dates = [...new Set(bets.map(b => b.date).filter(Boolean))];
+    if (!dates.length || !SURL || !SKEY) return;
+    fetch(`${SURL}/rest/v1/race_results?date=in.(${dates.join(',')})&select=date,venue,race_num,dist,class`, {
+      headers: { apikey: SKEY, Authorization: `Bearer ${SKEY}` },
+    })
+      .then(r => r.ok ? r.json() : [])
+      .then(rows => setBetResults(Array.isArray(rows) ? rows : []))
+      .catch(() => {});
+  }, [bets]);
+
+  useEffect(() => {
+    if (!user?.id || !isPro) return;
+    if (activeFilterEntries.length === 0) { setServerFilteredBets(null); return; }
+    const qs = new URLSearchParams(Object.fromEntries(activeFilterEntries));
+    let cancelled = false;
+    fetch(`/api/insights/filtered-bets?${qs.toString()}`)
+      .then(r => r.ok ? r.json() : [])
+      .then(rows => { if (!cancelled) setServerFilteredBets(Array.isArray(rows) ? rows : []); });
+    return () => { cancelled = true; };
+  }, [user?.id, isPro, activeFilterEntries]);
+
   const dateFilteredBets = useMemo(() => {
+    const filterBase = serverFilteredBets ?? bets;
     const anchor = new Date(todayISO + 'T12:00:00Z');
     const yesterdayISO = dateMath(todayISO, -1);
     const dow = anchor.getUTCDay();
@@ -919,15 +965,15 @@ export default function MybetsPage() {
     const weekStartISO  = ws.toISOString().slice(0, 10);
     const monthStartISO = todayISO.slice(0, 7) + '-01';
     switch (dateRange) {
-      case 'today':      return bets.filter(b => b.date === todayISO);
-      case 'yesterday':  return bets.filter(b => b.date === yesterdayISO);
-      case 'upcoming':   return bets.filter(b => b.date > todayISO);
-      case 'this_week':  return bets.filter(b => b.date >= weekStartISO);
-      case 'this_month': return bets.filter(b => b.date >= monthStartISO);
-      case 'custom':     return bets.filter(b => (!customStart || b.date >= customStart) && (!customEnd || b.date <= customEnd));
-      default:           return bets;
+      case 'today':      return filterBase.filter(b => b.date === todayISO);
+      case 'yesterday':  return filterBase.filter(b => b.date === yesterdayISO);
+      case 'upcoming':   return filterBase.filter(b => b.date > todayISO);
+      case 'this_week':  return filterBase.filter(b => b.date >= weekStartISO);
+      case 'this_month': return filterBase.filter(b => b.date >= monthStartISO);
+      case 'custom':     return filterBase.filter(b => (!customStart || b.date >= customStart) && (!customEnd || b.date <= customEnd));
+      default:           return filterBase;
     }
-  }, [bets, dateRange, customStart, customEnd, todayISO]);
+  }, [bets, serverFilteredBets, dateRange, customStart, customEnd, todayISO]);
 
   const dateResulted = useMemo(() =>
     dateFilteredBets.filter(b => b.status && b.status !== 'pending' && b.status !== 'scratched' && b.status !== 'unresolved'),
@@ -1501,6 +1547,15 @@ export default function MybetsPage() {
               ))}
             </div>
           )}
+        </div>
+
+        {/* BET FILTER PANEL — additive, AND'd with the date-range switcher and
+            Win/Place/Loss pills above/below. Visible on both Ledger and
+            Charts since it filters both (via dateFilteredBets, the shared
+            source both branch from). Model rank filter excluded — not useful
+            in this ledger context. */}
+        <div style={{ margin: '0 8px 6px' }}>
+          <BetFilterPanel bets={bets} results={betResults} isMobile={isMobile} onChange={handleFilterChange} excludeKeys={['rank']} />
         </div>
 
         {mainTab === 'ledger' && (<>
