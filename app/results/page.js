@@ -1035,6 +1035,41 @@ function DailyModelSummaryCards({ data, showComparison, allTimeWinPct }) {
   );
 }
 
+// Sidebar widget rendered as ProfileRail's children, directly below its
+// built-in Bets/Win%/Posts stats row — same compact density (small
+// uppercase label, tight padding, muted background blocks).
+function LatestResultsWidget({ races, onSelect }) {
+  if (!races.length) return null;
+  return (
+    <div style={{ padding: '0 12px 12px' }}>
+      <div style={{ fontSize: 8, color: '#9ca3af', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.4px', marginBottom: 4 }}>
+        Latest Results
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+        {races.map(r => (
+          <div
+            key={`${r.venue}||${r.raceNum}`}
+            onClick={() => onSelect(r.venue, r.raceNum)}
+            style={{ background: '#f9fafb', borderRadius: 4, padding: '4px 6px', cursor: 'pointer' }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 4 }}>
+              <span style={{ fontSize: 9, fontWeight: 700, color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {r.venue} R{r.raceNum}
+              </span>
+              <span style={{ fontSize: 9, fontWeight: 700, color: '#111827', fontFamily: 'JetBrains Mono, monospace', flexShrink: 0 }}>
+                ${r.winner.sp.toFixed(2)}
+              </span>
+            </div>
+            <div style={{ fontSize: 9, color: '#374151', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {r.winner.name}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function ResultsPage() {
   const isMobile = useIsMobile();
   const { user } = useUser();
@@ -1121,6 +1156,30 @@ export default function ResultsPage() {
       setLoading(false);
     });
   }, [selectedDate, user?.id, isPro]);
+
+  // Sidebar widget — 3 most recently resulted races across ALL venues for
+  // selectedDate, ranked by race_results.created_at (when each race's result
+  // row was actually inserted — confirmed to vary meaningfully per race,
+  // unlike scraped_at which is a shared batch-run timestamp and would rank
+  // by scrape-job time instead of actual finish order). Derived from dbRows,
+  // already fetched with select=* for selectedDate, so this updates for free
+  // on both the initial load and the existing manual Refresh button — no
+  // separate fetch/polling needed.
+  const latestResults = useMemo(() => {
+    const byRace = {};
+    (dbRows || []).forEach(row => {
+      const norm = normaliseVenue(row.venue);
+      const key = `${norm}||${row.race_num}`;
+      if (!byRace[key]) byRace[key] = { venue: norm, raceNum: row.race_num, createdAt: null, winner: null };
+      const r = byRace[key];
+      if (row.created_at && (!r.createdAt || row.created_at > r.createdAt)) r.createdAt = row.created_at;
+      if (row.finish_pos === 1) r.winner = { name: row.horse_name, sp: Number(row.sp) || 0 };
+    });
+    return Object.values(byRace)
+      .filter(r => r.winner && r.createdAt)
+      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+      .slice(0, 3);
+  }, [dbRows]);
 
   const grouped = useMemo(() => {
     const g = {};
@@ -1472,7 +1531,12 @@ export default function ResultsPage() {
     <>
     <style>{`.ww-results-table td, .ww-results-table th { padding: ${tablePad} !important; font-size: ${tableFs}px !important; }`}</style>
     <div style={{ display:'flex', flex:1, overflow:'hidden' }}>
-      <ProfileRail />
+      <ProfileRail>
+        <LatestResultsWidget
+          races={latestResults}
+          onSelect={(venue, raceNum) => { setSelectedMeeting(venue); setSelectedRace(Number(raceNum)); }}
+        />
+      </ProfileRail>
       <main className="mob-page" style={{ flex:1, overflowY:'auto', background:'#f8fafc' }}>
       <div style={{ padding:'16px 20px', maxWidth:1100, margin:'0 auto' }}>
 
