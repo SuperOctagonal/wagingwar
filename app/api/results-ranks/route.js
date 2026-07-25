@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 import { scoreGroup, getDefaultWeights, GRP_KEYS } from '@/lib/scoring';
 import { normaliseVenue } from '@/lib/venues';
+import { fetchAllRows } from '@/lib/fetchAllRows';
 
 const SURL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SKEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -29,13 +30,13 @@ export async function GET(req) {
 
   const headers = { apikey: SKEY, Authorization: `Bearer ${SKEY}` };
 
-  const [cardsRes, scrRes] = await Promise.all([
-    fetch(`${SURL}/rest/v1/race_cards?date=eq.${date}&select=venue,race_num,form_data`, { headers }),
+  const [cardsResult, scrRes] = await Promise.all([
+    fetchAllRows(`${SURL}/rest/v1/race_cards?date=eq.${date}&select=venue,race_num,form_data`, headers),
     fetch(`${SURL}/rest/v1/scratchings?date=eq.${date}&select=venue,race_num,horse_name`, { headers }),
   ]);
 
-  if (!cardsRes.ok) return NextResponse.json({ error: `Supabase ${cardsRes.status}` }, { status: 502 });
-  const cardRows = await cardsRes.json();
+  if (!cardsResult.ok) return NextResponse.json({ error: `Supabase ${cardsResult.status}` }, { status: 502 });
+  const cardRows = cardsResult.rows;
   const scrRows = scrRes.ok ? await scrRes.json() : [];
 
   // Group into per-race horse arrays, same shape the client used to build

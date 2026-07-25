@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { auth, clerkClient } from '@clerk/nextjs/server';
 import { stripHorseFields } from '@/lib/freeTierFields';
+import { fetchAllRows } from '@/lib/fetchAllRows';
 
 const SURL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SKEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -25,12 +26,13 @@ export async function GET(req) {
     return NextResponse.json({ error: 'Pro required for historical race cards' }, { status: 403 });
   }
 
-  const r = await fetch(`${SURL}/rest/v1/race_cards?date=eq.${date}&select=date,venue,race_num,form_data`, {
-    headers: { apikey: SKEY, Authorization: `Bearer ${SKEY}` },
-  });
+  const result = await fetchAllRows(
+    `${SURL}/rest/v1/race_cards?date=eq.${date}&select=date,venue,race_num,form_data`,
+    { apikey: SKEY, Authorization: `Bearer ${SKEY}` },
+  );
 
-  if (!r.ok) return NextResponse.json({ error: `Supabase ${r.status}` }, { status: 502 });
-  let data = await r.json();
+  if (!result.ok) return NextResponse.json({ error: `Supabase ${result.status}` }, { status: 502 });
+  let data = result.rows;
 
   // Real server-side gate — free tier never receives scoring-input fields in
   // form_data, not just a hidden UI column. See lib/freeTierFields.js for the
