@@ -1,5 +1,4 @@
 import { NextResponse } from 'next/server';
-import { auth } from '@clerk/nextjs/server';
 import { scoreGroup, getDefaultWeights, GRP_KEYS } from '@/lib/scoring';
 import { normaliseVenue } from '@/lib/venues';
 import { fetchAllRows } from '@/lib/fetchAllRows';
@@ -11,17 +10,16 @@ function normName(n) {
   return (n || '').replace(/\s*\([A-Z]{2,4}\)\s*$/i, '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
 }
 
-// Deliberately NOT Pro-gated — post-race ranks are proof of model performance,
-// meant to be visible to every user (see Results-page rank-badge unlock).
-// Scores server-side against the FULL (unstripped) race_cards data and returns
-// only the computed rank/margin per race — never the raw scoring-input fields,
-// so this is safe to expose to any tier: there is nothing in the response a
-// free user could use to reconstruct a real ranking, unlike the raw
-// /api/race-cards or /api/today-csv payloads.
+// Deliberately NOT Pro-gated, and not login-gated either — post-race ranks
+// are proof of model performance, meant to be visible to every visitor
+// (see Results-page rank-badge unlock, and /results being public in
+// middleware.js). Scores server-side against the FULL (unstripped)
+// race_cards data and returns only the computed rank/margin per race —
+// never the raw scoring-input fields, so this is safe to expose to
+// anyone: there is nothing in the response that could be used to
+// reconstruct a real ranking, unlike the raw /api/race-cards or
+// /api/today-csv payloads (both of which remain login+Pro-gated).
 export async function GET(req) {
-  const { userId } = await auth();
-  if (!userId) return NextResponse.json({ error: 'Unauthenticated' }, { status: 401 });
-
   const { searchParams } = new URL(req.url);
   const date = searchParams.get('date');
   if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {

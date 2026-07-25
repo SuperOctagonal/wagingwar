@@ -1128,12 +1128,6 @@ export default function ResultsPage() {
           .then(rows => new Set((rows || []).filter(r => r.is_abandoned).map(r => normaliseVenue(r.venue))))
           .catch(() => new Set())
       : Promise.resolve(new Set());
-    const todayCheck = new Date().toLocaleDateString('sv-SE', { timeZone: 'Australia/Brisbane' });
-    const isViewingToday = selectedDate === todayCheck;
-    // For non-today dates, wait until Clerk has resolved Pro status before fetching.
-    // isPro===null means still loading — return early and let the effect re-run once resolved.
-    if (!isViewingToday && isPro === null) return;
-    if (!isViewingToday && isPro === false) { setUpgradeOpen(true); setLoading(false); return; }
     const cardFetch = user?.id
       ? fetch(`/api/race-cards?date=${selectedDate}`).then(r => {
           if (r.status === 403) { setUpgradeOpen(true); return []; }
@@ -1141,12 +1135,10 @@ export default function ResultsPage() {
         })
       : Promise.resolve([]);
     const resultsFetch = fetchResultsForDate(selectedDate);
-    // Unconditional — no isPro gate — since post-race ranks are meant to be
-    // visible to every tier equally; the route itself never returns raw
-    // scoring inputs regardless of who's asking.
-    const rankFetch = user?.id
-      ? fetch(`/api/results-ranks?date=${selectedDate}`).then(r => r.ok ? r.json() : {})
-      : Promise.resolve({});
+    // Unconditional — no login or isPro gate — since post-race ranks are
+    // meant to be visible to everyone, logged in or not; the route itself
+    // never returns raw scoring inputs regardless of who's asking.
+    const rankFetch = fetch(`/api/results-ranks?date=${selectedDate}`).then(r => r.ok ? r.json() : {});
     Promise.all([resultsFetch, scrFetch, abandonedFetch, cardFetch, rankFetch]).then(([rows, scrRows, abandoned, cards, ranks]) => {
       setDbRows(rows || []);
       setDbScratchings(scrRows || []);
@@ -1155,7 +1147,7 @@ export default function ResultsPage() {
       setRankData(ranks || {});
       setLoading(false);
     });
-  }, [selectedDate, user?.id, isPro]);
+  }, [selectedDate, user?.id]);
 
   // Sidebar widget — 3 most recently resulted races across ALL venues for
   // selectedDate, ranked by race_results.created_at (when each race's result
