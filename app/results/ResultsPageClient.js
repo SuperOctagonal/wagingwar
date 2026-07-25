@@ -1,0 +1,1757 @@
+'use client';
+
+import { useState, useEffect, useMemo } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { useUser } from '@clerk/nextjs';
+import { parseCSV, buildRaces } from '@/lib/csvParser';
+import { scoreGroup, getDefaultWeights, GRP_KEYS, calcPaceMap } from '@/lib/scoring';
+import { normaliseVenue } from '@/lib/venues';
+import { paidPlacesForFieldSize, estimatePlacePrice } from '@/lib/placePrice';
+import { fetchAllRows } from '@/lib/fetchAllRows';
+import ProfileRail from '@/components/ProfileRail';
+import UpgradeModal from '@/components/UpgradeModal';
+import useIsMobile from '@/hooks/useIsMobile';
+import useIsPro from '@/hooks/useIsPro';
+import useUserSettings from '@/hooks/useUserSettings';
+
+const SURL = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const SKEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+async function fetchResultsForDate(dateStr) {
+  if (!SURL || !SKEY) return [];
+  try {
+    const res = await fetch(
+      `${SURL}/rest/v1/race_results?select=*&date=eq.${dateStr}&order=venue,race_num,finish_pos`,
+      { headers: { apikey: SKEY, Authorization: `Bearer ${SKEY}` } }
+    );
+    if (!res.ok) return [];
+    return res.json();
+  } catch { return []; }
+}
+
+// One base URL for a whole date range (used by the rolling-trend/all-time
+// windows) instead of one request per day. A range this wide can be well
+// over PostgREST's db-max-rows cap (1000) — the server clamps any
+// client-requested `limit` down to that ceiling rather than honoring it or
+// erroring, so a plain fetch here would silently come back as only the
+// earliest ~1000 rows (since results are ordered ascending by date),
+// missing anything recent. fetchAllRows pages past that.
+async function fetchResultsRange(startDate, endDate) {
+  if (!SURL || !SKEY) return [];
+  try {
+    const result = await fetchAllRows(
+      `${SURL}/rest/v1/race_results?select=*&date=gte.${startDate}&date=lte.${endDate}&order=date,venue,race_num,finish_pos`,
+      { apikey: SKEY, Authorization: `Bearer ${SKEY}` },
+    );
+    return result.ok ? result.rows : [];
+  } catch { return []; }
+}
+
+// Groups race_results rows into { "date||venue||raceNum": {date,venue,raceNum,trackCond,dist,runners} }
+// — same shape `grouped` uses for a single date, but keyed with date included
+// so rows from different days in a rolling window don't collide.
+function groupResultsByDateRace(rows) {
+  const g = {};
+  (rows || []).forEach(row => {
+    const norm = normaliseVenue(row.venue);
+    const key = `${row.date}||${norm}||${row.race_num}`;
+    if (!g[key]) g[key] = {
+      date: row.date, venue: norm, raceNum: row.race_num,
+      trackCond: row.track_cond || '', dist: row.dist || '', runners: [],
+    };
+    if (row.finish_pos) g[key].runners.push({ place: row.finish_pos, name: row.horse_name, sp: row.sp || 0 });
+  });
+  return g;
+}
+
+// Fetches server-computed ranks (never raw scoring inputs) for each date via
+// /api/results-ranks — looped per date since that route is single-date. Auth
+// required but NOT Pro-gated: post-race ranks are visible to every tier, and
+// the route itself only ever returns { ranks, margin } per race. Returns
+// { [date]: rankDataForThatDate } shaped exactly like the route's response
+// (result[venue][raceNum] = {ranks, margin}), with a date simply missing/empty
+// if no card rows exist for it — buildRank1Records already skips races with
+// no rank match.
+// Hard cap regardless of caller — a stray/buggy caller can never fan this out
+// into an unbounded burst of concurrent requests.
+const MAX_CARD_FETCH_DATES = 30;
+const CARD_FETCH_CHUNK_SIZE = 5;
+
+async function fetchRankDataForDates(dates) {
+  const capped = dates.slice(0, MAX_CARD_FETCH_DATES);
+  const byDate = {};
+  // Chunked concurrency (5 at a time) instead of one Promise.all over every
+  // date — firing up to 30 concurrent card-scoring requests at once held
+  // ~30 full days of race_cards JSON in server memory simultaneously and was
+  // the direct cause of repeated OOM kills on wagingwar-app.
+  for (let i = 0; i < capped.length; i += CARD_FETCH_CHUNK_SIZE) {
+    const chunk = capped.slice(i, i + CARD_FETCH_CHUNK_SIZE);
+    const chunkResults = await Promise.all(chunk.map(async d => {
+      try {
+        const r = await fetch(`/api/results-ranks?date=${d}`);
+        if (!r.ok) return [d, {}];
+        return [d, await r.json()];
+      } catch { return [d, {}]; }
+    }));
+    chunkResults.forEach(([d, data]) => { byDate[d] = data || {}; });
+  }
+  return byDate;
+}
+
+function normName(n) { return (n || '').replace(/\s*\([A-Z]{2,4}\)\s*$/i, '').trim().toUpperCase().replace(/[^A-Z0-9]/g, ''); }
+
+function getSysRanks(allRaces, allVenues, venue, raceNum, weights, dbScratchings = []) {
+  const normVenue = normaliseVenue(venue);
+  const dbScrNames = new Set(
+    dbScratchings.filter(r => normaliseVenue(r.venue) === normVenue && String(r.race_num) === String(raceNum))
+      .map(r => normName(r.horse_name || ''))
+  );
+  for (const keys of Object.values(allVenues)) {
+    for (const k of keys) {
+      const rc = allRaces[k];
+      if (!rc) continue;
+      if (normaliseVenue(rc.venue) !== normVenue) continue;
+      if (String(rc.num) !== String(raceNum)) continue;
+      const active = (rc.horses || []).filter(h => !h.scratched && !dbScrNames.has(normName(h.name || '')));
+      const scored = active.map(h => {
+        const grpScores = {};
+        GRP_KEYS.forEach(gk => { grpScores[gk] = scoreGroup(h, gk, weights, 'good'); });
+        const total = GRP_KEYS.reduce((a, gk) => a + grpScores[gk].total, 0);
+        return { name: h.name, total };
+      }).sort((a, b) => b.total - a.total);
+      const map = {};
+      scored.forEach((h, i) => { map[normName(h.name)] = i + 1; });
+      return map;
+    }
+  }
+  return null;
+}
+
+// Display-only bucketing for the daily summary's track-condition breakdown —
+// scoring itself is always 'good' now (see getSysRanks), this is just
+// for the 4-way Good/Soft/Heavy/Synthetic display split.
+function tcBucket(tc) {
+  const t = (tc || '').toLowerCase();
+  if (t.startsWith('good'))  return 'Good';
+  if (t.startsWith('soft'))  return 'Soft';
+  if (t.startsWith('heavy')) return 'Heavy';
+  if (t.startsWith('synth')) return 'Synthetic';
+  return null;
+}
+
+const RESULT_BADGE = {
+  WON:    { bg: '#d1fae5', color: '#065f46' },
+  PLACED: { bg: '#fef3c7', color: '#92400e' },
+  LOST:   { bg: '#f3f4f6', color: '#9ca3af' },
+};
+
+// Given a map of resulted races (each with venue/raceNum/trackCond/dist/runners,
+// same shape as `grouped`) plus rankDataByRace (the server-computed
+// { [venue]: { [raceNum]: {ranks, margin} } } from /api/results-ranks), builds
+// the rank-1 pick record array. Shared by the single-day summary and the
+// rolling-window summary (which calls this once per date with that date's own
+// rank data, then concatenates). Rank-1 name/margin come entirely from the
+// server response — no scoring happens client-side here, so this is safe and
+// correct regardless of the viewer's Pro status.
+function buildRank1Records(groupedResults, rankDataByRace, extra = {}) {
+  const records = [];
+  Object.values(groupedResults).forEach(res => {
+    if (!res.runners || !res.runners.length) return;
+    const normVenue = normaliseVenue(res.venue);
+    const raceRanks = rankDataByRace?.[normVenue]?.[res.raceNum];
+    if (!raceRanks || !raceRanks.ranks) return;
+    const rank1Norm = Object.keys(raceRanks.ranks).find(k => raceRanks.ranks[k] === 1);
+    if (!rank1Norm) return;
+    const runner = res.runners.find(r => normName(r.name) === rank1Norm);
+    if (!runner || runner.place == null) return;
+    records.push({
+      venue: res.venue, raceNum: res.raceNum, trackCond: res.trackCond || 'good',
+      dist: parseInt(res.dist, 10) || null,
+      horse: runner.name, place: runner.place, sp: Number(runner.sp) || 0, margin: raceRanks.margin,
+      ...extra,
+    });
+  });
+  return records;
+}
+
+// Pure aggregation: records -> all the stats/cards the Daily Model Summary
+// renders. Reused as-is by both the single-day view and the rolling-window
+// (7-day/30-day/all-time) view — same math, different record set.
+function buildSummaryFromRecords(records) {
+  if (!records.length) return null;
+  records = [...records].sort((a, b) => a.venue.localeCompare(b.venue) || a.raceNum - b.raceNum);
+
+  const total = records.length;
+  const wins = records.filter(r => r.place === 1).length;
+  const places = records.filter(r => r.place >= 1 && r.place <= 3).length;
+  const winPct = wins / total;
+  const placePct = places / total;
+
+  const winners = records.filter(r => r.place === 1);
+  const best = winners.length ? winners.reduce((a, b) => (b.sp > a.sp ? b : a)) : null;
+
+  // Shared tally: starts + 1st/2nd/3rd counts + derived win%/place% for a
+  // subset of records — same counts Venue Performance already exposes.
+  const tally = (subset) => {
+    const t = { starts: subset.length, firsts: 0, seconds: 0, thirds: 0 };
+    subset.forEach(r => {
+      if (r.place === 1) t.firsts++;
+      else if (r.place === 2) t.seconds++;
+      else if (r.place === 3) t.thirds++;
+    });
+    return { ...t, winPct: t.firsts / t.starts, placePct: (t.firsts + t.seconds + t.thirds) / t.starts };
+  };
+
+  // Day-level Starts/Wins/2nds/3rds for the Rank 1 Strike Rate card.
+  const dayTally = tally(records);
+
+  // Notional $1-level-stakes P&L: $1 win bet on every rank-1 pick, using each
+  // pick's actual SP. +$( sp - 1 ) on a win, -$1 on anything else.
+  const notionalPnl = records.reduce((s, r) => s + (r.place === 1 ? (r.sp - 1) : -1), 0);
+
+  const condMap = {};
+  records.forEach(r => {
+    const bucket = tcBucket(r.trackCond);
+    if (!bucket) return;
+    if (!condMap[bucket]) condMap[bucket] = [];
+    condMap[bucket].push(r);
+  });
+  const condOrder = ['Good', 'Soft', 'Heavy', 'Synthetic'];
+  const condRows = condOrder
+    .filter(k => condMap[k])
+    .map(k => ({ label: k, ...tally(condMap[k]) }));
+
+  let curWin = 0, curLoss = 0, maxWin = 0, maxLoss = 0;
+  records.forEach(r => {
+    if (r.place === 1) { curWin++; curLoss = 0; } else { curLoss++; curWin = 0; }
+    maxWin = Math.max(maxWin, curWin);
+    maxLoss = Math.max(maxLoss, curLoss);
+  });
+
+  // Venue performance: full breakdown — starts, 1st/2nd/3rd counts, win%, place%.
+  const venueMap = {};
+  records.forEach(r => {
+    if (!venueMap[r.venue]) venueMap[r.venue] = { starts: 0, firsts: 0, seconds: 0, thirds: 0 };
+    const v = venueMap[r.venue];
+    v.starts++;
+    if (r.place === 1) v.firsts++;
+    else if (r.place === 2) v.seconds++;
+    else if (r.place === 3) v.thirds++;
+  });
+  const venueRows = Object.entries(venueMap)
+    .map(([venue, v]) => ({
+      venue, starts: v.starts, firsts: v.firsts, seconds: v.seconds, thirds: v.thirds,
+      winPct: v.firsts / v.starts, placePct: (v.firsts + v.seconds + v.thirds) / v.starts,
+    }))
+    .sort((a, b) => a.venue.localeCompare(b.venue));
+
+  // Odds band performance — bucket rank-1 picks by their own SP.
+  const oddsBands = [
+    { label: '$2–4',  min: 2,  max: 4 },
+    { label: '$4–8',  min: 4,  max: 8 },
+    { label: '$8–15', min: 8,  max: 15 },
+    { label: '$15+',  min: 15, max: Infinity },
+  ];
+  const oddsRows = oddsBands.map(b => {
+    const inBand = records.filter(r => r.sp >= b.min && r.sp < b.max);
+    if (!inBand.length) return null;
+    return { label: b.label, ...tally(inBand) };
+  }).filter(Boolean);
+
+  // Distance band performance — sprint/mid/staying, only if dist data exists.
+  const distBands = [
+    { label: 'Sprint (≤1200m)',   min: 0,    max: 1200 },
+    { label: 'Mid (1201–1800m)',  min: 1201, max: 1800 },
+    { label: 'Staying (1800m+)',  min: 1801, max: Infinity },
+  ];
+  const withDist = records.filter(r => r.dist);
+  const distRows = withDist.length ? distBands.map(b => {
+    const inBand = withDist.filter(r => r.dist >= b.min && r.dist <= b.max);
+    if (!inBand.length) return null;
+    return { label: b.label, ...tally(inBand) };
+  }).filter(Boolean) : [];
+
+  // Confidence-band picks — tier by rank1-vs-rank2 score margin, using
+  // terciles of this record set's own margin distribution (not fixed
+  // thresholds) so "narrow/moderate/big" tracks whatever spread actually
+  // occurred in the window being viewed.
+  const margins = records.map(r => r.margin).filter(m => m != null).sort((a, b) => a - b);
+  let confRows = [];
+  if (margins.length >= 3) {
+    const q1 = margins[Math.floor(margins.length / 3)];
+    const q2 = margins[Math.floor((margins.length * 2) / 3)];
+    const tierOf = m => m == null ? null : m <= q1 ? 'Narrow gap' : m <= q2 ? 'Moderate gap' : 'Big gap';
+    const tierMap = {};
+    records.forEach(r => {
+      const t = tierOf(r.margin);
+      if (!t) return;
+      if (!tierMap[t]) tierMap[t] = { total: 0, wins: 0, places: 0 };
+      tierMap[t].total++;
+      if (r.place === 1) tierMap[t].wins++;
+      if (r.place <= 3) tierMap[t].places++;
+    });
+    confRows = ['Narrow gap', 'Moderate gap', 'Big gap']
+      .filter(k => tierMap[k])
+      .map(k => ({ label: k, total: tierMap[k].total, winPct: tierMap[k].wins / tierMap[k].total, placePct: tierMap[k].places / tierMap[k].total }));
+  }
+
+  return { total, wins, places, winPct, placePct, best, condRows, maxWin, maxLoss, venueRows, oddsRows, distRows, confRows, dayTally, notionalPnl };
+}
+
+function getBarrierFromCSV(allRaces, allVenues, venue, raceNum, horseName) {
+  const normV = normaliseVenue(venue);
+  for (const keys of Object.values(allVenues)) {
+    for (const k of keys) {
+      const rc = allRaces[k];
+      if (!rc) continue;
+      if (normaliseVenue(rc.venue) !== normV) continue;
+      if (String(rc.num) !== String(raceNum)) continue;
+      const h = (rc.horses || []).find(h => normName(h.name) === normName(horseName));
+      if (h) return h.BP ?? h.barrier ?? h.bar ?? null;
+    }
+  }
+  return null;
+}
+
+function getSysHorses(allRaces, allVenues, venue, raceNum, dbScratchings = []) {
+  const normVenue = normaliseVenue(venue);
+  const dbScrNames = new Set(
+    dbScratchings
+      .filter(r => normaliseVenue(r.venue) === normVenue && String(r.race_num) === String(raceNum))
+      .map(r => normName(r.horse_name || ''))
+  );
+  for (const keys of Object.values(allVenues)) {
+    for (const k of keys) {
+      const rc = allRaces[k];
+      if (!rc) continue;
+      if (normaliseVenue(rc.venue) !== normVenue) continue;
+      if (String(rc.num) !== String(raceNum)) continue;
+      return (rc.horses || []).filter(h => !h.scratched && !dbScrNames.has(normName(h.name || '')));
+    }
+  }
+  return null;
+}
+
+function placeStyle(p) {
+  if (p === 1) return { bg: '#fbbf24', color: '#78350f' };
+  if (p === 2) return { bg: '#e5e7eb', color: '#374151' };
+  if (p === 3) return { bg: '#fed7aa', color: '#92400e' };
+  return { bg: '#f1f5f9', color: '#374151' };
+}
+
+function rankStyle(r) {
+  if (r === 1) return { bg: '#fbbf24', color: '#78350f' };
+  if (r === 2) return { bg: '#e5e7eb', color: '#374151' };
+  if (r === 3) return { bg: '#fed7aa', color: '#92400e' };
+  return { bg: '#f3f4f6', color: '#374151' };
+}
+
+function SidePanel({ icon, label, children }) {
+  return (
+    <div style={{ background: '#fff', border: '0.5px solid #e5e7eb', borderRadius: 8, overflow: 'hidden', display: 'flex', flexDirection: 'column', maxHeight: 'calc(100vh - 210px)' }}>
+      <div style={{ background: '#1e2936', padding: '6px 10px', display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0 }}>
+        <i className={`ti ${icon}`} style={{ fontSize: 11, color: '#fff' }} />
+        <span style={{ fontSize: 10, fontWeight: 700, color: '#fff', textTransform: 'uppercase', letterSpacing: '.4px' }}>{label}</span>
+      </div>
+      <div style={{ padding: '0 10px 10px', flex: 1, overflowY: 'auto' }}>{children}</div>
+    </div>
+  );
+}
+
+function NoCsvMsg() {
+  return (
+    <div style={{ padding: '24px 0', textAlign: 'center', color: '#6b7280', fontSize: 10 }}>
+      <i className="ti ti-clock" style={{ fontSize: 20, display: 'block', marginBottom: 6 }} />
+      No data available for this race yet
+    </div>
+  );
+}
+
+function placeIcon(place) {
+  if (place === 1) return <span style={{ color: '#065f46', fontWeight: 700 }}>1st</span>;
+  if (place === 2) return <span style={{ color: '#374151', fontWeight: 700 }}>2nd</span>;
+  if (place === 3) return <span style={{ color: '#92400e', fontWeight: 700 }}>3rd</span>;
+  return <span style={{ color: '#9ca3af' }}>{place ? `${place}th` : '—'}</span>;
+}
+
+function TopPicksPanel({ data }) {
+  if (!data) return <NoCsvMsg />;
+  const { wins, places, total, roi, ewRoi, strikeRate, placeRate, avgPlace, details } = data;
+  const roiPct = total ? (roi / total) * 100 : 0;
+  const roiColor = roiPct >= 0 ? '#065f46' : '#991b1b';
+  const roiBg = roiPct >= 0 ? '#d1fae5' : '#fee2e2';
+  const ewRoiPct = total ? (ewRoi / (total * 2)) * 100 : 0;
+  const ewRoiColor = ewRoiPct >= 0 ? '#065f46' : '#991b1b';
+  const ewRoiBg = ewRoiPct >= 0 ? '#d1fae5' : '#fee2e2';
+  return (
+    <div style={{ paddingTop: 8 }}>
+      <div style={{ display: 'flex', gap: 6, marginBottom: 10, flexWrap: 'wrap' }}>
+        <div style={{ padding: '3px 6px', borderRadius: 5, background: '#f1f5f9', fontSize: 10 }}>
+          <span style={{ color: '#374151' }}>Win </span>
+          <span style={{ fontWeight: 700, color: '#111827', fontFamily: 'JetBrains Mono, monospace' }}>
+            {wins}/{total} ({total ? Math.round(strikeRate * 100) : 0}%)
+          </span>
+        </div>
+        <div style={{ padding: '3px 6px', borderRadius: 5, background: '#f1f5f9', fontSize: 10 }}>
+          <span style={{ color: '#374151' }}>Place </span>
+          <span style={{ fontWeight: 700, color: '#111827', fontFamily: 'JetBrains Mono, monospace' }}>
+            {places}/{total} ({total ? Math.round(placeRate * 100) : 0}%)
+          </span>
+        </div>
+        <div style={{ padding: '3px 6px', borderRadius: 5, background: roiBg, fontSize: 10 }}>
+          <span style={{ color: '#374151' }}>ROI </span>
+          <span style={{ fontWeight: 700, color: roiColor, fontFamily: 'JetBrains Mono, monospace' }}>
+            {roiPct >= 0 ? '+' : ''}{roiPct.toFixed(1)}%
+          </span>
+        </div>
+        <div style={{ padding: '3px 6px', borderRadius: 5, background: ewRoiBg, fontSize: 10 }}>
+          <span style={{ color: '#374151' }}>E/W ROI (est.) </span>
+          <span style={{ fontWeight: 700, color: ewRoiColor, fontFamily: 'JetBrains Mono, monospace' }}>
+            {ewRoiPct >= 0 ? '+' : ''}{ewRoiPct.toFixed(1)}%
+          </span>
+        </div>
+        <div style={{ padding: '3px 6px', borderRadius: 5, background: '#f1f5f9', fontSize: 10 }}>
+          <span style={{ color: '#374151' }}>Avg Finish </span>
+          <span style={{ fontWeight: 700, color: '#111827', fontFamily: 'JetBrains Mono, monospace' }}>
+            {avgPlace.toFixed(1)}
+          </span>
+        </div>
+      </div>
+      {details.length === 0 ? (
+        <div style={{ color: '#6b7280', fontSize: 10 }}>No model data yet.</div>
+      ) : (
+        <table className="ww-results-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: 10 }}>
+          <thead>
+            <tr style={{ background: '#f1f5f9', borderBottom: '1px solid #e5e7eb' }}>
+              <th style={{ padding: '2px 4px', textAlign: 'left',   fontWeight: 700, color: '#111827' }}>R#</th>
+              <th style={{ padding: '2px 4px', textAlign: 'left',   fontWeight: 700, color: '#111827' }}>Top Pick</th>
+              <th style={{ padding: '2px 4px', textAlign: 'center', fontWeight: 700, color: '#111827' }}>Finish</th>
+              <th style={{ padding: '2px 4px', textAlign: 'right',  fontWeight: 700, color: '#111827' }}>SP</th>
+            </tr>
+          </thead>
+          <tbody>
+            {details.map(d => (
+              <tr key={d.raceNum} style={{ borderBottom: '0.5px solid #f3f4f6' }}>
+                <td style={{ padding: '2px 4px', fontWeight: 700, color: '#111827' }}>{d.raceNum}</td>
+                <td style={{ padding: '2px 4px', color: '#111827', maxWidth: 90, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.horse}</td>
+                <td style={{ padding: '2px 4px', textAlign: 'center', fontSize: 9 }}>{placeIcon(d.place)}</td>
+                <td style={{ padding: '2px 4px', textAlign: 'right', fontFamily: 'JetBrains Mono, monospace' }}>${Number(d.sp || 0).toFixed(2)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+      <div style={{ marginTop: 6, fontSize: 8, color: '#9ca3af' }}>Model&apos;s #1 ranked runner each race — actual finish shown</div>
+    </div>
+  );
+}
+
+function ModelPerfPanel({ data, isPro }) {
+  if (!data) return <NoCsvMsg />;
+  const { hits, total, roi, ewRoi, ewTotal, strikeRate, details } = data;
+  const roiPct   = total ? (roi / total) * 100 : 0;
+  const roiColor = roiPct >= 0 ? '#065f46' : '#991b1b';
+  const roiBg    = roiPct >= 0 ? '#d1fae5' : '#fee2e2';
+  const ewRoiPct   = ewTotal ? (ewRoi / (ewTotal * 2)) * 100 : 0;
+  const ewRoiColor = ewRoiPct >= 0 ? '#065f46' : '#991b1b';
+  const ewRoiBg    = ewRoiPct >= 0 ? '#d1fae5' : '#fee2e2';
+  return (
+    <div style={{ paddingTop: 8 }}>
+      <div style={{ display: 'flex', gap: 6, marginBottom: 10, flexWrap: 'wrap' }}>
+        <div style={{ padding: '3px 6px', borderRadius: 5, background: '#f1f5f9', fontSize: 10 }}>
+          <span style={{ color: '#374151' }}>SR </span>
+          <span style={{ fontWeight: 700, color: '#111827', fontFamily: 'JetBrains Mono, monospace' }}>
+            {hits}/{total} ({total ? Math.round(strikeRate * 100) : 0}%)
+          </span>
+        </div>
+        <div style={{ padding: '3px 6px', borderRadius: 5, background: roiBg, fontSize: 10 }}>
+          <span style={{ color: '#374151' }}>ROI </span>
+          <span style={{ fontWeight: 700, color: roiColor, fontFamily: 'JetBrains Mono, monospace' }}>
+            {roiPct >= 0 ? '+' : ''}{roiPct.toFixed(1)}%
+          </span>
+        </div>
+        {ewTotal > 0 && (
+          <div style={{ padding: '3px 6px', borderRadius: 5, background: ewRoiBg, fontSize: 10 }}>
+            <span style={{ color: '#374151' }}>E/W ROI (est.) </span>
+            <span style={{ fontWeight: 700, color: ewRoiColor, fontFamily: 'JetBrains Mono, monospace' }}>
+              {ewRoiPct >= 0 ? '+' : ''}{ewRoiPct.toFixed(1)}%
+            </span>
+          </div>
+        )}
+      </div>
+      {details.length === 0 ? (
+        <div style={{ color: '#6b7280', fontSize: 10 }}>No model data yet.</div>
+      ) : (
+        <table className="ww-results-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: 10 }}>
+          <thead>
+            <tr style={{ background: '#f1f5f9', borderBottom: '1px solid #e5e7eb' }}>
+              <th style={{ padding: '2px 4px', textAlign: 'left',   fontWeight: 700, color: '#111827' }}>R#</th>
+              <th style={{ padding: '2px 4px', textAlign: 'left',   fontWeight: 700, color: '#111827' }}>Winner</th>
+              {isPro && <th style={{ padding: '2px 4px', textAlign: 'center', fontWeight: 700, color: '#111827' }}>Rank</th>}
+              <th style={{ padding: '2px 4px', textAlign: 'right',  fontWeight: 700, color: '#111827' }}>SP</th>
+              <th style={{ padding: '2px 4px', textAlign: 'center', fontWeight: 700, color: '#111827' }}>✓</th>
+            </tr>
+          </thead>
+          <tbody>
+            {details.map(d => {
+              const rs = d.rank ? rankStyle(d.rank) : null;
+              return (
+                <tr key={d.raceNum} style={{ borderBottom: '0.5px solid #f3f4f6' }}>
+                  <td style={{ padding: '2px 4px', fontWeight: 700, color: '#111827' }}>{d.raceNum}</td>
+                  <td style={{ padding: '2px 4px', color: '#111827', maxWidth: 90, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.horse}</td>
+                  <td style={{ padding: '2px 4px', textAlign: 'center' }}>
+                    {isPro && rs
+                      ? <span style={{ padding: '1px 5px', borderRadius: 3, fontSize: 9, fontWeight: 700, background: rs.bg, color: rs.color }}>#{d.rank}</span>
+                      : <span style={{ color: '#9ca3af' }}>—</span>}
+                  </td>
+                  <td style={{ padding: '2px 4px', textAlign: 'right', fontFamily: 'JetBrains Mono, monospace' }}>${Number(d.sp || 0).toFixed(2)}</td>
+                  <td style={{ padding: '2px 4px', textAlign: 'center', color: d.hit ? '#065f46' : '#9ca3af' }}>{d.hit ? '✓' : '✗'}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      )}
+      <div style={{ marginTop: 6, fontSize: 8, color: '#9ca3af' }}>$1 on rank 1 each race at SP</div>
+    </div>
+  );
+}
+
+function BarrierPanel({ data, hasCsv }) {
+  if (!hasCsv) return <NoCsvMsg />;
+  if (!data || data.every(g => g.total === 0)) {
+    return (
+      <div style={{ padding: '24px 0', textAlign: 'center', color: '#6b7280', fontSize: 10 }}>
+        No barrier data available for this race.
+      </div>
+    );
+  }
+  const maxPct = Math.max(...data.map(g => g.total ? g.wins / g.total : 0), 0.001);
+  return (
+    <div style={{ paddingTop: 8 }}>
+      <table className="ww-results-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: 10 }}>
+        <thead>
+          <tr style={{ background: '#f1f5f9', borderBottom: '1px solid #e5e7eb' }}>
+            <th style={{ padding: '3px 5px', textAlign: 'left',   fontWeight: 700, color: '#111827' }}>Gate</th>
+            <th style={{ padding: '3px 5px', textAlign: 'center', fontWeight: 700, color: '#111827' }}>W</th>
+            <th style={{ padding: '3px 5px', textAlign: 'center', fontWeight: 700, color: '#111827' }}>R</th>
+            <th style={{ padding: '3px 5px', textAlign: 'center', fontWeight: 700, color: '#111827' }}>%</th>
+            <th style={{ padding: '3px 5px', textAlign: 'left',   fontWeight: 700, color: '#111827' }}></th>
+          </tr>
+        </thead>
+        <tbody>
+          {data.map(g => {
+            const pct  = g.total ? g.wins / g.total : 0;
+            const barW = maxPct > 0 ? Math.round((pct / maxPct) * 72) : 0;
+            return (
+              <tr key={g.label} style={{ borderBottom: '0.5px solid #f3f4f6' }}>
+                <td style={{ padding: '3px 5px', fontWeight: 700, color: '#111827' }}>{g.label}</td>
+                <td style={{ padding: '3px 5px', textAlign: 'center', fontFamily: 'JetBrains Mono, monospace', color: '#111827' }}>{g.wins}</td>
+                <td style={{ padding: '3px 5px', textAlign: 'center', color: '#111827' }}>{g.total}</td>
+                <td style={{ padding: '3px 5px', textAlign: 'center', fontWeight: 700, fontFamily: 'JetBrains Mono, monospace', color: '#111827' }}>
+                  {g.total ? Math.round(pct * 100) : 0}%
+                </td>
+                <td style={{ padding: '3px 5px' }}>
+                  <div style={{ height: 8, width: barW, background: '#1e2936', borderRadius: 2, minWidth: pct > 0 ? 2 : 0 }} />
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function UpsetsPanel({ data, hasCsv, isPro }) {
+  if (!hasCsv) return <NoCsvMsg />;
+  if (!data || data.length === 0) {
+    return (
+      <div style={{ padding: '24px 0', textAlign: 'center', color: '#6b7280', fontSize: 10 }}>
+        No model data yet.
+      </div>
+    );
+  }
+  const medals = ['🥇', '🥈', '🥉'];
+  return (
+    <div style={{ paddingTop: 8, display: 'flex', flexDirection: 'column', gap: 5 }}>
+      <div style={{ fontSize: 9, color: '#6b7280', paddingBottom: 4, lineHeight: 1.4 }}>Winners our model ranked lower than 1st — a bigger rank gap = a bigger upset.</div>
+      {data.map((u, i) => (
+        <div key={`${u.raceNum}-${u.horse}`} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 8px', background: '#f8fafc', borderRadius: 5, border: '0.5px solid #e5e7eb' }}>
+          <span style={{ fontSize: 14, flexShrink: 0 }}>{medals[i]}</span>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontWeight: 700, fontSize: 11, color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{u.horse}</div>
+            <div style={{ fontSize: 9, color: '#111827', marginTop: 1 }}>R{u.raceNum}{isPro ? ` · rank #${u.rank}` : ''} · ${Number(u.sp || 0).toFixed(2)}</div>
+          </div>
+          {isPro && (
+            <div style={{ padding: '1px 6px', borderRadius: 3, background: '#fef3c7', color: '#92400e', fontSize: 9, fontWeight: 700, flexShrink: 0 }}>
+              #{u.rank}
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function StaffPanel({ data }) {
+  const { trainers, jockeys } = data;
+  if (!trainers.length && !jockeys.length) {
+    return (
+      <div style={{ padding: '24px 0', textAlign: 'center', color: '#6b7280', fontSize: 10 }}>
+        No winner data yet.
+      </div>
+    );
+  }
+  return (
+    <div style={{ paddingTop: 8, display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+      {trainers.length > 0 && (
+        <div style={{ flex: 1, minWidth: 100 }}>
+          <div style={{ fontSize: 9, fontWeight: 700, color: '#111827', textTransform: 'uppercase', letterSpacing: '.4px', marginBottom: 5 }}>Trainers</div>
+          {trainers.map(([name, wins, runs]) => {
+            const pct = runs > 0 ? Math.round(wins / runs * 100) : 0;
+            return (
+              <div key={name} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '2px 0', borderBottom: '0.5px solid #f3f4f6', fontSize: 10 }}>
+                <span style={{ color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginRight: 4 }}>{name}</span>
+                <span style={{ fontWeight: 700, color: '#111827', fontFamily: 'JetBrains Mono, monospace', flexShrink: 0 }}>{wins}W / {runs}R ({pct}%)</span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+      {jockeys.length > 0 && (
+        <div style={{ flex: 1, minWidth: 100 }}>
+          <div style={{ fontSize: 9, fontWeight: 700, color: '#111827', textTransform: 'uppercase', letterSpacing: '.4px', marginBottom: 5 }}>Jockeys</div>
+          {jockeys.map(([name, wins, runs]) => {
+            const pct = runs > 0 ? Math.round(wins / runs * 100) : 0;
+            return (
+              <div key={name} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '2px 0', borderBottom: '0.5px solid #f3f4f6', fontSize: 10 }}>
+                <span style={{ color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginRight: 4 }}>{name}</span>
+                <span style={{ fontWeight: 700, color: '#111827', fontFamily: 'JetBrains Mono, monospace', flexShrink: 0 }}>{wins}W / {runs}R ({pct}%)</span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function WeightClassPanel({ data }) {
+  if (!data) return <NoCsvMsg />;
+  const fmt = v => v != null ? (+v).toFixed(1) : '—';
+  return (
+    <div style={{ overflowY:'auto', flex:1, padding:'8px 10px' }}>
+      <table className="ww-results-table" style={{ width:'100%', borderCollapse:'collapse', fontSize:10 }}>
+        <thead>
+          <tr style={{ borderBottom:'1px solid #e5e7eb' }}>
+            <th style={{ padding:'3px 4px', textAlign:'left', color:'#6b7280', fontWeight:600, fontSize:9 }}>R</th>
+            <th style={{ padding:'3px 4px', textAlign:'left', color:'#6b7280', fontWeight:600, fontSize:9 }}>Winner</th>
+            <th style={{ padding:'3px 4px', textAlign:'right', color:'#6b7280', fontWeight:600, fontSize:9 }}>Wt</th>
+            <th style={{ padding:'3px 4px', textAlign:'right', color:'#6b7280', fontWeight:600, fontSize:9 }}>Avg</th>
+            <th style={{ padding:'3px 4px', textAlign:'right', color:'#6b7280', fontWeight:600, fontSize:9 }}>Rtg</th>
+            <th style={{ padding:'3px 4px', textAlign:'right', color:'#6b7280', fontWeight:600, fontSize:9 }}>Avg</th>
+          </tr>
+        </thead>
+        <tbody>
+          {data.map(row => {
+            const dWt  = row.winnerWeight != null && row.fieldAvgWeight != null ? +row.winnerWeight - row.fieldAvgWeight : null;
+            const dRtg = row.winnerWrat  != null && row.fieldAvgWrat  != null ? +row.winnerWrat  - row.fieldAvgWrat  : null;
+            return (
+              <tr key={row.raceNum} style={{ borderBottom:'0.5px solid #f3f4f6' }}>
+                <td style={{ padding:'4px 4px', color:'#111827', fontWeight:700 }}>R{row.raceNum}</td>
+                <td style={{ padding:'4px 4px', color:'#111827', maxWidth:80, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{row.winner}</td>
+                <td style={{ padding:'4px 4px', textAlign:'right', color:'#111827' }}>
+                  {fmt(row.winnerWeight)}
+                  {dWt != null && <span style={{ fontSize:8, marginLeft:2, color: dWt <= 0 ? '#16a34a' : '#dc2626' }}>{dWt > 0 ? '+' : ''}{dWt.toFixed(1)}</span>}
+                </td>
+                <td style={{ padding:'4px 4px', textAlign:'right', color:'#6b7280' }}>{fmt(row.fieldAvgWeight)}</td>
+                <td style={{ padding:'4px 4px', textAlign:'right', color:'#111827' }}>
+                  {fmt(row.winnerWrat)}
+                  {dRtg != null && <span style={{ fontSize:8, marginLeft:2, color: dRtg >= 0 ? '#16a34a' : '#dc2626' }}>{dRtg > 0 ? '+' : ''}{dRtg.toFixed(1)}</span>}
+                </td>
+                <td style={{ padding:'4px 4px', textAlign:'right', color:'#6b7280' }}>{fmt(row.fieldAvgWrat)}</td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+      <div style={{ fontSize:9, color:'#9ca3af', paddingTop:6, lineHeight:1.4 }}>Wt = carried weight (kg). Rtg = speed rating. Δ shown vs field average.</div>
+    </div>
+  );
+}
+
+const PACE_COLORS = { Leader:'#00b050', Presser:'#7ec820', Midfield:'#ffc000', Closer:'#ff8000', Backmarker:'#dc3545' };
+
+function TrackBiasPanel({ data }) {
+  if (!data) return <NoCsvMsg />;
+  const rows = Object.entries(data);
+  const maxTotal = Math.max(...rows.map(([, v]) => v.total), 1);
+  const hasData = rows.some(([, v]) => v.total > 0);
+  if (!hasData) return (
+    <div style={{ padding:'24px 10px', textAlign:'center', color:'#6b7280', fontSize:10 }}>No pace data for this meeting yet.</div>
+  );
+  return (
+    <div style={{ overflowY:'auto', flex:1, padding:'8px 10px' }}>
+      {rows.map(([role, { wins, total }]) => {
+        const pct = total > 0 ? Math.round(wins / total * 100) : 0;
+        const barW = total > 0 ? Math.round(total / maxTotal * 100) : 0;
+        const color = PACE_COLORS[role] || '#374151';
+        return (
+          <div key={role} style={{ marginBottom:8 }}>
+            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:2 }}>
+              <div style={{ display:'flex', alignItems:'center', gap:5 }}>
+                <span style={{ width:8, height:8, borderRadius:'50%', background:color, display:'inline-block', flexShrink:0 }} />
+                <span style={{ fontSize:10, color:'#111827', fontWeight:600 }}>{role}</span>
+              </div>
+              <div style={{ display:'flex', gap:10, fontSize:10, color:'#111827' }}>
+                <span style={{ minWidth:18, textAlign:'right', fontWeight:700 }}>{wins}W</span>
+                <span style={{ minWidth:22, textAlign:'right' }}>{total}R</span>
+                <span style={{ minWidth:28, textAlign:'right', fontWeight:700 }}>{pct}%</span>
+              </div>
+            </div>
+            <div style={{ background:'#f3f4f6', borderRadius:3, height:6, overflow:'hidden' }}>
+              <div style={{ width:`${barW}%`, height:'100%', background:color, borderRadius:3, transition:'width .3s' }} />
+            </div>
+          </div>
+        );
+      })}
+      <div style={{ fontSize:9, color:'#9ca3af', paddingTop:4, lineHeight:1.4 }}>Pace role from early speed data. Today&apos;s meeting only.</div>
+    </div>
+  );
+}
+
+function ResultsDetail({ meeting, venue, rankData, isPro }) {
+  if (!meeting || !meeting.runners || !meeting.runners.length) {
+    return (
+      <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:160, gap:10, color:'#374151' }}>
+        <i className="ti ti-flag-check" style={{ fontSize:32 }} />
+        <p style={{ fontSize:11 }}>No results yet for this race</p>
+      </div>
+    );
+  }
+
+  // Post-race ranks are proof of model performance, not actionable betting
+  // info (the race has already happened) — shown to all users on Results,
+  // unlike the pre-race ranks on Races/Today which stay Pro-gated since
+  // those are the actual paid, actionable value. Computed server-side via
+  // /api/results-ranks (unstripped data, ranks-only response) so free users
+  // get the SAME correct rank as Pro — client never sees the raw scoring
+  // inputs either way.
+  const sysRankMap = rankData?.[venue]?.[meeting.raceNum]?.ranks || {};
+  const hasSysRank = Object.keys(sysRankMap).length > 0;
+
+  return (
+    <div style={{ display:'inline-block', minWidth:420, width:'fit-content' }}>
+      <div style={{ background:'#1e2936', padding:'6px 10px', borderRadius:'8px 8px 0 0', display:'flex', alignItems:'center', justifyContent:'space-between', flexWrap:'wrap', gap:4 }}>
+        <span style={{ fontSize:11, fontWeight:700, color:'#fff', textTransform:'uppercase' }}>
+          {venue} R{meeting.raceNum} — Results
+          <span style={{ background:'#22c55e', fontSize:9, padding:'1px 5px', borderRadius:3, marginLeft:6, verticalAlign:'middle' }}>OFFICIAL</span>
+        </span>
+        <div style={{ fontSize:9, color:'#fff', display:'flex', gap:8 }}>
+          {meeting.raceTime && <span>{meeting.raceTime}</span>}
+          {meeting.trackCond && <span>{meeting.trackCond}</span>}
+          {meeting.dist && <span>{meeting.dist}</span>}
+        </div>
+      </div>
+
+      <table className="ww-results-table" style={{ width:'100%', borderCollapse:'collapse', tableLayout:'auto', border:'0.5px solid #e5e7eb', borderTop:'none', borderRadius:'0 0 8px 8px', overflow:'hidden' }}>
+        <thead>
+          <tr style={{ background:'#f1f5f9', borderBottom:'1px solid #e5e7eb' }}>
+            <th style={{ padding:'4px 6px', fontSize:9, fontWeight:700, color:'#111827', textAlign:'center', width:28 }}>POS</th>
+            <th style={{ padding:'4px 6px', fontSize:9, fontWeight:700, color:'#111827', textAlign:'left', minWidth:160 }}>HORSE</th>
+            {hasSysRank && <th style={{ padding:'4px 6px', fontSize:9, fontWeight:700, color:'#111827', textAlign:'center', width:44 }}>RANK</th>}
+            <th style={{ padding:'4px 6px', fontSize:9, fontWeight:700, color:'#111827', textAlign:'right', width:56 }}>SP</th>
+            <th style={{ padding:'4px 6px', fontSize:9, fontWeight:700, color:'#111827', textAlign:'right', width:56 }}>MARGIN</th>
+            <th style={{ padding:'4px 6px', fontSize:9, fontWeight:700, color:'#111827', textAlign:'left', minWidth:100, whiteSpace:'nowrap' }}>TRAINER</th>
+            <th style={{ padding:'4px 6px', fontSize:9, fontWeight:700, color:'#111827', textAlign:'left', minWidth:80, whiteSpace:'nowrap' }}>JOCKEY</th>
+          </tr>
+        </thead>
+        <tbody>
+          {meeting.runners.map(r => {
+            const p = r.place;
+            const isTop3 = p <= 3;
+            const ps = placeStyle(p);
+            const rowBg = p===1?'#fffbeb':p===2?'#f8fafc':p===3?'#fdf4ff':'#fff';
+            const sysRank = sysRankMap[normName(r.name)] || null;
+            const rs = sysRank ? rankStyle(sysRank) : null;
+            const pad = '4px 6px';
+            return (
+              <tr key={`${p}-${r.name}`} style={{ background:rowBg, borderBottom:'0.5px solid #f3f4f6' }}>
+                <td style={{ padding:pad, textAlign:'center' }}>
+                  <span style={{ width:18, height:18, borderRadius:4, display:'inline-flex', alignItems:'center', justifyContent:'center', fontSize:9, fontWeight:700, background:ps.bg, color:ps.color }}>{p}</span>
+                </td>
+                <td style={{ padding:pad, whiteSpace:'nowrap' }}>
+                  <span style={{ fontSize:13, fontWeight:isTop3?600:400, color:'#111827' }}>{r.name}</span>
+                </td>
+                {hasSysRank && (
+                  <td style={{ padding:pad, textAlign:'center' }}>
+                    {rs
+                      ? <span style={{ width:18, height:18, borderRadius:'50%', display:'inline-flex', alignItems:'center', justifyContent:'center', fontSize:9, fontWeight:700, background:rs.bg, color:rs.color }}>{sysRank}</span>
+                      : <span style={{ fontSize:9, color:'#6b7280' }}>—</span>
+                    }
+                  </td>
+                )}
+                <td style={{ padding:pad, textAlign:'right', fontFamily:'JetBrains Mono, monospace', fontSize:11, fontWeight:500, color:'#111827' }}>
+                  ${Number(r.sp || 0).toFixed(2)}
+                </td>
+                <td style={{ padding:pad, textAlign:'right', fontSize:11, color:'#111827', whiteSpace:'nowrap' }}>{r.margin || '—'}</td>
+                <td style={{ padding:pad, whiteSpace:'nowrap', fontSize:11, color:'#111827' }}>{r.trainer || '—'}</td>
+                <td style={{ padding:pad, whiteSpace:'nowrap', fontSize:11, color:'#111827' }}>{r.jockey || '—'}</td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+
+      {(meeting.l600 || meeting.trackCond || (meeting.scratched && meeting.scratched.length > 0)) && (
+        <div style={{ padding:'5px 8px', background:'#f8fafc', border:'0.5px solid #e5e7eb', borderTop:'none', borderRadius:'0 0 8px 8px', display:'flex', gap:12, flexWrap:'wrap', marginTop:-1 }}>
+          {meeting.l600 && <span style={{ fontSize:10, color:'#374151' }}>L600m: <b style={{ color:'#111827', fontFamily:'JetBrains Mono, monospace' }}>{meeting.l600}</b></span>}
+          {meeting.trackCond && <span style={{ fontSize:10, color:'#374151' }}>Track: <b style={{ color:'#111827' }}>{meeting.trackCond}</b></span>}
+          {meeting.scratched && meeting.scratched.length > 0 && <span style={{ fontSize:10, color:'#374151' }}>Scratched: {meeting.scratched.join(' · ')}</span>}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Badge({ label }) {
+  const s = RESULT_BADGE[label];
+  return (
+    <span style={{ fontSize: 9, fontWeight: 700, padding: '2px 6px', borderRadius: 5, background: s.bg, color: s.color, textTransform: 'uppercase', letterSpacing: '.3px' }}>
+      {label}
+    </span>
+  );
+}
+
+function SummaryCard({ icon, label, children }) {
+  return (
+    <div style={{ background: '#fff', border: '0.5px solid #e5e7eb', borderRadius: 8, padding: '10px 12px', minWidth: 0 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 6 }}>
+        <i className={`ti ${icon}`} style={{ fontSize: 11, color: '#6b7280' }} />
+        <span style={{ fontSize: 9, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '.4px' }}>{label}</span>
+      </div>
+      {children}
+    </div>
+  );
+}
+
+// Used only by Confidence-Band Picks now (no starts/1st/2nd/3rd breakdown
+// available for that card) — the other 4 row-based cards use MetricTable.
+function BandRows({ rows }) {
+  if (!rows.length) return <div style={{ fontSize: 10, color: '#111827' }}>—</div>;
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+      {rows.map(r => (
+        <div key={r.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 10 }}>
+          <span style={{ color: '#111827', fontWeight: 600 }}>{r.label} <span style={{ color: '#111827', fontWeight: 400 }}>({r.total})</span></span>
+          <span style={{ color: '#111827', fontFamily: 'JetBrains Mono, monospace' }}>
+            W <span style={{ color: '#16a34a', fontWeight: 700 }}>{Math.round(r.winPct * 100)}%</span> · P {Math.round(r.placePct * 100)}%
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+const thStyle = (align) => ({ textAlign: align, padding: align === 'left' ? '2px 2px 2px 0' : '2px 2px', color: '#6b7280', fontWeight: 700, fontSize: 8, textTransform: 'uppercase', letterSpacing: '.2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' });
+const tdStyle = (align, isName) => ({ textAlign: align, padding: align === 'left' ? '2px 2px 2px 4px' : '2px 2px', color: '#111827', fontFamily: isName ? undefined : 'JetBrains Mono, monospace', fontSize: isName ? 9 : 8, fontWeight: isName ? 600 : 400, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' });
+
+// Shared table for the 4 row-based cards (Venue, Track Condition, Odds Band,
+// Distance Breakdown) — zebra striping, muted uppercase column headers, dark
+// body text throughout, win% colored green (the only place color carries
+// signal), and a left border accent: green if that row's win% beats the
+// day's overall average, grey otherwise — an at-a-glance over/under signal.
+// table-layout:fixed + an explicit <colgroup> keeps all 7 columns inside the
+// card width (no horizontal scroll) regardless of name length — the name
+// column gets whatever's left, the count/pct columns are narrow and fixed.
+function MetricTable({ rows, nameKey, nameLabel, avgWinPct }) {
+  if (!rows.length) return <div style={{ fontSize: 10, color: '#111827' }}>—</div>;
+  return (
+    <div style={{ maxHeight: 140, overflowY: 'auto' }}>
+      <table style={{ width: '100%', tableLayout: 'fixed', borderCollapse: 'collapse', fontSize: 9 }}>
+        <colgroup>
+          <col style={{ width: 'auto' }} />
+          <col style={{ width: 22 }} />
+          <col style={{ width: 18 }} />
+          <col style={{ width: 18 }} />
+          <col style={{ width: 18 }} />
+          <col style={{ width: 24 }} />
+          <col style={{ width: 24 }} />
+        </colgroup>
+        <thead>
+          <tr style={{ borderBottom: '1px solid #e5e7eb' }}>
+            <th style={thStyle('left')}>{nameLabel}</th>
+            <th style={thStyle('right')}>St</th>
+            <th style={thStyle('right')}>1st</th>
+            <th style={thStyle('right')}>2nd</th>
+            <th style={thStyle('right')}>3rd</th>
+            <th style={thStyle('right')}>W%</th>
+            <th style={thStyle('right')}>P%</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((r, i) => {
+            const above = r.winPct > avgWinPct;
+            return (
+              <tr key={r[nameKey]} style={{ background: i % 2 === 0 ? '#fff' : '#f8fafc', borderLeft: `3px solid ${above ? '#16a34a' : '#d1d5db'}` }}>
+                <td style={tdStyle('left', true)}>{r[nameKey]}</td>
+                <td style={tdStyle('right')}>{r.starts}</td>
+                <td style={tdStyle('right')}>{r.firsts}</td>
+                <td style={tdStyle('right')}>{r.seconds}</td>
+                <td style={tdStyle('right')}>{r.thirds}</td>
+                <td style={{ ...tdStyle('right'), color: '#16a34a', fontWeight: 700 }}>{Math.round(r.winPct * 100)}%</td>
+                <td style={tdStyle('right')}>{Math.round(r.placePct * 100)}%</td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function DailyModelSummary({ data, trendWindow, setTrendWindow, rollingLoading, allTimeWinPct }) {
+  const isToday = trendWindow === 'today';
+  const showComparison = isToday && allTimeWinPct != null && data;
+
+  return (
+    <div style={{ marginBottom: 18 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, marginBottom: 8 }}>
+        <div style={{ fontSize: 10, fontWeight: 600, color: '#374151', textTransform: 'uppercase', letterSpacing: '.5px' }}>
+          Daily Model Summary
+        </div>
+        <div style={{ display: 'flex', gap: 4 }}>
+          {[['today', 'Today'], ['7d', '7-day'], ['30d', '30-day']].map(([key, label]) => (
+            <button
+              key={key}
+              type="button"
+              onClick={() => setTrendWindow(key)}
+              style={{ padding: '4px 10px', borderRadius: 14, fontSize: 10, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', border: '0.5px solid', background: trendWindow === key ? '#1e2936' : '#fff', color: trendWindow === key ? '#fff' : '#374151', borderColor: trendWindow === key ? '#1e2936' : '#e5e7eb' }}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {!isToday && rollingLoading && (
+        <div style={{ fontSize: 10, color: '#9ca3af', padding: '8px 0' }}>Loading {trendWindow === '7d' ? '7-day' : '30-day'} window…</div>
+      )}
+      {!isToday && !rollingLoading && !data && (
+        <div style={{ fontSize: 10, color: '#9ca3af', padding: '8px 0' }}>No resulted races in this window yet.</div>
+      )}
+      {data && <DailyModelSummaryCards data={data} showComparison={showComparison} allTimeWinPct={allTimeWinPct} />}
+    </div>
+  );
+}
+
+function DailyModelSummaryCards({ data, showComparison, allTimeWinPct }) {
+  const { total, wins, places, winPct, placePct, best, condRows, maxWin, maxLoss, venueRows, oddsRows, distRows, confRows, dayTally, notionalPnl } = data;
+
+  return (
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 8, maxWidth: 1000 }}>
+
+        <SummaryCard icon="ti-target" label="Rank 1 strike rate">
+          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 6 }}>
+            {[['Starts', dayTally.starts], ['Wins', dayTally.firsts], ['2nds', dayTally.seconds], ['3rds', dayTally.thirds]].map(([label, val]) => (
+              <div key={label}>
+                <div style={{ fontSize: 16, fontWeight: 700, color: '#111827', fontFamily: 'JetBrains Mono, monospace' }}>{val}</div>
+                <div style={{ fontSize: 8, color: '#111827' }}>{label}</div>
+              </div>
+            ))}
+          </div>
+          <div style={{ fontSize: 9, color: '#111827' }}>
+            Win <span style={{ color: '#16a34a', fontWeight: 700 }}>{Math.round(winPct * 100)}%</span> · Place {Math.round(placePct * 100)}%
+          </div>
+          <div style={{ fontSize: 9, color: '#111827', marginTop: 6, paddingTop: 6, borderTop: '0.5px solid #f3f4f6' }}>
+            $1-level P&amp;L: <span style={{ color: notionalPnl >= 0 ? '#16a34a' : '#dc2626', fontWeight: 700, fontFamily: 'JetBrains Mono, monospace' }}>{notionalPnl >= 0 ? '+' : '-'}${Math.abs(notionalPnl).toFixed(2)}</span>
+          </div>
+          {showComparison && (
+            <div style={{ fontSize: 9, color: '#111827', marginTop: 6, paddingTop: 6, borderTop: '0.5px solid #f3f4f6' }}>
+              <span style={{ color: '#16a34a', fontWeight: 700 }}>{Math.round(winPct * 100)}%</span> today · {Math.round(allTimeWinPct * 100)}% avg
+            </div>
+          )}
+        </SummaryCard>
+
+        <SummaryCard icon="ti-trophy" label="Best result of the day">
+          {best ? (
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+                <span style={{ fontSize: 16, fontWeight: 700, color: '#065f46', fontFamily: 'JetBrains Mono, monospace' }}>${best.sp.toFixed(2)}</span>
+                <Badge label="WON" />
+              </div>
+              <div style={{ fontSize: 11, color: '#111827', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{best.horse}</div>
+              <div style={{ fontSize: 9, color: '#111827' }}>{best.venue} R{best.raceNum}</div>
+            </div>
+          ) : (
+            <div style={{ fontSize: 12, color: '#111827' }}>—</div>
+          )}
+        </SummaryCard>
+
+        <SummaryCard icon="ti-droplet" label="Track condition breakdown">
+          <MetricTable rows={condRows} nameKey="label" nameLabel="Condition" avgWinPct={winPct} />
+        </SummaryCard>
+
+        <SummaryCard icon="ti-flame" label="Longest streak">
+          <div style={{ display: 'flex', gap: 14 }}>
+            <div>
+              <div style={{ fontSize: 14, fontWeight: 700, color: '#16a34a' }}>{maxWin > 0 ? `${maxWin} win${maxWin === 1 ? '' : 's'}` : '—'}</div>
+              <div style={{ fontSize: 9, color: '#111827' }}>in a row</div>
+            </div>
+            <div>
+              <div style={{ fontSize: 14, fontWeight: 700, color: '#991b1b' }}>{maxLoss > 0 ? `${maxLoss} loss${maxLoss === 1 ? '' : 'es'}` : '—'}</div>
+              <div style={{ fontSize: 9, color: '#111827' }}>in a row</div>
+            </div>
+          </div>
+        </SummaryCard>
+
+        <SummaryCard icon="ti-horseshoe" label="Placegetter accuracy">
+          <div style={{ fontSize: 18, fontWeight: 700, color: '#111827', fontFamily: 'JetBrains Mono, monospace' }}>{Math.round(placePct * 100)}%</div>
+          <div style={{ fontSize: 9, color: '#111827' }}>Rank 1 picks finishing top 3 — for each-way bettors</div>
+        </SummaryCard>
+
+        <SummaryCard icon="ti-map-pin" label="Venue performance">
+          <MetricTable rows={venueRows} nameKey="venue" nameLabel="Venue" avgWinPct={winPct} />
+        </SummaryCard>
+
+        <SummaryCard icon="ti-coin" label="Odds band performance">
+          <MetricTable rows={oddsRows} nameKey="label" nameLabel="Band" avgWinPct={winPct} />
+        </SummaryCard>
+
+        {distRows.length > 0 && (
+          <SummaryCard icon="ti-ruler-2" label="Distance breakdown">
+            <MetricTable rows={distRows} nameKey="label" nameLabel="Distance" avgWinPct={winPct} />
+          </SummaryCard>
+        )}
+
+        {confRows.length > 0 && (
+          <SummaryCard icon="ti-gauge" label="Confidence-band picks">
+            <BandRows rows={confRows} />
+            <div style={{ fontSize: 8, color: '#111827', marginTop: 4, lineHeight: 1.4 }}>Tiers based on this window&apos;s own rank1-vs-rank2 score-gap distribution</div>
+          </SummaryCard>
+        )}
+
+      </div>
+  );
+}
+
+// Sidebar widget rendered as ProfileRail's children, directly below its
+// built-in Bets/Win%/Posts stats row — same compact density (small
+// uppercase label, tight padding, muted background blocks).
+function LatestResultsWidget({ races, onSelect }) {
+  if (!races.length) return null;
+  return (
+    <div style={{ padding: '0 12px 12px' }}>
+      <div style={{ fontSize: 8, color: '#9ca3af', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.4px', marginBottom: 4 }}>
+        Latest Results
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+        {races.map(r => (
+          <div
+            key={`${r.venue}||${r.raceNum}`}
+            onClick={() => onSelect(r.venue, r.raceNum)}
+            style={{ background: '#f9fafb', borderRadius: 4, padding: '4px 6px', cursor: 'pointer' }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 4 }}>
+              <span style={{ fontSize: 9, fontWeight: 700, color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {r.venue} R{r.raceNum}
+              </span>
+              <span style={{ fontSize: 9, fontWeight: 700, color: '#111827', fontFamily: 'JetBrains Mono, monospace', flexShrink: 0 }}>
+                ${r.winner.sp.toFixed(2)}
+              </span>
+            </div>
+            <div style={{ fontSize: 9, color: '#374151', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {r.winner.name}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+export default function ResultsPage() {
+  const isMobile = useIsMobile();
+  const { user } = useUser();
+  const isPro = useIsPro();
+  const { settings } = useUserSettings();
+  const searchParams = useSearchParams();
+  const [allRaces, setAllRaces] = useState({});
+  const [allVenues, setAllVenues] = useState({});
+  const [dbRows, setDbRows] = useState([]);
+  const [dbScratchings, setDbScratchings] = useState([]);
+  const [venueAbandoned, setVenueAbandoned] = useState(new Set());
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [selectedDate, setSelectedDate] = useState(() => {
+    const d = searchParams.get('date');
+    return d && /^\d{4}-\d{2}-\d{2}$/.test(d) ? d : new Date().toLocaleDateString('sv-SE');
+  });
+  const [selectedMeeting, setSelectedMeeting] = useState(() => {
+    const v = searchParams.get('venue');
+    return v ? normaliseVenue(v) : null;
+  });
+  const [selectedRace, setSelectedRace] = useState(null);
+  const [sidePanel, setSidePanel] = useState('model');
+  const [cardRows, setCardRows] = useState([]);
+  const [rankData, setRankData] = useState({});
+  const [upgradeOpen, setUpgradeOpen] = useState(false);
+  const [trendWindow, setTrendWindow] = useState('today'); // 'today' | '7d' | '30d'
+  const [rollingSummary, setRollingSummary] = useState(null);
+  const [rollingLoading, setRollingLoading] = useState(false);
+  const [allTimeWinPct, setAllTimeWinPct] = useState(null);
+  const todayAEST = new Date().toLocaleDateString('sv-SE', { timeZone: 'Australia/Brisbane' });
+  const isToday = selectedDate === todayAEST;
+  const weights = useMemo(() => getDefaultWeights(), []);
+
+  useEffect(() => {
+    const csv = localStorage.getItem('ww_csv');
+    if (csv) {
+      try {
+        const { allRaces: ar, allVenues: av } = buildRaces(parseCSV(csv));
+        setAllRaces(ar); setAllVenues(av);
+      } catch {}
+    }
+  }, []);
+
+  useEffect(() => {
+    setLoading(true);
+    setDbRows([]);
+    setDbScratchings([]);
+    setSelectedMeeting(null);
+    setSelectedRace(null);
+    setSidePanel('model');
+    setVenueAbandoned(new Set());
+    setCardRows([]);
+    setRankData({});
+    setUpgradeOpen(false);
+    const hdrs = (SURL && SKEY) ? { apikey: SKEY, Authorization: `Bearer ${SKEY}` } : null;
+    const scrFetch = hdrs
+      ? fetch(`${SURL}/rest/v1/scratchings?date=eq.${selectedDate}&select=venue,race_num,horse_name`, { headers: hdrs }).then(r => r.ok ? r.json() : [])
+      : Promise.resolve([]);
+    const abandonedFetch = hdrs
+      ? fetch(`${SURL}/rest/v1/today_meetings?date=eq.${selectedDate}&select=venue,is_abandoned`, { headers: hdrs })
+          .then(r => r.ok ? r.json() : [])
+          .then(rows => new Set((rows || []).filter(r => r.is_abandoned).map(r => normaliseVenue(r.venue))))
+          .catch(() => new Set())
+      : Promise.resolve(new Set());
+    const cardFetch = user?.id
+      ? fetch(`/api/race-cards?date=${selectedDate}`).then(r => {
+          if (r.status === 403) { setUpgradeOpen(true); return []; }
+          return r.ok ? r.json() : [];
+        })
+      : Promise.resolve([]);
+    const resultsFetch = fetchResultsForDate(selectedDate);
+    // Unconditional — no login or isPro gate — since post-race ranks are
+    // meant to be visible to everyone, logged in or not; the route itself
+    // never returns raw scoring inputs regardless of who's asking.
+    const rankFetch = fetch(`/api/results-ranks?date=${selectedDate}`).then(r => r.ok ? r.json() : {});
+    Promise.all([resultsFetch, scrFetch, abandonedFetch, cardFetch, rankFetch]).then(([rows, scrRows, abandoned, cards, ranks]) => {
+      setDbRows(rows || []);
+      setDbScratchings(scrRows || []);
+      setVenueAbandoned(abandoned);
+      setCardRows(cards || []);
+      setRankData(ranks || {});
+      setLoading(false);
+    });
+  }, [selectedDate, user?.id]);
+
+  // Sidebar widget — 3 most recently resulted races across ALL venues for
+  // selectedDate, ranked by race_results.created_at (when each race's result
+  // row was actually inserted — confirmed to vary meaningfully per race,
+  // unlike scraped_at which is a shared batch-run timestamp and would rank
+  // by scrape-job time instead of actual finish order). Derived from dbRows,
+  // already fetched with select=* for selectedDate, so this updates for free
+  // on both the initial load and the existing manual Refresh button — no
+  // separate fetch/polling needed.
+  const latestResults = useMemo(() => {
+    const byRace = {};
+    (dbRows || []).forEach(row => {
+      const norm = normaliseVenue(row.venue);
+      const key = `${norm}||${row.race_num}`;
+      if (!byRace[key]) byRace[key] = { venue: norm, raceNum: row.race_num, createdAt: null, winner: null };
+      const r = byRace[key];
+      if (row.created_at && (!r.createdAt || row.created_at > r.createdAt)) r.createdAt = row.created_at;
+      if (row.finish_pos === 1) r.winner = { name: row.horse_name, sp: Number(row.sp) || 0 };
+    });
+    return Object.values(byRace)
+      .filter(r => r.winner && r.createdAt)
+      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+      .slice(0, 3);
+  }, [dbRows]);
+
+  const grouped = useMemo(() => {
+    const g = {};
+    (dbRows || []).forEach(row => {
+      const norm = normaliseVenue(row.venue);
+      const key = `${norm}||${row.race_num}`;
+      if (!g[key]) g[key] = {
+        venue: norm,
+        raceNum: row.race_num,
+        raceTime: row.race_time || '',
+        trackCond: row.track_cond || '',
+        dist: row.dist || '',
+        l600: row.l600 || '',
+        scratched: [],
+        runners: []
+      };
+      if (row.finish_pos) g[key].runners.push({
+        place: row.finish_pos,
+        name: row.horse_name,
+        sp: row.sp || 0,
+        margin: row.margin || '',
+        trainer: row.trainer || '',
+        jockey: row.jockey || '',
+        barrier: row.barrier ?? null,
+      });
+    });
+    (dbScratchings || []).forEach(row => {
+      const key = `${normaliseVenue(row.venue)}||${row.race_num}`;
+      if (g[key] && row.horse_name) g[key].scratched.push(row.horse_name);
+    });
+    Object.values(g).forEach(x => x.runners.sort((a, b) => a.place - b.place));
+    return g;
+  }, [dbRows, dbScratchings]);
+
+  const cardRaceData = useMemo(() => {
+    if (!cardRows.length) return { allRaces: {}, allVenues: {} };
+    const ar = {}, av = {};
+    cardRows.forEach(row => {
+      const key = `${row.venue}_R${row.race_num}`;
+      if (!ar[key]) ar[key] = { venue: row.venue, num: row.race_num, horses: [] };
+      if (row.form_data) ar[key].horses.push(row.form_data);
+      if (!av[row.venue]) av[row.venue] = [];
+      if (!av[row.venue].includes(key)) av[row.venue].push(key);
+    });
+    return { allRaces: ar, allVenues: av };
+  }, [cardRows]);
+
+  const effectiveRaces  = useMemo(() => Object.keys(cardRaceData.allRaces).length  ? cardRaceData.allRaces  : allRaces,  [allRaces,  cardRaceData]);
+  const effectiveVenues = useMemo(() => Object.keys(cardRaceData.allVenues).length ? cardRaceData.allVenues : allVenues, [allVenues, cardRaceData]);
+
+  const meetings = useMemo(() => {
+    const m = {};
+    Object.values(grouped).forEach(res => {
+      const v = res.venue;
+      if (!m[v]) m[v] = [];
+      if (!m[v].find(r => r.raceNum === res.raceNum)) {
+        m[v].push({ raceNum: res.raceNum, results: res });
+      }
+    });
+    // Only merge CSV-derived unresulted races when viewing today's card
+    if (isToday) {
+      Object.values(allVenues).flat().forEach(k => {
+        const rc = allRaces[k];
+        if (!rc) return;
+        const v = normaliseVenue(rc.venue);
+        if (!m[v]) m[v] = [];
+        if (!m[v].find(r => String(r.raceNum) === String(rc.num))) {
+          m[v].push({ raceNum: rc.num, results: null });
+        }
+      });
+    }
+    Object.values(m).forEach(arr => arr.sort((a, b) => a.raceNum - b.raceNum));
+    return m;
+  }, [grouped, allRaces, allVenues, isToday]);
+
+  // If arriving via a ?venue= URL param (no explicit race), auto-select the
+  // first resulted race once that venue's data has loaded — mirrors the
+  // venue-tile click handler's behavior, so a shared/crawled results link
+  // lands on an actual race rather than just the empty race-pill row.
+  useEffect(() => {
+    if (!selectedMeeting || selectedRace != null) return;
+    const races = meetings[selectedMeeting];
+    if (!races) return;
+    const firstResulted = races.find(r => r.results)?.raceNum ?? null;
+    if (firstResulted != null) setSelectedRace(firstResulted);
+  }, [selectedMeeting, selectedRace, meetings]);
+
+  const venueNames = Object.keys(meetings);
+  const meetingRaces = selectedMeeting ? (meetings[selectedMeeting] || []) : [];
+
+  const activeRaceData = (() => {
+    if (!selectedMeeting) return null;
+    const races = meetings[selectedMeeting] || [];
+    if (selectedRace != null) {
+      const match = races.find(r => Number(r.raceNum) === Number(selectedRace));
+      if (!match) return null;
+      return match.results ? { ...match.results, raceNum: match.raceNum } : null;
+    }
+    return null;
+  })();
+
+  const hasCsv = Object.keys(effectiveRaces).length > 0;
+
+  const meetingResulted = useMemo(() => {
+    if (!selectedMeeting) return [];
+    return (meetings[selectedMeeting] || []).filter(r => r.results && r.results.runners && r.results.runners.length > 0);
+  }, [meetings, selectedMeeting]);
+
+  const modelPerf = useMemo(() => {
+    if (!hasCsv || !meetingResulted.length) return null;
+    let hits = 0, total = 0, roi = 0, ewRoi = 0, ewTotal = 0;
+    const details = [];
+    meetingResulted.forEach(({ raceNum, results }) => {
+      const rankMap = getSysRanks(effectiveRaces, effectiveVenues, selectedMeeting, raceNum, weights, dbScratchings) || {};
+      if (!Object.keys(rankMap).length) return;
+      const runners = results.runners || [];
+      const pickName = Object.keys(rankMap).find(n => rankMap[n] === 1);
+      const pickRunner = pickName ? runners.find(r => normName(r.name) === pickName) : null;
+      const winner = runners.find(r => r.place === 1);
+      if (!winner) return;
+      const rank = rankMap[normName(winner.name)] ?? null;
+      const hit  = rank === 1;
+      roi += hit ? (Number(winner.sp) - 1) : -1;
+      if (hit) hits++;
+      total++;
+      details.push({ raceNum, horse: winner.name, rank, sp: winner.sp, hit });
+
+      // E/W ROI simulates $1 each-way ($2 total) on the model's #1 ranked runner (may differ from the winner)
+      if (pickRunner) {
+        ewTotal++;
+        const paidPlaces = paidPlacesForFieldSize(runners.length);
+        const placePrice = estimatePlacePrice(pickRunner.sp, paidPlaces);
+        if (pickRunner.place === 1) {
+          ewRoi += (Number(pickRunner.sp) - 1) + (placePrice - 1);
+        } else if (pickRunner.place != null && pickRunner.place <= paidPlaces) {
+          ewRoi += (placePrice - 1) - 1;
+        } else {
+          ewRoi += -2;
+        }
+      }
+    });
+    if (total === 0) return null;
+    return { hits, total, roi, ewRoi, ewTotal, strikeRate: hits / total, details };
+  }, [meetingResulted, effectiveRaces, effectiveVenues, selectedMeeting, weights, dbScratchings, hasCsv]);
+
+  const topPicksPerf = useMemo(() => {
+    if (!hasCsv || !meetingResulted.length) return null;
+    let wins = 0, places = 0, total = 0, roi = 0, ewRoi = 0;
+    const details = [];
+    meetingResulted.forEach(({ raceNum, results }) => {
+      const rankMap = getSysRanks(effectiveRaces, effectiveVenues, selectedMeeting, raceNum, weights, dbScratchings) || {};
+      if (!Object.keys(rankMap).length) return;
+      const pickName = Object.keys(rankMap).find(n => rankMap[n] === 1);
+      if (!pickName) return;
+      const runners = results.runners || [];
+      const runner = runners.find(r => normName(r.name) === pickName);
+      if (!runner) return;
+      const place = runner.place ?? null;
+      const sp = Number(runner.sp) || 0;
+      const win = place === 1;
+      const paidPlaces = paidPlacesForFieldSize(runners.length);
+      const placed = place != null && place <= paidPlaces;
+      roi += win ? (sp - 1) : -1;
+      if (win) wins++;
+      if (placed) places++;
+      total++;
+      details.push({ raceNum, horse: runner.name, place, sp, win, placed });
+
+      const placePrice = estimatePlacePrice(sp, paidPlaces);
+      if (win) ewRoi += (sp - 1) + (placePrice - 1);
+      else if (placed) ewRoi += (placePrice - 1) - 1;
+      else ewRoi += -2;
+    });
+    if (total === 0) return null;
+    const avgPlace = details.reduce((a, d) => a + (d.place || 0), 0) / total;
+    return { wins, places, total, roi, ewRoi, strikeRate: wins / total, placeRate: places / total, avgPlace, details };
+  }, [meetingResulted, effectiveRaces, effectiveVenues, selectedMeeting, weights, dbScratchings, hasCsv]);
+
+  const barrierBias = useMemo(() => {
+    const groups = [
+      { label: '1–2', min: 1, max: 2,        wins: 0, total: 0 },
+      { label: '3–4', min: 3, max: 4,        wins: 0, total: 0 },
+      { label: '5–6', min: 5, max: 6,        wins: 0, total: 0 },
+      { label: '7–8', min: 7, max: 8,        wins: 0, total: 0 },
+      { label: '9+',  min: 9, max: Infinity, wins: 0, total: 0 },
+    ];
+    meetingResulted.forEach(({ raceNum, results }) => {
+      (results.runners || []).forEach(runner => {
+        let bar = runner.barrier;
+        if (bar == null && hasCsv) {
+          bar = getBarrierFromCSV(effectiveRaces, effectiveVenues, selectedMeeting, raceNum, runner.name);
+        }
+        if (bar == null || bar <= 0) return;
+        const g = groups.find(c => bar >= c.min && bar <= c.max);
+        if (!g) return;
+        g.total++;
+        if (runner.place === 1) g.wins++;
+      });
+    });
+    return groups;
+  }, [meetingResulted, effectiveRaces, effectiveVenues, selectedMeeting, hasCsv]);
+
+  const biggestUpsets = useMemo(() => {
+    if (!hasCsv) return [];
+    const upsets = [];
+    meetingResulted.forEach(({ raceNum, results }) => {
+      const rankMap = getSysRanks(effectiveRaces, effectiveVenues, selectedMeeting, raceNum, weights, dbScratchings) || {};
+      if (!Object.keys(rankMap).length) return;
+      const winner = (results.runners || []).find(r => r.place === 1);
+      if (!winner) return;
+      const rank = rankMap[normName(winner.name)];
+      if (!rank) return;
+      upsets.push({ raceNum, horse: winner.name, rank, sp: winner.sp });
+    });
+    upsets.sort((a, b) => (b.rank || 0) - (a.rank || 0));
+    return upsets.slice(0, 3);
+  }, [meetingResulted, effectiveRaces, effectiveVenues, selectedMeeting, weights, dbScratchings, hasCsv]);
+
+  const staffForm = useMemo(() => {
+    const tWins = {}, jWins = {}, tRuns = {}, jRuns = {};
+    meetingResulted.forEach(({ results }) => {
+      (results.runners || []).forEach(runner => {
+        if (runner.trainer) {
+          tRuns[runner.trainer] = (tRuns[runner.trainer] || 0) + 1;
+          if (runner.place === 1) tWins[runner.trainer] = (tWins[runner.trainer] || 0) + 1;
+        }
+        if (runner.jockey) {
+          jRuns[runner.jockey] = (jRuns[runner.jockey] || 0) + 1;
+          if (runner.place === 1) jWins[runner.jockey] = (jWins[runner.jockey] || 0) + 1;
+        }
+      });
+    });
+    return {
+      trainers: Object.entries(tWins).sort((a, b) => b[1] - a[1]).map(([n, w]) => [n, w, tRuns[n] || 0]),
+      jockeys:  Object.entries(jWins).sort((a, b) => b[1] - a[1]).map(([n, w]) => [n, w, jRuns[n] || 0]),
+    };
+  }, [meetingResulted]);
+
+  const weightClass = useMemo(() => {
+    if (!hasCsv) return null;
+    const rows = [];
+    meetingResulted.forEach(({ raceNum, results }) => {
+      const horses = getSysHorses(effectiveRaces, effectiveVenues, selectedMeeting, raceNum, dbScratchings);
+      if (!horses || !horses.length) return;
+      const winner = (results.runners || []).find(r => r.place === 1);
+      if (!winner) return;
+      const wh = horses.find(h => normName(h.name) === normName(winner.name));
+      const allW = horses.map(h => h['Weight']).filter(v => v != null && !isNaN(+v));
+      const allR = horses.map(h => h['Wrat']).filter(v => v != null && !isNaN(+v));
+      rows.push({
+        raceNum,
+        winner: winner.name,
+        winnerWeight:   wh?.['Weight'] ?? null,
+        fieldAvgWeight: allW.length ? allW.reduce((a, b) => a + (+b), 0) / allW.length : null,
+        winnerWrat:     wh?.['Wrat'] ?? null,
+        fieldAvgWrat:   allR.length ? allR.reduce((a, b) => a + (+b), 0) / allR.length : null,
+      });
+    });
+    return rows.length ? rows : null;
+  }, [meetingResulted, effectiveRaces, effectiveVenues, selectedMeeting, dbScratchings, hasCsv]);
+
+  const trackBias = useMemo(() => {
+    if (!hasCsv) return null;
+    const roles = { Leader: { wins:0, total:0 }, Presser: { wins:0, total:0 }, Midfield: { wins:0, total:0 }, Closer: { wins:0, total:0 }, Backmarker: { wins:0, total:0 } };
+    meetingResulted.forEach(({ raceNum, results }) => {
+      const horses = getSysHorses(effectiveRaces, effectiveVenues, selectedMeeting, raceNum, dbScratchings);
+      if (!horses || !horses.length) return;
+      const dist = parseInt(results.dist, 10) || 0;
+      const tc   = results.trackCond || 'good';
+      (results.runners || []).forEach(runner => {
+        const fh = horses.find(h => normName(h.name) === normName(runner.name));
+        if (!fh) return;
+        const { role } = calcPaceMap(fh, selectedMeeting, dist, tc);
+        if (!roles[role]) return;
+        roles[role].total++;
+        if (runner.place === 1) roles[role].wins++;
+      });
+    });
+    return roles;
+  }, [meetingResulted, effectiveRaces, effectiveVenues, selectedMeeting, dbScratchings, hasCsv]);
+
+  // Daily Model Summary — spans every venue for the selected date (not just the
+  // open meeting), built once from `grouped` (all resulted races for the date)
+  // rather than per-meeting like the panels above. Skips races with no result yet.
+  const dailyRecords = useMemo(() => {
+    if (!Object.keys(rankData).length) return [];
+    return buildRank1Records(grouped, rankData);
+  }, [grouped, rankData]);
+
+  const dailySummary = useMemo(() => buildSummaryFromRecords(dailyRecords), [dailyRecords]);
+
+  // Rolling trend (7-day / 30-day, "last N racing days with data ending on the
+  // selected date"). Historical CSV/race-field data (needed to score, not just
+  // the result) is confirmed available per-date via /api/race-cards — same
+  // route the single-day view already uses — but it's Pro-gated for non-today
+  // dates and fetched once per date in the window, so this only runs when the
+  // toggle is actually switched off "today", not on every render.
+  // Simplification: historical scratchings aren't fetched per past date (would
+  // need yet another per-date query) — past-day scoring may include a horse
+  // that was later scratched from that specific race, a minor accuracy
+  // tradeoff versus the exact scratching-aware scoring the single-day view gets.
+  useEffect(() => {
+    if (trendWindow === 'today') { setRollingSummary(null); return; }
+    let cancelled = false;
+    const n = trendWindow === '7d' ? 7 : 30;
+    setRollingLoading(true);
+    (async () => {
+      // 2026-05-16 is the earliest date confirmed to have race_results data —
+      // a wide-enough lookback to cover any N-day window ending on selectedDate.
+      const rows = await fetchResultsRange('2026-05-16', selectedDate);
+      const distinctDates = [...new Set(rows.map(r => r.date))].filter(d => d <= selectedDate).sort().reverse();
+      const targetDates = distinctDates.slice(0, n);
+      if (!targetDates.length) { if (!cancelled) { setRollingSummary(null); setRollingLoading(false); } return; }
+      const targetSet = new Set(targetDates);
+      const windowRows = rows.filter(r => targetSet.has(r.date));
+      const rankDataByDate = await fetchRankDataForDates(targetDates);
+      if (cancelled) return;
+      let allRecords = [];
+      targetDates.forEach(d => {
+        const dayRows = windowRows.filter(r => r.date === d);
+        const dayGrouped = groupResultsByDateRace(dayRows);
+        allRecords = allRecords.concat(buildRank1Records(dayGrouped, rankDataByDate[d] || {}));
+      });
+      if (!cancelled) { setRollingSummary(buildSummaryFromRecords(allRecords)); setRollingLoading(false); }
+    })();
+    return () => { cancelled = true; };
+  }, [trendWindow, selectedDate]);
+
+  // All-time average win% ("on this day" comparison line) — computed once
+  // across every day with data (currently 2026-05-16 to 2026-07-21, 39 days),
+  // not refetched on every date change. Requires Pro (historical race_cards
+  // are Pro-gated) — silently stays null for free users rather than showing
+  // a broken/partial number.
+  useEffect(() => {
+    if (isPro !== true || allTimeWinPct !== null) return;
+    let cancelled = false;
+    (async () => {
+      const rows = await fetchResultsRange('2026-05-16', todayAEST);
+      const distinctDates = [...new Set(rows.map(r => r.date))].sort();
+      if (!distinctDates.length) return;
+      const rankDataByDate = await fetchRankDataForDates(distinctDates);
+      if (cancelled) return;
+      let allRecords = [];
+      distinctDates.forEach(d => {
+        const dayRows = rows.filter(r => r.date === d);
+        const dayGrouped = groupResultsByDateRace(dayRows);
+        allRecords = allRecords.concat(buildRank1Records(dayGrouped, rankDataByDate[d] || {}));
+      });
+      if (!cancelled && allRecords.length) {
+        const wins = allRecords.filter(r => r.place === 1).length;
+        setAllTimeWinPct(wins / allRecords.length);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [isPro, todayAEST, allTimeWinPct]);
+
+  const tablePad = settings.density === 'Compact' ? '1px 2px' : '3px 4px';
+  const tableFs  = settings.fontSize === 'Small' ? 10 : settings.fontSize === 'Large' ? 13 : 11;
+
+  return (
+    <>
+    <style>{`.ww-results-table td, .ww-results-table th { padding: ${tablePad} !important; font-size: ${tableFs}px !important; }`}</style>
+    <div style={{ display:'flex', flex:1, overflow:'hidden' }}>
+      <ProfileRail>
+        <LatestResultsWidget
+          races={latestResults}
+          onSelect={(venue, raceNum) => { setSelectedMeeting(venue); setSelectedRace(Number(raceNum)); }}
+        />
+      </ProfileRail>
+      <main className="mob-page" style={{ flex:1, overflowY:'auto', background:'#f8fafc' }}>
+      <div style={{ padding:'16px 20px', maxWidth:1100, margin:'0 auto' }}>
+
+        {/* Header */}
+        <div style={{ display:'flex', alignItems: isMobile ? 'flex-start' : 'baseline', flexDirection: isMobile ? 'column' : 'row', gap: isMobile ? 8 : 12, marginBottom:14 }}>
+          <div style={{ fontSize:20, fontWeight:700, color:'#111827' }}>Results</div>
+          <input
+            type="date"
+            value={selectedDate}
+            onChange={e => setSelectedDate(e.target.value)}
+            style={{ border:'0.5px solid #d1d5db', borderRadius:6, padding:'4px 8px', fontSize:11, fontFamily:'Space Grotesk, sans-serif', color:'#111827', background:'#fff', outline:'none', width: isMobile ? '100%' : undefined }}
+          />
+          <button
+            disabled={refreshing}
+            onClick={async () => {
+              setRefreshing(true);
+              const rows = await fetchResultsForDate(selectedDate);
+              setDbRows(rows || []);
+              setRefreshing(false);
+            }}
+            style={{ fontSize:11, padding:'4px 8px', background:'#f3f4f6', border:'1px solid #e5e7eb', borderRadius:4, cursor:'pointer', fontWeight:600, color:'#111827', opacity: refreshing ? 0.6 : 1 }}
+          >
+            {refreshing ? 'Checking…' : '🔄 Refresh'}
+          </button>
+        </div>
+
+        {/* Loading */}
+        {loading && (
+          <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:200, gap:8, color:'#374151', fontSize:11 }}>
+            <i className="ti ti-loader-2 animate-spin" style={{ fontSize:18 }} />
+            Loading results…
+          </div>
+        )}
+
+        {!loading && (selectedMeeting ? (
+          <>
+            {/* Back + title */}
+            <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:12 }}>
+              <button
+                onClick={() => { setSelectedMeeting(null); setSelectedRace(null); }}
+                style={{ display:'flex', alignItems:'center', gap:4, padding:'4px 8px', borderRadius:6, border:'0.5px solid #e5e7eb', background:'#fff', color:'#111827', fontSize:10, fontWeight:600, cursor:'pointer', fontFamily:'inherit' }}
+              >
+                <i className="ti ti-arrow-left" style={{ fontSize:11 }} /> All meetings
+              </button>
+              <span style={{ fontSize:13, fontWeight:700, color:'#111827' }}>{selectedMeeting}</span>
+              {venueAbandoned.has(selectedMeeting) && (
+                <span style={{ fontSize:9, fontWeight:700, padding:'1px 6px', borderRadius:3, background:'#6b7280', color:'#fff' }}>ABANDONED</span>
+              )}
+            </div>
+
+            {/* Race tab pills */}
+            <div style={{ display:'flex', gap:4, flexWrap:'wrap', marginBottom:12 }}>
+              {meetingRaces.map(r => {
+                const resulted = !!r.results;
+                const isActive = selectedRace != null && Number(r.raceNum) === Number(selectedRace);
+                const bg     = isActive ? '#1e2936' : resulted ? '#d1fae5' : '#f1f5f9';
+                const color  = isActive ? '#fff'    : resulted ? '#065f46' : '#374151';
+                const border = isActive ? '#1e2936' : resulted ? '#86efac' : '#e5e7eb';
+                return (
+                  <button
+                    key={r.raceNum}
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); e.preventDefault(); setSelectedRace(Number(r.raceNum)); }}
+                    style={{ padding:'8px 12px', borderRadius:5, fontSize:12, fontWeight:700, cursor:'pointer', background:bg, color, border:`0.5px solid ${border}`, fontFamily:'inherit' }}
+                  >
+                    R{r.raceNum}{resulted ? ' ✓' : ''}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Two-column body: results left, analysis right */}
+            <div style={{ display:'flex', gap:10, alignItems:'flex-start', flexDirection: isMobile ? 'column' : 'row' }}>
+
+              {/* Left — race results */}
+              <div style={{ flex:1, minWidth:0 }}>
+                <div style={{ overflowX:'auto' }}>
+                  <ResultsDetail
+                    meeting={activeRaceData}
+                    venue={selectedMeeting}
+                    rankData={rankData}
+                    isPro={isPro}
+                  />
+                </div>
+              </div>
+
+              {/* Right — analysis panels (pill-switched) */}
+              <div style={{ width:300, flexShrink:0, display:'flex', flexDirection:'column', gap:10 }}>
+                <div style={{ display:'flex', gap:4, flexWrap:'wrap' }}>
+                  {[
+                    { key:'model',   label:'Model',    icon:'ti-chart-bar'      },
+                    { key:'barrier', label:'Barriers',  icon:'ti-layout-columns' },
+                    { key:'upsets',  label:'Upsets',    icon:'ti-bolt'           },
+                    { key:'staff',   label:'T/J',       icon:'ti-users'          },
+                    { key:'weight',  label:'Wt/Cls',    icon:'ti-scale'          },
+                    { key:'bias',    label:'Pace Bias', icon:'ti-trending-up'    },
+                    { key:'picks',   label:'Top Picks', icon:'ti-target'          },
+                  ].map(p => {
+                    const active = sidePanel === p.key;
+                    return (
+                      <button
+                        key={p.key}
+                        type="button"
+                        onClick={() => setSidePanel(p.key)}
+                        style={{ display:'flex', alignItems:'center', gap:3, padding:'8px 12px', borderRadius:16, fontSize:12, fontWeight:600, cursor:'pointer', fontFamily:'inherit', border:'0.5px solid', background: active ? '#1e2936' : '#fff', color: active ? '#fff' : '#374151', borderColor: active ? '#1e2936' : '#e5e7eb' }}
+                      >
+                        <i className={`ti ${p.icon}`} style={{ fontSize:10 }} />
+                        {p.label}
+                      </button>
+                    );
+                  })}
+                </div>
+                {sidePanel === 'model'   && <SidePanel icon="ti-chart-bar"      label="Model"><ModelPerfPanel data={modelPerf} isPro={isPro} /></SidePanel>}
+                {sidePanel === 'barrier' && <SidePanel icon="ti-layout-columns" label="Barriers"><BarrierPanel data={barrierBias} hasCsv={hasCsv} /></SidePanel>}
+                {sidePanel === 'upsets'  && <SidePanel icon="ti-bolt"           label="Upsets"><UpsetsPanel data={biggestUpsets} hasCsv={hasCsv} isPro={isPro} /></SidePanel>}
+                {sidePanel === 'staff'   && <SidePanel icon="ti-users"          label="Trainer / Jockey"><StaffPanel data={staffForm} /></SidePanel>}
+                {sidePanel === 'weight'  && <SidePanel icon="ti-scale"          label="Weight & Class"><WeightClassPanel data={weightClass} /></SidePanel>}
+                {sidePanel === 'bias'    && <SidePanel icon="ti-trending-up"    label="Pace Bias"><TrackBiasPanel data={trackBias} /></SidePanel>}
+                {sidePanel === 'picks'  && <SidePanel icon="ti-target"          label="Top Picks"><TopPicksPanel data={topPicksPerf} /></SidePanel>}
+              </div>
+
+            </div>
+          </>
+        ) : (
+          <>
+            {/* Meetings grid */}
+            {venueNames.length === 0 ? (
+              <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:200, gap:10, color:'#374151' }}>
+                <i className="ti ti-flag-check" style={{ fontSize:36 }} />
+                <p style={{ fontSize:11 }}>Results will appear here automatically once available</p>
+              </div>
+            ) : (
+              <>
+                <div style={{ fontSize:10, fontWeight:600, color:'#374151', textTransform:'uppercase', letterSpacing:'.5px', marginBottom:8 }}>
+                  {venueNames.length} meetings
+                </div>
+                <div style={{ display:'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fill, minmax(280px, 1fr))', gap:6, marginBottom:16, maxWidth:1000 }}>
+                  {venueNames.map(venue => {
+                    const races = meetings[venue];
+                    const resultedCount = races.filter(r => r.results).length;
+                    const allResulted = resultedCount === races.length;
+                    const isAbandoned = venueAbandoned.has(venue);
+                    const badgeBg    = allResulted ? '#d1fae5' : '#f1f5f9';
+                    const badgeColor = allResulted ? '#065f46' : '#374151';
+                    return (
+                      <div
+                        key={venue}
+                        onClick={() => {
+                          const firstResulted = (meetings[venue] || []).find(r => r.results)?.raceNum ?? null;
+                          setSelectedMeeting(venue);
+                          setSelectedRace(firstResulted);
+                        }}
+                        style={{ background:'#fff', border:'0.5px solid #e5e7eb', borderRadius:8, overflow:'hidden', cursor:'pointer', transition:'box-shadow .15s' }}
+                        onMouseEnter={e => { e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,.08)'; }}
+                        onMouseLeave={e => { e.currentTarget.style.boxShadow = ''; }}
+                      >
+                        <div style={{ background:'#1e2936', padding:'6px 10px', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+                          <span style={{ fontSize:11, fontWeight:700, color:'#fff', textTransform:'uppercase', letterSpacing:'.4px' }}>{venue}</span>
+                          {isAbandoned ? (
+                            <span style={{ background:'#6b7280', color:'#fff', fontSize:9, fontWeight:600, padding:'1px 7px', borderRadius:5 }}>Abandoned</span>
+                          ) : (
+                            <span style={{ background:badgeBg, color:badgeColor, fontSize:9, fontWeight:600, padding:'1px 7px', borderRadius:5 }}>
+                              {resultedCount}/{races.length} resulted
+                            </span>
+                          )}
+                        </div>
+                        <div style={{ display:'flex', flexWrap:'wrap', padding:'3px 4px' }}>
+                          {races.map(r => {
+                            const cls = r.results
+                              ? { bg:'#d1fae5', color:'#065f46' }
+                              : { bg:'#f1f5f9', color:'#374151' };
+                            return (
+                              <button
+                                key={r.raceNum}
+                                type="button"
+                                onClick={(e) => { e.stopPropagation(); setSelectedMeeting(venue); setSelectedRace(Number(r.raceNum)); }}
+                                style={{ display:'flex', alignItems:'center', gap:4, padding:'3px 6px', borderRadius:5, margin:2, fontSize:10, fontWeight:600, background:cls.bg, color:cls.color, border:'none', cursor: r.results ? 'pointer' : 'default', fontFamily:'inherit' }}
+                              >
+                                R{r.raceNum}{r.results ? ' ✓' : ''}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </>
+            )}
+
+            <DailyModelSummary
+              data={trendWindow === 'today' ? dailySummary : rollingSummary}
+              trendWindow={trendWindow}
+              setTrendWindow={setTrendWindow}
+              rollingLoading={rollingLoading}
+              allTimeWinPct={allTimeWinPct}
+            />
+          </>
+        ))}
+      </div>
+      </main>
+      {upgradeOpen && <UpgradeModal onClose={() => setUpgradeOpen(false)} />}
+    </div>
+    </>
+  );
+}
