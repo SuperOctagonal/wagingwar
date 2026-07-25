@@ -6,6 +6,7 @@ import { parseCSV, buildRaces } from '@/lib/csvParser';
 import { scoreGroup, getDefaultWeights, GRP_KEYS, calcPaceMap } from '@/lib/scoring';
 import { normaliseVenue } from '@/lib/venues';
 import { paidPlacesForFieldSize, estimatePlacePrice } from '@/lib/placePrice';
+import { fetchAllRows } from '@/lib/fetchAllRows';
 import ProfileRail from '@/components/ProfileRail';
 import UpgradeModal from '@/components/UpgradeModal';
 import useIsMobile from '@/hooks/useIsMobile';
@@ -27,19 +28,21 @@ async function fetchResultsForDate(dateStr) {
   } catch { return []; }
 }
 
-// One request for a whole date range (used by the rolling-trend/all-time
-// windows) instead of one request per day — 39 days of data is a few
-// thousand rows at most, well within a single fetch, but the explicit
-// limit avoids PostgREST's default 1000-row cap silently truncating it.
+// One base URL for a whole date range (used by the rolling-trend/all-time
+// windows) instead of one request per day. A range this wide can be well
+// over PostgREST's db-max-rows cap (1000) — the server clamps any
+// client-requested `limit` down to that ceiling rather than honoring it or
+// erroring, so a plain fetch here would silently come back as only the
+// earliest ~1000 rows (since results are ordered ascending by date),
+// missing anything recent. fetchAllRows pages past that.
 async function fetchResultsRange(startDate, endDate) {
   if (!SURL || !SKEY) return [];
   try {
-    const res = await fetch(
-      `${SURL}/rest/v1/race_results?select=*&date=gte.${startDate}&date=lte.${endDate}&order=date,venue,race_num,finish_pos&limit=20000`,
-      { headers: { apikey: SKEY, Authorization: `Bearer ${SKEY}` } }
+    const result = await fetchAllRows(
+      `${SURL}/rest/v1/race_results?select=*&date=gte.${startDate}&date=lte.${endDate}&order=date,venue,race_num,finish_pos`,
+      { apikey: SKEY, Authorization: `Bearer ${SKEY}` },
     );
-    if (!res.ok) return [];
-    return res.json();
+    return result.ok ? result.rows : [];
   } catch { return []; }
 }
 
