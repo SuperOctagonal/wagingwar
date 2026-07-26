@@ -851,24 +851,53 @@ function SummaryCard({ icon, label, children }) {
 
 // Used only by Confidence-Band Picks now (no starts/1st/2nd/3rd breakdown
 // available for that card) — the other 4 row-based cards use MetricTable.
+// Confidence-Band Picks never tracks exact 1st/2nd/3rd placings (only
+// win/placed vs total per margin tier), so it can't reuse MetricTable's
+// column set as-is — but it gets the same real <table>/header treatment
+// the other 4 cards have, just with the columns it actually has data for.
 function BandRows({ rows }) {
   if (!rows.length) return <div style={{ fontSize: 10, color: '#111827' }}>—</div>;
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-      {rows.map(r => (
-        <div key={r.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 10 }}>
-          <span style={{ color: '#111827', fontWeight: 600 }}>{r.label} <span style={{ color: '#111827', fontWeight: 400 }}>({r.total})</span></span>
-          <span style={{ color: '#111827', fontFamily: 'JetBrains Mono, monospace' }}>
-            W <span style={{ color: '#16a34a', fontWeight: 700 }}>{Math.round(r.winPct * 100)}%</span> · P {Math.round(r.placePct * 100)}% · <span style={{ color: r.pnl >= 0 ? '#16a34a' : '#dc2626', fontWeight: 700 }}>{r.pnl >= 0 ? '+' : '-'}${Math.abs(r.pnl).toFixed(2)}</span>
-          </span>
-        </div>
-      ))}
-    </div>
+    <table style={{ width: '100%', tableLayout: 'fixed', borderCollapse: 'collapse', fontSize: 9 }}>
+      <colgroup>
+        <col style={{ width: 'auto' }} />
+        <col style={{ width: 34 }} />
+        <col style={{ width: 30 }} />
+        <col style={{ width: 30 }} />
+        <col style={{ width: 46 }} />
+      </colgroup>
+      <thead>
+        <tr style={{ borderBottom: '1px solid #e5e7eb' }}>
+          <th style={thStyle('left')}>Tier</th>
+          <th style={thStyle('right')}>Total</th>
+          <th style={thStyle('right')}>W%</th>
+          <th style={thStyle('right')}>P%</th>
+          <th style={thStyle('right')}>$1 P&amp;L</th>
+        </tr>
+      </thead>
+      <tbody>
+        {rows.map((r, i) => (
+          <tr key={r.label} style={{ background: i % 2 === 0 ? '#fff' : '#f8fafc' }}>
+            <td style={tdStyle('left', true)}>{r.label}</td>
+            <td style={tdStyle('right')}>{r.total}</td>
+            <td style={{ ...tdStyle('right'), color: '#16a34a', fontWeight: 700 }}>{Math.round(r.winPct * 100)}%</td>
+            <td style={tdStyle('right')}>{Math.round(r.placePct * 100)}%</td>
+            <td style={{ ...tdStyle('right'), color: r.pnl >= 0 ? '#16a34a' : '#dc2626', fontWeight: 700 }}>{r.pnl >= 0 ? '+' : '-'}${Math.abs(r.pnl).toFixed(2)}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
   );
 }
 
 const thStyle = (align) => ({ textAlign: align, padding: align === 'left' ? '2px 2px 2px 0' : '2px 2px', color: '#6b7280', fontWeight: 700, fontSize: 8, textTransform: 'uppercase', letterSpacing: '.2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' });
-const tdStyle = (align, isName) => ({ textAlign: align, padding: align === 'left' ? '2px 2px 2px 4px' : '2px 2px', color: '#111827', fontFamily: isName ? undefined : 'JetBrains Mono, monospace', fontSize: isName ? 9 : 8, fontWeight: isName ? 600 : 400, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' });
+// Name cells wrap onto 2 lines instead of truncating — needed since the
+// odds-band/distance labels (e.g. "$8.00-$14.99", "Mid-Sprint
+// (1201-1400m)") got too long for a single line at this column width once
+// they became explicit ranges. Wrapping is width-agnostic so it stays
+// clean on mobile too, unlike widening the column (which would just eat
+// into the numeric columns' space on a narrow card).
+const tdStyle = (align, isName) => ({ textAlign: align, padding: align === 'left' ? '2px 2px 2px 4px' : '2px 2px', color: '#111827', fontFamily: isName ? undefined : 'JetBrains Mono, monospace', fontSize: isName ? 9 : 8, fontWeight: isName ? 600 : 400, lineHeight: isName ? 1.25 : undefined, overflow: isName ? 'visible' : 'hidden', textOverflow: isName ? 'clip' : 'ellipsis', whiteSpace: isName ? 'normal' : 'nowrap', overflowWrap: isName ? 'break-word' : undefined });
 
 // Shared table for the 4 row-based cards (Venue, Track Condition, Odds Band,
 // Distance Breakdown) — zebra striping, muted uppercase column headers, dark
@@ -885,13 +914,13 @@ function MetricTable({ rows, nameKey, nameLabel, avgWinPct }) {
       <table style={{ width: '100%', tableLayout: 'fixed', borderCollapse: 'collapse', fontSize: 9 }}>
         <colgroup>
           <col style={{ width: 'auto' }} />
+          <col style={{ width: 20 }} />
+          <col style={{ width: 16 }} />
+          <col style={{ width: 16 }} />
+          <col style={{ width: 16 }} />
           <col style={{ width: 22 }} />
-          <col style={{ width: 18 }} />
-          <col style={{ width: 18 }} />
-          <col style={{ width: 18 }} />
-          <col style={{ width: 24 }} />
-          <col style={{ width: 24 }} />
-          <col style={{ width: 36 }} />
+          <col style={{ width: 22 }} />
+          <col style={{ width: 46 }} />
         </colgroup>
         <thead>
           <tr style={{ borderBottom: '1px solid #e5e7eb' }}>
