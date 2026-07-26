@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useUser } from '@clerk/nextjs';
 import { parseCSV, buildRaces } from '@/lib/csvParser';
@@ -17,15 +17,24 @@ import useUserSettings from '@/hooks/useUserSettings';
 const SURL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SKEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
+// A single big multi-venue day can itself exceed PostgREST's db-max-rows
+// cap (one race day was measured at 1317 race_results rows) — this was
+// never given the fetchAllRows treatment the range/multi-day fetch below
+// got, so on a big enough day it silently truncated mid-venue: whichever
+// venues fell past row 1000 in Postgres's own return order lost some or
+// all of their races from the meetings grid entirely (not just their
+// resulted count — the race buttons themselves), while everything before
+// the cutoff looked fine. Confirmed directly: 2026-07-25 (1317 rows)
+// returned exactly 1000 rows unpaginated, cutting Randwick to only its
+// first 4 races and dropping Roebourne/Toowoomba completely.
 async function fetchResultsForDate(dateStr) {
   if (!SURL || !SKEY) return [];
   try {
-    const res = await fetch(
+    const result = await fetchAllRows(
       `${SURL}/rest/v1/race_results?select=*&date=eq.${dateStr}&order=venue,race_num,finish_pos`,
-      { headers: { apikey: SKEY, Authorization: `Bearer ${SKEY}` } }
+      { apikey: SKEY, Authorization: `Bearer ${SKEY}` },
     );
-    if (!res.ok) return [];
-    return res.json();
+    return result.ok ? result.rows : [];
   } catch { return []; }
 }
 
@@ -1093,8 +1102,10 @@ export default function ResultsPage() {
     return v ? normaliseVenue(v) : null;
   });
   const [selectedRace, setSelectedRace] = useState(null);
+  const isInitialSelectionRef = useRef(true);
   const [sidePanel, setSidePanel] = useState('model');
   const [cardRows, setCardRows] = useState([]);
+  const [scheduleRows, setScheduleRows] = useState([]);
   const [rankData, setRankData] = useState({});
   const [upgradeOpen, setUpgradeOpen] = useState(false);
   const [trendWindow, setTrendWindow] = useState('today'); // 'today' | '7d' | '30d'
@@ -1119,11 +1130,22 @@ export default function ResultsPage() {
     setLoading(true);
     setDbRows([]);
     setDbScratchings([]);
-    setSelectedMeeting(null);
-    setSelectedRace(null);
+    // Skip the reset on the very first run so a ?venue= URL param's initial
+    // selection (set in useState above) survives — this effect fires on
+    // mount too, and would otherwise null it out before the page ever
+    // showed it, breaking the SEO metadata-vs-content match for shared/
+    // crawled links. Any later date change (real dep change) still resets
+    // normally.
+    if (isInitialSelectionRef.current) {
+      isInitialSelectionRef.current = false;
+    } else {
+      setSelectedMeeting(null);
+      setSelectedRace(null);
+    }
     setSidePanel('model');
     setVenueAbandoned(new Set());
     setCardRows([]);
+    setScheduleRows([]);
     setRankData({});
     setUpgradeOpen(false);
     const hdrs = (SURL && SKEY) ? { apikey: SKEY, Authorization: `Bearer ${SKEY}` } : null;
@@ -1143,15 +1165,25 @@ export default function ResultsPage() {
         })
       : Promise.resolve([]);
     const resultsFetch = fetchResultsForDate(selectedDate);
+    // race_schedule is the authoritative schedule for the date regardless of
+    // whether every race actually got scraped/resulted (e.g. a late race
+    // that ran after the scraper's window closed) — used below to still
+    // show a not-yet-resulted race as a button on ANY date, not just today
+    // (today already had a CSV-based fallback for this; this covers past
+    // dates too, where that CSV mechanism doesn't apply).
+    const scheduleFetch = hdrs
+      ? fetchAllRows(`${SURL}/rest/v1/race_schedule?date=eq.${selectedDate}&select=venue,race_num`, hdrs).then(r => r.ok ? r.rows : [])
+      : Promise.resolve([]);
     // Unconditional — no login or isPro gate — since post-race ranks are
     // meant to be visible to everyone, logged in or not; the route itself
     // never returns raw scoring inputs regardless of who's asking.
     const rankFetch = fetch(`/api/results-ranks?date=${selectedDate}`).then(r => r.ok ? r.json() : {});
-    Promise.all([resultsFetch, scrFetch, abandonedFetch, cardFetch, rankFetch]).then(([rows, scrRows, abandoned, cards, ranks]) => {
+    Promise.all([resultsFetch, scrFetch, abandonedFetch, cardFetch, scheduleFetch, rankFetch]).then(([rows, scrRows, abandoned, cards, schedule, ranks]) => {
       setDbRows(rows || []);
       setDbScratchings(scrRows || []);
       setVenueAbandoned(abandoned);
       setCardRows(cards || []);
+      setScheduleRows(schedule || []);
       setRankData(ranks || {});
       setLoading(false);
     });
@@ -1251,9 +1283,20 @@ export default function ResultsPage() {
         }
       });
     }
+    // race_schedule fallback for ANY date — a race that was scheduled but
+    // never scraped/resulted (e.g. ran after the scraper's window closed)
+    // still shows as an unchecked button here, rather than silently
+    // disappearing from the venue's total race count.
+    (scheduleRows || []).forEach(row => {
+      const v = normaliseVenue(row.venue);
+      if (!m[v]) m[v] = [];
+      if (!m[v].find(r => String(r.raceNum) === String(row.race_num))) {
+        m[v].push({ raceNum: row.race_num, results: null });
+      }
+    });
     Object.values(m).forEach(arr => arr.sort((a, b) => a.raceNum - b.raceNum));
     return m;
-  }, [grouped, allRaces, allVenues, isToday]);
+  }, [grouped, allRaces, allVenues, isToday, scheduleRows]);
 
   // If arriving via a ?venue= URL param (no explicit race), auto-select the
   // first resulted race once that venue's data has loaded — mirrors the
