@@ -3,7 +3,6 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useUser } from '@clerk/nextjs';
-import { parseCSV, buildRaces } from '@/lib/csvParser';
 import { scoreGroup, getDefaultWeights, GRP_KEYS, calcPaceMap } from '@/lib/scoring';
 import { normaliseVenue } from '@/lib/venues';
 import { paidPlacesForFieldSize, estimatePlacePrice } from '@/lib/placePrice';
@@ -1086,8 +1085,6 @@ export default function ResultsPage() {
   const isPro = useIsPro();
   const { settings } = useUserSettings();
   const searchParams = useSearchParams();
-  const [allRaces, setAllRaces] = useState({});
-  const [allVenues, setAllVenues] = useState({});
   const [dbRows, setDbRows] = useState([]);
   const [dbScratchings, setDbScratchings] = useState([]);
   const [venueAbandoned, setVenueAbandoned] = useState(new Set());
@@ -1113,18 +1110,7 @@ export default function ResultsPage() {
   const [rollingLoading, setRollingLoading] = useState(false);
   const [allTimeWinPct, setAllTimeWinPct] = useState(null);
   const todayAEST = new Date().toLocaleDateString('sv-SE', { timeZone: 'Australia/Brisbane' });
-  const isToday = selectedDate === todayAEST;
   const weights = useMemo(() => getDefaultWeights(), []);
-
-  useEffect(() => {
-    const csv = localStorage.getItem('ww_csv');
-    if (csv) {
-      try {
-        const { allRaces: ar, allVenues: av } = buildRaces(parseCSV(csv));
-        setAllRaces(ar); setAllVenues(av);
-      } catch {}
-    }
-  }, []);
 
   useEffect(() => {
     setLoading(true);
@@ -1259,8 +1245,8 @@ export default function ResultsPage() {
     return { allRaces: ar, allVenues: av };
   }, [cardRows]);
 
-  const effectiveRaces  = useMemo(() => Object.keys(cardRaceData.allRaces).length  ? cardRaceData.allRaces  : allRaces,  [allRaces,  cardRaceData]);
-  const effectiveVenues = useMemo(() => Object.keys(cardRaceData.allVenues).length ? cardRaceData.allVenues : allVenues, [allVenues, cardRaceData]);
+  const effectiveRaces  = cardRaceData.allRaces;
+  const effectiveVenues = cardRaceData.allVenues;
 
   const meetings = useMemo(() => {
     const m = {};
@@ -1271,22 +1257,14 @@ export default function ResultsPage() {
         m[v].push({ raceNum: res.raceNum, results: res });
       }
     });
-    // Only merge CSV-derived unresulted races when viewing today's card
-    if (isToday) {
-      Object.values(allVenues).flat().forEach(k => {
-        const rc = allRaces[k];
-        if (!rc) return;
-        const v = normaliseVenue(rc.venue);
-        if (!m[v]) m[v] = [];
-        if (!m[v].find(r => String(r.raceNum) === String(rc.num))) {
-          m[v].push({ raceNum: rc.num, results: null });
-        }
-      });
-    }
     // race_schedule fallback for ANY date — a race that was scheduled but
     // never scraped/resulted (e.g. ran after the scraper's window closed)
     // still shows as an unchecked button here, rather than silently
-    // disappearing from the venue's total race count.
+    // disappearing from the venue's total race count. (Replaces a prior
+    // isToday-only mechanism that merged venues from a CSV cached in
+    // localStorage — that read stale, never-expiring browser-local data
+    // and was the actual cause of a stale-venue-mixing bug; race_schedule
+    // is a live DB source with no staleness risk, for any date.)
     (scheduleRows || []).forEach(row => {
       const v = normaliseVenue(row.venue);
       if (!m[v]) m[v] = [];
@@ -1296,7 +1274,7 @@ export default function ResultsPage() {
     });
     Object.values(m).forEach(arr => arr.sort((a, b) => a.raceNum - b.raceNum));
     return m;
-  }, [grouped, allRaces, allVenues, isToday, scheduleRows]);
+  }, [grouped, scheduleRows]);
 
   // If arriving via a ?venue= URL param (no explicit race), auto-select the
   // first resulted race once that venue's data has loaded — mirrors the
