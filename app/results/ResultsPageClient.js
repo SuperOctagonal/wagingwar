@@ -7,6 +7,7 @@ import { scoreGroup, getDefaultWeights, GRP_KEYS, calcPaceMap } from '@/lib/scor
 import { normaliseVenue } from '@/lib/venues';
 import { paidPlacesForFieldSize, estimatePlacePrice } from '@/lib/placePrice';
 import { fetchAllRows } from '@/lib/fetchAllRows';
+import { ODDS_BANDS } from '@/lib/oddsBucket';
 import ProfileRail from '@/components/ProfileRail';
 import UpgradeModal from '@/components/UpgradeModal';
 import useIsMobile from '@/hooks/useIsMobile';
@@ -198,16 +199,20 @@ function buildSummaryFromRecords(records) {
   const winners = records.filter(r => r.place === 1);
   const best = winners.length ? winners.reduce((a, b) => (b.sp > a.sp ? b : a)) : null;
 
-  // Shared tally: starts + 1st/2nd/3rd counts + derived win%/place% for a
-  // subset of records — same counts Venue Performance already exposes.
+  // Shared tally: starts + 1st/2nd/3rd counts + derived win%/place% + $1
+  // notional P&L for a subset of records — same counts Venue Performance
+  // already exposes, and the same $1-level-stakes formula as the overall
+  // notionalPnl figure above, just per-row within each table's grouping.
   const tally = (subset) => {
     const t = { starts: subset.length, firsts: 0, seconds: 0, thirds: 0 };
+    let pnl = 0;
     subset.forEach(r => {
       if (r.place === 1) t.firsts++;
       else if (r.place === 2) t.seconds++;
       else if (r.place === 3) t.thirds++;
+      pnl += r.place === 1 ? (r.sp - 1) : -1;
     });
-    return { ...t, winPct: t.firsts / t.starts, placePct: (t.firsts + t.seconds + t.thirds) / t.starts };
+    return { ...t, winPct: t.firsts / t.starts, placePct: (t.firsts + t.seconds + t.thirds) / t.starts, pnl };
   };
 
   // Day-level Starts/Wins/2nds/3rds for the Rank 1 Strike Rate card.
@@ -236,41 +241,40 @@ function buildSummaryFromRecords(records) {
     maxLoss = Math.max(maxLoss, curLoss);
   });
 
-  // Venue performance: full breakdown — starts, 1st/2nd/3rd counts, win%, place%.
+  // Venue performance: full breakdown — starts, 1st/2nd/3rd counts, win%,
+  // place%, $1 P&L — via the shared tally() helper, same as every other
+  // breakdown table (this used to have its own separate, duplicate
+  // aggregation that never computed pnl, showing "-$NaN").
   const venueMap = {};
   records.forEach(r => {
-    if (!venueMap[r.venue]) venueMap[r.venue] = { starts: 0, firsts: 0, seconds: 0, thirds: 0 };
-    const v = venueMap[r.venue];
-    v.starts++;
-    if (r.place === 1) v.firsts++;
-    else if (r.place === 2) v.seconds++;
-    else if (r.place === 3) v.thirds++;
+    if (!venueMap[r.venue]) venueMap[r.venue] = [];
+    venueMap[r.venue].push(r);
   });
   const venueRows = Object.entries(venueMap)
-    .map(([venue, v]) => ({
-      venue, starts: v.starts, firsts: v.firsts, seconds: v.seconds, thirds: v.thirds,
-      winPct: v.firsts / v.starts, placePct: (v.firsts + v.seconds + v.thirds) / v.starts,
-    }))
+    .map(([venue, subset]) => ({ venue, ...tally(subset) }))
     .sort((a, b) => a.venue.localeCompare(b.venue));
 
-  // Odds band performance — bucket rank-1 picks by their own SP.
-  const oddsBands = [
-    { label: '$2–4',  min: 2,  max: 4 },
-    { label: '$4–8',  min: 4,  max: 8 },
-    { label: '$8–15', min: 8,  max: 15 },
-    { label: '$15+',  min: 15, max: Infinity },
-  ];
-  const oddsRows = oddsBands.map(b => {
-    const inBand = records.filter(r => r.sp >= b.min && r.sp < b.max);
+  // Odds band performance — bucket rank-1 picks by their own SP. Bands come
+  // from lib/oddsBucket.js, the single shared source Insights and the
+  // BetFilterPanel odds filter also use, so all three stay in sync. Explicit
+  // non-overlapping ranges (e.g. $2.00-$3.99, $4.00-$7.99 — no shared
+  // boundary price like a bare "$4" that could read as belonging to either
+  // band) — lo is inclusive, hi is exclusive (a $4.00 price falls in the
+  // $4.00-$7.99 band, never also in $2.00-$3.99).
+  const oddsRows = ODDS_BANDS.map(b => {
+    const inBand = records.filter(r => r.sp >= b.lo && (b.hi == null || r.sp < b.hi));
     if (!inBand.length) return null;
     return { label: b.label, ...tally(inBand) };
   }).filter(Boolean);
 
-  // Distance band performance — sprint/mid/staying, only if dist data exists.
+  // Distance band performance — 5 buckets for more granularity, only if
+  // dist data exists.
   const distBands = [
-    { label: 'Sprint (≤1200m)',   min: 0,    max: 1200 },
-    { label: 'Mid (1201–1800m)',  min: 1201, max: 1800 },
-    { label: 'Staying (1800m+)',  min: 1801, max: Infinity },
+    { label: 'Sprint (≤1200m)',        min: 0,    max: 1200 },
+    { label: 'Mid-Sprint (1201-1400m)', min: 1201, max: 1400 },
+    { label: 'Mile (1401-1800m)',      min: 1401, max: 1800 },
+    { label: 'Middle (1801-2200m)',    min: 1801, max: 2200 },
+    { label: 'Staying (2200m+)',       min: 2201, max: Infinity },
   ];
   const withDist = records.filter(r => r.dist);
   const distRows = withDist.length ? distBands.map(b => {
@@ -293,14 +297,15 @@ function buildSummaryFromRecords(records) {
     records.forEach(r => {
       const t = tierOf(r.margin);
       if (!t) return;
-      if (!tierMap[t]) tierMap[t] = { total: 0, wins: 0, places: 0 };
+      if (!tierMap[t]) tierMap[t] = { total: 0, wins: 0, places: 0, pnl: 0 };
       tierMap[t].total++;
       if (r.place === 1) tierMap[t].wins++;
       if (r.place <= 3) tierMap[t].places++;
+      tierMap[t].pnl += r.place === 1 ? (r.sp - 1) : -1;
     });
     confRows = ['Narrow gap', 'Moderate gap', 'Big gap']
       .filter(k => tierMap[k])
-      .map(k => ({ label: k, total: tierMap[k].total, winPct: tierMap[k].wins / tierMap[k].total, placePct: tierMap[k].places / tierMap[k].total }));
+      .map(k => ({ label: k, total: tierMap[k].total, winPct: tierMap[k].wins / tierMap[k].total, placePct: tierMap[k].places / tierMap[k].total, pnl: tierMap[k].pnl }));
   }
 
   return { total, wins, places, winPct, placePct, best, condRows, maxWin, maxLoss, venueRows, oddsRows, distRows, confRows, dayTally, notionalPnl };
@@ -854,7 +859,7 @@ function BandRows({ rows }) {
         <div key={r.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 10 }}>
           <span style={{ color: '#111827', fontWeight: 600 }}>{r.label} <span style={{ color: '#111827', fontWeight: 400 }}>({r.total})</span></span>
           <span style={{ color: '#111827', fontFamily: 'JetBrains Mono, monospace' }}>
-            W <span style={{ color: '#16a34a', fontWeight: 700 }}>{Math.round(r.winPct * 100)}%</span> · P {Math.round(r.placePct * 100)}%
+            W <span style={{ color: '#16a34a', fontWeight: 700 }}>{Math.round(r.winPct * 100)}%</span> · P {Math.round(r.placePct * 100)}% · <span style={{ color: r.pnl >= 0 ? '#16a34a' : '#dc2626', fontWeight: 700 }}>{r.pnl >= 0 ? '+' : '-'}${Math.abs(r.pnl).toFixed(2)}</span>
           </span>
         </div>
       ))}
@@ -870,9 +875,9 @@ const tdStyle = (align, isName) => ({ textAlign: align, padding: align === 'left
 // body text throughout, win% colored green (the only place color carries
 // signal), and a left border accent: green if that row's win% beats the
 // day's overall average, grey otherwise — an at-a-glance over/under signal.
-// table-layout:fixed + an explicit <colgroup> keeps all 7 columns inside the
+// table-layout:fixed + an explicit <colgroup> keeps all 8 columns inside the
 // card width (no horizontal scroll) regardless of name length — the name
-// column gets whatever's left, the count/pct columns are narrow and fixed.
+// column gets whatever's left, the count/pct/pnl columns are narrow and fixed.
 function MetricTable({ rows, nameKey, nameLabel, avgWinPct }) {
   if (!rows.length) return <div style={{ fontSize: 10, color: '#111827' }}>—</div>;
   return (
@@ -886,6 +891,7 @@ function MetricTable({ rows, nameKey, nameLabel, avgWinPct }) {
           <col style={{ width: 18 }} />
           <col style={{ width: 24 }} />
           <col style={{ width: 24 }} />
+          <col style={{ width: 36 }} />
         </colgroup>
         <thead>
           <tr style={{ borderBottom: '1px solid #e5e7eb' }}>
@@ -896,6 +902,7 @@ function MetricTable({ rows, nameKey, nameLabel, avgWinPct }) {
             <th style={thStyle('right')}>3rd</th>
             <th style={thStyle('right')}>W%</th>
             <th style={thStyle('right')}>P%</th>
+            <th style={thStyle('right')}>$1 P&amp;L</th>
           </tr>
         </thead>
         <tbody>
@@ -910,6 +917,7 @@ function MetricTable({ rows, nameKey, nameLabel, avgWinPct }) {
                 <td style={tdStyle('right')}>{r.thirds}</td>
                 <td style={{ ...tdStyle('right'), color: '#16a34a', fontWeight: 700 }}>{Math.round(r.winPct * 100)}%</td>
                 <td style={tdStyle('right')}>{Math.round(r.placePct * 100)}%</td>
+                <td style={{ ...tdStyle('right'), color: r.pnl >= 0 ? '#16a34a' : '#dc2626', fontWeight: 700 }}>{r.pnl >= 0 ? '+' : '-'}${Math.abs(r.pnl).toFixed(2)}</td>
               </tr>
             );
           })}
