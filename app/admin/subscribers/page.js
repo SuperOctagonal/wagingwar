@@ -110,6 +110,16 @@ async function getSubscriberRows() {
       }
     }
 
+    // Billing interval read directly off the subscription object already
+    // fetched above (Stripe includes items.data[].price.recurring by
+    // default, no extra expand or per-customer call needed) — not from
+    // the new /api/admin/subscriber-billing route, which only handles
+    // Last Payment (the one thing that genuinely needs a per-customer
+    // Stripe call, since there's no bulk "latest invoice per customer"
+    // endpoint).
+    const billingInterval = sub?.items?.data?.[0]?.price?.recurring?.interval || null;
+    const stripeCustomerId = u.publicMetadata?.stripeCustomerId || null;
+
     return {
       id: u.id,
       email: u.emailAddresses?.[0]?.emailAddress || '—',
@@ -118,6 +128,8 @@ async function getSubscriberRows() {
       status,
       trialEnd,
       nextBilling,
+      billingInterval,
+      stripeCustomerId,
     };
   });
 }
