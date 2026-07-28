@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { sbFetch } from '@/lib/supabase';
 import { getTier, ALL_TIERS } from '@/lib/tiers';
 import useIsPro from '@/hooks/useIsPro';
+import { punterFallback } from '@/lib/punterFallback';
 
 const GREEN = '#1B4332';
 const GOLD  = '#B7791F';
@@ -217,7 +218,8 @@ export default function AccountPage() {
   }
 
   const email       = user.emailAddresses?.[0]?.emailAddress ?? '';
-  const displayName = profile?.display_name || user.firstName || email.split('@')[0] || 'Punter';
+  // What other users see too — never real name, never an email fragment.
+  const displayName = user.username || punterFallback(user.id);
   const initial     = (displayName[0] ?? '?').toUpperCase();
   const memberSince = fmtMonth(user.createdAt || profile?.created_at);
 

@@ -10,6 +10,8 @@ import UpgradeModal from '@/components/UpgradeModal';
 import { parseCSV, buildRaces } from '@/lib/csvParser';
 import { scoreHorse, getDefaultWeights } from '@/lib/scoring';
 import { normaliseVenue } from '@/lib/venues';
+import { punterFallback } from '@/lib/punterFallback';
+import { fetchDisplayNames } from '@/lib/displayNames';
 
 const SURL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SKEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -147,6 +149,11 @@ function ordinal(n) {
 }
 
 // ─── Leaderboard helpers ──────────────────────────────────────────────────────
+// comp_scores.username is a snapshot taken at submission time — re-resolved
+// here from live Clerk data on every read instead of trusted as-is, so a
+// username set/changed after past submissions is reflected immediately
+// everywhere, with no backfill of historical rows needed (clerk_id is the
+// real key throughout; username has only ever been a display value).
 async function fetchScores(start, end) {
   if (!SURL || !SKEY) return [];
   const params = ['select=comp_date,clerk_id,username,correct,total,score,streak'];
@@ -156,8 +163,19 @@ async function fetchScores(start, end) {
     const res = await fetch(`${SURL}/rest/v1/comp_scores?${params.join('&')}`, {
       headers: { apikey: SKEY, Authorization: `Bearer ${SKEY}` },
     });
-    return res.ok ? res.json() : [];
+    const rows = res.ok ? await res.json() : [];
+    return resolveLiveUsernames(rows);
   } catch { return []; }
+}
+
+// Overrides each row's username in place with the live-resolved
+// username-or-fallback for its clerk_id — used by both comp_scores reads
+// (fetchScores) and comp_picks reads (today's leaderboard, client-side).
+async function resolveLiveUsernames(rows) {
+  if (!rows || !rows.length) return rows || [];
+  const ids = [...new Set(rows.map(r => r.clerk_id).filter(Boolean))];
+  const nameMap = await fetchDisplayNames(ids);
+  return rows.map(r => ({ ...r, username: nameMap[r.clerk_id] || punterFallback(r.clerk_id) }));
 }
 
 function dateMinusDays(dateStr, days) {
@@ -244,7 +262,9 @@ export default function CompetitionsPage() {
   const [selCompVenue, setSelCompVenue] = useState(null);
 
   const [today, setToday] = useState(() => aestISO());
-  const uname = user ? (user.fullName || user.username || user.firstName || 'Anon') : 'Anon';
+  // What other users see too — never real name. fullName/firstName removed
+  // from this chain entirely; Clerk's own username, or a stable fallback.
+  const uname = user ? (user.username || punterFallback(user.id)) : 'Anon';
 
   const selVenues = useMemo(() => csvRaces ? pickMeetings(csvRaces.allRaces) : [], [csvRaces]);
   const compRaces = useMemo(() => csvRaces ? getCompRaces(csvRaces.allRaces, selVenues) : [], [csvRaces, selVenues]);
@@ -551,6 +571,7 @@ export default function CompetitionsPage() {
       sbFetch(`comp_picks_popular?comp_date=eq.${today}&select=venue,race_num,horse_name,pick_count`)
         .then(rows => { if (Array.isArray(rows)) setPopularData(rows); });
       sbFetch(`comp_picks?comp_date=eq.${today}&hide_picks=eq.false&select=clerk_id,username,venue,race_num,horse_name`)
+        .then(rows => Array.isArray(rows) ? resolveLiveUsernames(rows) : [])
         .then(rows => { if (Array.isArray(rows)) setAllPicksData(rows); });
     }
     loadAll();

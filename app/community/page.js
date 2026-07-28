@@ -7,6 +7,8 @@ import useIsPro from '@/hooks/useIsPro';
 import useIsMobile from '@/hooks/useIsMobile';
 import UpgradeModal from '@/components/UpgradeModal';
 import { awardPoints } from '@/lib/points';
+import { punterFallback } from '@/lib/punterFallback';
+import { fetchDisplayNames } from '@/lib/displayNames';
 
 const SURL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SKEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -87,29 +89,25 @@ async function sbCount(table) {
   } catch { return 0; }
 }
 
+// author.display_name is populated from the live Clerk username-or-fallback
+// lookup (lib/displayNames.js), never user_profiles.display_name — kept as
+// the same "display_name" key on the author object purely so the existing
+// render sites (Avatar, "Started by <name>", etc.) don't all need touching.
 async function loadPosts(section) {
   const filter = section && section !== 'all' ? `&section=eq.${section}` : '';
   const posts = await sb(`posts?select=*${filter}&order=last_activity_at.desc&limit=60`);
   if (!posts || !posts.length) return [];
   const uids = [...new Set(posts.map(p => p.user_id).filter(Boolean))];
-  let profileMap = {};
-  if (uids.length) {
-    const profiles = await sb(`user_profiles?select=*&clerk_id=in.(${uids.join(',')})`);
-    if (profiles) profiles.forEach(p => { profileMap[p.clerk_id] = p; });
-  }
-  return posts.map(p => ({ ...p, author: profileMap[p.user_id] || null }));
+  const nameMap = await fetchDisplayNames(uids);
+  return posts.map(p => ({ ...p, author: p.user_id ? { display_name: nameMap[p.user_id] || punterFallback(p.user_id) } : null }));
 }
 
 async function loadReplies(postId) {
   const replies = await sb(`replies?select=*&post_id=eq.${postId}&order=created_at.asc`);
   if (!replies || !replies.length) return [];
   const uids = [...new Set(replies.map(r => r.clerk_id).filter(Boolean))];
-  let profileMap = {};
-  if (uids.length) {
-    const profiles = await sb(`user_profiles?select=*&clerk_id=in.(${uids.join(',')})`);
-    if (profiles) profiles.forEach(p => { profileMap[p.clerk_id] = p; });
-  }
-  return replies.map(r => ({ ...r, author: profileMap[r.clerk_id] || null }));
+  const nameMap = await fetchDisplayNames(uids);
+  return replies.map(r => ({ ...r, author: r.clerk_id ? { display_name: nameMap[r.clerk_id] || punterFallback(r.clerk_id) } : null }));
 }
 
 // ─── shared atoms ─────────────────────────────────────────────────────────────
@@ -733,7 +731,7 @@ function LadderPage({ profile, onClose }) {
 
 // ─── left column ─────────────────────────────────────────────────────────────
 
-function LeftColumn({ profile, userId, section, onSection, missions, badges, onShowRanks, onShowLadder, betStats, postCount }) {
+function LeftColumn({ profile, punterName, userId, section, onSection, missions, badges, onShowRanks, onShowLadder, betStats, postCount }) {
   const tier = getTier(profile?.points || 0);
   const totalPoints = profile?.points || 0;
   const allTierPts = ALL_TIERS.map(t => t.points).sort((a,b)=>a-b);
@@ -748,9 +746,9 @@ function LeftColumn({ profile, userId, section, onSection, missions, badges, onS
         {profile ? (
           <>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-              <Avatar profile={profile} size={40} />
+              <Avatar profile={{ display_name: punterName }} size={40} />
               <div>
-                <div style={{ fontSize: 13, fontWeight: 700, color: '#111827', marginBottom: 3 }}>{profile.display_name}</div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: '#111827', marginBottom: 3 }}>{punterName}</div>
                 <button onClick={onShowLadder} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
                   <span style={{ fontSize: 9, fontWeight: 700, padding: '2px 6px', borderRadius: 3, background: `${tier.color}22`, color: tier.color }}>{tier.name}</span>
                 </button>
@@ -924,6 +922,8 @@ function RightColumn({ leaderboard, contributors, stats }) {
 function CommunityPageInner() {
   const { user } = useUser();
   const userId  = user?.id || null;
+  // What other users see too — never real name.
+  const punterName = user ? (user.username || punterFallback(user.id)) : null;
   const searchParams = useSearchParams();
   const isAdmin = userId === ADMIN_ID;
   const router    = useRouter();
@@ -981,9 +981,10 @@ function CommunityPageInner() {
         setProfile(r[0]);
       } else {
         const email = user?.emailAddresses?.[0]?.emailAddress || '';
-        const display_name = user?.firstName
-          ? (user.lastName ? `${user.firstName} ${user.lastName}` : user.firstName)
-          : email.split('@')[0] || 'User';
+        // display_name column kept populated for now (not dropped per plan),
+        // but never with real-name data — same username-or-fallback everyone
+        // else sees, not user?.firstName/email.
+        const display_name = user?.username || punterFallback(userId);
         const created = await sb('user_profiles', {
           method: 'POST',
           body: { clerk_id: userId, email, display_name, points: 0 },
@@ -1013,15 +1014,22 @@ function CommunityPageInner() {
   }, [userId]);
 
   useEffect(() => {
+    // Ranking itself (roi / points, both real Supabase columns) still comes
+    // straight from Supabase — only the display_name attached afterward is
+    // resolved live via Clerk username-or-fallback, never trusted off the
+    // user_profiles row.
     sb('competition_entries?select=clerk_id,roi&order=roi.desc.nullslast&limit=5').then(async r => {
       if (!r || !r.length) { setLeaderboard([]); return; }
       const ids = r.map(e => e.clerk_id).filter(Boolean);
-      const profs = ids.length ? await sb(`user_profiles?select=clerk_id,display_name&clerk_id=in.(${ids.join(',')})`) : [];
-      const nameMap = {};
-      if (profs) profs.forEach(p => { nameMap[p.clerk_id] = p.display_name; });
-      setLeaderboard(r.map(e => ({ ...e, display_name: nameMap[e.clerk_id] || 'Anonymous' })));
+      const nameMap = await fetchDisplayNames(ids);
+      setLeaderboard(r.map(e => ({ ...e, display_name: nameMap[e.clerk_id] || punterFallback(e.clerk_id) })));
     });
-    sb('user_profiles?select=clerk_id,display_name,points&order=points.desc&limit=5').then(r => setContributors(r || []));
+    sb('user_profiles?select=clerk_id,points&order=points.desc&limit=5').then(async r => {
+      if (!r || !r.length) { setContributors([]); return; }
+      const ids = r.map(c => c.clerk_id).filter(Boolean);
+      const nameMap = await fetchDisplayNames(ids);
+      setContributors(r.map(c => ({ ...c, display_name: nameMap[c.clerk_id] || punterFallback(c.clerk_id) })));
+    });
     Promise.all([sbCount('user_profiles'), sbCount('posts')]).then(([members, postsCount]) => {
       setStats({ members, posts: postsCount });
     });
@@ -1037,12 +1045,12 @@ function CommunityPageInner() {
     if (!res.ok) return false;
     const result = await res.json();
     if (result && result.length) {
-      setPosts(ps => [{ ...result[0], author: profile }, ...ps]);
+      setPosts(ps => [{ ...result[0], author: { display_name: punterName } }, ...ps]);
       window.dispatchEvent(new Event('ww:profile:refresh'));
       awardPoints(userId, 'community_post', title.slice(0, 100)).catch(() => {});
     }
     return !!result;
-  }, [userId, profile]);
+  }, [userId, punterName]);
 
   const totalVotes   = posts.reduce((s, p) => s + (p.votes || 0), 0);
   const totalReplies = posts.reduce((s, p) => s + (p.reply_count || 0), 0);
@@ -1070,6 +1078,7 @@ function CommunityPageInner() {
         className="community-grid">
       <LeftColumn
         profile={profile}
+        punterName={punterName}
         userId={userId}
         section={section}
         onSection={s => setSection(s)}

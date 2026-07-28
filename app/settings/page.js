@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useUser, useClerk } from '@clerk/nextjs';
 import useIsPro from '@/hooks/useIsPro';
+import { punterFallback } from '@/lib/punterFallback';
 
 const SURL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SKEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -48,7 +49,7 @@ const NAV = [
 ];
 
 const DEFAULTS = {
-  displayName: '', state: 'QLD',
+  state: 'QLD',
   notifRank1: false, notifBlackbooked: false,
   notifCountdown: 'off', notifSettled: false, notifComp: 'off', notifReply: false,
   defBookmaker: 'Sportsbet', defStake: '', defBetType: 'Win', oddsFormat: 'Decimal',
@@ -228,18 +229,49 @@ export default function SettingsPage() {
   const [avatarError, setAvatarError] = useState(null);
   const avatarInputRef = useRef(null);
 
+  // Username lives on Clerk (user.username), not user_settings — separate
+  // state/save path from the rest of this page's settings blob, since it's
+  // a different source of truth with its own validation/uniqueness rules.
+  const [username, setUsername] = useState('');
+  const [usernameSaving, setUsernameSaving] = useState(false);
+  const [usernameError, setUsernameError] = useState(null);
+  const [usernameToast, setUsernameToast] = useState(null);
+
+  useEffect(() => {
+    if (!user) return;
+    setUsername(user.username || '');
+  }, [user]);
+
   useEffect(() => {
     if (!user?.id) return;
-    const clerkName = [user.firstName, user.lastName].filter(Boolean).join(' ');
-    if (!SURL || !SKEY) {
-      setS(prev => ({ ...prev, displayName: prev.displayName || clerkName }));
-      return;
-    }
+    if (!SURL || !SKEY) return;
     sbFetch(`user_settings?clerk_id=eq.${encodeURIComponent(user.id)}&select=settings`).then(rows => {
       const saved = rows?.[0]?.settings || {};
-      setS({ ...DEFAULTS, ...saved, displayName: saved.displayName || clerkName });
+      setS({ ...DEFAULTS, ...saved });
     });
   }, [user?.id]);
+
+  async function saveUsername() {
+    if (!user) return;
+    const trimmed = username.trim();
+    if (trimmed && (trimmed.length < 4 || trimmed.length > 64)) {
+      setUsernameError('Username must be 4-64 characters.');
+      setTimeout(() => setUsernameError(null), 4000);
+      return;
+    }
+    setUsernameSaving(true);
+    setUsernameError(null);
+    try {
+      await user.update({ username: trimmed || null });
+      setUsernameToast('saved');
+      setTimeout(() => setUsernameToast(null), 2500);
+    } catch (err) {
+      setUsernameError(err?.errors?.[0]?.longMessage || err?.errors?.[0]?.message || err?.message || 'That username is taken — try another.');
+      setTimeout(() => setUsernameError(null), 5000);
+    } finally {
+      setUsernameSaving(false);
+    }
+  }
 
   const set = useCallback((k, v) => setS(prev => ({ ...prev, [k]: v })), []);
 
@@ -359,7 +391,8 @@ export default function SettingsPage() {
   }
 
   const email = user?.emailAddresses?.[0]?.emailAddress || '';
-  const avatarInitials = initials(s.displayName || [user?.firstName, user?.lastName].filter(Boolean).join(' '));
+  const punterFallbackName = user ? punterFallback(user.id) : '';
+  const avatarInitials = initials(user?.username || punterFallbackName);
 
   function renderSection() {
     switch (active) {
@@ -367,8 +400,20 @@ export default function SettingsPage() {
       case 'profile': return (
         <>
           <SecTitle>Profile</SecTitle>
-          <Field label="Display name">
-            <Inp value={s.displayName} onChange={v => set('displayName', v)} placeholder="Your name" />
+          <Field label="Username" hint="This is what other users see across the site — in Community, on leaderboards, everywhere — instead of your real name. Leave blank to keep an anonymous auto-generated name.">
+            <Inp value={username} onChange={setUsername} placeholder={punterFallbackName ? `${punterFallbackName} (auto-generated)` : 'Username'} />
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 6 }}>
+              <button
+                type="button"
+                onClick={saveUsername}
+                disabled={usernameSaving || username.trim() === (user?.username || '')}
+                style={{ background: G, color: '#fff', border: 'none', borderRadius: 6, padding: '6px 14px', fontSize: 12, fontWeight: 600, cursor: usernameSaving ? 'default' : 'pointer', opacity: usernameSaving || username.trim() === (user?.username || '') ? 0.5 : 1 }}
+              >
+                {usernameSaving ? 'Saving…' : 'Save username'}
+              </button>
+              {usernameToast && <span style={{ fontSize: 11, color: '#059669', fontWeight: 600 }}>Saved</span>}
+              {usernameError && <span style={{ fontSize: 11, color: '#dc2626' }}>{usernameError}</span>}
+            </div>
           </Field>
           <Field label="Email" hint="Managed by your account provider">
             <Inp value={email} onChange={() => {}} readOnly />

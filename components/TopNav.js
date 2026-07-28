@@ -7,6 +7,7 @@ import { useState, useEffect, useRef } from 'react';
 import useIsPro from '@/hooks/useIsPro';
 import useIsMobile from '@/hooks/useIsMobile';
 import { isSiteAdmin } from '@/lib/admin';
+import { punterFallback } from '@/lib/punterFallback';
 
 const SURL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SKEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -38,6 +39,10 @@ export default function TopNav() {
   const router = useRouter();
   const { user, isLoaded } = useUser();
   const { signOut, openSignIn } = useClerk();
+  // What other users see too — never real name. Clerk's own username field
+  // if set, otherwise a stable per-account fallback (never "real name" data
+  // like firstName/lastName or an email fragment).
+  const punterName = user ? (user.username || punterFallback(user.id)) : null;
   const isPro = useIsPro();
   const isMobile = useIsMobile();
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -104,9 +109,7 @@ export default function TopNav() {
     return () => document.removeEventListener('mousedown', handler);
   }, [dropdownOpen]);
 
-  const initial = user
-    ? (user.firstName || user.emailAddresses?.[0]?.emailAddress || 'U').charAt(0).toUpperCase()
-    : null;
+  const initial = punterName ? punterName.charAt(0).toUpperCase() : null;
 
   return (
     <>
@@ -240,7 +243,7 @@ export default function TopNav() {
                     : <span className="w-[22px] h-[22px] rounded-full bg-amber-400 text-gray-900 flex items-center justify-center text-[11px] font-bold flex-shrink-0">{initial}</span>
                   }
                   <span className="max-w-[80px] overflow-hidden text-ellipsis whitespace-nowrap">
-                    {user.firstName || 'Account'}
+                    {punterName || 'Account'}
                   </span>
                   <span style={{ background: isPro ? '#FAEEDA' : '#E1F5EE', color: isPro ? '#854F0B' : '#0F6E56', fontSize: 10, fontWeight: 500, padding: '2px 7px', borderRadius: 4, flexShrink: 0 }}>
                     {isPro ? 'PRO' : 'FREE'}
@@ -260,9 +263,7 @@ export default function TopNav() {
                 {/* User info header */}
                 <div className="px-3 py-2.5 border-b border-gray-100">
                   <div className="text-xs font-semibold text-gray-900 truncate">
-                    {user.firstName && user.lastName
-                      ? `${user.firstName} ${user.lastName}`
-                      : user.firstName || 'Account'}
+                    {punterName || 'Account'}
                   </div>
                   <div className="text-[10px] text-gray-500 truncate">
                     {user.emailAddresses?.[0]?.emailAddress}
@@ -365,7 +366,7 @@ export default function TopNav() {
                     : <span style={{ width: 34, height: 34, borderRadius: '50%', background: '#fbbf24', color: '#111', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 14, flexShrink: 0 }}>{initial}</span>
                   }
                   <div>
-                    <div style={{ fontSize: 12, fontWeight: 700, color: '#fff', marginBottom: 3 }}>{user.firstName || 'Account'}</div>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: '#fff', marginBottom: 3 }}>{punterName || 'Account'}</div>
                     <span style={{ fontSize: 9, fontWeight: 600, padding: '2px 7px', borderRadius: 4, background: isPro ? '#FAEEDA' : '#E1F5EE', color: isPro ? '#854F0B' : '#0F6E56' }}>
                       {isPro ? 'PRO' : 'FREE'}
                     </span>

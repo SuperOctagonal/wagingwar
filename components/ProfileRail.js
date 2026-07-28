@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { getTier, ALL_TIERS } from '@/lib/tiers';
 import useIsPro from '@/hooks/useIsPro';
+import { punterFallback } from '@/lib/punterFallback';
 
 const SURL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SKEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -85,7 +86,9 @@ export default function ProfileRail({ children }) {
     ? Math.min(100, Math.round((totalPoints - currentTierPts) / (nextTierPts - currentTierPts) * 100))
     : 100;
 
-  const initial = (profile.display_name || '?')[0]?.toUpperCase() || '?';
+  // What other users see too — never real name.
+  const punterName = user.username || punterFallback(user.id);
+  const initial = punterName[0]?.toUpperCase() || '?';
 
   return (
     <div className="profile-rail" style={{ width: 220, background: '#fff', borderRight: '0.5px solid #e5e7eb', overflowY: 'auto', flexShrink: 0, display: 'flex', flexDirection: 'column' }}>
@@ -97,7 +100,7 @@ export default function ProfileRail({ children }) {
             : <div style={{ width: 40, height: 40, borderRadius: '50%', background: '#00471b', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 16, fontWeight: 700, color: '#fff' }}>{initial}</div>
           }
           <div>
-            <div style={{ fontSize: 12, fontWeight: 700, color: '#111827', marginBottom: 3 }}>{profile.display_name}</div>
+            <div style={{ fontSize: 12, fontWeight: 700, color: '#111827', marginBottom: 3 }}>{punterName}</div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
               <span style={{ fontSize: 9, fontWeight: 500, padding: '2px 7px', borderRadius: 4, background: isPro ? '#FAEEDA' : '#E1F5EE', color: isPro ? '#854F0B' : '#0F6E56' }}>
                 {isPro ? 'PRO' : 'FREE'}

@@ -6,6 +6,8 @@ import { useUser } from '@clerk/nextjs';
 import useIsPro from '@/hooks/useIsPro';
 import UpgradeModal from '@/components/UpgradeModal';
 import { awardPoints } from '@/lib/points';
+import { punterFallback } from '@/lib/punterFallback';
+import { fetchDisplayNames } from '@/lib/displayNames';
 
 const SURL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SKEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -109,6 +111,8 @@ export default function PostDetailPage() {
   const userId  = user?.id || null;
   const isPro   = useIsPro();
   const isAdmin = userId === ADMIN_ID;
+  // What other users see too — never real name.
+  const punterName = user ? (user.username || punterFallback(user.id)) : null;
 
   const [upgradeOpen,    setUpgradeOpen]    = useState(false);
   const [post,           setPost]           = useState(null);
@@ -118,7 +122,6 @@ export default function PostDetailPage() {
   const [upvotedReplies, setUpvotedReplies] = useState(new Set());
   const [replyText,      setReplyText]      = useState('');
   const [submitting,     setSubmitting]     = useState(false);
-  const [userProfile,    setUserProfile]    = useState(null);
 
   // Load post + replies
   useEffect(() => {
@@ -128,33 +131,22 @@ export default function PostDetailPage() {
       const posts = await sb(`posts?select=*&id=eq.${id}&limit=1`);
       if (!posts || !posts.length) { setLoading(false); return; }
       const p = { ...posts[0] };
-      if (p.user_id) {
-        const profs = await sb(`user_profiles?select=*&clerk_id=eq.${p.user_id}&limit=1`);
-        if (profs && profs.length) p.author = profs[0];
-      }
+      const replyRows = await sb(`replies?select=*&post_id=eq.${id}&order=created_at.asc`);
+
+      // One batched Clerk lookup covering both the post author and every
+      // reply author, instead of two separate user_profiles joins.
+      const allIds = [...new Set([p.user_id, ...(replyRows || []).map(r => r.clerk_id)].filter(Boolean))];
+      const nameMap = allIds.length ? await fetchDisplayNames(allIds) : {};
+
+      if (p.user_id) p.author = { display_name: nameMap[p.user_id] || punterFallback(p.user_id) };
       setPost(p);
 
-      const replyRows = await sb(`replies?select=*&post_id=eq.${id}&order=created_at.asc`);
       if (replyRows && replyRows.length) {
-        const uids = [...new Set(replyRows.map(r => r.clerk_id).filter(Boolean))];
-        let profileMap = {};
-        if (uids.length) {
-          const profs = await sb(`user_profiles?select=*&clerk_id=in.(${uids.join(',')})`);
-          if (profs) profs.forEach(pr => { profileMap[pr.clerk_id] = pr; });
-        }
-        setReplies(replyRows.map(r => ({ ...r, author: profileMap[r.clerk_id] || null })));
+        setReplies(replyRows.map(r => ({ ...r, author: r.clerk_id ? { display_name: nameMap[r.clerk_id] || punterFallback(r.clerk_id) } : null })));
       }
       setLoading(false);
     })();
   }, [id]);
-
-  // Load current user profile for reply attribution
-  useEffect(() => {
-    if (!userId) return;
-    sb(`user_profiles?select=*&clerk_id=eq.${userId}&limit=1`).then(r => {
-      if (r && r.length) setUserProfile(r[0]);
-    });
-  }, [userId]);
 
   const handleUpvotePost = useCallback(async () => {
     if (!post) return;
@@ -201,7 +193,7 @@ export default function PostDetailPage() {
     if (res.ok) {
       const result = await res.json();
       if (result && result.length) {
-        setReplies(rs => [...rs, { ...result[0], author: userProfile }]);
+        setReplies(rs => [...rs, { ...result[0], author: { display_name: punterName } }]);
         const newCount = (post.reply_count || 0) + 1;
         const newActivityAt = new Date().toISOString();
         const patched = await sb(`posts?id=eq.${post.id}`, { method: 'PATCH', body: { reply_count: newCount, last_activity_at: newActivityAt }, prefer: 'return=representation' });
@@ -216,7 +208,7 @@ export default function PostDetailPage() {
       }
     }
     setSubmitting(false);
-  }, [replyText, userId, post, userProfile]);
+  }, [replyText, userId, post, punterName]);
 
   const sectionLabel = SECTIONS.find(s => s.id === post?.section)?.label || '';
 
