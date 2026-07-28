@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { useUser, useClerk } from '@clerk/nextjs';
+import { useUser, useClerk, useReverification } from '@clerk/nextjs';
+import { isReverificationCancelledError } from '@clerk/nextjs/errors';
 import useIsPro from '@/hooks/useIsPro';
 import { punterFallback } from '@/lib/punterFallback';
 
@@ -236,6 +237,11 @@ export default function SettingsPage() {
   const [usernameSaving, setUsernameSaving] = useState(false);
   const [usernameError, setUsernameError] = useState(null);
   const [usernameToast, setUsernameToast] = useState(null);
+  // Username changes can require Clerk's reverification (step-up auth) —
+  // this wraps the update so Clerk's own modal shows automatically when
+  // needed and retries afterward, instead of the call just throwing
+  // straight through with no handling.
+  const updateUsername = useReverification((newUsername) => user.update({ username: newUsername }));
 
   useEffect(() => {
     if (!user) return;
@@ -262,12 +268,17 @@ export default function SettingsPage() {
     setUsernameSaving(true);
     setUsernameError(null);
     try {
-      await user.update({ username: trimmed || null });
+      await updateUsername(trimmed || null);
       setUsernameToast('saved');
       setTimeout(() => setUsernameToast(null), 2500);
     } catch (err) {
-      setUsernameError(err?.errors?.[0]?.longMessage || err?.errors?.[0]?.message || err?.message || 'That username is taken — try another.');
-      setTimeout(() => setUsernameError(null), 5000);
+      if (isReverificationCancelledError(err)) {
+        // User closed Clerk's reverification modal without completing it —
+        // not an error, just leave the field as they had it.
+      } else {
+        setUsernameError(err?.errors?.[0]?.longMessage || err?.errors?.[0]?.message || err?.message || 'That username is taken — try another.');
+        setTimeout(() => setUsernameError(null), 5000);
+      }
     } finally {
       setUsernameSaving(false);
     }
