@@ -339,7 +339,7 @@ function periodFilter(period, todayISO) {
 }
 
 function calcRow(bets) {
-  const settled = bets.filter(b => b.status && b.status !== 'pending' && b.status !== 'scratched' && b.status !== 'unresolved');
+  const settled = bets.filter(b => b.status && b.status !== 'pending' && b.status !== 'scratched' && b.status !== 'unresolved' && b.status !== 'abandoned');
   const wins = settled.filter(b => b.status === 'win').length;
   const totalStaked = settled.reduce((s, b) => s + (b.stake || 0), 0);
   const totalRet = settled.reduce((s, b) => s + (b.return_amt || 0), 0);
@@ -976,7 +976,7 @@ export default function MybetsPage() {
   }, [bets, serverFilteredBets, dateRange, customStart, customEnd, todayISO]);
 
   const dateResulted = useMemo(() =>
-    dateFilteredBets.filter(b => b.status && b.status !== 'pending' && b.status !== 'scratched' && b.status !== 'unresolved'),
+    dateFilteredBets.filter(b => b.status && b.status !== 'pending' && b.status !== 'scratched' && b.status !== 'unresolved' && b.status !== 'abandoned'),
   [dateFilteredBets]);
 
   const dateStats = useMemo(() => calcRow(dateFilteredBets), [dateFilteredBets]);
@@ -989,7 +989,7 @@ export default function MybetsPage() {
       place:    base.filter(b => b.status === 'place').length,
       loss:     base.filter(b => b.status === 'loss').length,
       upcoming: base.filter(b => !b.status || b.status === 'pending' || b.status === 'unresolved').length,
-      resulted: base.filter(b => b.status && b.status !== 'pending' && b.status !== 'unresolved').length,
+      resulted: base.filter(b => b.status && b.status !== 'pending' && b.status !== 'unresolved' && b.status !== 'abandoned').length,
     };
   }, [dateFilteredBets]);
 
@@ -1065,7 +1065,7 @@ export default function MybetsPage() {
       : dateFilteredBets.filter(b => b.status !== 'scratched');
     if (activeTab === 'all') return base;
     if (activeTab === 'upcoming') return base.filter(b => !b.status || b.status === 'pending' || b.status === 'unresolved');
-    if (activeTab === 'resulted') return base.filter(b => b.status && b.status !== 'pending' && b.status !== 'unresolved');
+    if (activeTab === 'resulted') return base.filter(b => b.status && b.status !== 'pending' && b.status !== 'unresolved' && b.status !== 'abandoned');
     return base.filter(b => b.status === activeTab);
   }, [dateFilteredBets, activeTab, showScratched]);
 
