@@ -861,7 +861,7 @@ export default function MybetsPage() {
     ['Today', 'This week', 'This month', 'All time'].map(p => ({ label: p, ...calcRow(bets.filter(periodFilter(p, todayISO))) }))
   ), [bets, todayISO]);
 
-  const resultedBets     = useMemo(() => bets.filter(b => b.status && b.status !== 'pending' && b.status !== 'scratched' && b.status !== 'unresolved'), [bets]);
+  const resultedBets     = useMemo(() => bets.filter(b => b.status && b.status !== 'pending' && b.status !== 'scratched' && b.status !== 'unresolved' && b.status !== 'abandoned'), [bets]);
   const filteredResulted = useMemo(() => {
     if (activeTab === 'all') return resultedBets;
     if (activeTab === 'win') return resultedBets.filter(b => b.status === 'win');
@@ -880,7 +880,7 @@ export default function MybetsPage() {
   const pendingBets = useMemo(() => bets.filter(b => !b.status || b.status === 'pending' || b.status === 'unresolved'), [bets]);
 
   const filteredBets = useMemo(() => {
-    const base = bets.filter(b => b.status !== 'scratched');
+    const base = bets.filter(b => b.status !== 'scratched' && b.status !== 'abandoned');
     if (activeTab === 'all') return base;
     if (activeTab === 'win') return base.filter(b => b.status === 'win');
     if (activeTab === 'place') return base.filter(b => b.status === 'place');
@@ -994,7 +994,7 @@ export default function MybetsPage() {
   }, [dateFilteredBets]);
 
   const avgOdds = useMemo(() => {
-    const settled = dateFilteredBets.filter(b => b.status && b.status !== 'pending' && b.status !== 'scratched' && b.status !== 'unresolved' && +(b.odds || 0) > 1);
+    const settled = dateFilteredBets.filter(b => b.status && b.status !== 'pending' && b.status !== 'scratched' && b.status !== 'unresolved' && b.status !== 'abandoned' && +(b.odds || 0) > 1);
     if (!settled.length) return '—';
     return '$' + (settled.reduce((s, b) => s + +(b.odds || 0), 0) / settled.length).toFixed(2);
   }, [dateFilteredBets]);
@@ -1053,7 +1053,7 @@ export default function MybetsPage() {
       const d = new Date(today);
       d.setDate(today.getDate() - (6 - i));
       const iso = d.toISOString().slice(0, 10);
-      const dayBets = bets.filter(b => b.date === iso && b.status && b.status !== 'pending' && b.status !== 'scratched' && b.status !== 'unresolved');
+      const dayBets = bets.filter(b => b.date === iso && b.status && b.status !== 'pending' && b.status !== 'scratched' && b.status !== 'unresolved' && b.status !== 'abandoned');
       const pnl = dayBets.reduce((s, b) => s + (b.profit_loss || 0), 0);
       return { day: iso.slice(5), pnl: Math.round(pnl * 100) / 100 };
     });
@@ -2045,7 +2045,7 @@ export default function MybetsPage() {
                   }
 
                   const calcGroupData = arr => {
-                    const settled = arr.filter(b => b.status && b.status !== 'pending' && b.status !== 'scratched');
+                    const settled = arr.filter(b => b.status && b.status !== 'pending' && b.status !== 'scratched' && b.status !== 'unresolved' && b.status !== 'abandoned');
                     const wins = settled.filter(b => b.status === 'win').length;
                     const staked = settled.reduce((s, b) => s + (b.stake || 0), 0);
                     const ret = settled.reduce((s, b) => s + (b.return_amt || 0), 0);
@@ -2263,7 +2263,7 @@ export default function MybetsPage() {
               {dateResulted.length > 0 && (() => {
                 const MIN_EZ = 5;
                 const calcGroupExt = arr => {
-                  const settled = arr.filter(b => b.status && b.status !== 'pending' && b.status !== 'scratched');
+                  const settled = arr.filter(b => b.status && b.status !== 'pending' && b.status !== 'scratched' && b.status !== 'unresolved' && b.status !== 'abandoned');
                   const wins   = settled.filter(b => b.status === 'win').length;
                   const second = settled.filter(b => b.position === 2).length;
                   const third  = settled.filter(b => b.position === 3).length;

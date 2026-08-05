@@ -997,7 +997,8 @@ function CommunityPageInner() {
         sb(`bet_log?clerk_id=eq.${userId}&select=result`),
         sb(`posts?user_id=eq.${userId}&select=id`),
       ]);
-      setBetStats({ total: bets?.length || 0, wins: (bets || []).filter(b => b.result === 'win').length });
+      const resultedBets = (bets || []).filter(b => b.result && b.result !== 'pending' && b.result !== 'scratched' && b.result !== 'unresolved' && b.result !== 'abandoned');
+      setBetStats({ total: resultedBets.length, wins: resultedBets.filter(b => b.result === 'win').length });
       setPostCount(posts?.length || 0);
     })();
     setBadges([]);
