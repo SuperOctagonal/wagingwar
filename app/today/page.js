@@ -206,24 +206,45 @@ export default function TodayPage() {
   const tcL = TC_LABELS[tc];
 
   useEffect(() => {
-    const csv = localStorage.getItem('ww_csv');
-    if (csv) {
+    // Parses `csv` and applies it to state if it has races matching today's
+    // AEST date. Returns true if applied — callers use this to decide
+    // whether a network fallback is still needed (missing, empty, wrong-date,
+    // or unparseable cache all count as "not usable").
+    function applyCsv(csv) {
+      if (!csv) return false;
       try {
         const { allRaces: ar, allVenues: av, raceKeys: rk } = buildRaces(parseCSV(csv));
-        if (rk.length > 0) {
-          // Only show CSV races if they match today's AEST date
-          const firstRace = ar[rk[0]];
-          let csvDateISO = null;
-          if (firstRace?.date) {
-            const p = firstRace.date.split('/');
-            if (p.length === 3) csvDateISO = `${p[2]}-${p[1].padStart(2,'0')}-${p[0].padStart(2,'0')}`;
-          }
-          if (!csvDateISO || csvDateISO === todayISO) {
-            setAllRaces(ar); setAllVenues(av); setRaceKeys(rk);
-          }
+        if (rk.length === 0) return false;
+        // Only show CSV races if they match today's AEST date
+        const firstRace = ar[rk[0]];
+        let csvDateISO = null;
+        if (firstRace?.date) {
+          const p = firstRace.date.split('/');
+          if (p.length === 3) csvDateISO = `${p[2]}-${p[1].padStart(2,'0')}-${p[0].padStart(2,'0')}`;
         }
-      } catch {}
+        if (csvDateISO && csvDateISO !== todayISO) return false;
+        setAllRaces(ar); setAllVenues(av); setRaceKeys(rk);
+        return true;
+      } catch {
+        return false;
+      }
     }
+
+    if (!applyCsv(localStorage.getItem('ww_csv'))) {
+      // No usable cache — fetch fresh from Storage directly, same call
+      // app/races/page.js makes on mount, so /today doesn't silently depend
+      // on the user having visited /races first in this browser to populate
+      // localStorage.
+      fetch('/api/today-csv')
+        .then(r => (r.ok ? r.text() : Promise.reject(r.status)))
+        .then(text => {
+          localStorage.setItem('ww_csv', text);
+          localStorage.setItem('ww_csv_name', 'today.csv');
+          applyCsv(text);
+        })
+        .catch(() => {});
+    }
+
     fetchTodayResults(todayISO).then(setResults);
     if (SURL && SKEY) {
       fetch(`${SURL}/rest/v1/scratchings?date=eq.${todayISO}&select=venue,race_num,horse_name`, {
