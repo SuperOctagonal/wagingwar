@@ -1463,7 +1463,7 @@ function MobileRunnerCard({ runner, rank, rc, trackCond, onLogBet, isResulted, b
   return (
     <div style={{ background: isDbScratched ? '#fafafa' : (rank===1 ? '#FAEEDA' : '#fff'), borderBottom: '1px solid #f1f5f9', padding: '4px 6px 5px 10px', opacity: isDbScratched ? 0.45 : 1, overflow: 'hidden' }}>
 
-      {/* Line 1: RNK (16) | NO/badge (16) | name (flex:1) | Score (32) | Live $ (38) | Val (28) — gap:5 mirrors column header */}
+      {/* Line 1: RNK (16) | NO/badge (16) | name (flex:1) | Score (32) | Edge $ (34) | Live $ (38) | Val (28) — gap:5 mirrors column header */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 1 }}>
         <div style={{ flexShrink: 0, width: 16, textAlign: 'center', fontSize: 9, fontWeight: 500, color: isDbScratched ? '#d1d5db' : '#6b7280', lineHeight: '16px' }}>
           {isDbScratched ? '—' : !isPro ? <LockBtn onClick={onUpgrade} /> : (rank || '—')}
@@ -1474,6 +1474,9 @@ function MobileRunnerCard({ runner, rank, rc, trackCond, onLogBet, isResulted, b
         </span>
         <div style={{ flexShrink: 0, width: 36, textAlign: 'right', fontSize: 13, fontWeight: 600, color: '#111827' }}>
           {isDbScratched ? '—' : !isPro ? <LockBtn onClick={onUpgrade} /> : runner.totalFromGroups.toFixed(1)}
+        </div>
+        <div style={{ flexShrink: 0, width: 34, textAlign: 'right', fontSize: 11, fontWeight: 600, color: '#059669' }}>
+          {isDbScratched ? '—' : !isPro ? <LockBtn onClick={onUpgrade} /> : (myO ? `$${formatRacingOdds(myO)}` : '—')}
         </div>
         <div style={{ flexShrink: 0, width: 42, textAlign: 'right', fontSize: 12, fontWeight: 600, color: '#111827' }}>{mktO ? `$${mktO.toFixed(2)}` : '—'}</div>
         <div style={{ flexShrink: 0, width: 32, textAlign: 'right', fontSize: 11, fontWeight: 500, color: valColor }}>
@@ -1819,6 +1822,7 @@ function FieldView({ results, scratched, rc, trackCond, onLogBet, onShowPopup, o
             {layers.pace && <span style={{ fontSize: 10, fontWeight: 400, color: '#6b7280', textTransform: 'none', letterSpacing: 0 }}>· Sorted by barrier</span>}
           </div>
           <div style={{ flexShrink: 0, width: 36, textAlign: 'right' }}>Score</div>
+          <div style={{ flexShrink: 0, width: 34, textAlign: 'right' }}>Edge $</div>
           <div style={{ flexShrink: 0, width: 42, textAlign: 'right' }}>Ref $</div>
           <div style={{ flexShrink: 0, width: 32, textAlign: 'right' }}>Val</div>
         </div>
