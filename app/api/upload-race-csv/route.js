@@ -105,7 +105,7 @@ export async function POST(req) {
     if (!rc.time || !rc.date || !rc.venue) continue;
     const d = toISO(rc.date);
     if (!d) continue;
-    scheduleRows.push({ date: d, venue: rc.venue.toUpperCase(), race_num: String(rc.num), post_time: rc.time });
+    scheduleRows.push({ date: d, venue: normaliseVenue(rc.venue), race_num: String(rc.num), post_time: rc.time });
   }
 
   if (scheduleRows.length) {
