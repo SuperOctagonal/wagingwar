@@ -28,14 +28,33 @@ export async function GET(req) {
 
   const headers = { apikey: SKEY, Authorization: `Bearer ${SKEY}` };
 
-  const [cardsResult, scrRes] = await Promise.all([
+  const [cardsResult, scrRes, meetingsRes] = await Promise.all([
     fetchAllRows(`${SURL}/rest/v1/race_cards?date=eq.${date}&select=venue,race_num,form_data`, headers),
     fetch(`${SURL}/rest/v1/scratchings?date=eq.${date}&select=venue,race_num,horse_name`, { headers }),
+    fetch(`${SURL}/rest/v1/today_meetings?date=eq.${date}&select=venue,track_condition,condition_override`, { headers }),
   ]);
 
   if (!cardsResult.ok) return NextResponse.json({ error: `Supabase ${cardsResult.status}` }, { status: 502 });
   const cardRows = cardsResult.rows;
   const scrRows = scrRes.ok ? await scrRes.json() : [];
+  const meetingsRows = meetingsRes.ok ? await meetingsRes.json() : [];
+
+  // Same bucketing as the Races page (app/races/page.js) so scoring uses the
+  // real per-venue condition instead of always assuming Good -- a hardcoded
+  // 'good' here silently reorders every non-Good race's ranks relative to
+  // the live Races page, since trackCondWin factors score off softWin/
+  // heavyWin/goodWin depending on this value (see getRawAndMetric in
+  // lib/scoring.js).
+  const trackCondByVenue = {};
+  meetingsRows.forEach(r => {
+    const norm = normaliseVenue(r.venue);
+    const effectiveCond = (r.condition_override || r.track_condition || '').toLowerCase();
+    if (!effectiveCond) return;
+    trackCondByVenue[norm] = effectiveCond.includes('heavy') ? 'heavy'
+      : effectiveCond.includes('soft') || effectiveCond.includes('slow') ? 'soft'
+      : effectiveCond.includes('synth') ? 'synthetic'
+      : 'good';
+  });
 
   // Group into per-race horse arrays, same shape the client used to build
   // from the (now-stripped-for-free) /api/race-cards response.
@@ -59,9 +78,10 @@ export async function GET(req) {
     const active = horses.filter(h => !h.scratched && !dbScrNames.has(normName(h.name || '')));
     if (!active.length) return;
 
+    const trackCond = trackCondByVenue[venue] || 'good';
     const scored = active.map(h => {
       const grpScores = {};
-      GRP_KEYS.forEach(gk => { grpScores[gk] = scoreGroup(h, gk, weights, 'good'); });
+      GRP_KEYS.forEach(gk => { grpScores[gk] = scoreGroup(h, gk, weights, trackCond); });
       const total = GRP_KEYS.reduce((a, gk) => a + grpScores[gk].total, 0);
       return { name: h.name, total };
     }).sort((a, b) => b.total - a.total);

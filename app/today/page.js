@@ -56,18 +56,29 @@ function ordinal(n) {
   return `${n}${s[(v - 20) % 10] || s[v] || s[0]}`;
 }
 
-function getTopPicks(allRaces, allVenues, weights, dbScratchings = new Set()) {
+// Same bucketing as the Races page and /api/results-ranks — 'heavy'/'soft'/
+// 'synthetic'/'good', matched from today_meetings' free-text condition string.
+function bucketTrackCond(raw) {
+  const tcl = (raw || '').toLowerCase();
+  return tcl.includes('heavy') ? 'heavy'
+    : tcl.includes('soft') || tcl.includes('slow') ? 'soft'
+    : tcl.includes('synth') ? 'synthetic'
+    : 'good';
+}
+
+function getTopPicks(allRaces, allVenues, weights, dbScratchings = new Set(), venueTrackConds = {}) {
   const picks = [];
   Object.values(allVenues).forEach(keys => {
     keys.forEach(k => {
       const rc = allRaces[k];
       if (!rc || !rc.horses) return;
       const rcVN = normaliseVenue(rc.venue || '');
+      const trackCond = venueTrackConds[rcVN] || 'good';
       const active = rc.horses.filter(h => !h.scratched && !dbScratchings.has(`${rcVN}||${rc.num}||${normName(h.name||'')}`) );
       if (!active.length) return;
       const scored = active.map(h => {
         const grpScores = {};
-        GRP_KEYS.forEach(gk => { grpScores[gk] = scoreGroup(h, gk, weights, 'good'); });
+        GRP_KEYS.forEach(gk => { grpScores[gk] = scoreGroup(h, gk, weights, trackCond); });
         const total = GRP_KEYS.reduce((a, gk) => a + grpScores[gk].total, 0);
         return { ...h, grpScores, total };
       }).sort((a, b) => b.total - a.total);
@@ -194,6 +205,7 @@ export default function TodayPage() {
   const [picksOpen, setPicksOpen] = useState(false);
   const [popup, setPopup] = useState(null);
   const [dbScratchings, setDbScratchings] = useState(new Set());
+  const [venueTrackConds, setVenueTrackConds] = useState({});
   const [upgradeOpen, setUpgradeOpen] = useState(false);
 
   const weights = useMemo(() => getDefaultWeights(), []);
@@ -254,12 +266,23 @@ export default function TodayPage() {
         (rows || []).forEach(row => { s.add(`${normaliseVenue(row.venue||'')}||${row.race_num}||${normName(row.horse_name||'')}`); });
         setDbScratchings(s);
       }).catch(() => {});
+
+      fetch(`${SURL}/rest/v1/today_meetings?date=eq.${todayISO}&select=venue,track_condition,condition_override`, {
+        headers: { apikey: SKEY, Authorization: `Bearer ${SKEY}` }
+      }).then(r => r.ok ? r.json() : []).then(rows => {
+        const tc = {};
+        (rows || []).forEach(r => {
+          const effectiveCond = r.condition_override || r.track_condition;
+          if (effectiveCond) tc[normaliseVenue(r.venue)] = bucketTrackCond(effectiveCond);
+        });
+        setVenueTrackConds(tc);
+      }).catch(() => {});
     }
   }, [todayISO]);
 
   const venues = Object.keys(allVenues);
   const hasCSV = raceKeys.length > 0;
-  const picks = useMemo(() => hasCSV ? getTopPicks(allRaces, allVenues, weights, dbScratchings) : [], [allRaces, allVenues, weights, hasCSV, dbScratchings]);
+  const picks = useMemo(() => hasCSV ? getTopPicks(allRaces, allVenues, weights, dbScratchings, venueTrackConds) : [], [allRaces, allVenues, weights, hasCSV, dbScratchings, venueTrackConds]);
 
   return (
     <div style={{ display:'flex', flex:1, overflow:'hidden' }}>

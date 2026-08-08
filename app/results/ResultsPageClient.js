@@ -109,12 +109,23 @@ async function fetchRankDataForDates(dates) {
 
 function normName(n) { return (n || '').replace(/\s*\([A-Z]{2,4}\)\s*$/i, '').trim().toUpperCase().replace(/[^A-Z0-9]/g, ''); }
 
-function getSysRanks(allRaces, allVenues, venue, raceNum, weights, dbScratchings = []) {
+// Same bucketing as the Races page and /api/results-ranks — 'heavy'/'soft'/
+// 'synthetic'/'good', matched from today_meetings' free-text condition string.
+function bucketTrackCond(raw) {
+  const tcl = (raw || '').toLowerCase();
+  return tcl.includes('heavy') ? 'heavy'
+    : tcl.includes('soft') || tcl.includes('slow') ? 'soft'
+    : tcl.includes('synth') ? 'synthetic'
+    : 'good';
+}
+
+function getSysRanks(allRaces, allVenues, venue, raceNum, weights, dbScratchings = [], venueTrackConds = {}) {
   const normVenue = normaliseVenue(venue);
   const dbScrNames = new Set(
     dbScratchings.filter(r => normaliseVenue(r.venue) === normVenue && String(r.race_num) === String(raceNum))
       .map(r => normName(r.horse_name || ''))
   );
+  const trackCond = venueTrackConds[normVenue] || 'good';
   for (const keys of Object.values(allVenues)) {
     for (const k of keys) {
       const rc = allRaces[k];
@@ -124,7 +135,7 @@ function getSysRanks(allRaces, allVenues, venue, raceNum, weights, dbScratchings
       const active = (rc.horses || []).filter(h => !h.scratched && !dbScrNames.has(normName(h.name || '')));
       const scored = active.map(h => {
         const grpScores = {};
-        GRP_KEYS.forEach(gk => { grpScores[gk] = scoreGroup(h, gk, weights, 'good'); });
+        GRP_KEYS.forEach(gk => { grpScores[gk] = scoreGroup(h, gk, weights, trackCond); });
         const total = GRP_KEYS.reduce((a, gk) => a + grpScores[gk].total, 0);
         return { name: h.name, total };
       }).sort((a, b) => b.total - a.total);
@@ -136,9 +147,7 @@ function getSysRanks(allRaces, allVenues, venue, raceNum, weights, dbScratchings
   return null;
 }
 
-// Display-only bucketing for the daily summary's track-condition breakdown —
-// scoring itself is always 'good' now (see getSysRanks), this is just
-// for the 4-way Good/Soft/Heavy/Synthetic display split.
+// Display-only bucketing for the daily summary's track-condition breakdown.
 function tcBucket(tc) {
   const t = (tc || '').toLowerCase();
   if (t.startsWith('good'))  return 'Good';
@@ -1125,6 +1134,7 @@ export default function ResultsPage() {
   const [dbRows, setDbRows] = useState([]);
   const [dbScratchings, setDbScratchings] = useState([]);
   const [venueAbandoned, setVenueAbandoned] = useState(new Set());
+  const [venueTrackConds, setVenueTrackConds] = useState({});
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [selectedDate, setSelectedDate] = useState(() => {
@@ -1175,12 +1185,11 @@ export default function ResultsPage() {
     const scrFetch = hdrs
       ? fetch(`${SURL}/rest/v1/scratchings?date=eq.${selectedDate}&select=venue,race_num,horse_name`, { headers: hdrs }).then(r => r.ok ? r.json() : [])
       : Promise.resolve([]);
-    const abandonedFetch = hdrs
-      ? fetch(`${SURL}/rest/v1/today_meetings?date=eq.${selectedDate}&select=venue,is_abandoned`, { headers: hdrs })
+    const meetingsFetch = hdrs
+      ? fetch(`${SURL}/rest/v1/today_meetings?date=eq.${selectedDate}&select=venue,is_abandoned,track_condition,condition_override`, { headers: hdrs })
           .then(r => r.ok ? r.json() : [])
-          .then(rows => new Set((rows || []).filter(r => r.is_abandoned).map(r => normaliseVenue(r.venue))))
-          .catch(() => new Set())
-      : Promise.resolve(new Set());
+          .catch(() => [])
+      : Promise.resolve([]);
     const cardFetch = user?.id
       ? fetch(`/api/race-cards?date=${selectedDate}`).then(r => {
           if (r.status === 403) { setUpgradeOpen(true); return []; }
@@ -1201,10 +1210,16 @@ export default function ResultsPage() {
     // meant to be visible to everyone, logged in or not; the route itself
     // never returns raw scoring inputs regardless of who's asking.
     const rankFetch = fetch(`/api/results-ranks?date=${selectedDate}`).then(r => r.ok ? r.json() : {});
-    Promise.all([resultsFetch, scrFetch, abandonedFetch, cardFetch, scheduleFetch, rankFetch]).then(([rows, scrRows, abandoned, cards, schedule, ranks]) => {
+    Promise.all([resultsFetch, scrFetch, meetingsFetch, cardFetch, scheduleFetch, rankFetch]).then(([rows, scrRows, meetings, cards, schedule, ranks]) => {
       setDbRows(rows || []);
       setDbScratchings(scrRows || []);
-      setVenueAbandoned(abandoned);
+      setVenueAbandoned(new Set((meetings || []).filter(r => r.is_abandoned).map(r => normaliseVenue(r.venue))));
+      const tc = {};
+      (meetings || []).forEach(r => {
+        const effectiveCond = r.condition_override || r.track_condition;
+        if (effectiveCond) tc[normaliseVenue(r.venue)] = bucketTrackCond(effectiveCond);
+      });
+      setVenueTrackConds(tc);
       setCardRows(cards || []);
       setScheduleRows(schedule || []);
       setRankData(ranks || {});
@@ -1351,7 +1366,7 @@ export default function ResultsPage() {
     let hits = 0, total = 0, roi = 0, ewRoi = 0, ewTotal = 0;
     const details = [];
     meetingResulted.forEach(({ raceNum, results }) => {
-      const rankMap = getSysRanks(effectiveRaces, effectiveVenues, selectedMeeting, raceNum, weights, dbScratchings) || {};
+      const rankMap = getSysRanks(effectiveRaces, effectiveVenues, selectedMeeting, raceNum, weights, dbScratchings, venueTrackConds) || {};
       if (!Object.keys(rankMap).length) return;
       const runners = results.runners || [];
       const pickName = Object.keys(rankMap).find(n => rankMap[n] === 1);
@@ -1381,14 +1396,14 @@ export default function ResultsPage() {
     });
     if (total === 0) return null;
     return { hits, total, roi, ewRoi, ewTotal, strikeRate: hits / total, details };
-  }, [meetingResulted, effectiveRaces, effectiveVenues, selectedMeeting, weights, dbScratchings, hasCsv]);
+  }, [meetingResulted, effectiveRaces, effectiveVenues, selectedMeeting, weights, dbScratchings, venueTrackConds, hasCsv]);
 
   const topPicksPerf = useMemo(() => {
     if (!hasCsv || !meetingResulted.length) return null;
     let wins = 0, places = 0, total = 0, roi = 0, ewRoi = 0;
     const details = [];
     meetingResulted.forEach(({ raceNum, results }) => {
-      const rankMap = getSysRanks(effectiveRaces, effectiveVenues, selectedMeeting, raceNum, weights, dbScratchings) || {};
+      const rankMap = getSysRanks(effectiveRaces, effectiveVenues, selectedMeeting, raceNum, weights, dbScratchings, venueTrackConds) || {};
       if (!Object.keys(rankMap).length) return;
       const pickName = Object.keys(rankMap).find(n => rankMap[n] === 1);
       if (!pickName) return;
@@ -1414,7 +1429,7 @@ export default function ResultsPage() {
     if (total === 0) return null;
     const avgPlace = details.reduce((a, d) => a + (d.place || 0), 0) / total;
     return { wins, places, total, roi, ewRoi, strikeRate: wins / total, placeRate: places / total, avgPlace, details };
-  }, [meetingResulted, effectiveRaces, effectiveVenues, selectedMeeting, weights, dbScratchings, hasCsv]);
+  }, [meetingResulted, effectiveRaces, effectiveVenues, selectedMeeting, weights, dbScratchings, venueTrackConds, hasCsv]);
 
   const barrierBias = useMemo(() => {
     const groups = [
@@ -1444,7 +1459,7 @@ export default function ResultsPage() {
     if (!hasCsv) return [];
     const upsets = [];
     meetingResulted.forEach(({ raceNum, results }) => {
-      const rankMap = getSysRanks(effectiveRaces, effectiveVenues, selectedMeeting, raceNum, weights, dbScratchings) || {};
+      const rankMap = getSysRanks(effectiveRaces, effectiveVenues, selectedMeeting, raceNum, weights, dbScratchings, venueTrackConds) || {};
       if (!Object.keys(rankMap).length) return;
       const winner = (results.runners || []).find(r => r.place === 1);
       if (!winner) return;
@@ -1454,7 +1469,7 @@ export default function ResultsPage() {
     });
     upsets.sort((a, b) => (b.rank || 0) - (a.rank || 0));
     return upsets.slice(0, 3);
-  }, [meetingResulted, effectiveRaces, effectiveVenues, selectedMeeting, weights, dbScratchings, hasCsv]);
+  }, [meetingResulted, effectiveRaces, effectiveVenues, selectedMeeting, weights, dbScratchings, venueTrackConds, hasCsv]);
 
   const staffForm = useMemo(() => {
     const tWins = {}, jWins = {}, tRuns = {}, jRuns = {};

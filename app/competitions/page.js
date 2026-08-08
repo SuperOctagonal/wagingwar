@@ -114,13 +114,24 @@ function getCompRaces(allRaces, selV) {
   return out;
 }
 
-function getModelRank1(race) {
+// Same bucketing as the Races page and /api/results-ranks — 'heavy'/'soft'/
+// 'synthetic'/'good', matched from today_meetings' free-text condition string.
+function bucketTrackCond(raw) {
+  const tcl = (raw || '').toLowerCase();
+  return tcl.includes('heavy') ? 'heavy'
+    : tcl.includes('soft') || tcl.includes('slow') ? 'soft'
+    : tcl.includes('synth') ? 'synthetic'
+    : 'good';
+}
+
+function getModelRank1(race, venueTrackConds = {}) {
   const active = (race.horses || []).filter(h => !h.scratched);
   if (!active.length) return null;
   const w = getDefaultWeights();
+  const trackCond = venueTrackConds[normaliseVenue(race.venue || '')] || 'good';
   let best = null, bs = -Infinity;
   for (const h of active) {
-    const { total } = scoreHorse(h, 'good', w);
+    const { total } = scoreHorse(h, trackCond, w);
     if (total > bs) { bs = total; best = h.name; }
   }
   return best;
@@ -244,6 +255,7 @@ export default function CompetitionsPage() {
   const [allPicksData, setAllPicksData] = useState([]);
   const [results, setResults]         = useState({});
   const [scratchings, setScratchings] = useState(new Set());
+  const [venueTrackConds, setVenueTrackConds] = useState({});
   const [allTimePoints, setAllTimePoints] = useState(null);
   const [mainTab, setMainTab]         = useState('today');
   const [now, setNow]                 = useState(Date.now());
@@ -271,9 +283,9 @@ export default function CompetitionsPage() {
 
   const mr1Map = useMemo(() => {
     const m = {};
-    compRaces.forEach(r => { m[rk(r.venue, r.num)] = getModelRank1(r); });
+    compRaces.forEach(r => { m[rk(r.venue, r.num)] = getModelRank1(r, venueTrackConds); });
     return m;
-  }, [compRaces]);
+  }, [compRaces, venueTrackConds]);
 
   // Primary winner source: race_results (finish_pos=1), polled every 60s via loadTodayRR
   const liveWinnerMap = useMemo(() => {
@@ -564,6 +576,24 @@ export default function CompetitionsPage() {
     const id = setInterval(loadScr, 60000);
     return () => clearInterval(id);
   }, [today, isPro]);
+
+  useEffect(() => {
+    if (!SURL || !SKEY) return;
+    function loadTrackConds() {
+      sbFetch(`today_meetings?date=eq.${today}&select=venue,track_condition,condition_override`).then(rows => {
+        if (!Array.isArray(rows)) return;
+        const tc = {};
+        rows.forEach(r => {
+          const effectiveCond = r.condition_override || r.track_condition;
+          if (effectiveCond) tc[normaliseVenue(r.venue)] = bucketTrackCond(effectiveCond);
+        });
+        setVenueTrackConds(tc);
+      });
+    }
+    loadTrackConds();
+    const id = setInterval(loadTrackConds, 60000);
+    return () => clearInterval(id);
+  }, [today]);
 
   useEffect(() => {
     if (!SURL || !SKEY || !isPro) return;
