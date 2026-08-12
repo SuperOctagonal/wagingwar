@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useUser } from '@clerk/nextjs';
 import { scoreGroup, getDefaultWeights, GRP_KEYS, calcPaceMap } from '@/lib/scoring';
-import { normaliseVenue } from '@/lib/venues';
+import { normaliseVenue, isKnownAuVenue } from '@/lib/venues';
 import { paidPlacesForFieldSize, estimatePlacePrice } from '@/lib/placePrice';
 import { fetchAllRows } from '@/lib/fetchAllRows';
 import { ODDS_BANDS } from '@/lib/oddsBucket';
@@ -1211,7 +1211,12 @@ export default function ResultsPage() {
     // never returns raw scoring inputs regardless of who's asking.
     const rankFetch = fetch(`/api/results-ranks?date=${selectedDate}`).then(r => r.ok ? r.json() : {});
     Promise.all([resultsFetch, scrFetch, meetingsFetch, cardFetch, scheduleFetch, rankFetch]).then(([rows, scrRows, meetings, cards, schedule, ranks]) => {
-      setDbRows(rows || []);
+      // Defense-in-depth: race_results and race_schedule are read straight
+      // from Supabase here, independent of the CSV-import path's
+      // isKnownAuVenue() exclusion -- filter again rather than trusting
+      // whatever's already in the table (a stale pre-fix write, a manual
+      // edit, a future import bug could otherwise still surface here).
+      setDbRows((rows || []).filter(r => isKnownAuVenue(r.venue)));
       setDbScratchings(scrRows || []);
       setVenueAbandoned(new Set((meetings || []).filter(r => r.is_abandoned).map(r => normaliseVenue(r.venue))));
       const tc = {};
@@ -1221,7 +1226,7 @@ export default function ResultsPage() {
       });
       setVenueTrackConds(tc);
       setCardRows(cards || []);
-      setScheduleRows(schedule || []);
+      setScheduleRows((schedule || []).filter(r => isKnownAuVenue(r.venue)));
       setRankData(ranks || {});
       setLoading(false);
     });

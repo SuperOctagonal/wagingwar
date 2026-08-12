@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { auth, clerkClient } from '@clerk/nextjs/server';
 import { stripHorseFields } from '@/lib/freeTierFields';
 import { fetchAllRows } from '@/lib/fetchAllRows';
+import { isKnownAuVenue } from '@/lib/venues';
 
 const SURL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SKEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -32,7 +33,10 @@ export async function GET(req) {
   );
 
   if (!result.ok) return NextResponse.json({ error: `Supabase ${result.status}` }, { status: 502 });
-  let data = result.rows;
+  // Defense-in-depth: reads straight from race_cards, independent of the
+  // CSV-import path's isKnownAuVenue() exclusion -- see results-ranks/route.js
+  // for the same reasoning.
+  let data = result.rows.filter(row => isKnownAuVenue(row.venue));
 
   // Real server-side gate — free tier never receives scoring-input fields in
   // form_data, not just a hidden UI column. See lib/freeTierFields.js for the

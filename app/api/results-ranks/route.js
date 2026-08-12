@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { scoreGroup, getDefaultWeights, GRP_KEYS } from '@/lib/scoring';
-import { normaliseVenue } from '@/lib/venues';
+import { normaliseVenue, isKnownAuVenue } from '@/lib/venues';
 import { fetchAllRows } from '@/lib/fetchAllRows';
 
 const SURL = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -35,7 +35,13 @@ export async function GET(req) {
   ]);
 
   if (!cardsResult.ok) return NextResponse.json({ error: `Supabase ${cardsResult.status}` }, { status: 502 });
-  const cardRows = cardsResult.rows;
+  // Defense-in-depth: this route reads straight from race_cards, independent
+  // of the CSV-import path's isKnownAuVenue() exclusion, so a non-AU (or
+  // otherwise unrecognised) row that reaches the table by any means -- a
+  // stale write from before that fix, a manual edit, a future import bug --
+  // would still get scored and ranked here. Filter again at read time rather
+  // than trusting whatever's already in the table.
+  const cardRows = cardsResult.rows.filter(row => isKnownAuVenue(row.venue));
   const scrRows = scrRes.ok ? await scrRes.json() : [];
   const meetingsRows = meetingsRes.ok ? await meetingsRes.json() : [];
 
