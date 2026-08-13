@@ -49,6 +49,32 @@ export async function POST(req) {
   let meetingsSynced = false;
 
   if (dateISO) {
+    // Safety net for the NZ blocklist below (in lib/csvParser.js): it can
+    // only ever exclude tracks someone thought to enumerate, so an obscure
+    // non-AU meeting could still slip through. This doesn't exclude
+    // anything -- purely a visibility flag -- but cross-checks each CSV
+    // venue against today_meetings (populated independently by the backend's
+    // RA-calendar scraper) *before* this request's own sync writes anything,
+    // so a genuine mismatch isn't masked by the insert that's about to
+    // happen below.
+    try {
+      const existingRes = await fetch(
+        `${SURL}/rest/v1/today_meetings?date=eq.${dateISO}&select=venue`,
+        { headers: { apikey: SKEY, Authorization: `Bearer ${SKEY}` } },
+      );
+      if (existingRes.ok) {
+        const existingVenues = new Set((await existingRes.json()).map(r => normaliseVenue(r.venue)));
+        Object.keys(allVenues).forEach(v => {
+          const normV = normaliseVenue(v);
+          if (!existingVenues.has(normV)) {
+            console.warn(`[upload-race-csv] CSV venue "${v}" (${normV}) has no matching today_meetings row for ${dateISO} -- not excluded, just flagging for review (could be a non-AU meeting the blocklist missed, or today_meetings simply hasn't synced yet).`);
+          }
+        });
+      }
+    } catch (err) {
+      console.error('[upload-race-csv] today_meetings cross-check failed:', err);
+    }
+
     // Filter unknown-state venues so a single missing entry doesn't abort the batch.
     // Use ignore-duplicates so the worker's track_condition is never overwritten by CSV reload.
     const rows = Object.keys(allVenues)

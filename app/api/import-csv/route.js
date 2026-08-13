@@ -57,6 +57,29 @@ export async function POST(request) {
 
   const result = { date: dateISO, venues: 0, scheduleRows: 0, cardRows: 0, errors: [] };
 
+  // Safety net for the NZ blocklist (lib/csvParser.js): it can only ever
+  // exclude tracks someone thought to enumerate, so an obscure non-AU
+  // meeting could still slip through. This doesn't exclude anything --
+  // purely a visibility flag -- checked *before* this request's own sync
+  // below writes anything, so a genuine mismatch isn't masked.
+  try {
+    const existingRes = await fetch(
+      `${SURL}/rest/v1/today_meetings?date=eq.${dateISO}&select=venue`,
+      { headers: { apikey: SKEY, Authorization: `Bearer ${SKEY}` } },
+    );
+    if (existingRes.ok) {
+      const existingVenues = new Set((await existingRes.json()).map(r => normaliseVenue(r.venue)));
+      Object.keys(allVenues).forEach(v => {
+        const normV = normaliseVenue(v);
+        if (!existingVenues.has(normV)) {
+          console.warn(`[import-csv] CSV venue "${v}" (${normV}) has no matching today_meetings row for ${dateISO} -- not excluded, just flagging for review.`);
+        }
+      });
+    }
+  } catch (err) {
+    console.error('[import-csv] today_meetings cross-check failed:', err);
+  }
+
   // today_meetings — ignore duplicates so the worker's track_condition is never clobbered
   const meetingRows = Object.keys(allVenues)
     .map(v => {
