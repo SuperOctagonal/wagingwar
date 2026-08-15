@@ -37,7 +37,7 @@ function useIsNarrowWidth() {
   return isNarrow;
 }
 import {
-  scoreHorse, scoreGroup, calculateMatrixOdds, calcPaceMap,
+  scoreHorse, scoreGroup, calculateMatrixOdds, calcPaceMap, pointsForPlace,
   formatRacingOdds, getDefaultWeights, FACTORS, FACTOR_GROUPS_DEF, GRP_KEYS, GRP_LABELS,
 } from '@/lib/scoring';
 
@@ -167,6 +167,42 @@ const PACE_ROLES = [
   { label: 'Closer',     color: '#ff8000' },
   { label: 'Backmarker', color: '#dc3545' },
 ];
+const PACE_ROLE_ABBR = { Leader: 'Ldr', Presser: 'Pres', Midfield: 'Mid', Closer: 'Clo', Backmarker: 'Bkm' };
+
+// Compact meeting-wide Pace Bias bar for the race-selector row — same
+// points-based scoring as the Results page's TrackBiasPanel (see
+// pointsForPlace in lib/scoring.js), just a horizontal segmented-bar
+// layout instead of Results' vertical per-role list.
+function PaceBiasBar({ roles }) {
+  if (!roles) return null;
+  const total = PACE_ROLES.reduce((s, r) => s + (roles[r.label] || 0), 0);
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', flexShrink: 0 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <div style={{ width: 1, alignSelf: 'stretch', background: '#e5e7eb', flexShrink: 0 }} />
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+            <span style={{ fontSize: 9, fontWeight: 600, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.3px' }}>Pace bias</span>
+            <i className="ti ti-info-circle" style={{ fontSize: 11, color: '#9ca3af', cursor: 'default' }}
+              title="Where the early speed sits today - which running style has the edge in this race" />
+          </div>
+          <div style={{ width: 200, height: 22, borderRadius: 5, overflow: 'hidden', display: 'flex', background: '#f3f4f6' }}>
+            {total > 0 ? PACE_ROLES.map(r => {
+              const pts = roles[r.label] || 0;
+              const pct = pts / total * 100;
+              return pct > 0 ? <div key={r.label} title={`${r.label}: ${pts} pts`} style={{ width: `${pct}%`, height: '100%', background: r.color }} /> : null;
+            }) : null}
+          </div>
+          <div style={{ width: 200, display: 'flex', justifyContent: 'space-between' }}>
+            {PACE_ROLES.map(r => (
+              <span key={r.label} style={{ fontSize: 8, fontWeight: 600, color: r.color }}>{PACE_ROLE_ABBR[r.label]}</span>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 // ─── upload zone ──────────────────────────────────────────────────────────────
 
@@ -2737,6 +2773,33 @@ function RacesPageInner() {
     return raceResults[key] || null;
   })();
 
+  // Meeting-wide Pace Bias points (same scoring as Results page's
+  // TrackBiasPanel) -- every resulted race at this venue today, top-3
+  // finishers' pre-race predicted role earns pointsForPlace(). Recomputes
+  // live as more races at this venue result through the day. trackCond is
+  // the single venue-wide value (same one scoring/PaceMapView use
+  // everywhere else on this page) rather than a per-race value, since this
+  // page already treats track condition as one value per venue, not per race.
+  const paceBiasPoints = useMemo(() => {
+    if (!currentRace) return null;
+    const roles = { Leader: 0, Presser: 0, Midfield: 0, Closer: 0, Backmarker: 0 };
+    const venueRaceKeys = allVenues[currentRace.venue] || [];
+    venueRaceKeys.forEach(key => {
+      const rc = allRaces[key];
+      if (!rc) return;
+      const rr = raceResults[`${normaliseVenue(rc.venue)}||${String(rc.num)}`];
+      if (!rr || !rr.runners?.length) return;
+      rr.runners.filter(r => r.place >= 1 && r.place <= 3).forEach(runner => {
+        const horse = (rc.horses || []).find(h => stripCountry(h.name).toUpperCase() === stripCountry(runner.name).toUpperCase());
+        if (!horse) return;
+        const { role } = calcPaceMap(horse, rc.venue, +rc.dist, trackCond);
+        if (!(role in roles)) return;
+        roles[role] += pointsForPlace(runner.place);
+      });
+    });
+    return roles;
+  }, [currentRace, allVenues, allRaces, raceResults, trackCond]);
+
   // No race-status restriction — logging is allowed before jump, after jump,
   // and after resulting (matches /api/log-bet, which has no gate at all).
   // isPast alone still blocks: that's the date-picker showing a different,
@@ -3000,28 +3063,32 @@ function RacesPageInner() {
                       .sort((a, b) => (allRaces[a]?.num || 0) - (allRaces[b]?.num || 0));
                     if (venueRaces.length < 2) return null;
                     return (
-                      <div style={{ display:'flex', alignItems:'center', gap:4, padding:'4px 10px', borderBottom:'1px solid #e5e7eb', overflowX:'auto', flexShrink:0, background:'#fafafa' }}>
-                        {venueRaces.map(key => {
-                          const rn = allRaces[key]?.num;
-                          const active = key === selectedKey;
-                          const tabBetKey = `${normaliseVenue(currentRace.venue)}||${String(rn)}`;
-                            const tabHasBet = isPro && (todayBets[tabBetKey]?.length > 0);
-                            return (
-                            <button
-                              key={key}
-                              onClick={() => setSelectedKey(key)}
-                              style={{
-                                minWidth:28, height:40, fontSize:12, fontWeight: active ? 700 : 500,
-                                borderRadius:5, border: active ? '1.5px solid #1D9E75' : '1px solid #d1d5db',
-                                background: active ? '#1D9E75' : '#fff', color: active ? '#fff' : '#374151',
-                                cursor:'pointer', flexShrink:0, padding:'0 5px', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:2,
-                              }}
-                            >
-                              <span>R{rn}</span>
-                              {tabHasBet && <span style={{ width:5, height:5, borderRadius:'50%', background: active ? '#fff' : '#00471b', flexShrink:0 }} />}
-                            </button>
-                          );
-                        })}
+                      <div style={{ flexShrink:0, background:'#fafafa', borderBottom:'1px solid #e5e7eb' }}>
+                        <div style={{ display:'flex', alignItems:'center', gap:4, padding:'4px 10px', overflowX:'auto' }}>
+                          {venueRaces.map(key => {
+                            const rn = allRaces[key]?.num;
+                            const active = key === selectedKey;
+                            const tabBetKey = `${normaliseVenue(currentRace.venue)}||${String(rn)}`;
+                              const tabHasBet = isPro && (todayBets[tabBetKey]?.length > 0);
+                              return (
+                              <button
+                                key={key}
+                                onClick={() => setSelectedKey(key)}
+                                style={{
+                                  minWidth:28, height:40, fontSize:12, fontWeight: active ? 700 : 500,
+                                  borderRadius:5, border: active ? '1.5px solid #1D9E75' : '1px solid #d1d5db',
+                                  background: active ? '#1D9E75' : '#fff', color: active ? '#fff' : '#374151',
+                                  cursor:'pointer', flexShrink:0, padding:'0 5px', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:2,
+                                }}
+                              >
+                                <span>R{rn}</span>
+                                {tabHasBet && <span style={{ width:5, height:5, borderRadius:'50%', background: active ? '#fff' : '#00471b', flexShrink:0 }} />}
+                              </button>
+                            );
+                          })}
+                          <PaceBiasBar roles={paceBiasPoints} />
+                        </div>
+                        <div style={{ padding:'0 10px 4px', fontSize:9, color:'#9ca3af', lineHeight:1.4 }}>Pace role from early speed data - today&apos;s meeting only.</div>
                       </div>
                     );
                   })()}

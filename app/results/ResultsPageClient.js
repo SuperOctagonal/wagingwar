@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useUser } from '@clerk/nextjs';
-import { scoreGroup, getDefaultWeights, GRP_KEYS, calcPaceMap } from '@/lib/scoring';
+import { scoreGroup, getDefaultWeights, GRP_KEYS, calcPaceMap, pointsForPlace } from '@/lib/scoring';
 import { normaliseVenue, isKnownAuVenue } from '@/lib/venues';
 import { paidPlacesForFieldSize, estimatePlacePrice } from '@/lib/placePrice';
 import { fetchAllRows } from '@/lib/fetchAllRows';
@@ -708,16 +708,15 @@ const PACE_COLORS = { Leader:'#00b050', Presser:'#7ec820', Midfield:'#ffc000', C
 function TrackBiasPanel({ data }) {
   if (!data) return <NoCsvMsg />;
   const rows = Object.entries(data);
-  const maxTotal = Math.max(...rows.map(([, v]) => v.total), 1);
-  const hasData = rows.some(([, v]) => v.total > 0);
+  const maxPoints = Math.max(...rows.map(([, pts]) => pts), 1);
+  const hasData = rows.some(([, pts]) => pts > 0);
   if (!hasData) return (
     <div style={{ padding:'24px 10px', textAlign:'center', color:'#6b7280', fontSize:10 }}>No pace data for this meeting yet.</div>
   );
   return (
     <div style={{ overflowY:'auto', flex:1, padding:'8px 10px' }}>
-      {rows.map(([role, { wins, total }]) => {
-        const pct = total > 0 ? Math.round(wins / total * 100) : 0;
-        const barW = total > 0 ? Math.round(total / maxTotal * 100) : 0;
+      {rows.map(([role, pts]) => {
+        const barW = pts > 0 ? Math.round(pts / maxPoints * 100) : 0;
         const color = PACE_COLORS[role] || '#374151';
         return (
           <div key={role} style={{ marginBottom:8 }}>
@@ -726,11 +725,7 @@ function TrackBiasPanel({ data }) {
                 <span style={{ width:8, height:8, borderRadius:'50%', background:color, display:'inline-block', flexShrink:0 }} />
                 <span style={{ fontSize:10, color:'#111827', fontWeight:600 }}>{role}</span>
               </div>
-              <div style={{ display:'flex', gap:10, fontSize:10, color:'#111827' }}>
-                <span style={{ minWidth:18, textAlign:'right', fontWeight:700 }}>{wins}W</span>
-                <span style={{ minWidth:22, textAlign:'right' }}>{total}R</span>
-                <span style={{ minWidth:28, textAlign:'right', fontWeight:700 }}>{pct}%</span>
-              </div>
+              <span style={{ fontSize:10, color:'#111827', fontWeight:700 }}>{pts} pts</span>
             </div>
             <div style={{ background:'#f3f4f6', borderRadius:3, height:6, overflow:'hidden' }}>
               <div style={{ width:`${barW}%`, height:'100%', background:color, borderRadius:3, transition:'width .3s' }} />
@@ -1519,21 +1514,25 @@ export default function ResultsPage() {
     return rows.length ? rows : null;
   }, [meetingResulted, effectiveRaces, effectiveVenues, selectedMeeting, dbScratchings, hasCsv]);
 
+  // Points, not win rate -- for every resulted race at this meeting, the
+  // top-3 finishers' PRE-RACE PREDICTED pace role (never their actual run)
+  // earns that role points: 1st=3, 2nd=2, 3rd=1. A role accumulates points
+  // by repeatedly producing placegetters, not by a high win rate on low
+  // volume -- deliberately different from a plain win%.
   const trackBias = useMemo(() => {
     if (!hasCsv) return null;
-    const roles = { Leader: { wins:0, total:0 }, Presser: { wins:0, total:0 }, Midfield: { wins:0, total:0 }, Closer: { wins:0, total:0 }, Backmarker: { wins:0, total:0 } };
+    const roles = { Leader: 0, Presser: 0, Midfield: 0, Closer: 0, Backmarker: 0 };
     meetingResulted.forEach(({ raceNum, results }) => {
       const horses = getSysHorses(effectiveRaces, effectiveVenues, selectedMeeting, raceNum, dbScratchings);
       if (!horses || !horses.length) return;
       const dist = parseInt(results.dist, 10) || 0;
       const tc   = results.trackCond || 'good';
-      (results.runners || []).forEach(runner => {
+      (results.runners || []).filter(r => r.place >= 1 && r.place <= 3).forEach(runner => {
         const fh = horses.find(h => normName(h.name) === normName(runner.name));
         if (!fh) return;
         const { role } = calcPaceMap(fh, selectedMeeting, dist, tc);
-        if (!roles[role]) return;
-        roles[role].total++;
-        if (runner.place === 1) roles[role].wins++;
+        if (!(role in roles)) return;
+        roles[role] += pointsForPlace(runner.place);
       });
     });
     return roles;
