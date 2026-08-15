@@ -204,7 +204,7 @@ function PaceBiasBar({ roles }) {
         <div style={{ width: 1, alignSelf: 'stretch', background: '#e5e7eb', flexShrink: 0 }} />
         <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-            <span style={{ fontSize: 9, fontWeight: 600, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.3px' }}>Pace bias</span>
+            <span style={{ fontSize: 9, fontWeight: 600, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.3px' }}>Today&apos;s pace bias</span>
             <span ref={triggerRef} style={{ position: 'relative', display: 'inline-flex' }}
               onMouseEnter={showTooltip} onMouseLeave={hideTooltip}>
               <i className="ti ti-info-circle" style={{ fontSize: 11, color: '#9ca3af', cursor: 'default' }} />
