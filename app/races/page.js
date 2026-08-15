@@ -233,7 +233,6 @@ function PaceBiasBar({ roles }) {
               <span key={r.label} style={{ fontSize: 8, fontWeight: 600, color: r.color }}>{PACE_ROLE_ABBR[r.label]}</span>
             ))}
           </div>
-          <div style={{ width: 200, fontSize: 9, color: '#9ca3af', lineHeight: 1.4 }}>Pace role from early speed data - today&apos;s meeting only.</div>
         </div>
       </div>
     </div>
