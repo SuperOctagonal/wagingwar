@@ -178,8 +178,26 @@ const PACE_ROLE_ABBR = { Leader: 'Ldr', Presser: 'Pres', Midfield: 'Mid', Closer
 // sums to ~100% across the five segments.
 function PaceBiasBar({ roles }) {
   const [showTip, setShowTip] = useState(false);
+  const [tipPos, setTipPos] = useState(null);
+  const triggerRef = useRef(null);
   if (!roles) return null;
   const total = PACE_ROLES.reduce((s, r) => s + (roles[r.label] || 0), 0);
+
+  // The tooltip is portaled to document.body rather than rendered inline,
+  // positioned via the trigger's live viewport coordinates. It has to be --
+  // this row (its direct parent) needs overflow-x:auto for horizontal
+  // scrolling when a venue has many races, which per the CSS overflow spec
+  // silently forces overflow-y to auto too (confirmed via getComputedStyle,
+  // not assumed), clipping an absolutely-positioned bottom:100% tooltip down
+  // to an invisible sliver at the row's own top edge. Portaling escapes that
+  // (and any other ancestor's) clipping entirely.
+  const showTooltip = () => {
+    const rect = triggerRef.current?.getBoundingClientRect();
+    if (rect) setTipPos({ left: rect.left + rect.width / 2, bottom: window.innerHeight - rect.top + 5 });
+    setShowTip(true);
+  };
+  const hideTooltip = () => setShowTip(false);
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', flexShrink: 0, marginLeft: 'auto' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -187,20 +205,21 @@ function PaceBiasBar({ roles }) {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
             <span style={{ fontSize: 9, fontWeight: 600, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.3px' }}>Pace bias</span>
-            <span style={{ position: 'relative', display: 'inline-flex' }}
-              onMouseEnter={() => setShowTip(true)} onMouseLeave={() => setShowTip(false)}>
+            <span ref={triggerRef} style={{ position: 'relative', display: 'inline-flex' }}
+              onMouseEnter={showTooltip} onMouseLeave={hideTooltip}>
               <i className="ti ti-info-circle" style={{ fontSize: 11, color: '#9ca3af', cursor: 'default' }} />
-              {showTip && (
-                <div style={{
-                  position: 'absolute', bottom: '100%', left: '50%', transform: 'translateX(-50%)', marginBottom: 5,
-                  width: 190, padding: '6px 8px', borderRadius: 5, background: '#1e2936', color: '#fff',
-                  fontSize: 9, fontWeight: 500, lineHeight: 1.35, textTransform: 'none', letterSpacing: 0,
-                  zIndex: 50, pointerEvents: 'none', boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
-                }}>
-                  Where the early speed sits today - which running style has the edge in this race
-                </div>
-              )}
             </span>
+            {showTip && tipPos && typeof document !== 'undefined' && createPortal(
+              <div style={{
+                position: 'fixed', bottom: tipPos.bottom, left: tipPos.left, transform: 'translateX(-50%)',
+                width: 190, padding: '6px 8px', borderRadius: 5, background: '#1e2936', color: '#fff',
+                fontSize: 9, fontWeight: 500, lineHeight: 1.35, textTransform: 'none', letterSpacing: 0,
+                zIndex: 200, pointerEvents: 'none', boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
+              }}>
+                Where the early speed sits today - which running style has the edge in this race
+              </div>,
+              document.body
+            )}
           </div>
           <div style={{ width: 200, height: 22, borderRadius: 5, overflow: 'hidden', display: 'flex', background: '#f3f4f6' }}>
             {total > 0 ? PACE_ROLES.map(r => {
