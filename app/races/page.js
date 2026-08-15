@@ -214,6 +214,7 @@ function PaceBiasBar({ roles }) {
               <span key={r.label} style={{ fontSize: 8, fontWeight: 600, color: r.color }}>{PACE_ROLE_ABBR[r.label]}</span>
             ))}
           </div>
+          <div style={{ width: 200, fontSize: 9, color: '#9ca3af', lineHeight: 1.4 }}>Pace role from early speed data - today&apos;s meeting only.</div>
         </div>
       </div>
     </div>
@@ -3079,32 +3080,29 @@ function RacesPageInner() {
                       .sort((a, b) => (allRaces[a]?.num || 0) - (allRaces[b]?.num || 0));
                     if (venueRaces.length < 2) return null;
                     return (
-                      <div style={{ flexShrink:0, background:'#fafafa', borderBottom:'1px solid #e5e7eb' }}>
-                        <div style={{ display:'flex', alignItems:'center', gap:4, padding:'4px 10px', overflowX:'auto' }}>
-                          {venueRaces.map(key => {
-                            const rn = allRaces[key]?.num;
-                            const active = key === selectedKey;
-                            const tabBetKey = `${normaliseVenue(currentRace.venue)}||${String(rn)}`;
-                              const tabHasBet = isPro && (todayBets[tabBetKey]?.length > 0);
-                              return (
-                              <button
-                                key={key}
-                                onClick={() => setSelectedKey(key)}
-                                style={{
-                                  minWidth:28, height:40, fontSize:12, fontWeight: active ? 700 : 500,
-                                  borderRadius:5, border: active ? '1.5px solid #1D9E75' : '1px solid #d1d5db',
-                                  background: active ? '#1D9E75' : '#fff', color: active ? '#fff' : '#374151',
-                                  cursor:'pointer', flexShrink:0, padding:'0 5px', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:2,
-                                }}
-                              >
-                                <span>R{rn}</span>
-                                {tabHasBet && <span style={{ width:5, height:5, borderRadius:'50%', background: active ? '#fff' : '#00471b', flexShrink:0 }} />}
-                              </button>
-                            );
-                          })}
-                          <PaceBiasBar roles={paceBiasPoints} />
-                        </div>
-                        <div style={{ padding:'0 10px 4px', fontSize:9, color:'#9ca3af', lineHeight:1.4 }}>Pace role from early speed data - today&apos;s meeting only.</div>
+                      <div style={{ display:'flex', alignItems:'center', gap:4, padding:'4px 10px', borderBottom:'1px solid #e5e7eb', overflowX:'auto', flexShrink:0, background:'#fafafa' }}>
+                        {venueRaces.map(key => {
+                          const rn = allRaces[key]?.num;
+                          const active = key === selectedKey;
+                          const tabBetKey = `${normaliseVenue(currentRace.venue)}||${String(rn)}`;
+                            const tabHasBet = isPro && (todayBets[tabBetKey]?.length > 0);
+                            return (
+                            <button
+                              key={key}
+                              onClick={() => setSelectedKey(key)}
+                              style={{
+                                minWidth:28, height:40, fontSize:12, fontWeight: active ? 700 : 500,
+                                borderRadius:5, border: active ? '1.5px solid #1D9E75' : '1px solid #d1d5db',
+                                background: active ? '#1D9E75' : '#fff', color: active ? '#fff' : '#374151',
+                                cursor:'pointer', flexShrink:0, padding:'0 5px', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:2,
+                              }}
+                            >
+                              <span>R{rn}</span>
+                              {tabHasBet && <span style={{ width:5, height:5, borderRadius:'50%', background: active ? '#fff' : '#00471b', flexShrink:0 }} />}
+                            </button>
+                          );
+                        })}
+                        <PaceBiasBar roles={paceBiasPoints} />
                       </div>
                     );
                   })()}
