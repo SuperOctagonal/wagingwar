@@ -172,25 +172,41 @@ const PACE_ROLE_ABBR = { Leader: 'Ldr', Presser: 'Pres', Midfield: 'Mid', Closer
 // Compact meeting-wide Pace Bias bar for the race-selector row — same
 // points-based scoring as the Results page's TrackBiasPanel (see
 // pointsForPlace in lib/scoring.js), just a horizontal segmented-bar
-// layout instead of Results' vertical per-role list.
+// layout instead of Results' vertical per-role list. Segment width is
+// each role's share of total points awarded so far today (not relative to
+// the top role), so it directly matches the % shown on hover and always
+// sums to ~100% across the five segments.
 function PaceBiasBar({ roles }) {
+  const [showTip, setShowTip] = useState(false);
   if (!roles) return null;
   const total = PACE_ROLES.reduce((s, r) => s + (roles[r.label] || 0), 0);
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', flexShrink: 0 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', flexShrink: 0, marginLeft: 'auto' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
         <div style={{ width: 1, alignSelf: 'stretch', background: '#e5e7eb', flexShrink: 0 }} />
         <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
             <span style={{ fontSize: 9, fontWeight: 600, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.3px' }}>Pace bias</span>
-            <i className="ti ti-info-circle" style={{ fontSize: 11, color: '#9ca3af', cursor: 'default' }}
-              title="Where the early speed sits today - which running style has the edge in this race" />
+            <span style={{ position: 'relative', display: 'inline-flex' }}
+              onMouseEnter={() => setShowTip(true)} onMouseLeave={() => setShowTip(false)}>
+              <i className="ti ti-info-circle" style={{ fontSize: 11, color: '#9ca3af', cursor: 'default' }} />
+              {showTip && (
+                <div style={{
+                  position: 'absolute', bottom: '100%', left: '50%', transform: 'translateX(-50%)', marginBottom: 5,
+                  width: 190, padding: '6px 8px', borderRadius: 5, background: '#1e2936', color: '#fff',
+                  fontSize: 9, fontWeight: 500, lineHeight: 1.35, textTransform: 'none', letterSpacing: 0,
+                  zIndex: 50, pointerEvents: 'none', boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
+                }}>
+                  Where the early speed sits today - which running style has the edge in this race
+                </div>
+              )}
+            </span>
           </div>
           <div style={{ width: 200, height: 22, borderRadius: 5, overflow: 'hidden', display: 'flex', background: '#f3f4f6' }}>
             {total > 0 ? PACE_ROLES.map(r => {
               const pts = roles[r.label] || 0;
               const pct = pts / total * 100;
-              return pct > 0 ? <div key={r.label} title={`${r.label}: ${pts} pts`} style={{ width: `${pct}%`, height: '100%', background: r.color }} /> : null;
+              return pct > 0 ? <div key={r.label} title={`${r.label}: ${Math.round(pct)}%`} style={{ width: `${pct}%`, height: '100%', background: r.color }} /> : null;
             }) : null}
           </div>
           <div style={{ width: 200, display: 'flex', justifyContent: 'space-between' }}>

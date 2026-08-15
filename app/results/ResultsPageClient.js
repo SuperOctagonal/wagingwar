@@ -708,15 +708,18 @@ const PACE_COLORS = { Leader:'#00b050', Presser:'#7ec820', Midfield:'#ffc000', C
 function TrackBiasPanel({ data }) {
   if (!data) return <NoCsvMsg />;
   const rows = Object.entries(data);
-  const maxPoints = Math.max(...rows.map(([, pts]) => pts), 1);
-  const hasData = rows.some(([, pts]) => pts > 0);
+  // % of total points awarded across all 5 roles so far today -- not
+  // relative to the top-scoring role, so bar widths sum to ~100% and stay
+  // comparable across the day regardless of how many races have resulted.
+  const totalPoints = rows.reduce((s, [, pts]) => s + pts, 0);
+  const hasData = totalPoints > 0;
   if (!hasData) return (
     <div style={{ padding:'24px 10px', textAlign:'center', color:'#6b7280', fontSize:10 }}>No pace data for this meeting yet.</div>
   );
   return (
     <div style={{ overflowY:'auto', flex:1, padding:'8px 10px' }}>
       {rows.map(([role, pts]) => {
-        const barW = pts > 0 ? Math.round(pts / maxPoints * 100) : 0;
+        const pct = Math.round(pts / totalPoints * 100);
         const color = PACE_COLORS[role] || '#374151';
         return (
           <div key={role} style={{ marginBottom:8 }}>
@@ -725,10 +728,10 @@ function TrackBiasPanel({ data }) {
                 <span style={{ width:8, height:8, borderRadius:'50%', background:color, display:'inline-block', flexShrink:0 }} />
                 <span style={{ fontSize:10, color:'#111827', fontWeight:600 }}>{role}</span>
               </div>
-              <span style={{ fontSize:10, color:'#111827', fontWeight:700 }}>{pts} pts</span>
+              <span style={{ fontSize:10, color:'#111827', fontWeight:700 }}>{pct}%</span>
             </div>
             <div style={{ background:'#f3f4f6', borderRadius:3, height:6, overflow:'hidden' }}>
-              <div style={{ width:`${barW}%`, height:'100%', background:color, borderRadius:3, transition:'width .3s' }} />
+              <div style={{ width:`${pct}%`, height:'100%', background:color, borderRadius:3, transition:'width .3s' }} />
             </div>
           </div>
         );
