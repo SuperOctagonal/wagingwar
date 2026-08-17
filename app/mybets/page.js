@@ -508,6 +508,13 @@ export default function MybetsPage() {
   const [confirmDeleteId, setConfirmDeleteId] = useState(null);
   const [lastCheckedAt, setLastCheckedAt] = useState(null);
 
+  // Battle Card share — null while checking, then true/false once
+  // /api/battle-card/status responds (n>=10 in all of best-zone/venue/condition).
+  const [battleCardQualifies, setBattleCardQualifies] = useState(null);
+  const [shareStatus, setShareStatus] = useState('idle'); // idle | loading | error
+  const [shareFallback, setShareFallback] = useState(null); // { blob, url } when navigator.share isn't usable
+  const shareFallbackUrlRef = useRef(null);
+
   // CSV data for Quick Log
   const [csvMeetings, setCsvMeetings] = useState([]);   // ['Flemington', ...]
   const [csvVenues,   setCsvVenues]   = useState({});   // { 'Flemington': ['Flemington_R1', ...] }
@@ -604,6 +611,83 @@ export default function MybetsPage() {
 
   // Keep `now` fresh so countdown timers update (1s for live negative countdown)
   useEffect(() => { const id = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(id); }, []);
+
+  // Battle Card qualification check — lightweight JSON status, not the
+  // actual image render, so this runs unconditionally on load without
+  // paying for a Satori render just to decide whether to show the button.
+  useEffect(() => {
+    if (!user?.id) return;
+    fetch('/api/battle-card/status')
+      .then(r => r.ok ? r.json() : { qualifies: false })
+      .then(d => setBattleCardQualifies(!!d.qualifies))
+      .catch(() => setBattleCardQualifies(false));
+  }, [user?.id]);
+
+  // Revoke any pending fallback-download object URL on unmount so it
+  // doesn't leak.
+  useEffect(() => () => { if (shareFallbackUrlRef.current) URL.revokeObjectURL(shareFallbackUrlRef.current); }, []);
+
+  const handleShareBattleCard = useCallback(async () => {
+    if (!user?.id || shareStatus === 'loading') return;
+    setShareStatus('loading');
+    try {
+      const res = await fetch('/api/battle-card');
+      if (!res.ok) throw new Error(`battle-card ${res.status}`);
+      const blob = await res.blob();
+
+      let shared = false;
+      if (typeof navigator !== 'undefined' && navigator.canShare) {
+        const file = new File([blob], 'battle-card.png', { type: 'image/png' });
+        if (navigator.canShare({ files: [file] })) {
+          try {
+            await navigator.share({ files: [file], title: 'My Waging War Battle Card', text: 'Check out my edge on Waging War' });
+            shared = true;
+          } catch (err) {
+            if (err?.name === 'AbortError') { setShareStatus('idle'); return; } // user cancelled the share sheet
+            throw err;
+          }
+        }
+      }
+
+      if (shared) {
+        awardPoints(user.id, 'battle_card_share').catch(() => {});
+        setShareStatus('idle');
+      } else {
+        // Fallback: offer Download / Copy instead of a native share sheet.
+        if (shareFallbackUrlRef.current) URL.revokeObjectURL(shareFallbackUrlRef.current);
+        const url = URL.createObjectURL(blob);
+        shareFallbackUrlRef.current = url;
+        setShareFallback({ blob, url });
+        setShareStatus('idle');
+      }
+    } catch (err) {
+      console.error('[BattleCard] share failed:', err);
+      setShareStatus('error');
+    }
+  }, [user?.id, shareStatus]);
+
+  const handleFallbackDownload = useCallback(() => {
+    if (!shareFallback) return;
+    const a = document.createElement('a');
+    a.href = shareFallback.url;
+    a.download = 'waging-war-battle-card.png';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    if (user?.id) awardPoints(user.id, 'battle_card_share').catch(() => {});
+    setShareFallback(null);
+  }, [shareFallback, user?.id]);
+
+  const handleFallbackCopy = useCallback(async () => {
+    if (!shareFallback || !navigator.clipboard?.write) return;
+    try {
+      await navigator.clipboard.write([new window.ClipboardItem({ 'image/png': shareFallback.blob })]);
+      if (user?.id) awardPoints(user.id, 'battle_card_share').catch(() => {});
+      setShareFallback(null);
+    } catch (err) {
+      console.error('[BattleCard] copy failed:', err);
+    }
+  }, [shareFallback, user?.id]);
 
   // ww:refresh event — re-pull bets from DB (dispatched by TopNav refresh button)
   useEffect(() => {
@@ -1435,7 +1519,7 @@ export default function MybetsPage() {
         <div className="mb-scoreboard" style={{ flexShrink: 0, display: 'flex', background: '#fff', borderBottom: '1px solid #e5e7eb', minHeight: isMobile ? 68 : 120, height: isMobile ? undefined : 120 }}>
 
           {/* Col 1 — P&L + record + streak */}
-          <div style={{ flex: 1, padding: isMobile ? '8px 12px' : '12px 18px', borderRight: '1px solid #e5e7eb', display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 3 }}>
+          <div style={{ flex: 1, padding: isMobile ? '8px 12px' : '12px 18px', borderRight: '1px solid #e5e7eb', display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 3, position: 'relative' }}>
             <div style={{ fontSize: 9, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '.06em' }}>{sbPeriodLabel}</div>
             <div style={{ fontSize: isMobile ? 22 : 28, fontWeight: 800, fontFamily: 'monospace', color: sbPnlColor, lineHeight: 1 }}>
               {sbPnl === null ? '—' : (sbPnlPos ? '+$' : '-$') + Math.abs(sbPnl).toFixed(2)}
@@ -1446,6 +1530,43 @@ export default function MybetsPage() {
                 <div style={{ fontSize: 11, fontWeight: 700, color: sbStreakColor }}>{sbStreakLabel} streak</div>
               )}
             </div>
+
+            {/* Battle Card share — locked state until n>=10 in best zone/venue/condition */}
+            {battleCardQualifies !== null && (
+              <div style={{ position: 'absolute', top: 8, right: 8 }}>
+                <button
+                  onClick={battleCardQualifies ? handleShareBattleCard : undefined}
+                  disabled={!battleCardQualifies || shareStatus === 'loading'}
+                  title={battleCardQualifies ? 'Share your Battle Card' : 'Keep logging bets to unlock your Battle Card'}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 4, padding: isMobile ? '4px 6px' : '4px 8px',
+                    borderRadius: 6, border: `1px solid ${battleCardQualifies ? '#e8b84a' : '#e5e7eb'}`,
+                    background: battleCardQualifies ? '#0d2416' : '#f9fafb',
+                    color: battleCardQualifies ? '#e8b84a' : '#9ca3af',
+                    fontSize: 10, fontWeight: 700, cursor: battleCardQualifies ? 'pointer' : 'default',
+                    opacity: shareStatus === 'loading' ? 0.6 : 1,
+                  }}
+                >
+                  <i className={`ti ${battleCardQualifies ? 'ti-share' : 'ti-lock'}`} style={{ fontSize: 11 }} />
+                  {!isMobile && (shareStatus === 'loading' ? 'Generating…' : 'Battle Card')}
+                </button>
+                {shareFallback && (
+                  <div style={{ position: 'absolute', top: '100%', right: 0, marginTop: 4, background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, boxShadow: '0 4px 12px rgba(0,0,0,0.12)', padding: 6, display: 'flex', flexDirection: 'column', gap: 4, zIndex: 30, width: 160 }}>
+                    <button onClick={handleFallbackDownload} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 8px', borderRadius: 5, border: 'none', background: 'none', fontSize: 11, fontWeight: 600, color: '#111827', cursor: 'pointer', textAlign: 'left' }}>
+                      <i className="ti ti-download" style={{ fontSize: 12 }} /> Download image
+                    </button>
+                    {typeof window !== 'undefined' && window.ClipboardItem && (
+                      <button onClick={handleFallbackCopy} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 8px', borderRadius: 5, border: 'none', background: 'none', fontSize: 11, fontWeight: 600, color: '#111827', cursor: 'pointer', textAlign: 'left' }}>
+                        <i className="ti ti-copy" style={{ fontSize: 12 }} /> Copy to clipboard
+                      </button>
+                    )}
+                    <button onClick={() => setShareFallback(null)} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 8px', borderRadius: 5, border: 'none', background: 'none', fontSize: 11, color: '#9ca3af', cursor: 'pointer', textAlign: 'left' }}>
+                      Cancel
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Col 2 — Cumulative chart (desktop only) */}

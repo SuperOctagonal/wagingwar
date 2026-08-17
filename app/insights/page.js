@@ -7,6 +7,7 @@ import useIsPro from '@/hooks/useIsPro';
 import useIsMobile from '@/hooks/useIsMobile';
 import BetFilterPanel from '@/components/BetFilterPanel';
 import { oddsBucket, ODDS_BANDS } from '@/lib/oddsBucket';
+import { isBetWon, isBetLost, isBetSettled, betPnl, roi, rankBucket, aggGroup, RANKS_HEAT, ODDS_HEAT, venueBreakdown, conditionBreakdown } from '@/lib/edgeZone';
 
 const SURL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SKEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -52,18 +53,6 @@ function dateRangeBounds(range, customStart, customEnd) {
   return null; // all_time
 }
 
-function isBetWon(b)      { return b.status === 'won'  || b.status === 'win'  || b.status === 'place'; }
-function isBetLost(b)     { return b.status === 'lost' || b.status === 'loss'; }
-function isBetSettled(b)  { return isBetWon(b) || isBetLost(b); }
-
-function betPnl(b) {
-  if (isBetWon(b))  return +(+b.stake * (+b.odds - 1)).toFixed(2);
-  if (isBetLost(b)) return -(+b.stake);
-  return 0;
-}
-
-function roi(pnl, staked) { return staked > 0 ? pnl / staked * 100 : 0; }
-
 function fmt$(n) {
   const abs = Math.abs(n);
   const s = abs >= 1000 ? `$${(abs / 1000).toFixed(1)}k` : `$${abs.toFixed(0)}`;
@@ -87,14 +76,6 @@ function kellyPct(winRate, decOdds) {
   return b > 0 ? Math.max(0, (winRate * b - (1 - winRate)) / b * 100) : 0;
 }
 
-function rankBucket(r) {
-  const n = +(r || 0);
-  if (!n) return null;
-  if (n <= 2) return 'R1-2';
-  if (n <= 4) return 'R3-4';
-  return 'R5+';
-}
-
 function heatBg(roiV, n) {
   if (!n || n < 3) return '#f3f4f6';
   if (roiV > 25) return '#14532d';
@@ -107,21 +88,6 @@ function heatBg(roiV, n) {
 function heatFg(roiV, n) {
   if (!n || n < 3) return '#9ca3af';
   return (roiV > 0 || Math.abs(roiV) > 10) ? '#fff' : '#111';
-}
-
-function aggGroup(bets) {
-  const settled = bets.filter(isBetSettled);
-  const won = settled.filter(isBetWon);
-  const staked = settled.reduce((s, b) => s + +b.stake, 0);
-  const pnl = settled.reduce((s, b) => s + betPnl(b), 0);
-  const firsts  = settled.filter(b => +b.finish_pos === 1 || (!+b.finish_pos && (b.status === 'win' || b.status === 'won'))).length;
-  const seconds = settled.filter(b => +b.finish_pos === 2 || (!+b.finish_pos && b.status === 'place')).length;
-  const thirds  = settled.filter(b => +b.finish_pos === 3).length;
-  return {
-    n: settled.length, wins: won.length, firsts, seconds, thirds, staked, pnl,
-    roi: roi(pnl, staked),
-    sr: settled.length > 0 ? won.length / settled.length * 100 : 0,
-  };
 }
 
 function InfoTip({ text }) {
@@ -172,9 +138,6 @@ function Card({ title, info, children, style }) {
 function EmptyState({ msg }) {
   return <div style={{ fontSize: 12, color: '#9ca3af', padding: '12px 0', textAlign: 'center' }}>{msg}</div>;
 }
-
-const RANKS_HEAT = ['R1-2', 'R3-4', 'R5+'];
-const ODDS_HEAT  = ODDS_BANDS.map(b => b.label);
 
 export default function InsightsPage() {
   const { user, isLoaded } = useUser();
