@@ -1,3 +1,5 @@
+import Link from 'next/link';
+
 const SURL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SKEY = process.env.SUPABASE_SERVICE_KEY;
 
@@ -55,14 +57,14 @@ export default async function BattleCardSharePage({ params }) {
           style={{ width: '100%', maxWidth: 480, borderRadius: 24 }}
         />
       ) : (
-        <div style={{ fontSize: 18, color: '#a8d4ae' }}>This Battle Card couldn't be found.</div>
+        <div style={{ fontSize: 18, color: '#a8d4ae' }}>This Battle Card couldn&apos;t be found.</div>
       )}
-      <a
+      <Link
         href="/"
         style={{ display: 'inline-flex', padding: '12px 28px', borderRadius: 999, background: '#e8b84a', color: '#0a1a10', fontWeight: 700, textDecoration: 'none' }}
       >
         Find your edge on Waging War →
-      </a>
+      </Link>
     </div>
   );
 }
