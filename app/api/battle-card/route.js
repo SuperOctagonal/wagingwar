@@ -67,20 +67,44 @@ function conditionLabel(bestCondition) {
   return (bestCondition.label || '').toUpperCase();
 }
 
-export async function GET() {
-  const { userId } = await auth();
-  if (!userId) return new Response('Unauthorized', { status: 401 });
+// A public share snapshot ({id} -> {best_zone,best_venue,best_condition})
+// stored at share-time by /api/battle-card/share, read with the service key
+// since battle_card_shares has no RLS policies for the anon role. Used so a
+// crawler (Facebook/X fetching og:image) or a logged-out visitor can render
+// the exact same image without authenticating.
+async function fetchShareSnapshot(id) {
+  const SVC_KEY = process.env.SUPABASE_SERVICE_KEY;
+  const res = await fetch(
+    `${SURL}/rest/v1/battle_card_shares?id=eq.${encodeURIComponent(id)}&select=best_zone,best_venue,best_condition`,
+    { headers: { apikey: SVC_KEY, Authorization: `Bearer ${SVC_KEY}` } },
+  );
+  if (!res.ok) return null;
+  const rows = await res.json();
+  return rows?.[0] || null;
+}
 
-  if (!SURL || !SKEY) return new Response('Server config missing', { status: 500 });
+export async function GET(req) {
+  const { searchParams } = new URL(req.url);
+  const shareId = searchParams.get('shareId');
 
-  const bets = await fetchAllBets(userId);
-  const stats = findBattleCardStats(bets, { minSample: 10, normaliseVenueFn: normaliseVenue });
+  let bestZone, bestVenue, bestCondition;
 
-  if (!stats.qualifies) {
-    return new Response('Not enough data yet', { status: 404 });
+  if (shareId) {
+    if (!SURL) return new Response('Server config missing', { status: 500 });
+    const snap = await fetchShareSnapshot(shareId);
+    if (!snap) return new Response('Not found', { status: 404 });
+    ({ best_zone: bestZone, best_venue: bestVenue, best_condition: bestCondition } = snap);
+  } else {
+    const { userId } = await auth();
+    if (!userId) return new Response('Unauthorized', { status: 401 });
+    if (!SURL || !SKEY) return new Response('Server config missing', { status: 500 });
+
+    const bets = await fetchAllBets(userId);
+    const stats = findBattleCardStats(bets, { minSample: 10, normaliseVenueFn: normaliseVenue });
+    if (!stats.qualifies) return new Response('Not enough data yet', { status: 404 });
+    ({ bestZone, bestVenue, bestCondition } = stats);
   }
 
-  const { bestZone, bestVenue, bestCondition } = stats;
   const fonts = await loadFonts();
 
   return new ImageResponse(

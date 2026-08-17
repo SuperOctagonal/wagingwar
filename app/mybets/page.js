@@ -511,8 +511,11 @@ export default function MybetsPage() {
   // Battle Card share — null while checking, then true/false once
   // /api/battle-card/status responds (n>=10 in all of best-zone/venue/condition).
   const [battleCardQualifies, setBattleCardQualifies] = useState(null);
-  const [shareStatus, setShareStatus] = useState('idle'); // idle | loading | error
-  const [shareFallback, setShareFallback] = useState(null); // { blob, url } when navigator.share isn't usable
+  const [shareMenuOpen, setShareMenuOpen] = useState(false);
+  const [shareStatus, setShareStatus] = useState('idle'); // idle | loading | error -- PNG blob fetch, for device-share/download/copy
+  const [shareFallback, setShareFallback] = useState(null); // { blob, url } once the PNG is fetched
+  const [publicShareUrl, setPublicShareUrl] = useState(null); // wagingwar.com.au/battle-card/share/{id}, for Facebook/X
+  const [publicShareStatus, setPublicShareStatus] = useState('idle'); // idle | loading | error
   const shareFallbackUrlRef = useRef(null);
 
   // CSV data for Quick Log
@@ -627,44 +630,48 @@ export default function MybetsPage() {
   // doesn't leak.
   useEffect(() => () => { if (shareFallbackUrlRef.current) URL.revokeObjectURL(shareFallbackUrlRef.current); }, []);
 
-  const handleShareBattleCard = useCallback(async () => {
-    if (!user?.id || shareStatus === 'loading') return;
+  // Opens the share menu and kicks off both the PNG fetch (needed for
+  // device-share/download/copy) and the public-URL creation (needed for
+  // Facebook/X) in parallel. Points are awarded once here, on open,
+  // regardless of which specific target the user ends up clicking --
+  // matches the existing weekly points-sum cap in lib/points.js, which
+  // already handles repeat opens correctly.
+  const handleOpenShareMenu = useCallback(() => {
+    if (!user?.id || shareMenuOpen) return;
+    setShareMenuOpen(true);
+    awardPoints(user.id, 'battle_card_share').catch(() => {});
+
     setShareStatus('loading');
-    try {
-      const res = await fetch('/api/battle-card');
-      if (!res.ok) throw new Error(`battle-card ${res.status}`);
-      const blob = await res.blob();
-
-      let shared = false;
-      if (typeof navigator !== 'undefined' && navigator.canShare) {
-        const file = new File([blob], 'battle-card.png', { type: 'image/png' });
-        if (navigator.canShare({ files: [file] })) {
-          try {
-            await navigator.share({ files: [file], title: 'My Waging War Battle Card', text: 'Check out my edge on Waging War' });
-            shared = true;
-          } catch (err) {
-            if (err?.name === 'AbortError') { setShareStatus('idle'); return; } // user cancelled the share sheet
-            throw err;
-          }
-        }
-      }
-
-      if (shared) {
-        awardPoints(user.id, 'battle_card_share').catch(() => {});
-        setShareStatus('idle');
-      } else {
-        // Fallback: offer Download / Copy instead of a native share sheet.
+    fetch('/api/battle-card')
+      .then(res => { if (!res.ok) throw new Error(`battle-card ${res.status}`); return res.blob(); })
+      .then(blob => {
         if (shareFallbackUrlRef.current) URL.revokeObjectURL(shareFallbackUrlRef.current);
         const url = URL.createObjectURL(blob);
         shareFallbackUrlRef.current = url;
         setShareFallback({ blob, url });
         setShareStatus('idle');
-      }
+      })
+      .catch(err => { console.error('[BattleCard] image fetch failed:', err); setShareStatus('error'); });
+
+    setPublicShareStatus('loading');
+    fetch('/api/battle-card/share', { method: 'POST' })
+      .then(res => { if (!res.ok) throw new Error(`battle-card/share ${res.status}`); return res.json(); })
+      .then(d => { setPublicShareUrl(d.url); setPublicShareStatus('idle'); })
+      .catch(err => { console.error('[BattleCard] public share link failed:', err); setPublicShareStatus('error'); });
+  }, [user?.id, shareMenuOpen]);
+
+  const handleCloseShareMenu = useCallback(() => setShareMenuOpen(false), []);
+
+  const handleDeviceShare = useCallback(async () => {
+    if (!shareFallback) return;
+    const file = new File([shareFallback.blob], 'battle-card.png', { type: 'image/png' });
+    try {
+      await navigator.share({ files: [file], title: 'My Waging War Battle Card', text: 'Check out my edge on Waging War' });
+      setShareMenuOpen(false);
     } catch (err) {
-      console.error('[BattleCard] share failed:', err);
-      setShareStatus('error');
+      if (err?.name !== 'AbortError') console.error('[BattleCard] device share failed:', err);
     }
-  }, [user?.id, shareStatus]);
+  }, [shareFallback]);
 
   const handleFallbackDownload = useCallback(() => {
     if (!shareFallback) return;
@@ -674,20 +681,31 @@ export default function MybetsPage() {
     document.body.appendChild(a);
     a.click();
     a.remove();
-    if (user?.id) awardPoints(user.id, 'battle_card_share').catch(() => {});
-    setShareFallback(null);
-  }, [shareFallback, user?.id]);
+    setShareMenuOpen(false);
+  }, [shareFallback]);
 
   const handleFallbackCopy = useCallback(async () => {
     if (!shareFallback || !navigator.clipboard?.write) return;
     try {
       await navigator.clipboard.write([new window.ClipboardItem({ 'image/png': shareFallback.blob })]);
-      if (user?.id) awardPoints(user.id, 'battle_card_share').catch(() => {});
-      setShareFallback(null);
+      setShareMenuOpen(false);
     } catch (err) {
       console.error('[BattleCard] copy failed:', err);
     }
-  }, [shareFallback, user?.id]);
+  }, [shareFallback]);
+
+  const handleShareToFacebook = useCallback(() => {
+    if (!publicShareUrl) return;
+    window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(publicShareUrl)}`, '_blank', 'noopener,noreferrer,width=600,height=500');
+    setShareMenuOpen(false);
+  }, [publicShareUrl]);
+
+  const handleShareToX = useCallback(() => {
+    if (!publicShareUrl) return;
+    const text = 'Check out my edge on Waging War';
+    window.open(`https://twitter.com/intent/tweet?url=${encodeURIComponent(publicShareUrl)}&text=${encodeURIComponent(text)}`, '_blank', 'noopener,noreferrer,width=600,height=500');
+    setShareMenuOpen(false);
+  }, [publicShareUrl]);
 
   // ww:refresh event — re-pull bets from DB (dispatched by TopNav refresh button)
   useEffect(() => {
@@ -1535,8 +1553,8 @@ export default function MybetsPage() {
             {battleCardQualifies !== null && (
               <div style={{ position: 'absolute', top: 8, right: 8 }}>
                 <button
-                  onClick={battleCardQualifies ? handleShareBattleCard : undefined}
-                  disabled={!battleCardQualifies || shareStatus === 'loading'}
+                  onClick={battleCardQualifies ? (shareMenuOpen ? handleCloseShareMenu : handleOpenShareMenu) : undefined}
+                  disabled={!battleCardQualifies}
                   title={battleCardQualifies ? 'Share your Battle Card' : 'Keep logging bets to unlock your Battle Card'}
                   style={{
                     display: 'flex', alignItems: 'center', gap: 4, padding: isMobile ? '4px 6px' : '4px 8px',
@@ -1544,23 +1562,53 @@ export default function MybetsPage() {
                     background: battleCardQualifies ? '#0d2416' : '#f9fafb',
                     color: battleCardQualifies ? '#e8b84a' : '#9ca3af',
                     fontSize: 10, fontWeight: 700, cursor: battleCardQualifies ? 'pointer' : 'default',
-                    opacity: shareStatus === 'loading' ? 0.6 : 1,
                   }}
                 >
                   <i className={`ti ${battleCardQualifies ? 'ti-share' : 'ti-lock'}`} style={{ fontSize: 11 }} />
-                  {!isMobile && (shareStatus === 'loading' ? 'Generating…' : 'Battle Card')}
+                  {!isMobile && 'Battle Card'}
                 </button>
-                {shareFallback && (
-                  <div style={{ position: 'absolute', top: '100%', right: 0, marginTop: 4, background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, boxShadow: '0 4px 12px rgba(0,0,0,0.12)', padding: 6, display: 'flex', flexDirection: 'column', gap: 4, zIndex: 30, width: 160 }}>
-                    <button onClick={handleFallbackDownload} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 8px', borderRadius: 5, border: 'none', background: 'none', fontSize: 11, fontWeight: 600, color: '#111827', cursor: 'pointer', textAlign: 'left' }}>
+                {shareMenuOpen && (
+                  <div style={{ position: 'absolute', top: '100%', right: 0, marginTop: 4, background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, boxShadow: '0 4px 12px rgba(0,0,0,0.12)', padding: 6, display: 'flex', flexDirection: 'column', gap: 4, zIndex: 30, width: 190 }}>
+                    {typeof navigator !== 'undefined' && navigator.share && (
+                      <button
+                        onClick={handleDeviceShare}
+                        disabled={shareStatus !== 'idle' || !shareFallback}
+                        style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 8px', borderRadius: 5, border: 'none', background: 'none', fontSize: 11, fontWeight: 600, color: shareStatus === 'idle' && shareFallback ? '#111827' : '#c1c7d0', cursor: shareStatus === 'idle' && shareFallback ? 'pointer' : 'default', textAlign: 'left' }}
+                      >
+                        <i className="ti ti-share-2" style={{ fontSize: 12 }} /> Share via device… {shareStatus === 'loading' && '(loading)'}
+                      </button>
+                    )}
+                    <button
+                      onClick={handleShareToFacebook}
+                      disabled={publicShareStatus !== 'idle' || !publicShareUrl}
+                      style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 8px', borderRadius: 5, border: 'none', background: 'none', fontSize: 11, fontWeight: 600, color: publicShareUrl ? '#111827' : '#c1c7d0', cursor: publicShareUrl ? 'pointer' : 'default', textAlign: 'left' }}
+                    >
+                      <i className="ti ti-brand-facebook" style={{ fontSize: 12 }} /> Share to Facebook {publicShareStatus === 'loading' && '(loading)'}
+                    </button>
+                    <button
+                      onClick={handleShareToX}
+                      disabled={publicShareStatus !== 'idle' || !publicShareUrl}
+                      style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 8px', borderRadius: 5, border: 'none', background: 'none', fontSize: 11, fontWeight: 600, color: publicShareUrl ? '#111827' : '#c1c7d0', cursor: publicShareUrl ? 'pointer' : 'default', textAlign: 'left' }}
+                    >
+                      <i className="ti ti-brand-x" style={{ fontSize: 12 }} /> Share to X {publicShareStatus === 'loading' && '(loading)'}
+                    </button>
+                    <button
+                      onClick={handleFallbackDownload}
+                      disabled={!shareFallback}
+                      style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 8px', borderRadius: 5, border: 'none', background: 'none', fontSize: 11, fontWeight: 600, color: shareFallback ? '#111827' : '#c1c7d0', cursor: shareFallback ? 'pointer' : 'default', textAlign: 'left' }}
+                    >
                       <i className="ti ti-download" style={{ fontSize: 12 }} /> Download image
                     </button>
                     {typeof window !== 'undefined' && window.ClipboardItem && (
-                      <button onClick={handleFallbackCopy} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 8px', borderRadius: 5, border: 'none', background: 'none', fontSize: 11, fontWeight: 600, color: '#111827', cursor: 'pointer', textAlign: 'left' }}>
+                      <button
+                        onClick={handleFallbackCopy}
+                        disabled={!shareFallback}
+                        style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 8px', borderRadius: 5, border: 'none', background: 'none', fontSize: 11, fontWeight: 600, color: shareFallback ? '#111827' : '#c1c7d0', cursor: shareFallback ? 'pointer' : 'default', textAlign: 'left' }}
+                      >
                         <i className="ti ti-copy" style={{ fontSize: 12 }} /> Copy to clipboard
                       </button>
                     )}
-                    <button onClick={() => setShareFallback(null)} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 8px', borderRadius: 5, border: 'none', background: 'none', fontSize: 11, color: '#9ca3af', cursor: 'pointer', textAlign: 'left' }}>
+                    <button onClick={handleCloseShareMenu} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 8px', borderRadius: 5, border: 'none', background: 'none', fontSize: 11, color: '#9ca3af', cursor: 'pointer', textAlign: 'left' }}>
                       Cancel
                     </button>
                   </div>
