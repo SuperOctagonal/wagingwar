@@ -19,6 +19,7 @@ const SECTIONS = [
   { id: 'today_races',     label: "Today's Races" },
   { id: 'tips_analysis',   label: 'Tips & Analysis' },
   { id: 'winning_bets',    label: 'Winning Bets' },
+  { id: 'shared_bets',     label: 'Shared Bets' },
   { id: 'system_feedback', label: 'System Feedback' },
   { id: 'general',         label: 'General Chat' },
 ];
@@ -27,6 +28,7 @@ const CAT = {
   today_races:     { bg: '#dbeafe', text: '#1e40af' },
   tips_analysis:   { bg: '#dcfce7', text: '#166534' },
   winning_bets:    { bg: '#fef9c3', text: '#854d0e' },
+  shared_bets:     { bg: '#e0e7ff', text: '#3730a3' },
   system_feedback: { bg: '#f3e8ff', text: '#6b21a8' },
   general:         { bg: '#f3f4f6', text: '#374151' },
 };
@@ -182,11 +184,18 @@ function PostTable({ posts, section, loading, onNavigate, isMobile = false }) {
               onMouseLeave={e => e.currentTarget.style.background = '#fff'}
             >
               <td style={{ padding: '9px 12px', borderRight: '1px solid #E5E7EB' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
-                  {section === 'all' && <CatBadge section={p.section} />}
-                  <div style={{ fontSize: 12, fontWeight: 700, color: '#111827' }}>{p.title}</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  {p.image_url && (
+                    <img src={p.image_url} alt="" style={{ width: 36, height: 36, borderRadius: 6, objectFit: 'cover', flexShrink: 0, background: '#0a1a10' }} />
+                  )}
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+                      {section === 'all' && <CatBadge section={p.section} />}
+                      <div style={{ fontSize: 12, fontWeight: 700, color: '#111827' }}>{p.title}</div>
+                    </div>
+                    <div style={{ fontSize: 10, color: '#6B7280' }}>Started by <span style={{ fontWeight: 600 }}>{p.author?.display_name || 'Anonymous'}</span></div>
+                  </div>
                 </div>
-                <div style={{ fontSize: 10, color: '#6B7280' }}>Started by <span style={{ fontWeight: 600 }}>{p.author?.display_name || 'Anonymous'}</span></div>
               </td>
               <td style={{ padding: '9px 6px', textAlign: 'center', fontWeight: 700, color: '#374151', borderRight: '1px solid #E5E7EB' }}>{p.votes || 0}</td>
               <td style={{ padding: '9px 6px', textAlign: 'center', fontWeight: 700, color: '#374151', borderRight: '1px solid #E5E7EB' }}>{p.reply_count || 0}</td>

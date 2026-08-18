@@ -14,7 +14,7 @@ export async function POST(req) {
     return NextResponse.json({ error: 'Pro required' }, { status: 403 });
   }
 
-  const { section, title, body } = await req.json().catch(() => ({}));
+  const { section, title, body, image_url: imageUrl } = await req.json().catch(() => ({}));
   if (!section || !title || !body) {
     return NextResponse.json({ error: 'Missing fields' }, { status: 400 });
   }
@@ -27,7 +27,7 @@ export async function POST(req) {
       Authorization: `Bearer ${SKEY}`,
       Prefer: 'return=representation',
     },
-    body: JSON.stringify({ user_id: userId, section, title, body, votes: 0, reply_count: 0 }),
+    body: JSON.stringify({ user_id: userId, section, title, body, image_url: imageUrl || null, votes: 0, reply_count: 0 }),
   });
 
   if (!r.ok) return NextResponse.json({ error: `Supabase ${r.status}` }, { status: 502 });

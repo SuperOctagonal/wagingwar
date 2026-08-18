@@ -292,6 +292,9 @@ export default function PostDetailPage() {
 
             {/* Body */}
             <div style={{ fontSize: 12, color: '#374151', lineHeight: 1.75, whiteSpace: 'pre-wrap' }}>{post.body}</div>
+            {post.image_url && (
+              <img src={post.image_url} alt="" style={{ maxWidth: 340, width: '100%', borderRadius: 16, marginTop: 12, display: 'block' }} />
+            )}
           </div>
         </div>
 

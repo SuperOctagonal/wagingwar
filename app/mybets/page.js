@@ -9,6 +9,7 @@ import useUserSettings from '@/hooks/useUserSettings';
 import UpgradeModal from '@/components/UpgradeModal';
 import BottomSheet from '@/components/BottomSheet';
 import BetFilterPanel from '@/components/BetFilterPanel';
+import ShareMenu from '@/components/ShareMenu';
 import { awardPoints } from '@/lib/points';
 import { parseCSV, buildRaces } from '@/lib/csvParser';
 import { normaliseVenue } from '@/lib/venues';
@@ -510,13 +511,9 @@ export default function MybetsPage() {
 
   // Battle Card share — null while checking, then true/false once
   // /api/battle-card/status responds (n>=10 in all of best-zone/venue/condition).
+  // Menu state (device-share/FB/X/download/copy) lives in components/ShareMenu.js,
+  // reused for both this and the Log Bet modal's Share Bet button below.
   const [battleCardQualifies, setBattleCardQualifies] = useState(null);
-  const [shareMenuOpen, setShareMenuOpen] = useState(false);
-  const [shareStatus, setShareStatus] = useState('idle'); // idle | loading | error -- PNG blob fetch, for device-share/download/copy
-  const [shareFallback, setShareFallback] = useState(null); // { blob, url } once the PNG is fetched
-  const [publicShareUrl, setPublicShareUrl] = useState(null); // wagingwar.com.au/battle-card/share/{id}, for Facebook/X
-  const [publicShareStatus, setPublicShareStatus] = useState('idle'); // idle | loading | error
-  const shareFallbackUrlRef = useRef(null);
 
   // CSV data for Quick Log
   const [csvMeetings, setCsvMeetings] = useState([]);   // ['Flemington', ...]
@@ -626,86 +623,63 @@ export default function MybetsPage() {
       .catch(() => setBattleCardQualifies(false));
   }, [user?.id]);
 
-  // Revoke any pending fallback-download object URL on unmount so it
-  // doesn't leak.
-  useEffect(() => () => { if (shareFallbackUrlRef.current) URL.revokeObjectURL(shareFallbackUrlRef.current); }, []);
+  // Battle Card ShareMenu wiring: create the public snapshot first (the
+  // image route's ?shareId= variant is the single source of truth for the
+  // PNG, so device-share/download/copy show exactly what got shared), then
+  // fetch that same image.
+  const createBattleCardShareUrl = useCallback(async () => {
+    const res = await fetch('/api/battle-card/share', { method: 'POST' });
+    if (!res.ok) throw new Error(`battle-card/share ${res.status}`);
+    return res.json(); // { id, url }
+  }, []);
+  const fetchBattleCardImage = useCallback(share => fetch(`/api/battle-card?shareId=${share.id}`), []);
 
-  // Opens the share menu and kicks off both the PNG fetch (needed for
-  // device-share/download/copy) and the public-URL creation (needed for
-  // Facebook/X) in parallel. Points are awarded once here, on open,
-  // regardless of which specific target the user ends up clicking --
-  // matches the existing weekly points-sum cap in lib/points.js, which
-  // already handles repeat opens correctly.
-  const handleOpenShareMenu = useCallback(() => {
-    if (!user?.id || shareMenuOpen) return;
-    setShareMenuOpen(true);
-    awardPoints(user.id, 'battle_card_share').catch(() => {});
+  // Bet Share ShareMenu wiring — same shape, fed from the Log Bet modal's
+  // live form state (see qlBetShareBody below) rather than saved bet_log
+  // data, so Share Bet works independent of Save Bet.
+  const createBetShareUrl = useCallback(async () => {
+    const res = await fetch('/api/bet-card/share', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(qlBetShareBody()),
+    });
+    if (!res.ok) throw new Error(`bet-card/share ${res.status}`);
+    return res.json(); // { id, url }
+  }, [qlHorse, qlMeeting, qlRace, qlOdds, qlStake]); // eslint-disable-line react-hooks/exhaustive-deps
+  const fetchBetCardImage = useCallback(share => fetch(`/api/bet-card?shareId=${share.id}`), []);
 
-    setShareStatus('loading');
-    fetch('/api/battle-card')
-      .then(res => { if (!res.ok) throw new Error(`battle-card ${res.status}`); return res.blob(); })
-      .then(blob => {
-        if (shareFallbackUrlRef.current) URL.revokeObjectURL(shareFallbackUrlRef.current);
-        const url = URL.createObjectURL(blob);
-        shareFallbackUrlRef.current = url;
-        setShareFallback({ blob, url });
-        setShareStatus('idle');
-      })
-      .catch(err => { console.error('[BattleCard] image fetch failed:', err); setShareStatus('error'); });
+  function qlBetShareBody() {
+    return {
+      horse_name: qlHorse,
+      venue: qlMeeting || null,
+      race_number: qlRace || null,
+      odds: qlOdds,
+      stake: qlStake,
+    };
+  }
 
-    setPublicShareStatus('loading');
-    fetch('/api/battle-card/share', { method: 'POST' })
-      .then(res => { if (!res.ok) throw new Error(`battle-card/share ${res.status}`); return res.json(); })
-      .then(d => { setPublicShareUrl(d.url); setPublicShareStatus('idle'); })
-      .catch(err => { console.error('[BattleCard] public share link failed:', err); setPublicShareStatus('error'); });
-  }, [user?.id, shareMenuOpen]);
-
-  const handleCloseShareMenu = useCallback(() => setShareMenuOpen(false), []);
-
-  const handleDeviceShare = useCallback(async () => {
-    if (!shareFallback) return;
-    const file = new File([shareFallback.blob], 'battle-card.png', { type: 'image/png' });
-    try {
-      await navigator.share({ files: [file], title: 'My Waging War Battle Card', text: 'Check out my edge on Waging War' });
-      setShareMenuOpen(false);
-    } catch (err) {
-      if (err?.name !== 'AbortError') console.error('[BattleCard] device share failed:', err);
+  // "Share to Community" — creates a real post in the existing feed
+  // (POST /api/community/post) with image_url pointing at the same public
+  // bet-card image endpoint FB/X use, so there's one image, not a second
+  // upload path.
+  const handleShareBetToCommunity = useCallback(async ({ id }) => {
+    if (!user?.id) return;
+    const title = `${qlHorse} @ ${qlMeeting || 'TBC'} — $${(+qlStake).toFixed(2)} at $${(+qlOdds).toFixed(2)}`;
+    const res = await fetch('/api/community/post', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        section: 'shared_bets',
+        title,
+        body: 'Shared from my Waging War bet slip',
+        image_url: `/api/bet-card?shareId=${id}`,
+      }),
+    });
+    if (res.ok) {
+      window.dispatchEvent(new Event('ww:profile:refresh'));
+      awardPoints(user.id, 'community_post', title.slice(0, 100)).catch(() => {});
     }
-  }, [shareFallback]);
-
-  const handleFallbackDownload = useCallback(() => {
-    if (!shareFallback) return;
-    const a = document.createElement('a');
-    a.href = shareFallback.url;
-    a.download = 'waging-war-battle-card.png';
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    setShareMenuOpen(false);
-  }, [shareFallback]);
-
-  const handleFallbackCopy = useCallback(async () => {
-    if (!shareFallback || !navigator.clipboard?.write) return;
-    try {
-      await navigator.clipboard.write([new window.ClipboardItem({ 'image/png': shareFallback.blob })]);
-      setShareMenuOpen(false);
-    } catch (err) {
-      console.error('[BattleCard] copy failed:', err);
-    }
-  }, [shareFallback]);
-
-  const handleShareToFacebook = useCallback(() => {
-    if (!publicShareUrl) return;
-    window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(publicShareUrl)}`, '_blank', 'noopener,noreferrer,width=600,height=500');
-    setShareMenuOpen(false);
-  }, [publicShareUrl]);
-
-  const handleShareToX = useCallback(() => {
-    if (!publicShareUrl) return;
-    const text = 'Check out my edge on Waging War';
-    window.open(`https://twitter.com/intent/tweet?url=${encodeURIComponent(publicShareUrl)}&text=${encodeURIComponent(text)}`, '_blank', 'noopener,noreferrer,width=600,height=500');
-    setShareMenuOpen(false);
-  }, [publicShareUrl]);
+  }, [user?.id, qlHorse, qlMeeting, qlStake, qlOdds]);
 
   // ww:refresh event — re-pull bets from DB (dispatched by TopNav refresh button)
   useEffect(() => {
@@ -1514,13 +1488,32 @@ export default function MybetsPage() {
               </div>
             </div>
           ) : (
-            <button
-              onClick={handleQuickLog}
-              disabled={qlBtnDisabled}
-              style={{ width: '100%', padding: '7px 0', background: raceHasPassed ? '#6b7280' : '#059669', color: '#fff', border: 'none', borderRadius: 5, fontSize: 12, fontWeight: 700, cursor: qlBtnDisabled ? 'default' : 'pointer', opacity: qlBtnDisabled ? 0.6 : 1 }}
-            >
-              {qlSaving ? '…' : 'Save Bet'}
-            </button>
+            <div style={{ display: 'flex', gap: 6, alignItems: 'stretch' }}>
+              <button
+                onClick={handleQuickLog}
+                disabled={qlBtnDisabled}
+                style={{ flex: 1, padding: '7px 0', background: raceHasPassed ? '#6b7280' : '#059669', color: '#fff', border: 'none', borderRadius: 5, fontSize: 12, fontWeight: 700, cursor: qlBtnDisabled ? 'default' : 'pointer', opacity: qlBtnDisabled ? 0.6 : 1 }}
+              >
+                {qlSaving ? '…' : 'Save Bet'}
+              </button>
+              <ShareMenu
+                userId={user?.id}
+                qualifies={!!qlHorse.trim() && +qlStake > 0 && +qlOdds > 1}
+                openTitle="Share this bet"
+                lockedTitle="Fill in horse, stake and odds to share"
+                label="Share Bet"
+                pointsAction="bet_card_share"
+                createPublicUrl={createBetShareUrl}
+                fetchImage={fetchBetCardImage}
+                fileName="bet-card.png"
+                shareTitle="My Waging War Bet"
+                shareText={`${qlHorse} @ ${qlMeeting || 'TBC'} — $${qlStake || '0'} at $${qlOdds || '0'}`}
+                extraActions={[
+                  { label: 'Share to Community', icon: 'ti-users', onClick: handleShareBetToCommunity },
+                ]}
+                wrapperStyle={{ flexShrink: 0 }}
+              />
+            </div>
           )}
           {qlToast && (
             <div style={{ marginTop: 6, fontSize: 11, fontWeight: 600, textAlign: 'center', color: qlToast === 'success' ? '#059669' : '#dc2626' }}>
@@ -1552,67 +1545,20 @@ export default function MybetsPage() {
             {/* Battle Card share — locked state until n>=10 in best zone/venue/condition */}
             {battleCardQualifies !== null && (
               <div style={{ position: 'absolute', top: 8, right: 8 }}>
-                <button
-                  onClick={battleCardQualifies ? (shareMenuOpen ? handleCloseShareMenu : handleOpenShareMenu) : undefined}
-                  disabled={!battleCardQualifies}
-                  title={battleCardQualifies ? 'Share your Battle Card' : 'Keep logging bets to unlock your Battle Card'}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: 4, padding: isMobile ? '4px 6px' : '4px 8px',
-                    borderRadius: 6, border: `1px solid ${battleCardQualifies ? '#e8b84a' : '#e5e7eb'}`,
-                    background: battleCardQualifies ? '#0d2416' : '#f9fafb',
-                    color: battleCardQualifies ? '#e8b84a' : '#9ca3af',
-                    fontSize: 10, fontWeight: 700, cursor: battleCardQualifies ? 'pointer' : 'default',
-                  }}
-                >
-                  <i className={`ti ${battleCardQualifies ? 'ti-share' : 'ti-lock'}`} style={{ fontSize: 11 }} />
-                  {!isMobile && 'Battle Card'}
-                </button>
-                {shareMenuOpen && (
-                  <div style={{ position: 'absolute', top: '100%', right: 0, marginTop: 4, background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, boxShadow: '0 4px 12px rgba(0,0,0,0.12)', padding: 6, display: 'flex', flexDirection: 'column', gap: 4, zIndex: 30, width: 190 }}>
-                    {typeof navigator !== 'undefined' && navigator.share && (
-                      <button
-                        onClick={handleDeviceShare}
-                        disabled={shareStatus !== 'idle' || !shareFallback}
-                        style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 8px', borderRadius: 5, border: 'none', background: 'none', fontSize: 11, fontWeight: 600, color: shareStatus === 'idle' && shareFallback ? '#111827' : '#c1c7d0', cursor: shareStatus === 'idle' && shareFallback ? 'pointer' : 'default', textAlign: 'left' }}
-                      >
-                        <i className="ti ti-share-2" style={{ fontSize: 12 }} /> Share via device… {shareStatus === 'loading' && '(loading)'}
-                      </button>
-                    )}
-                    <button
-                      onClick={handleShareToFacebook}
-                      disabled={publicShareStatus !== 'idle' || !publicShareUrl}
-                      style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 8px', borderRadius: 5, border: 'none', background: 'none', fontSize: 11, fontWeight: 600, color: publicShareUrl ? '#111827' : '#c1c7d0', cursor: publicShareUrl ? 'pointer' : 'default', textAlign: 'left' }}
-                    >
-                      <i className="ti ti-brand-facebook" style={{ fontSize: 12 }} /> Share to Facebook {publicShareStatus === 'loading' && '(loading)'}
-                    </button>
-                    <button
-                      onClick={handleShareToX}
-                      disabled={publicShareStatus !== 'idle' || !publicShareUrl}
-                      style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 8px', borderRadius: 5, border: 'none', background: 'none', fontSize: 11, fontWeight: 600, color: publicShareUrl ? '#111827' : '#c1c7d0', cursor: publicShareUrl ? 'pointer' : 'default', textAlign: 'left' }}
-                    >
-                      <i className="ti ti-brand-x" style={{ fontSize: 12 }} /> Share to X {publicShareStatus === 'loading' && '(loading)'}
-                    </button>
-                    <button
-                      onClick={handleFallbackDownload}
-                      disabled={!shareFallback}
-                      style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 8px', borderRadius: 5, border: 'none', background: 'none', fontSize: 11, fontWeight: 600, color: shareFallback ? '#111827' : '#c1c7d0', cursor: shareFallback ? 'pointer' : 'default', textAlign: 'left' }}
-                    >
-                      <i className="ti ti-download" style={{ fontSize: 12 }} /> Download image
-                    </button>
-                    {typeof window !== 'undefined' && window.ClipboardItem && (
-                      <button
-                        onClick={handleFallbackCopy}
-                        disabled={!shareFallback}
-                        style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 8px', borderRadius: 5, border: 'none', background: 'none', fontSize: 11, fontWeight: 600, color: shareFallback ? '#111827' : '#c1c7d0', cursor: shareFallback ? 'pointer' : 'default', textAlign: 'left' }}
-                      >
-                        <i className="ti ti-copy" style={{ fontSize: 12 }} /> Copy to clipboard
-                      </button>
-                    )}
-                    <button onClick={handleCloseShareMenu} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 8px', borderRadius: 5, border: 'none', background: 'none', fontSize: 11, color: '#9ca3af', cursor: 'pointer', textAlign: 'left' }}>
-                      Cancel
-                    </button>
-                  </div>
-                )}
+                <ShareMenu
+                  userId={user?.id}
+                  qualifies={battleCardQualifies}
+                  openTitle="Share your Battle Card"
+                  lockedTitle="Keep logging bets to unlock your Battle Card"
+                  label="Battle Card"
+                  isMobile={isMobile}
+                  pointsAction="battle_card_share"
+                  createPublicUrl={createBattleCardShareUrl}
+                  fetchImage={fetchBattleCardImage}
+                  fileName="battle-card.png"
+                  shareTitle="My Waging War Battle Card"
+                  shareText="Check out my edge on Waging War"
+                />
               </div>
             )}
           </div>
