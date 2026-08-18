@@ -9,6 +9,7 @@ import useIsMobile from '@/hooks/useIsMobile';
 import useUserSettings from '@/hooks/useUserSettings';
 import UpgradeModal from '@/components/UpgradeModal';
 import BottomSheet from '@/components/BottomSheet';
+import ShareMenu from '@/components/ShareMenu';
 import { awardPoints } from '@/lib/points';
 import { normaliseVenue, stripSponsorPrefix, SPONSOR_PREFIXES } from '@/lib/venues';
 import { isRacesAdmin } from '@/lib/admin';
@@ -1124,6 +1125,7 @@ function BetModal({ horse, onClose }) {
   const [stakingAlert,  setStakingAlert]  = useState('');
   const [stakeWarning,  setStakeWarning]  = useState(false);
   const [formError,     setFormError]     = useState('');
+  const [shareToast,    setShareToast]    = useState(null); // Share Bet -> Share to Community outcome message
 
   useEffect(() => { setOpen(true); }, []);
 
@@ -1223,6 +1225,54 @@ function BetModal({ horse, onClose }) {
       setTimeout(() => setToast(null), 3000);
     }
   };
+
+  // Share Bet — same infra as My Bets' Quick Log form (components/ShareMenu.js,
+  // /api/bet-card, /api/bet-card/share), fed from this modal's own horse
+  // prop + local stake/odds state instead of qlHorse/qlMeeting/qlRace/etc.
+  const createBetShareUrl = useCallback(async () => {
+    const res = await fetch('/api/bet-card/share', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        horse_name: horse.name,
+        venue: horse._venue || null,
+        race_number: horse._raceNum != null ? String(horse._raceNum) : null,
+        odds,
+        stake,
+      }),
+    });
+    if (!res.ok) throw new Error(`bet-card/share ${res.status}`);
+    return res.json(); // { id, url }
+  }, [horse, stake, odds]);
+  const fetchBetCardImage = useCallback(share => fetch(`/api/bet-card?shareId=${share.id}`), []);
+
+  // Same Pro-gate behavior as My Bets' Share to Community: the reused
+  // /api/community/post route 403s for free users, and that's surfaced
+  // clearly rather than failing silently.
+  const handleShareBetToCommunity = useCallback(async ({ id }) => {
+    if (!user?.id) return;
+    const title = `${horse.name} @ ${horse._venue || 'TBC'} — $${(+stake).toFixed(2)} at $${(+odds).toFixed(2)}`;
+    const res = await fetch('/api/community/post', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        section: 'shared_bets',
+        title,
+        body: 'Shared from my Waging War bet slip',
+        image_url: `/api/bet-card?shareId=${id}`,
+      }),
+    });
+    if (res.ok) {
+      window.dispatchEvent(new Event('ww:profile:refresh'));
+      awardPoints(user.id, 'community_post', title.slice(0, 100)).catch(() => {});
+      setShareToast('Posted to Community');
+    } else if (res.status === 403) {
+      setShareToast('Community posting is a Pro feature');
+    } else {
+      setShareToast('Couldn’t post to Community — try again');
+    }
+    setTimeout(() => setShareToast(null), 4000);
+  }, [user?.id, horse, stake, odds]);
 
   // Estimated place price from the entered win odds + race field size — placeholder only,
   // never a real value the field is auto-filled with.
@@ -1373,12 +1423,36 @@ function BetModal({ horse, onClose }) {
           </div>
         </div>
       )}
-      {/* Save */}
+      {/* Save + Share */}
       {!stakeWarning && (
-        <button onClick={handleSave} disabled={saving}
-          className="w-full py-2.5 rounded-xl text-sm font-bold transition-colors bg-brand text-white hover:bg-brand-dark disabled:opacity-60">
-          {saving ? 'Saving…' : 'Save Bet'}
-        </button>
+        <div className="flex gap-2 items-stretch">
+          <button onClick={handleSave} disabled={saving}
+            className="flex-1 py-2.5 rounded-xl text-sm font-bold transition-colors bg-brand text-white hover:bg-brand-dark disabled:opacity-60">
+            {saving ? 'Saving…' : 'Save Bet'}
+          </button>
+          <ShareMenu
+            userId={user?.id}
+            qualifies={!!horse.name && +stake > 0 && +odds > 1}
+            openTitle="Share this bet"
+            lockedTitle="Fill in stake and odds to share"
+            label="Share Bet"
+            pointsAction="bet_card_share"
+            createPublicUrl={createBetShareUrl}
+            fetchImage={fetchBetCardImage}
+            fileName="bet-card.png"
+            shareTitle="My Waging War Bet"
+            shareText={`${horse.name} @ ${horse._venue || 'TBC'} — $${stake || '0'} at $${odds || '0'}`}
+            extraActions={[
+              { label: 'Share to Community', icon: 'ti-users', onClick: handleShareBetToCommunity },
+            ]}
+            wrapperStyle={{ flexShrink: 0 }}
+          />
+        </div>
+      )}
+      {shareToast && (
+        <div style={{ fontSize: 11, fontWeight: 600, textAlign: 'center', color: shareToast === 'Posted to Community' ? '#059669' : '#92400e' }}>
+          {shareToast}
+        </div>
       )}
     </div>
   );
