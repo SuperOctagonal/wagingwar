@@ -532,6 +532,7 @@ export default function MybetsPage() {
   const [qlBookmaker, setQlBookmaker] = useState('Sportsbet');
   const [qlSaving,    setQlSaving]    = useState(false);
   const [qlToast,        setQlToast]        = useState(null);
+  const [shareToast,     setShareToast]     = useState(null); // Share Bet -> Share to Community outcome message
   const [qlRaceTime,     setQlRaceTime]     = useState('');
   const [qlTab,          setQlTab]          = useState('');
   const [raceDate,       setRaceDate]       = useState(null);
@@ -661,7 +662,10 @@ export default function MybetsPage() {
   // "Share to Community" — creates a real post in the existing feed
   // (POST /api/community/post) with image_url pointing at the same public
   // bet-card image endpoint FB/X use, so there's one image, not a second
-  // upload path.
+  // upload path. That route is Pro-gated (free = read-only in Community,
+  // an existing tier boundary) -- unlike Facebook/X/device share, which
+  // stay open to everyone as a deliberate growth mechanic, this one
+  // inherits the gate rather than silently failing or quietly bypassing it.
   const handleShareBetToCommunity = useCallback(async ({ id }) => {
     if (!user?.id) return;
     const title = `${qlHorse} @ ${qlMeeting || 'TBC'} — $${(+qlStake).toFixed(2)} at $${(+qlOdds).toFixed(2)}`;
@@ -678,7 +682,13 @@ export default function MybetsPage() {
     if (res.ok) {
       window.dispatchEvent(new Event('ww:profile:refresh'));
       awardPoints(user.id, 'community_post', title.slice(0, 100)).catch(() => {});
+      setShareToast('Posted to Community');
+    } else if (res.status === 403) {
+      setShareToast('Community posting is a Pro feature');
+    } else {
+      setShareToast('Couldn’t post to Community — try again');
     }
+    setTimeout(() => setShareToast(null), 4000);
   }, [user?.id, qlHorse, qlMeeting, qlStake, qlOdds]);
 
   // ww:refresh event — re-pull bets from DB (dispatched by TopNav refresh button)
@@ -1518,6 +1528,11 @@ export default function MybetsPage() {
           {qlToast && (
             <div style={{ marginTop: 6, fontSize: 11, fontWeight: 600, textAlign: 'center', color: qlToast === 'success' ? '#059669' : '#dc2626' }}>
               {qlToast === 'success' ? '✓ Logged' : '✗ Failed'}
+            </div>
+          )}
+          {shareToast && (
+            <div style={{ marginTop: 6, fontSize: 11, fontWeight: 600, textAlign: 'center', color: shareToast === 'Posted to Community' ? '#059669' : '#92400e' }}>
+              {shareToast}
             </div>
           )}
         </div>
