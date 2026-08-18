@@ -1476,9 +1476,11 @@ function BetModal({ horse, onClose }) {
 
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center" onClick={onClose}>
-      <div className="bg-white rounded-2xl shadow-2xl w-80 overflow-hidden" onClick={e => e.stopPropagation()}>
-        {/* Header */}
-        <div className="bg-brand px-4 py-3 flex items-center justify-between">
+      <div className="bg-white rounded-2xl shadow-2xl w-80" onClick={e => e.stopPropagation()}>
+        {/* Header — rounded-t-2xl instead of relying on the parent's
+            overflow-hidden, which used to clip the ShareMenu dropdown's
+            absolutely-positioned popup near the bottom of this box. */}
+        <div className="bg-brand px-4 py-3 flex items-center justify-between rounded-t-2xl">
           <div>
             <div className="text-white font-semibold text-[13px]">Log Bet</div>
             <div className="text-white/70 text-[11px] mt-0.5 flex items-center gap-1">

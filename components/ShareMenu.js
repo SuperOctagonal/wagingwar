@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useCallback, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { awardPoints } from '@/lib/points';
 
 // Reusable share menu: device-share / Facebook / X / download / copy, plus
@@ -32,13 +33,40 @@ export default function ShareMenu({
   wrapperStyle,
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [menuPos, setMenuPos] = useState(null); // { top, right } in viewport coords, for the portaled dropdown
   const [imgStatus, setImgStatus] = useState('idle'); // idle | loading | error
   const [imgFallback, setImgFallback] = useState(null); // { blob, url }
   const [publicShare, setPublicShare] = useState(null); // { id, url }
   const [publicStatus, setPublicStatus] = useState('idle'); // idle | loading | error
   const objectUrlRef = useRef(null);
+  const btnRef = useRef(null);
 
   useEffect(() => () => { if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current); }, []);
+
+  // The dropdown is portaled to document.body as position:fixed, positioned
+  // from the trigger button's live bounding rect -- NOT rendered inline
+  // relative to the trigger. Both the Races page's Log Bet modal
+  // (overflow-hidden container) and the mobile BottomSheet (overflow-y:auto
+  // content wrapper) clip any child that paints outside their bounds,
+  // which silently hid this dropdown when it was positioned inline. A
+  // fixed-position portal escapes any ancestor's overflow/clipping
+  // entirely, the same technique BottomSheet itself already uses.
+  const updateMenuPos = useCallback(() => {
+    if (!btnRef.current) return;
+    const r = btnRef.current.getBoundingClientRect();
+    setMenuPos({ top: r.bottom + 4, right: window.innerWidth - r.right });
+  }, []);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    updateMenuPos();
+    window.addEventListener('resize', updateMenuPos);
+    window.addEventListener('scroll', updateMenuPos, true); // capture, so scrolling BottomSheet's inner content wrapper is caught too
+    return () => {
+      window.removeEventListener('resize', updateMenuPos);
+      window.removeEventListener('scroll', updateMenuPos, true);
+    };
+  }, [menuOpen, updateMenuPos]);
 
   const handleOpen = useCallback(async () => {
     if (!userId || menuOpen) return;
@@ -123,6 +151,7 @@ export default function ShareMenu({
   return (
     <div style={{ position: 'relative', display: 'inline-block', ...wrapperStyle }}>
       <button
+        ref={btnRef}
         onClick={qualifies ? (menuOpen ? handleClose : handleOpen) : undefined}
         disabled={!qualifies}
         title={qualifies ? openTitle : lockedTitle}
@@ -137,8 +166,8 @@ export default function ShareMenu({
         <i className={`ti ${qualifies ? icon : lockedIcon}`} style={{ fontSize: 11 }} />
         {!isMobile && label}
       </button>
-      {menuOpen && (
-        <div style={{ position: 'absolute', top: '100%', right: 0, marginTop: 4, background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, boxShadow: '0 4px 12px rgba(0,0,0,0.12)', padding: 6, display: 'flex', flexDirection: 'column', gap: 4, zIndex: 30, width: 190 }}>
+      {menuOpen && menuPos && typeof document !== 'undefined' && createPortal(
+        <div style={{ position: 'fixed', top: menuPos.top, right: menuPos.right, background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, boxShadow: '0 4px 12px rgba(0,0,0,0.12)', padding: 6, display: 'flex', flexDirection: 'column', gap: 4, zIndex: 10000, width: 190 }}>
           {typeof navigator !== 'undefined' && navigator.share && (
             <button onClick={handleDeviceShare} disabled={!ready} style={itemStyle(ready)}>
               <i className="ti ti-share-2" style={{ fontSize: 12 }} /> Share via device… {imgStatus === 'loading' && '(loading)'}
@@ -176,7 +205,8 @@ export default function ShareMenu({
           <button onClick={handleClose} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 8px', borderRadius: 5, border: 'none', background: 'none', fontSize: 11, color: '#9ca3af', cursor: 'pointer', textAlign: 'left' }}>
             Cancel
           </button>
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   );
