@@ -238,6 +238,7 @@ function applyLbRanks(sorted) {
 }
 
 const LB_TABS      = [{ id: 'alltime', label: 'All-time' }, { id: 'yearly', label: 'Yearly' }, { id: 'monthly', label: 'Monthly' }, { id: 'weekly', label: 'Weekly' }];
+const MAIN_TABS     = [{ id: 'today', label: 'Today' }, { id: 'beat-model', label: '🤖 Beat the Model' }, { id: 'alltime', label: 'All-time' }];
 
 export default function CompetitionsPage() {
   const { user, isLoaded } = useUser();
@@ -1257,18 +1258,8 @@ export default function CompetitionsPage() {
   );
 
   // ─── Beat the Model tab ─────────────────────────────────────────────────────
-  const btmTabHeader = (
-    <div style={{ background: '#f9fafb', borderBottom: `0.5px solid ${CT_LINE}`, padding: '10px 16px', display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0, flexWrap: 'wrap' }}>
-      <button onClick={() => setMainTab('today')} style={{ background: 'none', border: 'none', color: '#111827', fontSize: 11, fontWeight: 700, cursor: 'pointer', padding: 0, fontFamily: 'inherit' }}>
-        ← Today
-      </button>
-      <span style={{ fontSize: 11, fontWeight: 700, color: '#374151' }}>🤖 Beat the Model</span>
-    </div>
-  );
-
   const beatModelTab = (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'auto', background: '#fff' }}>
-      {btmTabHeader}
       <div style={{ padding: '16px', maxWidth: 560 }}>
         {!btmChallenge ? (
           <div style={{ textAlign: 'center', padding: '24px 8px', color: '#6b7280', fontSize: 12 }}>
@@ -1351,9 +1342,6 @@ export default function CompetitionsPage() {
   const allTimeTab = (
     <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column', background: '#fff' }}>
       <div style={{ background: '#f9fafb', borderBottom: `0.5px solid ${CT_LINE}`, padding: '10px 16px', display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0, flexWrap: 'wrap' }}>
-        <button onClick={() => setMainTab('today')} style={{ background: 'none', border: 'none', color: '#111827', fontSize: 11, fontWeight: 700, cursor: 'pointer', padding: 0, fontFamily: 'inherit' }}>
-          ← Today
-        </button>
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
           {LB_TABS.map(t => {
             const active = lbTab === t.id;
@@ -1384,9 +1372,27 @@ export default function CompetitionsPage() {
     </div>
   );
 
+  // ─── Persistent tab bar — shown above all three views (not just linked
+  // one-way from Today into the others), so any view is reachable from any
+  // other. ───────────────────────────────────────────────────────────────
+  const mainTabBar = (
+    <div style={{ background: '#fff', borderBottom: `0.5px solid ${CT_LINE}`, padding: '8px 16px', display: 'flex', gap: 6, flexShrink: 0, flexWrap: 'wrap' }}>
+      {MAIN_TABS.map(t => {
+        const active = mainTab === t.id;
+        return (
+          <button key={t.id} onClick={() => setMainTab(t.id)}
+            style={{ padding: '5px 12px', borderRadius: 5, fontSize: 11, fontWeight: 700, border: `0.5px solid ${active ? '#111827' : CT_LINE}`, cursor: 'pointer', fontFamily: 'inherit', background: active ? '#111827' : '#fff', color: active ? '#fff' : '#374151' }}>
+            {t.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+
   // ─── Main render ──────────────────────────────────────────────────────────────
   return (
     <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: '#fff' }}>
+      {mainTabBar}
       {mainTab === 'today' ? todayTab : mainTab === 'beat-model' ? beatModelTab : allTimeTab}
     </main>
   );
