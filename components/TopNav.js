@@ -8,6 +8,7 @@ import useIsPro from '@/hooks/useIsPro';
 import useIsMobile from '@/hooks/useIsMobile';
 import { isSiteAdmin } from '@/lib/admin';
 import { punterFallback } from '@/lib/punterFallback';
+import { brisbaneTodayISO } from '@/lib/raceTime';
 
 const SURL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SKEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -50,6 +51,7 @@ export default function TopNav() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [navRefreshing, setNavRefreshing] = useState(false);
   const [pendingCount, setPendingCount] = useState(0);
+  const [btmPending, setBtmPending] = useState(false);
   const dropdownRef = useRef(null);
 
   // Derive current page id from pathname
@@ -96,6 +98,35 @@ export default function TopNav() {
       window.removeEventListener('ww:profile:refresh', load);
     };
   }, [user?.id]);
+
+  // Beat the Model badge — plain dot (not a count, it's a single daily
+  // yes/no), shown when the user hasn't made today's pick yet. Doesn't
+  // check whether a real challenge race exists today (that's only known
+  // client-side, inside app/competitions/page.js, once CSV data loads) --
+  // known, accepted minor edge case: could show on a day with literally no
+  // usable race data at all, which is rare. Pro-gated since the whole
+  // Competitions page is.
+  useEffect(() => {
+    if (!user?.id || !isPro || !SURL || !SKEY) { setBtmPending(false); return; }
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const today = brisbaneTodayISO();
+        const res = await fetch(
+          `${SURL}/rest/v1/btm_picks?clerk_id=eq.${encodeURIComponent(user.id)}&comp_date=eq.${today}&select=horse_name`,
+          { headers: { apikey: SKEY, Authorization: `Bearer ${SKEY}` } },
+        );
+        if (res.ok && !cancelled) {
+          const rows = await res.json();
+          setBtmPending(Array.isArray(rows) && rows.length === 0);
+        }
+      } catch {}
+    };
+    load();
+    const id = setInterval(load, 60000);
+    window.addEventListener('ww:refresh', load);
+    return () => { cancelled = true; clearInterval(id); window.removeEventListener('ww:refresh', load); };
+  }, [user?.id, isPro]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -182,12 +213,15 @@ export default function TopNav() {
                   currentPage === link.id
                     ? 'text-white'
                     : 'text-white/55 group-hover:bg-white group-hover:text-brand',
-                ].join(' ')} style={link.id === 'mybets' && pendingCount > 0 ? { position: 'relative' } : {}}>
+                ].join(' ')} style={(link.id === 'mybets' && pendingCount > 0) || (link.id === 'competitions' && btmPending) ? { position: 'relative' } : {}}>
                   {link.label}
                   {link.id === 'mybets' && pendingCount > 0 && (
                     <span style={{ position: 'absolute', top: -6, right: -8, background: '#ef4444', color: '#fff', borderRadius: '50%', minWidth: 16, height: 16, fontSize: 9, fontWeight: 700, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '0 2px', lineHeight: 1, pointerEvents: 'none' }}>
                       {pendingCount > 99 ? '99+' : pendingCount}
                     </span>
+                  )}
+                  {link.id === 'competitions' && btmPending && (
+                    <span title="Beat the Model challenge is live" style={{ position: 'absolute', top: -2, right: -4, background: '#fbbf24', borderRadius: '50%', width: 8, height: 8, pointerEvents: 'none' }} />
                   )}
                 </span>
               </button>
@@ -353,6 +387,9 @@ export default function TopNav() {
                       {pendingCount > 99 ? '99+' : pendingCount}
                     </span>
                   )}
+                  {link.id === 'competitions' && btmPending && (
+                    <span style={{ marginLeft: 'auto', background: '#fbbf24', borderRadius: '50%', width: 8, height: 8, flexShrink: 0 }} />
+                  )}
                 </button>
               ))}
             </div>
@@ -405,6 +442,9 @@ export default function TopNav() {
               <span style={{ position: 'absolute', top: 4, right: 6, background: '#ef4444', color: '#fff', borderRadius: '50%', minWidth: 14, height: 14, fontSize: 8, fontWeight: 700, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '0 2px', lineHeight: 1, pointerEvents: 'none' }}>
                 {pendingCount > 99 ? '99+' : pendingCount}
               </span>
+            )}
+            {tab.id === 'competitions' && btmPending && (
+              <span style={{ position: 'absolute', top: 6, right: 10, background: '#fbbf24', borderRadius: '50%', width: 7, height: 7, pointerEvents: 'none' }} />
             )}
           </button>
         ))}

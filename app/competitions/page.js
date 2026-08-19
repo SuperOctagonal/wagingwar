@@ -12,6 +12,8 @@ import { scoreHorse, getDefaultWeights } from '@/lib/scoring';
 import { normaliseVenue } from '@/lib/venues';
 import { punterFallback } from '@/lib/punterFallback';
 import { fetchDisplayNames } from '@/lib/displayNames';
+import { awardPoints } from '@/lib/points';
+import { selectBeatModelRace } from '@/lib/beatModel';
 
 const SURL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SKEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -264,6 +266,13 @@ export default function CompetitionsPage() {
   const [lbRows, setLbRows]         = useState([]);
   const [lbLoading, setLbLoading]   = useState(false);
 
+  // Beat the Model — single national race, one pick per user per day.
+  const [btmPick,       setBtmPick]       = useState(null);
+  const [btmResolved,   setBtmResolved]   = useState(false);
+  const [btmWon,        setBtmWon]        = useState(false);
+  const [btmPickSaving, setBtmPickSaving] = useState(false);
+  const [btmStats,      setBtmStats]      = useState({ participants: 0, correct: 0 });
+
   // Record + P&L state
   const [allCompScoresData, setAllCompScoresData]     = useState([]);
   const [userAllPicksData, setUserAllPicksData]       = useState([]);
@@ -280,6 +289,24 @@ export default function CompetitionsPage() {
 
   const selVenues = useMemo(() => csvRaces ? pickMeetings(csvRaces.allRaces) : [], [csvRaces]);
   const compRaces = useMemo(() => csvRaces ? getCompRaces(csvRaces.allRaces, selVenues) : [], [csvRaces, selVenues]);
+
+  // Deterministic given the same CSV -- every client picks the same race
+  // independently, same reasoning as selVenues/compRaces above. See
+  // lib/beatModel.js for the selection rules and BTM_CUTOFF_HOUR_AEST.
+  const btmChallenge = useMemo(() => csvRaces ? selectBeatModelRace(csvRaces.allRaces) : null, [csvRaces]);
+  const btmModelPick = useMemo(() => btmChallenge ? getModelRank1(btmChallenge.race, venueTrackConds) : null, [btmChallenge, venueTrackConds]);
+  const btmActiveHorses = useMemo(
+    () => btmChallenge ? (btmChallenge.race.horses || []).filter(h => !h.scratched && !scratchings.has(`${btmChallenge.venue}||${btmChallenge.raceNum}||${(h.name||'').toUpperCase()}`)) : [],
+    [btmChallenge, scratchings],
+  );
+  const btmWinnerRow = useMemo(() => {
+    if (!btmChallenge) return null;
+    return todayRaceResultsData.find(r =>
+      normaliseVenue(r.venue || '') === btmChallenge.venue &&
+      +r.race_num === btmChallenge.raceNum &&
+      (r.finish_pos === 1 || r.finish_pos === '1'),
+    ) || null;
+  }, [btmChallenge, todayRaceResultsData]);
 
   const mr1Map = useMemo(() => {
     const m = {};
@@ -629,8 +656,12 @@ export default function CompetitionsPage() {
   }, []);
 
   useEffect(() => {
-    if (typeof window !== 'undefined' && window.location.hash === '#leaderboard') {
+    if (typeof window === 'undefined') return;
+    if (window.location.hash === '#leaderboard') {
       setMainTab('alltime');
+      window.history.replaceState(null, '', window.location.pathname);
+    } else if (window.location.hash === '#beat-model') {
+      setMainTab('beat-model');
       window.history.replaceState(null, '', window.location.pathname);
     }
   }, []);
@@ -695,6 +726,77 @@ export default function CompetitionsPage() {
     return () => clearInterval(id);
   }, [today, isPro]);
 
+  // Beat the Model — write today's selected race as a durable record
+  // (idempotent upsert; harmless if multiple clients race to write it,
+  // since every client computes the same selection independently).
+  useEffect(() => {
+    if (!btmChallenge || !SURL || !SKEY || !isPro) return;
+    sbFetch('btm_challenges?on_conflict=comp_date', {
+      method: 'POST',
+      prefer: 'resolution=merge-duplicates,return=minimal',
+      body: {
+        comp_date: today,
+        venue: btmChallenge.venue,
+        race_num: btmChallenge.raceNum,
+        race_name: btmChallenge.raceName,
+        prize_money: btmChallenge.prize,
+        post_time: btmChallenge.postTimeISO,
+        used_fallback: btmChallenge.usedFallback,
+      },
+    });
+  }, [btmChallenge?.venue, btmChallenge?.raceNum, today, isPro]);
+
+  // Load this user's existing pick + resolution state for today
+  useEffect(() => {
+    if (!user?.id || !isPro || !SURL || !SKEY) { setBtmPick(null); setBtmResolved(false); setBtmWon(false); return; }
+    sbFetch(`btm_picks?clerk_id=eq.${encodeURIComponent(user.id)}&comp_date=eq.${today}&select=horse_name,resolved,won`)
+      .then(rows => {
+        if (!Array.isArray(rows) || !rows.length) return;
+        setBtmPick(rows[0].horse_name);
+        setBtmResolved(!!rows[0].resolved);
+        setBtmWon(!!rows[0].won);
+      });
+  }, [user?.id, today, isPro]);
+
+  // Resolve once the winner is known — client-triggered like the rest of
+  // this app's point-awarding actions (no server cron exists to hook into;
+  // see the "Beat the Model" plan notes). Known, accepted tradeoff: stays
+  // unresolved (and the bonus unawarded) until a user with a pending pick
+  // actually visits after the race jumps. The resolved=eq.false filter on
+  // the PATCH, plus checking the returned row count, stops a double-award
+  // if this fires from more than one open tab.
+  useEffect(() => {
+    if (!user?.id || !isPro || !btmChallenge || !btmPick || btmResolved || !btmWinnerRow) return;
+    const won = (btmWinnerRow.horse_name || '').toLowerCase() === btmPick.toLowerCase();
+    (async () => {
+      const patched = await sbFetch(
+        `btm_picks?clerk_id=eq.${encodeURIComponent(user.id)}&comp_date=eq.${today}&resolved=eq.false`,
+        { method: 'PATCH', prefer: 'return=representation', body: { resolved: true, won } },
+      );
+      if (Array.isArray(patched) && patched.length) {
+        setBtmResolved(true);
+        setBtmWon(won);
+        if (won) awardPoints(user.id, 'beat_model_correct').catch(() => {});
+      }
+    })();
+  }, [user?.id, isPro, btmChallenge, btmPick, btmResolved, btmWinnerRow, today]);
+
+  // Aggregate participant/correct counts — a simple stat line rather than
+  // forcing this into LeaderboardTable's multi-metric (hitPct/streak/score)
+  // shape, which doesn't fit a single binary-outcome race well.
+  useEffect(() => {
+    if (!SURL || !SKEY || !isPro || !btmChallenge) return;
+    function load() {
+      sbFetch(`btm_picks?comp_date=eq.${today}&select=resolved,won`).then(rows => {
+        if (!Array.isArray(rows)) return;
+        setBtmStats({ participants: rows.length, correct: rows.filter(r => r.resolved && r.won).length });
+      });
+    }
+    load();
+    const id = setInterval(load, 60000);
+    return () => clearInterval(id);
+  }, [today, isPro, btmChallenge?.venue, btmChallenge?.raceNum]);
+
   useEffect(() => {
     if (!SURL || !SKEY || !isPro) return;
     fetch(`${SURL}/rest/v1/user_profiles?hide_from_lb=eq.true&select=clerk_id`, {
@@ -724,6 +826,28 @@ export default function CompetitionsPage() {
       body: { clerk_id: user.id, comp_date: today, venue: normaliseVenue(race.venue||''), race_num: +race.num, horse_name: horseName, username: uname, hide_picks: settings.compShowPicks === false },
     });
     setSavingKey(null);
+  }
+
+  function isBtmLocked() {
+    if (!btmChallenge?.postTimeISO) return false;
+    return new Date(btmChallenge.postTimeISO).getTime() <= now;
+  }
+
+  async function saveBtmPick(horseName) {
+    // Changeable up until lock, same as the regular comp's savePick --
+    // awardPoints' existing max:1/day cap on beat_model_participate already
+    // stops repeat picking from farming points, so no extra guard needed here.
+    if (!horseName || !btmChallenge || isBtmLocked()) return;
+    setBtmPick(horseName);
+    if (!user?.id || !SURL || !SKEY) return;
+    setBtmPickSaving(true);
+    await sbFetch('btm_picks?on_conflict=clerk_id,comp_date', {
+      method: 'POST',
+      prefer: 'resolution=merge-duplicates,return=minimal',
+      body: { clerk_id: user.id, comp_date: today, horse_name: horseName },
+    });
+    setBtmPickSaving(false);
+    awardPoints(user.id, 'beat_model_participate').catch(() => {});
   }
 
   // ─── Loading gate ─────────────────────────────────────────────────────────────
@@ -1078,15 +1202,45 @@ export default function CompetitionsPage() {
         Field <span style={{ fontWeight: 400, color: '#9ca3af', textTransform: 'none' }}>· {entrantCount} entrant{entrantCount !== 1 ? 's' : ''}</span>
       </div>
       <LeaderboardTable rows={todayLbRows} />
-      <button onClick={() => setMainTab('alltime')} style={{ marginTop: 10, background: 'none', border: 'none', cursor: 'pointer', fontSize: 10, fontWeight: 700, color: '#111827', padding: 0 }}>
-        Full leaderboard →
-      </button>
+      <div style={{ display: 'flex', gap: 14, marginTop: 10 }}>
+        <button onClick={() => setMainTab('alltime')} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 10, fontWeight: 700, color: '#111827', padding: 0 }}>
+          Full leaderboard →
+        </button>
+        {btmChallenge && (
+          <button onClick={() => setMainTab('beat-model')} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 10, fontWeight: 700, color: '#854d0e', padding: 0 }}>
+            🤖 Beat the Model →
+          </button>
+        )}
+      </div>
     </div>
+  );
+
+  const btmBannerLabel = !btmChallenge
+    ? null
+    : !user?.id || !btmPick
+    ? 'Pick today\'s winner and try to beat the model →'
+    : !btmResolved
+    ? 'Your pick is in — check back after the race →'
+    : btmWon
+    ? 'You beat the model! See the reveal →'
+    : 'See how your pick compared to the model →';
+
+  const btmBanner = btmBannerLabel && (
+    <button onClick={() => setMainTab('beat-model')} style={{
+      display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%',
+      background: btmResolved && btmWon ? '#0d2416' : '#fffbea', border: 'none', borderBottom: `0.5px solid ${CT_LINE}`,
+      padding: '10px 16px', cursor: 'pointer', flexShrink: 0, textAlign: 'left', fontFamily: 'inherit',
+    }}>
+      <span style={{ fontSize: 11, fontWeight: 700, color: btmResolved && btmWon ? '#e8b84a' : '#854d0e' }}>
+        🤖 Beat the Model — {btmBannerLabel}
+      </span>
+    </button>
   );
 
   const todayTab = (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'auto', background: '#fff' }}>
       {heroBlock}
+      {btmBanner}
       {scratchAlerts.length > 0 && (
         <div style={{ background: '#fef2f2', borderBottom: '0.5px solid #fecaca', padding: '6px 16px', flexShrink: 0 }}>
           {scratchAlerts.map(race => (
@@ -1099,6 +1253,92 @@ export default function CompetitionsPage() {
       )}
       {campaignPanel}
       {fieldPanel}
+    </div>
+  );
+
+  // ─── Beat the Model tab ─────────────────────────────────────────────────────
+  const btmTabHeader = (
+    <div style={{ background: '#f9fafb', borderBottom: `0.5px solid ${CT_LINE}`, padding: '10px 16px', display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0, flexWrap: 'wrap' }}>
+      <button onClick={() => setMainTab('today')} style={{ background: 'none', border: 'none', color: '#111827', fontSize: 11, fontWeight: 700, cursor: 'pointer', padding: 0, fontFamily: 'inherit' }}>
+        ← Today
+      </button>
+      <span style={{ fontSize: 11, fontWeight: 700, color: '#374151' }}>🤖 Beat the Model</span>
+    </div>
+  );
+
+  const beatModelTab = (
+    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'auto', background: '#fff' }}>
+      {btmTabHeader}
+      <div style={{ padding: '16px', maxWidth: 560 }}>
+        {!btmChallenge ? (
+          <div style={{ textAlign: 'center', padding: '24px 8px', color: '#6b7280', fontSize: 12 }}>
+            {csvRaces ? 'No eligible race found for today.' : 'Loading race data…'}
+          </div>
+        ) : (
+          <>
+            <div style={{ fontSize: 9, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '.4px', marginBottom: 4 }}>
+              Today&apos;s challenge{btmChallenge.usedFallback ? ' · fallback pick' : ''}
+            </div>
+            <div style={{ fontSize: 16, fontWeight: 800, color: '#111827', marginBottom: 2 }}>
+              {titleCase(btmChallenge.venue)} R{btmChallenge.raceNum}{btmChallenge.raceName ? ` — ${btmChallenge.raceName}` : ''}
+            </div>
+            <div style={{ fontSize: 11, color: '#6b7280', marginBottom: 16 }}>
+              ${btmChallenge.prize.toLocaleString()} · {btmChallenge.starterCount} starters
+              {btmChallenge.postTimeISO && ` · ${new Date(btmChallenge.postTimeISO).toLocaleTimeString('en-AU', { timeZone: 'Australia/Brisbane', hour: 'numeric', minute: '2-digit' })} AEST`}
+            </div>
+
+            {!user?.id ? (
+              <div style={{ fontSize: 11, color: '#9ca3af' }}>Sign in to make your pick.</div>
+            ) : !btmResolved ? (
+              <>
+                <div style={{ fontSize: 9, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '.4px', marginBottom: 8 }}>
+                  {btmPick ? 'Your pick' : isBtmLocked() ? 'Picks are locked' : 'Pick the winner'}
+                </div>
+                {isBtmLocked() && !btmPick ? (
+                  <div style={{ fontSize: 11, color: '#9ca3af' }}>This race has already started.</div>
+                ) : (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                    {btmActiveHorses.map(h => (
+                      <button key={h.name} disabled={isBtmLocked() || btmPickSaving} onClick={() => saveBtmPick(h.name)}
+                        style={{ padding: '6px 12px', fontSize: 11, fontWeight: 600, borderRadius: 5, cursor: isBtmLocked() ? 'default' : 'pointer', fontFamily: 'inherit',
+                          background: btmPick === h.name ? '#d1fae5' : '#fff', color: '#111827', border: `1px solid ${btmPick === h.name ? '#16a34a' : '#d1d5db'}`, opacity: isBtmLocked() ? 0.6 : 1 }}>
+                        {h.name}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {btmPick && <div style={{ marginTop: 10, fontSize: 10, color: '#9ca3af' }}>Check back after the race for the reveal — your pick vs. the winner vs. the model&apos;s own pick.</div>}
+              </>
+            ) : (
+              // ─── The reveal — the core hook: your pick vs. actual winner vs. model's rank-1 ───
+              <div>
+                <div style={{ padding: '14px 16px', borderRadius: 10, marginBottom: 14, background: btmWon ? '#0d2416' : '#fef2f2', border: `1px solid ${btmWon ? '#2f9e44' : '#fecaca'}` }}>
+                  <div style={{ fontSize: 14, fontWeight: 800, color: btmWon ? '#e8b84a' : '#991b1b' }}>
+                    {btmWon ? '🏆 You beat the model!' : '🤖 The model got this one.'}
+                  </div>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
+                  {[
+                    { label: 'Your pick',  value: btmPick, hit: btmWon },
+                    { label: 'Winner',     value: btmWinnerRow?.horse_name || '—', hit: true },
+                    { label: "Model's pick", value: btmModelPick || '—', hit: btmModelPick && btmWinnerRow && btmModelPick.toLowerCase() === (btmWinnerRow.horse_name||'').toLowerCase() },
+                  ].map(c => (
+                    <div key={c.label} style={{ background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: 8, padding: '10px 12px' }}>
+                      <div style={{ fontSize: 9, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '.3px', marginBottom: 4 }}>{c.label}</div>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: c.hit ? '#16a34a' : '#111827' }}>{c.value}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div style={{ marginTop: 20, paddingTop: 14, borderTop: `0.5px solid ${CT_LINE}`, fontSize: 10, color: '#9ca3af' }}>
+              {btmStats.participants} tipster{btmStats.participants !== 1 ? 's' : ''} entered today
+              {btmStats.correct > 0 && ` · ${btmStats.correct} beat the model so far`}
+            </div>
+          </>
+        )}
+      </div>
     </div>
   );
 
@@ -1147,7 +1387,7 @@ export default function CompetitionsPage() {
   // ─── Main render ──────────────────────────────────────────────────────────────
   return (
     <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: '#fff' }}>
-      {mainTab === 'today' ? todayTab : allTimeTab}
+      {mainTab === 'today' ? todayTab : mainTab === 'beat-model' ? beatModelTab : allTimeTab}
     </main>
   );
 }
