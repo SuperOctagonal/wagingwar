@@ -256,6 +256,7 @@ function UploadZone({ onFile }) {
   return (
     <div className="flex-1 flex items-center justify-center p-8">
       <div
+        title="EveryRace CSV" /* admin-only tooltip; visible text below stays vendor-free, same standing rule as never naming Racing Australia publicly */
         onDragOver={e => { e.preventDefault(); setDragging(true); }}
         onDragLeave={() => setDragging(false)}
         onDrop={e => { e.preventDefault(); setDragging(false); handle(e.dataTransfer.files[0]); }}
@@ -268,7 +269,7 @@ function UploadZone({ onFile }) {
         <input ref={inputRef} type="file" accept=".csv" className="hidden" onChange={e => handle(e.target.files[0])} />
         <i className="ti ti-upload text-3xl text-gray-400" />
         <div className="text-center">
-          <p className="text-sm font-semibold text-gray-700">Drop EveryRace CSV here</p>
+          <p className="text-sm font-semibold text-gray-700">Drop today&apos;s CSV here</p>
           <p className="text-xs text-gray-400 mt-1">or click to browse</p>
         </div>
       </div>
