@@ -405,7 +405,12 @@ function PrizeWheel({ status, onSpin, spinning, rotation }) {
           return (
             <div key={i} style={{
               position: 'absolute', top: '50%', left: '50%', width: 100,
-              transform: `rotate(${angle}deg) translate(0, -92px) rotate(0deg)`,
+              // rotate(angle) positions the label out along the wedge's
+              // radius; the final rotate(-angle) counter-rotates the text
+              // itself back to horizontal -- without it (previously a
+              // no-op rotate(0deg)) the text inherited the full wedge
+              // angle, reading upside-down for every bottom-half segment.
+              transform: `rotate(${angle}deg) translate(0, -92px) rotate(${-angle}deg)`,
               transformOrigin: 'top left',
               fontSize: 9, fontWeight: 700, color: '#fff', textAlign: 'center',
             }}>
