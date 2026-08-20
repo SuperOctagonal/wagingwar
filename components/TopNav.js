@@ -20,6 +20,7 @@ const NAV_LINKS = [
   { id: 'betting-tools', label: 'Tools',       href: '/betting-tools' },
   { id: 'insights',     label: 'Insights',     href: '/insights' },
   { id: 'community',    label: 'Community',    href: '/community' },
+  { id: 'games',        label: 'Games',        href: '/games' },
   { id: 'competitions', label: 'Competitions', href: '/competitions' },
   { id: 'blackbook',    label: 'Blackbook',    href: '/blackbook' },
   { id: 'how-it-works', label: 'How It Works',  href: '/how-it-works' },
@@ -32,6 +33,7 @@ const MOB_TABS = [
   { id: 'insights',     label: 'Insights',  icon: 'chart-bar' },
   { id: 'results',      label: 'Results',   icon: 'flag-check' },
   { id: 'community',    label: 'Community', icon: 'users' },
+  { id: 'games',        label: 'Games',     icon: 'device-gamepad-2' },
   { id: 'competitions', label: 'Comps',     icon: 'trophy' },
 ];
 
