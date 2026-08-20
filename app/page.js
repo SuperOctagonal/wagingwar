@@ -207,45 +207,64 @@ export default function HomePage() {
 
       {/* ── 1. Hero ──────────────────────────────────────────────────────── */}
       <section style={{ background: GREEN, padding: 'clamp(56px, 10vw, 96px) 24px clamp(64px, 11vw, 104px)', textAlign: 'center' }}>
-        <div style={{ maxWidth: 700, margin: '0 auto' }}>
+        <div style={{ maxWidth: 1100, margin: '0 auto' }}>
 
-          <div
-            className="font-bebas"
-            style={{ fontSize: 'clamp(52px, 12vw, 88px)', letterSpacing: '0.06em', lineHeight: 1, marginBottom: 32 }}
-          >
-            <span style={{ color: '#fff' }}>WAGING</span>
-            <span style={{ color: GOLD }}> WAR</span>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-10 md:items-center">
+            <div>
+              <div
+                className="font-bebas"
+                style={{ fontSize: 'clamp(52px, 12vw, 88px)', letterSpacing: '0.06em', lineHeight: 1, marginBottom: 32 }}
+              >
+                <span style={{ color: '#fff' }}>WAGING</span>
+                <span style={{ color: GOLD }}> WAR</span>
+              </div>
+
+              <h1 style={{
+                fontSize: 'clamp(22px, 5vw, 38px)', fontWeight: 800, color: '#fff',
+                margin: '0 0 18px', letterSpacing: '-0.02em', lineHeight: 1.2,
+              }}>
+                Back Winners With Data,<br />Not Hunches
+              </h1>
+
+              <p style={{
+                fontSize: 'clamp(13px, 2vw, 16px)', color: 'rgba(255,255,255,0.72)',
+                margin: '0 auto 40px', maxWidth: 520, lineHeight: 1.7,
+              }}>
+                Australia&apos;s most advanced horse racing analytics platform.
+                Score and rank every runner in every race in seconds.
+              </p>
+
+              <Link
+                href="/sign-up"
+                style={{
+                  display: 'inline-block',
+                  background: '#fff', color: GREEN, fontWeight: 800, fontSize: 15,
+                  padding: '15px 36px', borderRadius: 9, textDecoration: 'none',
+                  boxShadow: '0 4px 14px rgba(0,0,0,0.18)',
+                }}
+              >
+                Sign Up Free
+              </Link>
+              <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.45)', margin: '12px 0 0' }}>
+                No card needed
+              </p>
+            </div>
+
+            <div>
+              <video
+                src="/videos/results-reel.mp4"
+                autoPlay
+                muted
+                loop
+                playsInline
+                style={{
+                  width: '100%', maxWidth: 340, aspectRatio: '9 / 16', objectFit: 'cover',
+                  borderRadius: 22, border: '1px solid rgba(255,255,255,0.18)',
+                  display: 'block', margin: '0 auto', boxShadow: '0 20px 60px rgba(0,0,0,0.35)',
+                }}
+              />
+            </div>
           </div>
-
-          <h1 style={{
-            fontSize: 'clamp(22px, 5vw, 38px)', fontWeight: 800, color: '#fff',
-            margin: '0 0 18px', letterSpacing: '-0.02em', lineHeight: 1.2,
-          }}>
-            Back Winners With Data,<br />Not Hunches
-          </h1>
-
-          <p style={{
-            fontSize: 'clamp(13px, 2vw, 16px)', color: 'rgba(255,255,255,0.72)',
-            margin: '0 auto 40px', maxWidth: 520, lineHeight: 1.7,
-          }}>
-            Australia&apos;s most advanced horse racing analytics platform.
-            Score and rank every runner in every race in seconds.
-          </p>
-
-          <Link
-            href="/sign-up"
-            style={{
-              display: 'inline-block',
-              background: '#fff', color: GREEN, fontWeight: 800, fontSize: 15,
-              padding: '15px 36px', borderRadius: 9, textDecoration: 'none',
-              boxShadow: '0 4px 14px rgba(0,0,0,0.18)',
-            }}
-          >
-            Sign Up Free
-          </Link>
-          <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.45)', margin: '12px 0 0' }}>
-            No card needed
-          </p>
 
           <ProductScreenshot />
         </div>
