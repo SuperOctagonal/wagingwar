@@ -105,11 +105,45 @@ function TriviaTab({ onCreditsChange }) {
 
   if (!data) return <div style={{ padding: 24, color: '#9ca3af', fontSize: 12 }}>Loading today&apos;s questions…</div>;
 
+  // Session summary -- derived from the per-question `result` objects
+  // already attached by handleAnswer (no new API call, existing inline
+  // per-question feedback in TriviaSet untouched), falling back to the
+  // GET route's `attempts` for any question answered in an earlier
+  // pageload this session (a mid-session reload has `answered:true` but
+  // no client-side `result`, since that's only ever attached at the
+  // moment of a fresh submit). CREDITS_PER_CORRECT is a fixed 10/correct
+  // (see submit route), so it's safe to derive awarded credits from the
+  // correctness flag alone rather than needing the original submit
+  // response for pre-reload answers.
+  const attemptsMap = new Map((data.attempts || []).map(a => [a.question_id, a.correct]));
+  const isCorrect = q => q.result ? q.result.correct : attemptsMap.get(q.id);
+  const allQuestions = [...data.racing, ...data.sports];
+  const allAnswered = allQuestions.length > 0 && allQuestions.every(q => q.answered);
+  const sessionCorrect = allQuestions.filter(q => q.answered && isCorrect(q)).length;
+  const sessionAwarded = sessionCorrect * 10;
+  const sessionAccuracy = allQuestions.length ? Math.round(sessionCorrect / allQuestions.length * 100) : 0;
+
   return (
     <div style={{ padding: 16, maxWidth: 640 }}>
       <div style={{ fontSize: 11, color: '#9ca3af', marginBottom: 16 }}>
-        5 racing + 5 sports questions daily · 10 credits per correct answer · resets at midnight AEST
+        {data.racing.length} racing + {data.sports.length} sports questions daily · 10 credits per correct answer · resets at midnight AEST
       </div>
+      {allAnswered && (
+        <div style={{ background: '#0d2416', borderRadius: 10, padding: '16px 18px', marginBottom: 20, display: 'flex', justifyContent: 'space-around', textAlign: 'center' }}>
+          <div>
+            <div style={{ fontSize: 20, fontWeight: 800, color: GOLD, fontFamily: 'JetBrains Mono, monospace' }}>{sessionCorrect}/{allQuestions.length}</div>
+            <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.6)', textTransform: 'uppercase', letterSpacing: '.4px', marginTop: 2 }}>Correct</div>
+          </div>
+          <div>
+            <div style={{ fontSize: 20, fontWeight: 800, color: GOLD, fontFamily: 'JetBrains Mono, monospace' }}>+{sessionAwarded}</div>
+            <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.6)', textTransform: 'uppercase', letterSpacing: '.4px', marginTop: 2 }}>Credits earned</div>
+          </div>
+          <div>
+            <div style={{ fontSize: 20, fontWeight: 800, color: GOLD, fontFamily: 'JetBrains Mono, monospace' }}>{sessionAccuracy}%</div>
+            <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.6)', textTransform: 'uppercase', letterSpacing: '.4px', marginTop: 2 }}>Accuracy</div>
+          </div>
+        </div>
+      )}
       <TriviaSet title="Racing" questions={data.racing} onAnswer={handleAnswer} answering={answering} />
       <TriviaSet title="Sports" questions={data.sports} onAnswer={handleAnswer} answering={answering} />
     </div>
