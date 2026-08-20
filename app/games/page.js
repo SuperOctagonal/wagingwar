@@ -367,12 +367,126 @@ function PuzzleTab({ onCreditsChange }) {
   );
 }
 
-function PrizesTab() {
+// Order must match lib/wheel.js's PRIZE_TABLE exactly -- purely a display
+// label, the server has already decided the actual prize before this ever
+// renders. Plain reward language throughout ("received", "reward"), never
+// "won"/"jackpot"/"bet" -- this is a loyalty spin, not a betting mechanic.
+const WHEEL_SEGMENTS = [
+  { label: '+10 Credits', color: '#0d2416' },
+  { label: '+25 Credits', color: '#173404' },
+  { label: '+50 Credits', color: '#0d2416' },
+  { label: '+100 Credits', color: '#173404' },
+  { label: 'Streak Shield', color: '#3b2a0d' },
+  { label: 'Loyal Punter Badge', color: '#173404' },
+];
+
+function segmentIndexForPrize(prize) {
+  if (prize.type === 'credits') return WHEEL_SEGMENTS.findIndex(s => s.label === `+${prize.value} Credits`);
+  if (prize.type === 'streak_shield') return 4;
+  if (prize.type === 'badge') return 5;
+  return 0;
+}
+
+function PrizeWheel({ status, onSpin, spinning, rotation }) {
+  const seg = 360 / WHEEL_SEGMENTS.length;
+  const gradient = WHEEL_SEGMENTS.map((s, i) => `${s.color} ${i * seg}deg ${(i + 1) * seg}deg`).join(', ');
   return (
-    <div style={{ padding: 40, textAlign: 'center', color: '#9ca3af' }}>
-      <i className="ti ti-gift" style={{ fontSize: 32, display: 'block', marginBottom: 10 }} />
-      <div style={{ fontSize: 13, fontWeight: 700, color: TEXT, marginBottom: 6 }}>Daily Prize Wheel — coming soon</div>
-      <div style={{ fontSize: 12 }}>Trivia and Puzzle are live now. The prize wheel ships in a follow-up update.</div>
+    <div style={{ position: 'relative', width: 240, height: 240, margin: '0 auto' }}>
+      <div style={{
+        width: '100%', height: '100%', borderRadius: '50%',
+        background: `conic-gradient(${gradient})`,
+        border: `3px solid ${GOLD}`,
+        transform: `rotate(${rotation}deg)`,
+        transition: spinning ? 'transform 3s cubic-bezier(0.17, 0.67, 0.2, 1)' : 'none',
+        position: 'relative',
+      }}>
+        {WHEEL_SEGMENTS.map((s, i) => {
+          const angle = i * seg + seg / 2;
+          return (
+            <div key={i} style={{
+              position: 'absolute', top: '50%', left: '50%', width: 100,
+              transform: `rotate(${angle}deg) translate(0, -92px) rotate(0deg)`,
+              transformOrigin: 'top left',
+              fontSize: 9, fontWeight: 700, color: '#fff', textAlign: 'center',
+            }}>
+              {s.label}
+            </div>
+          );
+        })}
+      </div>
+      {/* Pointer */}
+      <div style={{ position: 'absolute', top: -10, left: '50%', transform: 'translateX(-50%)', width: 0, height: 0, borderLeft: '8px solid transparent', borderRight: '8px solid transparent', borderTop: `14px solid ${GOLD}` }} />
+    </div>
+  );
+}
+
+function PrizesTab({ onCreditsChange }) {
+  const [status, setStatus] = useState(null);
+  const [spinning, setSpinning] = useState(false);
+  const [rotation, setRotation] = useState(0);
+  const [result, setResult] = useState(null);
+
+  const load = useCallback(() => { api('/api/games/wheel').then(setStatus); }, []);
+  useEffect(() => { load(); }, [load]);
+
+  const spin = useCallback(async (source) => {
+    if (spinning) return;
+    setSpinning(true);
+    setResult(null);
+    const res = await api('/api/games/wheel', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ source }) });
+    if (!res) { setSpinning(false); return; }
+    const idx = segmentIndexForPrize(res.prize);
+    const seg = 360 / WHEEL_SEGMENTS.length;
+    // Several full turns + land in the middle of the target segment
+    const targetDeg = 360 * 4 + (360 - (idx * seg + seg / 2));
+    setRotation(r => r - (r % 360) + targetDeg);
+    setTimeout(() => {
+      setSpinning(false);
+      setResult(res);
+      if (res.balance != null) onCreditsChange(res.balance);
+      load();
+    }, 3000);
+  }, [spinning, onCreditsChange, load]);
+
+  if (!status) return <div style={{ padding: 24, color: '#9ca3af', fontSize: 12 }}>Loading…</div>;
+
+  return (
+    <div style={{ padding: 24, textAlign: 'center' }}>
+      <div style={{ fontSize: 13, fontWeight: 700, color: TEXT, marginBottom: 4 }}>Daily Loyalty Spin</div>
+      <div style={{ fontSize: 11, color: '#9ca3af', marginBottom: 20 }}>
+        One free spin per day · resets at midnight AEST · no cash prizes, ever
+      </div>
+
+      <PrizeWheel status={status} onSpin={spin} spinning={spinning} rotation={rotation} />
+
+      <div style={{ marginTop: 24, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
+        <button onClick={() => spin('free')} disabled={spinning || !status.freeSpinAvailable}
+          style={{ padding: '10px 28px', background: '#0d2416', color: GOLD, border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: spinning || !status.freeSpinAvailable ? 'default' : 'pointer', opacity: spinning || !status.freeSpinAvailable ? 0.5 : 1 }}>
+          {status.freeSpinAvailable ? 'Spin today’s wheel' : 'Come back tomorrow'}
+        </button>
+
+        {status.bonusSpinsAvailable > 0 && (
+          <button onClick={() => spin('bonus')} disabled={spinning}
+            style={{ padding: '8px 22px', background: '#fff', color: '#374151', border: `1px solid ${CT_LINE}`, borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: spinning ? 'default' : 'pointer' }}>
+            Use a bonus spin ({status.bonusSpinsAvailable} available)
+          </button>
+        )}
+
+        {result && (
+          <div style={{ marginTop: 8, fontSize: 13, fontWeight: 700, color: '#16a34a' }}>
+            You received: {result.label}
+          </div>
+        )}
+
+        <div style={{ marginTop: 16, fontSize: 11, color: '#9ca3af', display: 'flex', gap: 14 }}>
+          {status.streakShields > 0 && <span>🛡️ {status.streakShields} streak shield{status.streakShields !== 1 ? 's' : ''}</span>}
+          {status.badges.length > 0 && <span>🏅 {status.badges.join(', ')}</span>}
+        </div>
+      </div>
+
+      <div style={{ marginTop: 28, fontSize: 10, color: '#9ca3af', maxWidth: 320, margin: '28px auto 0', lineHeight: 1.6 }}>
+        Extra spins are earned by referring a friend — never purchasable. Prizes are bonus credits, streak protection and cosmetic badges only; nothing here is redeemable for cash.
+      </div>
     </div>
   );
 }
@@ -435,7 +549,7 @@ export default function GamesPage() {
       <div style={{ flex: 1, overflowY: 'auto' }}>
         {mainTab === 'trivia' && <TriviaTab onCreditsChange={handleCreditsChange} />}
         {mainTab === 'puzzle' && <PuzzleTab onCreditsChange={handleCreditsChange} />}
-        {mainTab === 'prizes' && <PrizesTab />}
+        {mainTab === 'prizes' && <PrizesTab onCreditsChange={handleCreditsChange} />}
       </div>
     </main>
   );
