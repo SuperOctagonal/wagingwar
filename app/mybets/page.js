@@ -100,6 +100,19 @@ async function patchBetSafe(id, fields) {
 
 function normName(n) { return (n || '').toUpperCase().replace(/[^A-Z0-9]/g, ''); }
 
+// Same loose venue-match convention as settle_bets()/_norm() in
+// wagingwar-backend/database.py — normaliseVenue first (canonical AU venue
+// name), then a substring-containment fallback so a not-yet-mapped or
+// sponsor-prefixed raw string still matches. Kept in this file (rather than
+// imported) because it deliberately mirrors the backend's own local _norm(),
+// not lib/venues.js's stricter mapping.
+function venuesMatch(a, b) {
+  const na = (normaliseVenue(a || '') || a || '').toUpperCase().replace(/[ -]/g, '');
+  const nb = (normaliseVenue(b || '') || b || '').toUpperCase().replace(/[ -]/g, '');
+  if (!na || !nb) return false;
+  return na === nb || na.includes(nb) || nb.includes(na);
+}
+
 // True when a bet's created_at timestamp is after its race's actual jump
 // instant — i.e. it was logged during the now-allowed "jumped but not yet
 // resulted" window rather than before the race started. Fails closed (false)
@@ -205,6 +218,7 @@ async function matchAndUpdateBets(pendingBets) {
     const rows = allResults[bet.date] || [];
     if (!rows.length) continue;
 
+    const betVenue = bet.track || bet.venue || '';
     const betRaceNum = +(bet.race_number ?? bet.race_num ?? 0);
     const betHorse = normName(bet.horse_name || '');
     const betHorseStripped = normName((bet.horse_name || '').replace(/\s*\([A-Z]+\)\s*$/i, ''));
@@ -213,7 +227,7 @@ async function matchAndUpdateBets(pendingBets) {
       const rRace  = +r.race_num;
       const rHorse = normName(r.horse_name);
       const rHorseStripped = normName(r.horse_name.replace(/\s*\([A-Z]+\)\s*$/i, ''));
-      return rRace === betRaceNum && (
+      return rRace === betRaceNum && venuesMatch(r.venue, betVenue) && (
         rHorse === betHorse ||
         rHorseStripped === betHorse ||
         rHorse === betHorseStripped ||
@@ -868,9 +882,16 @@ export default function MybetsPage() {
 
     const normVenue = normaliseVenue(qlMeeting || '') || null;
     const qlPlaceOddsVal = qlBetType === 'place' ? +qlOdds : qlBetType === 'each-way' ? +qlPlaceOdds : null;
+    // Same formula as the render-scoped qlRaceDate (used for the raceHasPassed
+    // UI check further down this component) -- computed locally here instead
+    // of closing over that later `const` directly, since a useCallback's
+    // dependency array is evaluated during render, before qlRaceDate's own
+    // declaration runs (confirmed at build time: "Cannot access before
+    // initialization" on /mybets prerender when it was referenced there).
+    const betRaceDate = (raceDate && raceDate >= todayISO) ? raceDate : todayISO;
 
     const insertBody = {
-      date:        todayISO,
+      date:        betRaceDate,
       horse_name:  qlHorse.trim(),
       track:       normVenue,
       venue:       normVenue,
@@ -1171,7 +1192,16 @@ export default function MybetsPage() {
     const sorted = [...ledgerFilteredBets].sort((a, b) => {
       let va, vb;
       switch (sortCol) {
-        case 'date':    va = a.date || ''; vb = b.date || ''; break;
+        case 'date': {
+          const da = a.date || '', db = b.date || '';
+          if (da !== db) { va = da; vb = db; break; }
+          // Same-date tiebreak: actual race post_time, not insertion order
+          // (bets arrive from the initial fetch ordered by date.desc,id.desc,
+          // which used to be the only ordering same-date rows ever got).
+          va = parseRaceTime(raceTimeMap[a.id] || a.race_time);
+          vb = parseRaceTime(raceTimeMap[b.id] || b.race_time);
+          break;
+        }
         case 'horse':   va = (a.horse_name || '').toLowerCase(); vb = (b.horse_name || '').toLowerCase(); break;
         case 'venue':   va = (a.track || a.venue || '').toLowerCase(); vb = (b.track || b.venue || '').toLowerCase(); break;
         case 'race':    va = +(a.race_number ?? a.race_num ?? 0); vb = +(b.race_number ?? b.race_num ?? 0); break;
