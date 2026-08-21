@@ -963,7 +963,7 @@ function MetricTable({ rows, nameKey, nameLabel, avgWinPct }) {
   );
 }
 
-function DailyModelSummary({ data, trendWindow, setTrendWindow, rollingLoading, allTimeWinPct }) {
+function DailyModelSummary({ data, trendWindow, setTrendWindow, rollingLoading, allTimeWinPct, scoreBands, scoreBandsLoading }) {
   const isToday = trendWindow === 'today';
   const showComparison = isToday && allTimeWinPct != null && data;
 
@@ -993,12 +993,71 @@ function DailyModelSummary({ data, trendWindow, setTrendWindow, rollingLoading, 
       {!isToday && !rollingLoading && !data && (
         <div style={{ fontSize: 10, color: '#9ca3af', padding: '8px 0' }}>No resulted races in this window yet.</div>
       )}
-      {data && <DailyModelSummaryCards data={data} showComparison={showComparison} allTimeWinPct={allTimeWinPct} />}
+      {data && (
+        <DailyModelSummaryCards
+          data={data}
+          showComparison={showComparison}
+          allTimeWinPct={allTimeWinPct}
+          scoreBands={scoreBands}
+          scoreBandsLoading={scoreBandsLoading}
+        />
+      )}
     </div>
   );
 }
 
-function DailyModelSummaryCards({ data, showComparison, allTimeWinPct }) {
+// Win% and ROI re-cut by the model's own score range (20-point bands)
+// instead of by rank — same resulted-race pool the Rank 1 Strike Rate card
+// draws from, just grouped differently. Bands are computed server-side in
+// /api/results-score-bands (see that file for how the band ranges were
+// calibrated against the model's real score distribution).
+function ScoreBandCard({ scoreBands, scoreBandsLoading }) {
+  return (
+    <SummaryCard icon="ti-chart-bar" label="Score band performance">
+      {scoreBandsLoading && <div style={{ fontSize: 10, color: '#9ca3af' }}>Loading…</div>}
+      {!scoreBandsLoading && (!scoreBands || !scoreBands.bands?.length) && (
+        <div style={{ fontSize: 10, color: '#111827' }}>—</div>
+      )}
+      {!scoreBandsLoading && scoreBands?.bands?.length > 0 && (
+        <table style={{ width: '100%', tableLayout: 'fixed', borderCollapse: 'collapse', fontSize: 9 }}>
+          <colgroup>
+            <col style={{ width: 'auto' }} />
+            <col style={{ width: 30 }} />
+            <col style={{ width: 30 }} />
+            <col style={{ width: 46 }} />
+          </colgroup>
+          <thead>
+            <tr style={{ borderBottom: '1px solid #e5e7eb' }}>
+              <th style={thStyle('left')}>Score</th>
+              <th style={thStyle('right')}>Starts</th>
+              <th style={thStyle('right')}>Win%</th>
+              <th style={thStyle('right')}>ROI</th>
+            </tr>
+          </thead>
+          <tbody>
+            {scoreBands.bands.map((b, i) => (
+              <tr key={b.label} style={{ background: i % 2 === 0 ? '#fff' : '#f8fafc' }}>
+                <td style={tdStyle('left', true)}>{b.label}</td>
+                <td style={tdStyle('right')}>{b.starts}</td>
+                {b.insufficientData ? (
+                  <td colSpan={2} style={{ ...tdStyle('right'), color: '#9ca3af', fontStyle: 'italic' }}>insufficient data</td>
+                ) : (
+                  <>
+                    <td style={{ ...tdStyle('right'), color: '#16a34a', fontWeight: 700 }}>{Math.round(b.winPct * 100)}%</td>
+                    <td style={{ ...tdStyle('right'), color: b.roiPct >= 0 ? '#16a34a' : '#dc2626', fontWeight: 700 }}>{b.roiPct >= 0 ? '+' : ''}{b.roiPct.toFixed(1)}%</td>
+                  </>
+                )}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+      <div style={{ fontSize: 8, color: '#9ca3af', marginTop: 4, lineHeight: 1.4 }}>Every resulted runner bucketed by its own system score, not just the rank-1 pick</div>
+    </SummaryCard>
+  );
+}
+
+function DailyModelSummaryCards({ data, showComparison, allTimeWinPct, scoreBands, scoreBandsLoading }) {
   const { total, wins, places, winPct, placePct, best, condRows, maxWin, maxLoss, venueRows, oddsRows, distRows, confRows, dayTally, notionalPnl } = data;
 
   return (
@@ -1025,6 +1084,8 @@ function DailyModelSummaryCards({ data, showComparison, allTimeWinPct }) {
             </div>
           )}
         </SummaryCard>
+
+        <ScoreBandCard scoreBands={scoreBands} scoreBandsLoading={scoreBandsLoading} />
 
         <SummaryCard icon="ti-trophy" label="Best result of the day">
           {best ? (
@@ -1085,6 +1146,100 @@ function DailyModelSummaryCards({ data, showComparison, allTimeWinPct }) {
         )}
 
       </div>
+  );
+}
+
+// Column set shared by both Exotic Bet Hit Rate tables (by track, by
+// meeting position). Every "%" here is "would betting the model's own
+// ranked selections have hit this bet type" — computed server-side in
+// /api/results-exotics against the full actual finishing order (needs
+// 1st-4th, confirmed available in race_results). Quaddie intentionally
+// dropped: there's no data source for which 4 races were the actual
+// advertised quaddie leg block on a given day, and an approximation
+// ("always last 4 races") would be wrong often enough to be worse than
+// not shipping it.
+const EXOTIC_COLUMNS = [
+  ['win',           'Win %'],
+  ['anyTop2Win',    'Any Top 2 Win %'],
+  ['exacta',        'Exacta %'],
+  ['quinella',      'Quinella %'],
+  ['trifectaExact', 'Trifecta Exact %'],
+  ['triBox3',       'Tri Box (Top 3) %'],
+  ['triBox4',       'Tri Box (Top 4) %'],
+  ['triBox5',       'Tri Box (Top 5) %'],
+  ['first4Exact',   'First 4 Exact %'],
+  ['first4Box4',    'First 4 Box (Top 4) %'],
+  ['first4Box5',    'First 4 Box (Top 5) %'],
+  ['first4Box6',    'First 4 Box (Top 6) %'],
+];
+
+function ExoticsTable({ rows }) {
+  if (!rows || !rows.length) return <div style={{ fontSize: 10, color: '#111827', padding: '8px 0' }}>No resulted races in this window yet.</div>;
+  return (
+    <div style={{ overflowX: 'auto' }}>
+      <table className="ww-results-table" style={{ width: '100%', minWidth: 920, borderCollapse: 'collapse', fontSize: 9 }}>
+        <thead>
+          <tr style={{ background: '#f1f5f9', borderBottom: '1px solid #e5e7eb' }}>
+            <th style={{ ...thStyle('left'), whiteSpace: 'nowrap' }}></th>
+            <th style={thStyle('right')}>Races</th>
+            {EXOTIC_COLUMNS.map(([key, label]) => (
+              <th key={key} style={{ ...thStyle('right'), whiteSpace: 'nowrap' }}>{label}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((r, i) => (
+            <tr key={r.label} style={{ background: i % 2 === 0 ? '#fff' : '#f8fafc' }}>
+              <td style={{ ...tdStyle('left', true), whiteSpace: 'nowrap' }}>{r.label}</td>
+              <td style={tdStyle('right')}>{r.races}</td>
+              {EXOTIC_COLUMNS.map(([key]) => {
+                const insufficient = r[`${key}_insufficientData`];
+                const val = r[key];
+                return (
+                  <td key={key} style={{ ...tdStyle('right'), color: insufficient ? '#9ca3af' : '#111827', fontStyle: insufficient ? 'italic' : 'normal' }}>
+                    {insufficient ? 'insufficient data' : `${Math.round(val * 100)}%`}
+                  </td>
+                );
+              })}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+// Same trendWindow/selectedDate controls as Daily Model Summary above it —
+// no separate date picker or toggle. Two groupings under one heading: by
+// track (per-venue), and by race-position-within-meeting (first 4 vs the
+// actual last 4 races of that specific card, since meeting length varies
+// day to day — not a fixed race number).
+function ExoticsSection({ exotics, exoticsLoading }) {
+  return (
+    <div style={{ marginTop: 18 }}>
+      <div style={{ fontSize: 10, fontWeight: 600, color: '#374151', textTransform: 'uppercase', letterSpacing: '.5px', marginBottom: 8 }}>
+        Exotic Bet Hit Rates
+      </div>
+
+      {exoticsLoading && <div style={{ fontSize: 10, color: '#9ca3af', padding: '8px 0' }}>Loading…</div>}
+
+      {!exoticsLoading && (
+        <>
+          <div style={{ fontSize: 9, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '.4px', marginBottom: 4 }}>By Track</div>
+          <div style={{ background: '#fff', border: '0.5px solid #e5e7eb', borderRadius: 8, padding: '8px 10px', marginBottom: 14 }}>
+            <ExoticsTable rows={exotics?.byTrack} />
+          </div>
+
+          <div style={{ fontSize: 9, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '.4px', marginBottom: 4 }}>By Race Position in Meeting</div>
+          <div style={{ background: '#fff', border: '0.5px solid #e5e7eb', borderRadius: 8, padding: '8px 10px' }}>
+            <ExoticsTable rows={exotics?.byPosition ? [exotics.byPosition.first4, exotics.byPosition.last4] : null} />
+          </div>
+          <div style={{ fontSize: 8, color: '#9ca3af', marginTop: 4, lineHeight: 1.4 }}>
+            Each %: would betting the model&apos;s own ranked selections have hit that bet, against the actual result. Quaddie omitted — no reliable source for which 4 races were the day&apos;s advertised quaddie leg block.
+          </div>
+        </>
+      )}
+    </div>
   );
 }
 
@@ -1154,6 +1309,10 @@ export default function ResultsPage() {
   const [rollingSummary, setRollingSummary] = useState(null);
   const [rollingLoading, setRollingLoading] = useState(false);
   const [allTimeWinPct, setAllTimeWinPct] = useState(null);
+  const [scoreBands, setScoreBands] = useState(null);
+  const [scoreBandsLoading, setScoreBandsLoading] = useState(false);
+  const [exotics, setExotics] = useState(null);
+  const [exoticsLoading, setExoticsLoading] = useState(false);
   const todayAEST = new Date().toLocaleDateString('sv-SE', { timeZone: 'Australia/Brisbane' });
   const weights = useMemo(() => getDefaultWeights(), []);
 
@@ -1588,6 +1747,28 @@ export default function ResultsPage() {
     return () => { cancelled = true; };
   }, [trendWindow, selectedDate]);
 
+  // Score Band + Exotic Bet Hit Rate cards — fully server-computed (see
+  // /api/results-score-bands and /api/results-exotics): the route does the
+  // scoring/join work and returns only the final band/table numbers, never
+  // raw per-race scores, same "never ship raw scoring inputs" rule as
+  // /api/results-ranks. Shares the same selectedDate/trendWindow controls
+  // as the rest of Daily Model Summary — no separate date picker or toggle.
+  useEffect(() => {
+    let cancelled = false;
+    setScoreBandsLoading(true);
+    setExoticsLoading(true);
+    const qs = `date=${selectedDate}&window=${trendWindow}`;
+    fetch(`/api/results-score-bands?${qs}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(data => { if (!cancelled) { setScoreBands(data); setScoreBandsLoading(false); } })
+      .catch(() => { if (!cancelled) { setScoreBands(null); setScoreBandsLoading(false); } });
+    fetch(`/api/results-exotics?${qs}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(data => { if (!cancelled) { setExotics(data); setExoticsLoading(false); } })
+      .catch(() => { if (!cancelled) { setExotics(null); setExoticsLoading(false); } });
+    return () => { cancelled = true; };
+  }, [selectedDate, trendWindow]);
+
   // All-time average win% ("on this day" comparison line) — computed once
   // across every day with data (currently 2026-05-16 to 2026-07-21, 39 days),
   // not refetched on every date change. Requires Pro (historical race_cards
@@ -1825,7 +2006,11 @@ export default function ResultsPage() {
               setTrendWindow={setTrendWindow}
               rollingLoading={rollingLoading}
               allTimeWinPct={allTimeWinPct}
+              scoreBands={scoreBands}
+              scoreBandsLoading={scoreBandsLoading}
             />
+
+            <ExoticsSection exotics={exotics} exoticsLoading={exoticsLoading} />
           </>
         ))}
       </div>
