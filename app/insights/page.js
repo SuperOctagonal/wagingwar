@@ -6,8 +6,7 @@ import { useUser } from '@clerk/nextjs';
 import useIsPro from '@/hooks/useIsPro';
 import useIsMobile from '@/hooks/useIsMobile';
 import BetFilterPanel from '@/components/BetFilterPanel';
-import { oddsBucket, ODDS_BANDS } from '@/lib/oddsBucket';
-import { isBetLost, isBetSettled, betPnl, rankBucket, aggGroup, RANKS_HEAT, ODDS_HEAT } from '@/lib/edgeZone';
+import { isBetLost, isBetSettled, betPnl, aggGroup } from '@/lib/edgeZone';
 
 const SURL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SKEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -51,10 +50,6 @@ function dateRangeBounds(range, customStart, customEnd) {
   }
   if (range === 'custom') return { start: customStart || today, end: customEnd || today };
   return null; // all_time
-}
-
-function normHorseName(n) {
-  return (n || '').toUpperCase().replace(/\s*\([A-Z]+\)\s*$/i, '').replace(/[^A-Z0-9]/g, '');
 }
 
 function fmt$(n) {
@@ -231,25 +226,6 @@ export default function InsightsPage() {
 
   const settled = useMemo(() => filteredBets.filter(isBetSettled), [filteredBets]);
 
-  // Keyed per-horse (date+venue+race_num+horse_name), not just per-race —
-  // race_results has one row per runner, so a per-race-only key silently
-  // let every horse in the same race overwrite the same map entry (CLV was
-  // being computed against whichever horse the API returned last for that
-  // race, not the horse actually bet on; confirmed live via the
-  // /api/insights/summary rebuild, same bug, same fix, applied here too).
-  // Also uses b.race_number, matching bet_log's actual populated column —
-  // bet_log.race_num is never populated (confirmed: 0/847 rows), so the
-  // previous b.race_num-keyed lookups never matched anything at all.
-  const resultMap = useMemo(() => {
-    const m = {};
-    results.forEach(r => {
-      if (!r.sp || +r.sp <= 0) return;
-      const key = `${r.date}||${normaliseVenue(r.venue||'')}||${r.race_num}||${normHorseName(r.horse_name)}`;
-      m[key] = r;
-    });
-    return m;
-  }, [results]);
-
   // Hero bar is now server-computed (summary.hero, see the fetch effect
   // above) — this local version was removed once that migrated in batch 1
   // of the Insights rebuild.
@@ -280,90 +256,22 @@ export default function InsightsPage() {
     };
   }, [settled]);
 
-  // ─── clv by rank ─────────────────────────────────────────────────────────────
-  const clvByRank = useMemo(() => {
-    const lookup = b => {
-      const raceNum = b.race_number ?? b.race_num;
-      return resultMap[`${b.date}||${normaliseVenue(b.track || b.venue||'')}||${raceNum}||${normHorseName(b.horse_name)}`];
-    };
-    return ['R1', 'R2', 'R3+', 'All'].map(label => {
-      const bs = settled.filter(b => {
-        const r = lookup(b);
-        if (!r?.sp || +r.sp <= 0) return false;
-        const mr = +(b.rank || 99);
-        if (label === 'R1')  return mr === 1;
-        if (label === 'R2')  return mr === 2;
-        if (label === 'R3+') return mr >= 3;
-        return true;
-      });
-      if (!bs.length) return { label, avgClv: 0, beatPct: 0, n: 0 };
-      const vals = bs.map(b => {
-        const r = lookup(b);
-        return (+b.odds - +r.sp) / +r.sp * 100;
-      });
-      return {
-        label,
-        avgClv: vals.reduce((s, v) => s + v, 0) / vals.length,
-        beatPct: vals.filter(v => v > 0).length / vals.length * 100,
-        n: bs.length,
-      };
-    });
-  }, [settled, resultMap]);
-
-  // ROI by rank is now server-computed (summary.roiByRank) — see above.
-
-  // ─── edge heatmap ────────────────────────────────────────────────────────────
-  // Still computed client-side (feeds Kelly's kellyZones below, not yet
-  // migrated) -- the heatmap CARD itself now reads summary.edgeHeatmap
-  // instead, further down.
-  const edgeMap = useMemo(() => {
-    const grid = {};
-    RANKS_HEAT.forEach(rk => ODDS_HEAT.forEach(ob => { grid[`${rk}||${ob}`] = []; }));
-    settled.forEach(b => {
-      const rb = rankBucket(b.rank);
-      const ob = oddsBucket(b.odds);
-      if (rb && ob && grid[`${rb}||${ob}`] !== undefined) grid[`${rb}||${ob}`].push(b);
-    });
-    return grid;
-  }, [settled]);
+  // CLV Tracker, ROI by rank, and Edge heatmap are now server-computed
+  // (summary.clv / summary.roiByRank / summary.edgeHeatmap) — see above.
 
   // Track condition breakdown is now server-computed (summary.condition).
 
-  // ─── kelly advisor ───────────────────────────────────────────────────────────
+  // bankroll/kellyFrac still used by Staking Discipline's Kelly-simulation
+  // benchmark below (not yet migrated) — the Kelly Advisor CARD itself now
+  // reads summary.kelly instead.
   const bankroll    = useMemo(() => +(userSettings.bankroll || 0), [userSettings]);
   const kellyFrac   = useMemo(() => {
     const kf = userSettings.kellyFraction || 'Half Kelly';
     return kf === 'Full Kelly' ? 1 : kf === 'Quarter Kelly' ? 0.25 : 0.5;
   }, [userSettings]);
 
-  const kellyZones = useMemo(() => {
-    return Object.entries(edgeMap)
-      .map(([key, bs]) => {
-        if (bs.length < 3) return null;
-        const [rb, ob] = key.split('||');
-        const g = aggGroup(bs);
-        const avgOdds = bs.reduce((s, b) => s + +b.odds, 0) / bs.length;
-        const optK = kellyPct(g.sr / 100, avgOdds) * kellyFrac;
-        const actPct = bankroll > 0 ? (g.staked / g.n / bankroll * 100) : 0;
-        const signal = optK === 0 ? 'avoid' : actPct > optK * 1.2 ? 'over' : actPct < optK * 0.8 ? 'under' : 'ok';
-        return { label: `${rb} ${ob}`, optK, actPct, signal, n: g.n };
-      })
-      .filter(Boolean)
-      .sort((a, b) => b.n - a.n);
-  }, [edgeMap, bankroll, kellyFrac]);
-
-  // ─── top venues ──────────────────────────────────────────────────────────────
-  const venueData = useMemo(() => {
-    const vm = {};
-    settled.forEach(b => {
-      const v = normaliseVenue(b.venue||'') || 'Unknown';
-      if (!vm[v]) vm[v] = [];
-      vm[v].push(b);
-    });
-    return Object.entries(vm)
-      .map(([v, bs]) => ({ venue: v, ...aggGroup(bs) }))
-      .sort((a, b) => sortVenue === 'bets' ? b.n - a.n : sortVenue === 'pnl' ? b.pnl - a.pnl : sortVenue === 'sr' ? b.sr - a.sr : b.roi - a.roi);
-  }, [settled, sortVenue]);
+  // Kelly Advisor zones and Top Venues are now server-computed
+  // (summary.kelly.zones / summary.venues) — see above.
 
   // ─── staking discipline ──────────────────────────────────────────────────────
   const stakingStats = useMemo(() => {
@@ -547,6 +455,8 @@ export default function InsightsPage() {
 
   // ─── computed display values ─────────────────────────────────────────────────
   const roiMaxAbs = Math.max(1, ...(summary?.roiByRank || []).map(r => Math.abs(r.roi)));
+  const sortedVenues = [...(summary?.venues || [])].sort((a, b) =>
+    sortVenue === 'bets' ? b.n - a.n : sortVenue === 'pnl' ? b.pnl - a.pnl : sortVenue === 'sr' ? b.sr - a.sr : b.roi - a.roi);
 
   // Calendar padding to Monday
   const firstDay = new Date(calendarData[0]?.date || aestToday());
@@ -634,8 +544,10 @@ export default function InsightsPage() {
 
           {/* 3+4. CLV + ROI by rank */}
           <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 12 }}>
-            <Card title="CLV Tracker" info="Closing Line Value — compares your taken odds to the final market price at jump time. Consistently beating the SP means you have a real edge. 50% beat rate = no edge.">
-              {clvByRank.every(r => r.n === 0) ? (
+            <Card title="CLV Tracker" info="Closing Line Value — compares your taken odds to the final market price at jump time (race_results.sp). Consistently beating the SP means you have a real edge. 50% beat rate = no edge. Needs 10+ bets in a rank to show a real percentage.">
+              {summaryLoading ? (
+                <div style={{ padding: '10px 0', textAlign: 'center', color: '#9ca3af', fontSize: 12 }}>Loading…</div>
+              ) : !summary || summary.clv.every(r => r.n === 0) ? (
                 <EmptyState msg="No SP data in race_results yet" />
               ) : (
                 <>
@@ -648,23 +560,29 @@ export default function InsightsPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {clvByRank.map(r => (
+                      {summary.clv.map(r => (
                         <tr key={r.label} style={{ borderTop: '1px solid #f3f4f6' }}>
                           <td style={{ padding: '7px 0', fontWeight: 600 }}>{r.label}</td>
-                          <td style={{ ...MONO, textAlign: 'right', color: r.n ? (r.avgClv >= 0 ? G : RED) : '#9ca3af' }}>{r.n ? fmtPct(r.avgClv) : '—'}</td>
-                          <td style={{ ...MONO, textAlign: 'right' }}>{r.n ? `${r.beatPct.toFixed(0)}%` : '—'}</td>
-                          <td style={{ textAlign: 'right', paddingLeft: 8 }}>
-                            {r.n > 0 && (
-                              <div style={{ display: 'inline-flex', justifyContent: 'flex-end' }}>
-                                <div style={{ width: 64, height: 8, background: '#f3f4f6', borderRadius: 2, position: 'relative', overflow: 'hidden' }}>
-                                  <div style={{ position: 'absolute', left: '50%', top: 0, width: 1, height: '100%', background: '#d1d5db', zIndex: 1 }} />
-                                  {r.beatPct >= 50
-                                    ? <div style={{ position: 'absolute', left: '50%', width: `${Math.min(50, r.beatPct - 50)}%`, height: '100%', background: G }} />
-                                    : <div style={{ position: 'absolute', right: '50%', width: `${Math.min(50, 50 - r.beatPct)}%`, height: '100%', background: RED }} />}
+                          {r.n === 0 ? (
+                            <td colSpan={3} style={{ textAlign: 'right', color: '#9ca3af' }}>—</td>
+                          ) : r.insufficientData ? (
+                            <td colSpan={3} style={{ textAlign: 'right', color: '#9ca3af', fontStyle: 'italic', fontSize: 11 }}>insufficient data (n={r.n})</td>
+                          ) : (
+                            <>
+                              <td style={{ ...MONO, textAlign: 'right', color: r.avgClv >= 0 ? G : RED }}>{fmtPct(r.avgClv)}</td>
+                              <td style={{ ...MONO, textAlign: 'right' }}>{r.beatPct.toFixed(0)}%</td>
+                              <td style={{ textAlign: 'right', paddingLeft: 8 }}>
+                                <div style={{ display: 'inline-flex', justifyContent: 'flex-end' }}>
+                                  <div style={{ width: 64, height: 8, background: '#f3f4f6', borderRadius: 2, position: 'relative', overflow: 'hidden' }}>
+                                    <div style={{ position: 'absolute', left: '50%', top: 0, width: 1, height: '100%', background: '#d1d5db', zIndex: 1 }} />
+                                    {r.beatPct >= 50
+                                      ? <div style={{ position: 'absolute', left: '50%', width: `${Math.min(50, r.beatPct - 50)}%`, height: '100%', background: G }} />
+                                      : <div style={{ position: 'absolute', right: '50%', width: `${Math.min(50, 50 - r.beatPct)}%`, height: '100%', background: RED }} />}
+                                  </div>
                                 </div>
-                              </div>
-                            )}
-                          </td>
+                              </td>
+                            </>
+                          )}
                         </tr>
                       ))}
                     </tbody>
@@ -803,7 +721,7 @@ export default function InsightsPage() {
               )}
             </Card>
 
-            <Card title="Top Venues" info="Record (Starts-Wins-2nds-3rds), strike rate, ROI and P&L at each track. Sort by ROI to find where you have a genuine edge, or by Bets to weight results by sample size.">
+            <Card title="Top Venues" info="Record (Starts-Wins-2nds-3rds), strike rate, ROI and P&L at each track. Needs 10+ bets at a venue to show ROI/Strike/P&L. Sort by ROI to find where you have a genuine edge, or by Bets to weight results by sample size.">
               <div style={{ display: 'flex', gap: 6, marginBottom: 12 }}>
                 {[['roi','ROI'],['bets','Bets'],['pnl','P&L'],['sr','Strike']].map(([v, label]) => (
                   <button key={v} onClick={() => setSortVenue(v)} style={{
@@ -814,7 +732,9 @@ export default function InsightsPage() {
                   }}>{label}</button>
                 ))}
               </div>
-              {venueData.length === 0 ? <EmptyState msg="No settled bets yet" /> : (
+              {summaryLoading ? (
+                <div style={{ padding: '10px 0', textAlign: 'center', color: '#9ca3af', fontSize: 12 }}>Loading…</div>
+              ) : sortedVenues.length === 0 ? <EmptyState msg="No settled bets yet" /> : (
                 <div style={{ overflowX: 'auto' }}>
                   <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
                     <thead>
@@ -825,15 +745,21 @@ export default function InsightsPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {venueData.slice(0, 15).map(v => (
+                      {sortedVenues.slice(0, 15).map(v => (
                         <tr key={v.venue} style={{ borderTop: '1px solid #f3f4f6' }}>
                           <td style={{ padding: '7px 0', fontWeight: 500 }}>
                             {v.venue.toLowerCase().replace(/\b\w/g, c => c.toUpperCase())}
                           </td>
                           <td style={{ ...MONO, textAlign: 'right', fontSize: 11 }}>{v.n}-{v.firsts}-{v.seconds}-{v.thirds}</td>
-                          <td style={{ ...MONO, textAlign: 'right' }}>{v.sr.toFixed(1)}%</td>
-                          <td style={{ ...MONO, textAlign: 'right', color: v.roi >= 0 ? G : RED }}>{fmtPct(v.roi)}</td>
-                          <td style={{ ...MONO, textAlign: 'right', color: v.pnl >= 0 ? G : RED }}>{fmt$(v.pnl)}</td>
+                          {v.insufficientData ? (
+                            <td colSpan={3} style={{ textAlign: 'right', color: '#9ca3af', fontStyle: 'italic', fontSize: 11 }}>insufficient data</td>
+                          ) : (
+                            <>
+                              <td style={{ ...MONO, textAlign: 'right' }}>{v.sr.toFixed(1)}%</td>
+                              <td style={{ ...MONO, textAlign: 'right', color: v.roi >= 0 ? G : RED }}>{fmtPct(v.roi)}</td>
+                              <td style={{ ...MONO, textAlign: 'right', color: v.pnl >= 0 ? G : RED }}>{fmt$(v.pnl)}</td>
+                            </>
+                          )}
                         </tr>
                       ))}
                     </tbody>
@@ -845,44 +771,50 @@ export default function InsightsPage() {
 
           {/* 7+9. KELLY + STAKING */}
           <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 12 }}>
-            <Card title="Kelly Criterion Advisor" info="Uses your historical win rate and average odds in each zone to calculate the optimal stake size. Over-betting shrinks your bankroll; under-betting leaves profit on the table. Set your bankroll in Settings first.">
+            <Card title="Kelly Staking Advisor" info="Shows the stake size the Kelly Criterion implies from your historical win rate and average odds in each zone, next to what you've actually staked there — for information only, not a recommendation. Set your bankroll in Settings to see this.">
               {!bankroll ? (
                 <div style={{ fontSize: 12, color: '#6b7280', lineHeight: 1.6 }}>
                   Set your bankroll in{' '}
                   <a href="/settings" style={{ color: G, textDecoration: 'none', fontWeight: 600 }}>Settings &#8594; Betting defaults</a>
-                  {' '}to see Kelly recommendations.
+                  {' '}to see this breakdown.
                 </div>
-              ) : kellyZones.length === 0 ? (
-                <EmptyState msg="Need 3+ settled bets per zone for Kelly recommendations" />
+              ) : summaryLoading ? (
+                <div style={{ padding: '10px 0', textAlign: 'center', color: '#9ca3af', fontSize: 12 }}>Loading…</div>
+              ) : !summary || summary.kelly.zones.length === 0 ? (
+                <EmptyState msg="Need 10+ settled bets in a zone to show this breakdown" />
               ) : (
                 <>
                   <div style={{ fontSize: 11, color: '#9ca3af', marginBottom: 10 }}>
                     Bankroll: <span style={{ ...MONO, color: '#374151', fontWeight: 600 }}>${bankroll.toLocaleString()}</span>
-                    {' '}· {userSettings.kellyFraction || 'Half Kelly'}
+                    {' '}· {summary.kelly.kellyFractionLabel}
                   </div>
                   <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
                     <thead>
                       <tr style={{ color: '#9ca3af', borderBottom: '1px solid #e5e7eb' }}>
-                        {['Zone','Opt%','Actual%','Signal'].map((h, i) => (
+                        {['Zone','Model %','Actual %','Comparison'].map((h, i) => (
                           <th key={h} style={{ textAlign: i === 0 ? 'left' : 'right', fontWeight: 500, paddingBottom: 8 }}>{h}</th>
                         ))}
                       </tr>
                     </thead>
                     <tbody>
-                      {kellyZones.map(z => (
+                      {summary.kelly.zones.map(z => (
                         <tr key={z.label} style={{ borderTop: '1px solid #f3f4f6' }}>
                           <td style={{ padding: '7px 0', fontWeight: 500 }}>{z.label}</td>
                           <td style={{ ...MONO, textAlign: 'right' }}>{z.optK.toFixed(1)}%</td>
                           <td style={{ ...MONO, textAlign: 'right' }}>{z.actPct.toFixed(1)}%</td>
                           <td style={{ textAlign: 'right' }}>
-                            <span style={{ fontSize: 11, fontWeight: 700, color: z.signal === 'avoid' ? RED : z.signal === 'over' ? '#f59e0b' : z.signal === 'under' ? '#3b82f6' : G }}>
-                              {z.signal === 'over' ? '&#8595; over' : z.signal === 'under' ? '&#8593; under' : z.signal === 'avoid' ? '&#10005; avoid' : '&#10003; ok'}
+                            <span style={{ fontSize: 11, fontWeight: 600, color: '#6b7280' }}>
+                              {z.signal === 'no_model_edge' ? 'No model edge in this zone'
+                                : z.signal === 'above_model_size' ? 'Above model-implied size'
+                                : z.signal === 'below_model_size' ? 'Below model-implied size'
+                                : 'In line with model-implied size'}
                             </span>
                           </td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
+                  <div style={{ fontSize: 10, color: '#9ca3af', marginTop: 8, lineHeight: 1.5 }}>For information only — not financial advice. Consider your own risk tolerance before changing how you stake.</div>
                 </>
               )}
             </Card>
