@@ -436,8 +436,11 @@ function LeftRail({ allVenues, allRaces, selectedRaceKey, onSelect, trackConds, 
           {raceKeys.length} race{raceKeys.length !== 1 ? 's' : ''}
         </div>
 
-        {/* Race buttons: label + bar merged for a larger tap target */}
-        <div style={{ display: 'flex', gap: 1, marginBottom: nextLabel && nextRc ? 5 : 0 }}>
+        {/* Race buttons: label + bar merged for a larger tap target.
+            minWidth ensures the "R#" label stays legible instead of clipping
+            when a card has enough races (7+) that flex:1 would squeeze each
+            tab below readable width — wraps to a second row instead. */}
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 1, rowGap: 3, marginBottom: nextLabel && nextRc ? 5 : 0 }}>
           {raceKeys.map((k, i) => {
             const status = segStatus(venue, allRaces[k]);
             return (
@@ -447,7 +450,7 @@ function LeftRail({ allVenues, allRaces, selectedRaceKey, onSelect, trackConds, 
                 title={`R${allRaces[k]?.num}`}
                 onMouseEnter={e => { e.currentTarget.lastElementChild.style.boxShadow = 'inset 0 0 0 1px #fff'; }}
                 onMouseLeave={e => { e.currentTarget.lastElementChild.style.boxShadow = 'none'; }}
-                style={{ flex: 1, cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, minWidth: 0 }}
+                style={{ flex: '1 1 0', minWidth: 18, cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}
               >
                 <div style={{ fontSize: 8, color: '#fff', lineHeight: 1, textAlign: 'center', width: '100%', overflow: 'hidden' }}>
                   R{allRaces[k]?.num}
