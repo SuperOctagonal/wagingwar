@@ -1,12 +1,10 @@
 'use client';
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { normaliseVenue } from '@/lib/venues';
 import { useUser } from '@clerk/nextjs';
 import useIsPro from '@/hooks/useIsPro';
 import useIsMobile from '@/hooks/useIsMobile';
 import BetFilterPanel from '@/components/BetFilterPanel';
-import { isBetSettled, aggGroup } from '@/lib/edgeZone';
 
 const SURL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SKEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -168,17 +166,30 @@ export default function InsightsPage() {
   // ─── server-computed summary (Hero, ROI by rank, Edge heatmap, Track
   // condition) — /api/insights/summary, Pro-gated server-side and computed
   // entirely server-side (see that route + lib/serverInsightsData.js).
-  // Batch 1 of the Insights rebuild: only these four sections read from this
-  // yet — everything else on this page still reads the client-side `bets`/
-  // `results` state below until its own batch lands. Date-range only for
-  // now, same scope as /api/results-score-bands — BetFilterPanel's extra
-  // filters aren't wired into this route yet (deferred to the final batch,
-  // by explicit agreement), so those filters currently only affect the
-  // not-yet-migrated sections further down this page.
+  // BetFilterPanel's filters (activeFilterEntries, declared below) are
+  // threaded into both this fetch and the AI-summary fetch below it via the
+  // same query params /api/insights/filtered-bets used to accept -- every
+  // migrated section re-filters together now, closing the temporary
+  // inconsistency from earlier batches.
+
+  // ─── filter panel ────────────────────────────────────────────────────────────
+  // Selection UI lives in BetFilterPanel (components/BetFilterPanel.js); this
+  // page only owns the resulting active-filters map. Declared before the
+  // summary/ai-summary fetch effects below since both read
+  // activeFilterEntries directly now (no more separate /api/insights/
+  // filtered-bets round-trip -- that route's filtering logic moved into
+  // lib/serverInsightsData.js's fetchUserBetData, applied server-side as
+  // part of computeInsightsSummary itself).
+  const [activeFilters, setActiveFilters] = useState({});
+  const handleFilterChange = useCallback((f) => setActiveFilters(f), []);
+  const activeFilterEntries = useMemo(() => Object.entries(activeFilters).filter(([, v]) => v), [activeFilters]);
+
   useEffect(() => {
     if (!user?.id || !isPro) { if (isPro === false) setSummaryLoading(false); return; }
     const bounds = dateRangeBounds(range, customStart, customEnd);
-    const qs = bounds ? `?start=${bounds.start}&end=${bounds.end}` : '';
+    const params = new URLSearchParams(Object.fromEntries(activeFilterEntries));
+    if (bounds) { params.set('start', bounds.start); params.set('end', bounds.end); }
+    const qs = params.toString() ? `?${params.toString()}` : '';
     setSummaryLoading(true);
     let cancelled = false;
     fetch(`/api/insights/summary${qs}`)
@@ -186,70 +197,49 @@ export default function InsightsPage() {
       .then(data => { if (!cancelled) { setSummary(data); setSummaryLoading(false); } })
       .catch(() => { if (!cancelled) { setSummary(null); setSummaryLoading(false); } });
     return () => { cancelled = true; };
-  }, [user?.id, isPro, range, customStart, customEnd]);
+  }, [user?.id, isPro, range, customStart, customEnd, activeFilterEntries]);
 
-  // ─── filter panel ────────────────────────────────────────────────────────────
-  // Selection UI lives in BetFilterPanel (components/BetFilterPanel.js); this
-  // page only owns the resulting active-filters map and the server-side fetch
-  // it drives. Server-side filtering, additive to (AND'd with) the existing
-  // date-range tabs below — this replaces nothing about how range/
-  // customStart/customEnd work. When no filters are active, serverFilteredBets
-  // stays null and filteredBets falls back to the original unfiltered `bets`,
-  // i.e. zero behavior change from today.
-  const [activeFilters, setActiveFilters] = useState({});
-  const [serverFilteredBets, setServerFilteredBets] = useState(null);
-  const handleFilterChange = useCallback((f) => setActiveFilters(f), []);
-  const activeFilterEntries = useMemo(() => Object.entries(activeFilters).filter(([, v]) => v), [activeFilters]);
-
+  // ─── AI Insight (section 10) — /api/insights/ai-summary, Pro-gated and
+  // computed server-side from the exact same aggregated numbers as summary
+  // above (never raw bet_log/race_results). Template-generated (best/worst
+  // performing group by ROI, picked across the already-computed rank/
+  // condition/venue/heatmap breakdowns), not a live LLM call — no external
+  // API cost, so no caching needed, just a fresh cheap computation per
+  // request. Independent fetch/loading state from `summary` since it's a
+  // separate call, not blocking the rest of the page.
+  const [aiSummaryText, setAiSummaryText] = useState(null);
+  const [aiSummaryLoading, setAiSummaryLoading] = useState(true);
+  const [aiSummaryError, setAiSummaryError] = useState(false);
   useEffect(() => {
-    if (!user?.id || !isPro) return;
-    if (activeFilterEntries.length === 0) { setServerFilteredBets(null); return; }
-    const qs = new URLSearchParams(Object.fromEntries(activeFilterEntries));
-    let cancelled = false;
-    fetch(`/api/insights/filtered-bets?${qs.toString()}`)
-      .then(r => r.ok ? r.json() : [])
-      .then(rows => { if (!cancelled) setServerFilteredBets(Array.isArray(rows) ? rows : []); });
-    return () => { cancelled = true; };
-  }, [user?.id, isPro, activeFilterEntries]);
-
-  const filteredBets = useMemo(() => {
-    const base = serverFilteredBets ?? bets;
+    if (!user?.id || !isPro) { if (isPro === false) setAiSummaryLoading(false); return; }
     const bounds = dateRangeBounds(range, customStart, customEnd);
-    if (!bounds) return base;
-    return base.filter(b => b.date >= bounds.start && b.date <= bounds.end);
-  }, [bets, serverFilteredBets, range, customStart, customEnd]);
+    const params = new URLSearchParams(Object.fromEntries(activeFilterEntries));
+    if (bounds) { params.set('start', bounds.start); params.set('end', bounds.end); }
+    const qs = params.toString() ? `?${params.toString()}` : '';
+    setAiSummaryLoading(true);
+    setAiSummaryError(false);
+    let cancelled = false;
+    fetch(`/api/insights/ai-summary${qs}`)
+      .then(r => r.ok ? r.json() : Promise.reject(r.status))
+      .then(data => { if (!cancelled) { setAiSummaryText(data.text || null); setAiSummaryLoading(false); } })
+      .catch(() => { if (!cancelled) { setAiSummaryError(true); setAiSummaryLoading(false); } });
+    return () => { cancelled = true; };
+  }, [user?.id, isPro, range, customStart, customEnd, activeFilterEntries]);
 
-  const settled = useMemo(() => filteredBets.filter(isBetSettled), [filteredBets]);
+  // The /api/insights/filtered-bets round-trip + serverFilteredBets state
+  // that used to live here are gone -- that route's filtering logic moved
+  // into lib/serverInsightsData.js (fetchUserBetData), applied server-side
+  // as part of computeInsightsSummary, and threaded directly into the
+  // summary/ai-summary fetches above via activeFilterEntries. Nothing on
+  // this page reads raw filtered bet_log rows client-side anymore.
 
   // Hero bar is now server-computed (summary.hero, see the fetch effect
   // above) — this local version was removed once that migrated in batch 1
   // of the Insights rebuild.
 
-  // ─── ai insight ──────────────────────────────────────────────────────────────
-  const aiInsight = useMemo(() => {
-    if (settled.length < 5) return null;
-    const zones = {};
-    settled.forEach(b => {
-      const rank = b.rank ? (+(b.rank) <= 2 ? 'R1-2' : +(b.rank) <= 4 ? 'R3-4' : 'R5+') : null;
-      const cond = (b.track_condition || '').trim() || null;
-      if (!rank || !cond) return;
-      const k = `${rank}__${cond}`;
-      if (!zones[k]) zones[k] = [];
-      zones[k].push(b);
-    });
-    let bestKey = null, bestRoi = -Infinity, worstKey = null, worstRoi = Infinity;
-    Object.entries(zones).forEach(([k, bs]) => {
-      const g = aggGroup(bs);
-      if (bs.length >= 10 && g.roi > bestRoi) { bestRoi = g.roi; bestKey = k; }
-      if (bs.length >= 5  && g.roi < worstRoi) { worstRoi = g.roi; worstKey = k; }
-    });
-    return {
-      bestParts: bestKey ? bestKey.split('__') : [],
-      bestRoi, bestN: bestKey ? zones[bestKey].length : 0,
-      worstParts: worstKey ? worstKey.split('__') : [],
-      worstRoi, worstN: worstKey ? zones[worstKey].length : 0,
-    };
-  }, [settled]);
+  // AI Insight is now server-generated (aiSummaryText, see the fetch effect
+  // above), reusing the shared summary aggregation instead of this page's
+  // own rank x condition zone computation.
 
   // CLV Tracker, ROI by rank, and Edge heatmap are now server-computed
   // (summary.clv / summary.roiByRank / summary.edgeHeatmap) — see above.
@@ -476,19 +466,15 @@ export default function InsightsPage() {
             )}
           </Card>
 
-          {/* 2. AI INSIGHT */}
-          {aiInsight && (aiInsight.bestParts.length > 0 || aiInsight.worstParts.length > 0) && (
+          {/* 2. AI INSIGHT — template-generated server-side, see aiSummaryText fetch effect above */}
+          {(aiSummaryLoading || aiSummaryText) && !aiSummaryError && (
             <div style={{ background: '#f0fdf4', border: '1px solid #86efac', borderRadius: 8, padding: '12px 18px' }}>
               <div style={{ fontSize: 11, fontWeight: 700, color: G, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 6 }}>AI Insight</div>
-              <div style={{ fontSize: 13, color: '#166534', lineHeight: 1.65 }}>
-                {aiInsight.bestParts.length > 0 && (
-                  <span>Your best zone is <strong>{aiInsight.bestParts[0]}</strong> picks in <strong>{aiInsight.bestParts[1]}</strong> conditions — ROI <strong>{fmtPct(aiInsight.bestRoi)}</strong> over {aiInsight.bestN} bets.{' '}</span>
-                )}
-                {aiInsight.worstParts.length > 0 && (
-                  <span>Main leak: <strong>{aiInsight.worstParts[0]}</strong> in <strong>{aiInsight.worstParts[1]}</strong> — ROI <strong>{fmtPct(aiInsight.worstRoi)}</strong> over {aiInsight.worstN} bets. Consider cutting stakes here.</span>
-                )}
-                {!aiInsight.bestParts.length && <span>Not enough data in any single zone for a best-zone signal (need 10+ bets per rank/condition combo).</span>}
-              </div>
+              {aiSummaryLoading ? (
+                <div style={{ fontSize: 12, color: '#6b7280' }}>Loading…</div>
+              ) : (
+                <div style={{ fontSize: 13, color: '#166534', lineHeight: 1.65 }}>{aiSummaryText}</div>
+              )}
             </div>
           )}
 
