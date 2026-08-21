@@ -198,8 +198,79 @@ export async function GET(req) {
     return { venue, ...g, insufficientData: g.n < MIN_SAMPLE };
   });
 
+  // ─── Staking discipline ─────────────────────────────────────────────────
+  // Two benchmarks against actual P&L: flat $10 stakes, and a simulated
+  // Kelly stake (rolling win-rate estimate per day, same as the pre-rebuild
+  // client version). Bug fix: both benchmarks previously checked
+  // `b.status === 'won'`, a value that never actually appears in bet_log
+  // (real values are 'win'/'place'/'loss') -- every win was silently
+  // treated as a loss in both benchmarks. Now uses isBetWon/isBetLost.
+  const actualPnl = settled.reduce((s, b) => s + betPnl(b), 0);
+  const flatPnl = settled.reduce((s, b) => s + (isBetWon(b) ? 10 * (+b.odds - 1) : -10), 0);
+  const sortedForKellySim = [...settled].sort((a, b) => (a.date || '') < (b.date || '') ? -1 : 1);
+  // Patch, not a redesign: this is a rolling-bankroll simulation, and sizing
+  // each stake off the CURRENT (compounding) bankroll made it grow
+  // exponentially over a long bet history -- confirmed live on a 520-bet
+  // account, the simulated P&L came out to +$1.1 billion. Capping the stake
+  // base at the starting bankroll (never the grown one) bounds growth to
+  // roughly linear regardless of how many bets are simulated, without
+  // changing the day-to-day win/loss mechanics. The model's realism beyond
+  // that is a separate question for a proper redesign later.
+  const startingBankroll = bankroll || 1000;
+  let kb = startingBankroll, kellyPnlSum = 0;
+  sortedForKellySim.forEach((b, i) => {
+    const slice = sortedForKellySim.slice(0, i);
+    const sliceW = slice.filter(isBetWon).length;
+    const estSR = slice.length > 5 ? sliceW / slice.length : 0.25;
+    const kStakePct = kellyPct(estSR, +b.odds) * kellyFrac / 100;
+    const kStake = Math.min(kb, startingBankroll) * Math.min(kStakePct, 0.1);
+    const p = isBetWon(b) ? kStake * (+b.odds - 1) : -kStake;
+    kb += p; kellyPnlSum += p;
+  });
+  // Second, independent guard on the displayed number itself -- if the
+  // simulation still produces something wildly implausible relative to what
+  // was actually staked in real life, show that plainly rather than a raw
+  // absurd figure.
+  const realTotalStaked = settled.reduce((s, b) => s + +(b.stake || 0), 0);
+  const kellySimDiverged = realTotalStaked > 0 && Math.abs(kellyPnlSum) > realTotalStaked * 50;
+  const overallAvg = settled.length ? settled.reduce((s, b) => s + +(b.stake || 0), 0) / settled.length : 0;
+  const lossDates = new Set(settled.filter(isBetLost).map(b => b.date));
+  const postLoss = settled.filter(b => {
+    if (!b.date) return false;
+    const prev = new Date(b.date); prev.setDate(prev.getDate() - 1);
+    return lossDates.has(prev.toISOString().slice(0, 10));
+  });
+  const postLossAvg = postLoss.length ? postLoss.reduce((s, b) => s + +(b.stake || 0), 0) / postLoss.length : null;
+  // Factual, not a judgment call -- describes the size of the gap, doesn't
+  // label the behavior ("tilt" implied an emotional diagnosis the data
+  // can't actually support).
+  const postLossPctDiff = postLossAvg !== null && overallAvg > 0 ? (postLossAvg - overallAvg) / overallAvg * 100 : null;
+  const elevatedPostLossStaking = postLossPctDiff !== null && postLossPctDiff > 15;
+  const staking = settled.length ? {
+    actualPnl, flatPnl, kellyPnlSum, kellySimDiverged, overallAvg, postLossAvg, postLossPctDiff, elevatedPostLossStaking,
+  } : null;
+
+  // ─── P&L calendar ───────────────────────────────────────────────────────
+  // Last 90 calendar days, intersected with the active date-range filter
+  // (same as the pre-rebuild client version -- selecting "Today" narrows
+  // this grid down to a single cell, by design, not a separate fixed window).
+  const todayISO = new Date().toLocaleDateString('sv-SE', { timeZone: 'Australia/Brisbane' });
+  const calendarDays = [];
+  for (let i = 89; i >= 0; i--) {
+    const d = new Date(todayISO); d.setDate(d.getDate() - i);
+    calendarDays.push(d.toISOString().slice(0, 10));
+  }
+  const dayPnl = {};
+  const hasBet = {};
+  settled.forEach(b => {
+    if (!b.date) return;
+    dayPnl[b.date] = (dayPnl[b.date] || 0) + betPnl(b);
+    hasBet[b.date] = true;
+  });
+  const calendar = calendarDays.map(d => ({ date: d, pnl: hasBet[d] ? (dayPnl[d] || 0) : null }));
+
   return NextResponse.json({
-    hero, roiByRank, edgeHeatmap, condition, clv, kelly, venues,
+    hero, roiByRank, edgeHeatmap, condition, clv, kelly, venues, staking, calendar,
     dateRange: { start: start || null, end: end || null },
   });
 }

@@ -6,7 +6,7 @@ import { useUser } from '@clerk/nextjs';
 import useIsPro from '@/hooks/useIsPro';
 import useIsMobile from '@/hooks/useIsMobile';
 import BetFilterPanel from '@/components/BetFilterPanel';
-import { isBetLost, isBetSettled, betPnl, aggGroup } from '@/lib/edgeZone';
+import { isBetSettled, aggGroup } from '@/lib/edgeZone';
 
 const SURL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SKEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -58,11 +58,6 @@ function fmt$(n) {
   return n >= 0 ? `+${s}` : `-${s}`;
 }
 function fmtPct(n) { return `${n >= 0 ? '+' : ''}${n.toFixed(1)}%`; }
-
-function kellyPct(winRate, decOdds) {
-  const b = decOdds - 1;
-  return b > 0 ? Math.max(0, (winRate * b - (1 - winRate)) / b * 100) : 0;
-}
 
 function heatBg(roiV, n) {
   if (!n || n < 3) return '#f3f4f6';
@@ -261,64 +256,17 @@ export default function InsightsPage() {
 
   // Track condition breakdown is now server-computed (summary.condition).
 
-  // bankroll/kellyFrac still used by Staking Discipline's Kelly-simulation
-  // benchmark below (not yet migrated) — the Kelly Advisor CARD itself now
-  // reads summary.kelly instead.
-  const bankroll    = useMemo(() => +(userSettings.bankroll || 0), [userSettings]);
-  const kellyFrac   = useMemo(() => {
-    const kf = userSettings.kellyFraction || 'Half Kelly';
-    return kf === 'Full Kelly' ? 1 : kf === 'Quarter Kelly' ? 0.25 : 0.5;
-  }, [userSettings]);
+  // bankroll still used by the Kelly Advisor card's "set your bankroll"
+  // empty-state check and display below (Kelly's own zone math is now
+  // server-computed, see summary.kelly).
+  const bankroll = useMemo(() => +(userSettings.bankroll || 0), [userSettings]);
 
-  // Kelly Advisor zones and Top Venues are now server-computed
-  // (summary.kelly.zones / summary.venues) — see above.
+  // Kelly Advisor zones, Top Venues, Staking Discipline, and P&L Calendar
+  // are all now server-computed (summary.kelly / summary.venues /
+  // summary.staking / summary.calendar) — see below for the display-only
+  // calMax/calColor derived from summary.calendar.
 
-  // ─── staking discipline ──────────────────────────────────────────────────────
-  const stakingStats = useMemo(() => {
-    if (!settled.length) return null;
-    const actualPnl = settled.reduce((s, b) => s + betPnl(b), 0);
-    const flatPnl   = settled.reduce((s, b) => s + (b.status === 'won' ? 10 * (+b.odds - 1) : -10), 0);
-    // Kelly sim: use rolling strike rate estimate per day
-    const sorted = [...settled].sort((a, b) => (a.date || '') < (b.date || '') ? -1 : 1);
-    let kb = bankroll || 1000, kellyPnlSum = 0;
-    sorted.forEach((b, i) => {
-      const slice = sorted.slice(0, i);
-      const sliceW = slice.filter(x => x.status === 'won').length;
-      const estSR = slice.length > 5 ? sliceW / slice.length : 0.25;
-      const kStakePct = kellyPct(estSR, +b.odds) * kellyFrac / 100;
-      const kStake = kb * Math.min(kStakePct, 0.1);
-      const p = b.status === 'won' ? kStake * (+b.odds - 1) : -kStake;
-      kb += p; kellyPnlSum += p;
-    });
-    const overallAvg = settled.reduce((s, b) => s + +b.stake, 0) / settled.length;
-    const lossDates = new Set(settled.filter(isBetLost).map(b => b.date));
-    const postLoss = settled.filter(b => {
-      const prev = new Date(b.date); prev.setDate(prev.getDate() - 1);
-      return lossDates.has(prev.toISOString().slice(0, 10));
-    });
-    const postLossAvg = postLoss.length ? postLoss.reduce((s, b) => s + +b.stake, 0) / postLoss.length : null;
-    const tiltFlag = postLossAvg !== null && (postLossAvg - overallAvg) / overallAvg > 0.15;
-    return { actualPnl, flatPnl, kellyPnlSum, overallAvg, postLossAvg, tiltFlag };
-  }, [settled, bankroll, kellyFrac]);
-
-  // ─── calendar ────────────────────────────────────────────────────────────────
-  const calendarData = useMemo(() => {
-    const today = aestToday();
-    const days = [];
-    for (let i = 89; i >= 0; i--) {
-      const d = new Date(today); d.setDate(d.getDate() - i);
-      days.push(d.toISOString().slice(0, 10));
-    }
-    const dayPnl = {};
-    settled.forEach(b => { if (b.date) dayPnl[b.date] = (dayPnl[b.date] || 0) + betPnl(b); });
-    const hasBet = {};
-    settled.forEach(b => { if (b.date) hasBet[b.date] = true; });
-    return days.map(d => ({ date: d, pnl: hasBet[d] ? (dayPnl[d] || 0) : null }));
-  }, [settled]);
-
-  const calMax = useMemo(() => Math.max(1, ...calendarData.map(d => d.pnl !== null ? Math.abs(d.pnl) : 0)), [calendarData]);
-
-  function calColor(pnl) {
+  function calColor(pnl, calMax) {
     if (pnl === null) return '#f3f4f6';
     if (pnl === 0) return '#e5e7eb';
     if (pnl > calMax * 0.6) return '#14532d';
@@ -459,10 +407,12 @@ export default function InsightsPage() {
     sortVenue === 'bets' ? b.n - a.n : sortVenue === 'pnl' ? b.pnl - a.pnl : sortVenue === 'sr' ? b.sr - a.sr : b.roi - a.roi);
 
   // Calendar padding to Monday
+  const calendarData = summary?.calendar || [];
   const firstDay = new Date(calendarData[0]?.date || aestToday());
   const dow = firstDay.getDay();
   const padDays = dow === 0 ? 6 : dow - 1;
   const calCells = [...Array(padDays).fill(null), ...calendarData];
+  const calMax = Math.max(1, ...calendarData.map(d => d.pnl !== null ? Math.abs(d.pnl) : 0));
 
   // ─── render ──────────────────────────────────────────────────────────────────
   return (
@@ -819,46 +769,52 @@ export default function InsightsPage() {
               )}
             </Card>
 
-            <Card title="Staking Discipline" info="Compares your actual P&L to two benchmarks: flat $10 stakes on every bet, and a simulated Kelly stake. If either benchmark beats your actual result, your staking is costing you money.">
-              {!stakingStats ? <EmptyState msg="No settled bets in this range" /> : (
+            <Card title="Staking Discipline" info="Compares your actual P&L to two benchmarks: flat $10 stakes on every bet, and a simulated Kelly stake. Shown for comparison, not as a verdict on your staking.">
+              {summaryLoading ? (
+                <div style={{ padding: '10px 0', textAlign: 'center', color: '#9ca3af', fontSize: 12 }}>Loading…</div>
+              ) : !summary?.staking ? <EmptyState msg="No settled bets in this range" /> : (
                 <>
                   <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, marginBottom: 16 }}>
                     <tbody>
                       {[
-                        ['Actual P&L',       fmt$(stakingStats.actualPnl),   stakingStats.actualPnl >= 0],
-                        ['Flat $10 stake',   fmt$(stakingStats.flatPnl),     stakingStats.flatPnl >= 0],
-                        ['Kelly simulation', fmt$(stakingStats.kellyPnlSum), stakingStats.kellyPnlSum >= 0],
-                      ].map(([label, val, pos]) => (
+                        ['Actual P&L',       fmt$(summary.staking.actualPnl),   summary.staking.actualPnl >= 0, false],
+                        ['Flat $10 stake',   fmt$(summary.staking.flatPnl),     summary.staking.flatPnl >= 0, false],
+                        ['Kelly simulation', fmt$(summary.staking.kellyPnlSum), summary.staking.kellyPnlSum >= 0, summary.staking.kellySimDiverged],
+                      ].map(([label, val, pos, diverged]) => (
                         <tr key={label} style={{ borderTop: '1px solid #f3f4f6' }}>
                           <td style={{ padding: '8px 0', color: '#374151' }}>{label}</td>
-                          <td style={{ ...MONO, textAlign: 'right', fontWeight: 700, color: pos ? G : RED }}>{val}</td>
+                          {diverged ? (
+                            <td style={{ textAlign: 'right', color: '#9ca3af', fontStyle: 'italic', fontSize: 11 }}>simulation diverged — insufficient realistic data</td>
+                          ) : (
+                            <td style={{ ...MONO, textAlign: 'right', fontWeight: 700, color: pos ? G : RED }}>{val}</td>
+                          )}
                         </tr>
                       ))}
                     </tbody>
                   </table>
                   <div style={{ borderTop: '1px solid #e5e7eb', paddingTop: 12 }}>
-                    <div style={{ fontSize: 11, fontWeight: 700, color: '#6b7280', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 8, display: 'flex', alignItems: 'center' }}>Tilt Detection<InfoTip text="Checks if you stake more on days following a loss. Emotional over-betting after losses (tilt) is one of the biggest bankroll killers. Flagged at 15%+ above your overall average." /></div>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: '#6b7280', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 8, display: 'flex', alignItems: 'center' }}>Post-Loss Staking<InfoTip text="Compares your average stake on days following a loss to your overall average stake — a factual comparison, not a diagnosis." /></div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 4 }}>
                       <span style={{ color: '#6b7280' }}>Post-loss 24h avg stake</span>
                       <span style={{ ...MONO, fontWeight: 600 }}>
-                        {stakingStats.postLossAvg !== null ? `$${stakingStats.postLossAvg.toFixed(0)}` : 'n/a'}
+                        {summary.staking.postLossAvg !== null ? `$${summary.staking.postLossAvg.toFixed(0)}` : 'n/a'}
                       </span>
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 10 }}>
                       <span style={{ color: '#6b7280' }}>Overall avg stake</span>
-                      <span style={{ ...MONO, fontWeight: 600 }}>${stakingStats.overallAvg.toFixed(0)}</span>
+                      <span style={{ ...MONO, fontWeight: 600 }}>${summary.staking.overallAvg.toFixed(0)}</span>
                     </div>
                     <div style={{
-                      background: stakingStats.tiltFlag ? '#fef2f2' : '#f0fdf4',
-                      border: `1px solid ${stakingStats.tiltFlag ? '#fca5a5' : '#86efac'}`,
+                      background: summary.staking.elevatedPostLossStaking ? '#fef2f2' : '#f0fdf4',
+                      border: `1px solid ${summary.staking.elevatedPostLossStaking ? '#fca5a5' : '#86efac'}`,
                       borderRadius: 6, padding: '8px 12px', fontSize: 12, fontWeight: 600,
-                      color: stakingStats.tiltFlag ? RED : G,
+                      color: summary.staking.elevatedPostLossStaking ? RED : G,
                     }}>
-                      {stakingStats.postLossAvg === null
-                        ? '— insufficient data (need loss history)'
-                        : stakingStats.tiltFlag
-                        ? '&#9888; Tilt detected — staking 15%+ higher after losses'
-                        : '&#10003; Staking discipline OK'}
+                      {summary.staking.postLossAvg === null
+                        ? 'Insufficient data (need loss history)'
+                        : summary.staking.elevatedPostLossStaking
+                        ? `⚠ Post-loss stakes are ${summary.staking.postLossPctDiff.toFixed(0)}% higher than your overall average`
+                        : '✓ Post-loss stakes are in line with your overall average'}
                     </div>
                   </div>
                 </>
@@ -868,26 +824,34 @@ export default function InsightsPage() {
 
           {/* 10. CALENDAR */}
           <div style={{ paddingBottom: 24 }}>
-            <Card title="P&L Calendar (Last 90 Days)" info="Daily P&L grid for the past 90 days. Dark green = big profit day, red = losing day, light grey = no bets. Hover a square to see the exact date and P&L.">
-              <div style={{ overflowX: 'auto' }}>
-                <div style={{ display: 'grid', gridTemplateRows: 'repeat(7, 12px)', gridAutoFlow: 'column', gridAutoColumns: '12px', gap: 2, width: 'fit-content' }}>
-                  {calCells.map((cell, i) => (
-                    <div
-                      key={i}
-                      title={cell ? `${cell.date}${cell.pnl !== null ? ` · ${fmt$(cell.pnl)}` : ''}` : ''}
-                      style={{ width: 12, height: 12, borderRadius: 2, background: cell ? calColor(cell.pnl) : 'transparent' }}
-                    />
-                  ))}
-                </div>
-              </div>
-              <div style={{ display: 'flex', gap: 10, marginTop: 10, fontSize: 10, color: '#9ca3af', flexWrap: 'wrap' }}>
-                {[['#14532d','Profit'],['#4ade80','Small profit'],['#fca5a5','Small loss'],['#991b1b','Loss'],['#f3f4f6','No bets']].map(([color, label]) => (
-                  <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-                    <div style={{ width: 10, height: 10, background: color, borderRadius: 2 }} />
-                    {label}
+            <Card title="P&L Calendar (Last 90 Days)" info="Daily P&L grid for the past 90 days, intersected with the date range selected above. Dark green = big profit day, red = losing day, light grey = no bets. Hover a square to see the exact date and P&L.">
+              {summaryLoading ? (
+                <div style={{ padding: '10px 0', textAlign: 'center', color: '#9ca3af', fontSize: 12 }}>Loading…</div>
+              ) : !summary ? (
+                <EmptyState msg="Couldn't load summary" />
+              ) : (
+                <>
+                  <div style={{ overflowX: 'auto' }}>
+                    <div style={{ display: 'grid', gridTemplateRows: 'repeat(7, 12px)', gridAutoFlow: 'column', gridAutoColumns: '12px', gap: 2, width: 'fit-content' }}>
+                      {calCells.map((cell, i) => (
+                        <div
+                          key={i}
+                          title={cell ? `${cell.date}${cell.pnl !== null ? ` · ${fmt$(cell.pnl)}` : ''}` : ''}
+                          style={{ width: 12, height: 12, borderRadius: 2, background: cell ? calColor(cell.pnl, calMax) : 'transparent' }}
+                        />
+                      ))}
+                    </div>
                   </div>
-                ))}
-              </div>
+                  <div style={{ display: 'flex', gap: 10, marginTop: 10, fontSize: 10, color: '#9ca3af', flexWrap: 'wrap' }}>
+                    {[['#14532d','Profit'],['#4ade80','Small profit'],['#fca5a5','Small loss'],['#991b1b','Loss'],['#f3f4f6','No bets']].map(([color, label]) => (
+                      <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+                        <div style={{ width: 10, height: 10, background: color, borderRadius: 2 }} />
+                        {label}
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
             </Card>
           </div>
 
