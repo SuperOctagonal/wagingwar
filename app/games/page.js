@@ -11,9 +11,9 @@ const TEXT = '#111827';
 const CT_LINE = '#e5e7eb';
 
 const MAIN_TABS = [
-  { id: 'trivia', label: 'Trivia' },
-  { id: 'puzzle', label: 'Puzzle' },
-  { id: 'prizes', label: 'Prizes' },
+  { id: 'trivia', label: 'Trivia', icon: 'ti-brain' },
+  { id: 'puzzle', label: 'Puzzle', icon: 'ti-puzzle' },
+  { id: 'prizes', label: 'Prizes', icon: 'ti-disc' },
 ];
 
 async function api(path, opts) {
@@ -312,6 +312,105 @@ function DailyPuzzle({ onCreditsChange }) {
   );
 }
 
+// ─── Track Dash canvas art — plain shapes, no image assets ────────────────
+// Player: a simple horse silhouette (body + neck/head + 4 legs + tail) drawn
+// with basic path fills, sized to the same collision bounding box the
+// previous plain rectangle used.
+function drawHorse(ctx, x, y, w, h) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.fillStyle = GOLD;
+  // Body
+  ctx.beginPath();
+  ctx.ellipse(w * 0.42, h * 0.55, w * 0.4, h * 0.3, 0, 0, Math.PI * 2);
+  ctx.fill();
+  // Neck + head
+  ctx.beginPath();
+  ctx.moveTo(w * 0.7, h * 0.4);
+  ctx.lineTo(w * 0.98, h * 0.08);
+  ctx.lineTo(w * 1.08, h * 0.22);
+  ctx.lineTo(w * 0.9, h * 0.52);
+  ctx.closePath();
+  ctx.fill();
+  // Legs
+  ctx.fillRect(w * 0.12, h * 0.75, w * 0.1, h * 0.3);
+  ctx.fillRect(w * 0.32, h * 0.78, w * 0.1, h * 0.28);
+  ctx.fillRect(w * 0.52, h * 0.78, w * 0.1, h * 0.28);
+  ctx.fillRect(w * 0.7, h * 0.75, w * 0.1, h * 0.3);
+  // Tail
+  ctx.beginPath();
+  ctx.moveTo(w * 0.05, h * 0.35);
+  ctx.quadraticCurveTo(-w * 0.18, h * 0.55, w * 0.02, h * 0.85);
+  ctx.lineTo(w * 0.14, h * 0.65);
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+}
+
+// Racing-themed obstacles (hay bale, hurdle) mixed with lighthearted ones
+// (traffic cone, beach ball) for variety -- one is chosen at random per
+// spawn (see OBSTACLE_TYPES / start()'s spawn logic below).
+function drawHaybale(ctx, x, yTop, w, h) {
+  ctx.save();
+  ctx.fillStyle = '#c9922b';
+  ctx.fillRect(x, yTop, w, h);
+  ctx.strokeStyle = '#8a6420';
+  ctx.lineWidth = 2;
+  for (let i = 1; i < 3; i++) {
+    const ly = yTop + (h / 3) * i;
+    ctx.beginPath(); ctx.moveTo(x, ly); ctx.lineTo(x + w, ly); ctx.stroke();
+  }
+  ctx.restore();
+}
+function drawHurdle(ctx, x, yTop, w, h) {
+  ctx.save();
+  ctx.fillStyle = '#3b2a0d';
+  ctx.fillRect(x + 2, yTop + h * 0.3, 3, h * 0.7);
+  ctx.fillRect(x + w - 5, yTop + h * 0.3, 3, h * 0.7);
+  const barH = h * 0.35, stripes = 4;
+  for (let i = 0; i < stripes; i++) {
+    ctx.fillStyle = i % 2 === 0 ? '#dc2626' : '#fff';
+    ctx.fillRect(x + (w / stripes) * i, yTop, w / stripes, barH);
+  }
+  ctx.restore();
+}
+function drawCone(ctx, x, yTop, w, h) {
+  ctx.save();
+  ctx.fillStyle = '#f97316';
+  ctx.beginPath();
+  ctx.moveTo(x + w / 2, yTop);
+  ctx.lineTo(x + w, yTop + h * 0.85);
+  ctx.lineTo(x, yTop + h * 0.85);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = '#fff';
+  ctx.fillRect(x + w * 0.15, yTop + h * 0.45, w * 0.7, h * 0.12);
+  ctx.fillStyle = '#c2410c';
+  ctx.fillRect(x - 2, yTop + h * 0.85, w + 4, h * 0.15);
+  ctx.restore();
+}
+function drawBeachBall(ctx, x, yTop, w, h) {
+  ctx.save();
+  const r = Math.min(w, h) / 2, cx = x + w / 2, cy = yTop + h / 2;
+  ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.fillStyle = '#fff'; ctx.fill();
+  const colors = ['#dc2626', '#2563eb', '#eab308', '#16a34a'];
+  colors.forEach((c, i) => {
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.arc(cx, cy, r, (Math.PI / 2) * i, (Math.PI / 2) * (i + 1));
+    ctx.closePath();
+    ctx.fillStyle = c;
+    ctx.fill();
+  });
+  ctx.restore();
+}
+const OBSTACLE_TYPES = [
+  { key: 'haybale',   w: 24, h: 20, draw: drawHaybale },
+  { key: 'hurdle',    w: 22, h: 26, draw: drawHurdle },
+  { key: 'cone',      w: 16, h: 22, draw: drawCone },
+  { key: 'beachball', w: 20, h: 20, draw: drawBeachBall },
+];
+
 // ─── Track Dash — minimal canvas endless runner ───────────────────────────
 function TrackDash({ onCreditsChange }) {
   const canvasRef = useRef(null);
@@ -363,7 +462,11 @@ function TrackDash({ onCreditsChange }) {
 
       s.lastSpawn += dt;
       const spawnGap = Math.max(700, 1400 - s.elapsed / 20);
-      if (s.lastSpawn > spawnGap) { s.lastSpawn = 0; s.obstacles.push({ x: W, w: 14, h: 24 }); }
+      if (s.lastSpawn > spawnGap) {
+        s.lastSpawn = 0;
+        const t = OBSTACLE_TYPES[Math.floor(Math.random() * OBSTACLE_TYPES.length)];
+        s.obstacles.push({ x: W, w: t.w, h: t.h, draw: t.draw });
+      }
       s.obstacles.forEach(o => { o.x -= s.speed; });
       s.obstacles = s.obstacles.filter(o => o.x > -20);
 
@@ -380,10 +483,8 @@ function TrackDash({ onCreditsChange }) {
       ctx.fillRect(0, 0, W, H);
       ctx.fillStyle = 'rgba(255,255,255,0.15)';
       ctx.fillRect(0, GROUND + 26, W, 2);
-      ctx.fillStyle = '#e8b84a';
-      ctx.fillRect(px, py, pw, ph);
-      ctx.fillStyle = '#f87171';
-      s.obstacles.forEach(o => ctx.fillRect(o.x, GROUND + 26 - o.h, o.w, o.h));
+      drawHorse(ctx, px, py, pw, ph);
+      s.obstacles.forEach(o => o.draw(ctx, o.x, GROUND + 26 - o.h, o.w, o.h));
       ctx.fillStyle = 'rgba(255,255,255,0.8)';
       ctx.font = '12px monospace';
       ctx.fillText(`${Math.floor(s.elapsed / 100)}`, 10, 16);
@@ -693,17 +794,27 @@ export default function GamesPage() {
       {/* Persistent tab bar — built as a real always-visible component from
           the start, above whichever tab is active, not a breadcrumb (see
           the Competitions "Beat the Model" tab-bar fix earlier this
-          session for why that matters). */}
-      <div style={{ background: '#fff', borderBottom: `0.5px solid ${CT_LINE}`, padding: '8px 16px', display: 'flex', gap: 6, flexShrink: 0, flexWrap: 'wrap' }}>
-        {MAIN_TABS.map(t => {
-          const active = mainTab === t.id;
-          return (
-            <button key={t.id} onClick={() => setMainTab(t.id)}
-              style={{ padding: '5px 12px', borderRadius: 5, fontSize: 11, fontWeight: 700, border: `0.5px solid ${active ? '#111827' : CT_LINE}`, cursor: 'pointer', background: active ? '#111827' : '#fff', color: active ? '#fff' : '#374151' }}>
-              {t.label}
-            </button>
-          );
-        })}
+          session for why that matters). Icon + label tiles inside a
+          bordered group container, not plain pills — active tab is a dark
+          green fill with a gold icon and white label, inactive tabs are
+          transparent with muted icon/label. */}
+      <div style={{ background: '#fff', borderBottom: `0.5px solid ${CT_LINE}`, padding: '8px 16px', flexShrink: 0 }}>
+        <div style={{ display: 'inline-flex', gap: 4, padding: 4, border: `1px solid ${CT_LINE}`, borderRadius: 10, background: '#fff' }}>
+          {MAIN_TABS.map(t => {
+            const active = mainTab === t.id;
+            return (
+              <button key={t.id} onClick={() => setMainTab(t.id)}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 6,
+                  padding: '7px 14px', borderRadius: 7, border: 'none', cursor: 'pointer',
+                  background: active ? '#0d2416' : 'transparent',
+                }}>
+                <i className={`ti ${t.icon}`} style={{ fontSize: 15, color: active ? GOLD : '#9ca3af' }} />
+                <span style={{ fontSize: 12, fontWeight: 700, color: active ? '#fff' : '#6b7280' }}>{t.label}</span>
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       <div style={{ flex: 1, overflowY: 'auto' }}>
