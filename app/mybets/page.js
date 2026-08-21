@@ -16,6 +16,7 @@ import { normaliseVenue } from '@/lib/venues';
 import { validateBetForm } from '@/lib/betValidation';
 import { brisbaneDateTimeToInstant } from '@/lib/raceTime';
 import { estimatePlacePrice, paidPlacesForFieldSize } from '@/lib/placePrice';
+import { scoreGroup, getDefaultWeights, GRP_KEYS } from '@/lib/scoring';
 import {
   LineChart, Line, AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine,
@@ -890,6 +891,33 @@ export default function MybetsPage() {
     // initialization" on /mybets prerender when it was referenced there).
     const betRaceDate = (raceDate && raceDate >= todayISO) ? raceDate : todayISO;
 
+    // Model rank for the selected horse — same GRP_KEYS/scoreGroup pipeline
+    // the Races-page bet-save path already uses, just computed locally here
+    // since Quick Log doesn't otherwise score the field. Default weights and
+    // a 'good' trackCond fallback (this form has no track-condition source
+    // to hand), unlike Races' bet-save which passes the user's own custom
+    // weights and the race's real condition — a supplementary analytics
+    // field, not the primary betting-decision surface, so that gap is
+    // acceptable. Previously this was never set at all for Quick-Log-
+    // originated bets (always null), unlike the Races-page path.
+    let qlRank = null;
+    const qlRaceKey = (csvVenues[qlMeeting] || []).find(k => csvRaces[k] && +csvRaces[k].num === +qlRace);
+    const qlRaceHorses = qlRaceKey ? (csvRaces[qlRaceKey]?.horses || []) : [];
+    if (qlRaceHorses.length) {
+      const weights = getDefaultWeights();
+      const scored = qlRaceHorses
+        .filter(h => !h.scratched)
+        .map(h => {
+          const grpScores = {};
+          GRP_KEYS.forEach(gk => { grpScores[gk] = scoreGroup(h, gk, weights, 'good'); });
+          const total = GRP_KEYS.reduce((a, gk) => a + grpScores[gk].total, 0);
+          return { name: h.name, total };
+        })
+        .sort((a, b) => b.total - a.total);
+      const idx = scored.findIndex(h => h.name === qlHorse.trim());
+      if (idx !== -1) qlRank = idx + 1;
+    }
+
     const insertBody = {
       date:        betRaceDate,
       horse_name:  qlHorse.trim(),
@@ -903,6 +931,7 @@ export default function MybetsPage() {
       bookmaker:   qlBookmaker || null,
       race_time:   qlRaceTime  || null,
       tab_no:      qlTab       || null,
+      rank:        qlRank,
     };
 
     let ok = false;
@@ -931,7 +960,7 @@ export default function MybetsPage() {
     setQlToast(ok ? 'success' : 'error');
     setQlSaving(false);
     setTimeout(() => setQlToast(null), 2500);
-  }, [user?.id, todayISO, raceDate, qlHorse, qlMeeting, qlRace, qlBetType, qlStake, qlOdds, qlPlaceOdds, qlRaceTime, qlBookmaker, qlTab]);
+  }, [user?.id, todayISO, raceDate, qlHorse, qlMeeting, qlRace, qlBetType, qlStake, qlOdds, qlPlaceOdds, qlRaceTime, qlBookmaker, qlTab, csvVenues, csvRaces]);
 
   // Opens the in-app confirm modal (below) rather than deleting immediately —
   // executeDeleteBet does the actual removal once confirmed there.
