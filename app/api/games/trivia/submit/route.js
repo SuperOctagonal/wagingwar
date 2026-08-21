@@ -39,18 +39,20 @@ export async function POST(req) {
 
   const date = todayISO();
 
-  // Already answered today? Return the stored result instead of re-scoring
-  // -- the PK on (clerk_id, question_id, date) is the real guard against
-  // double-award; this check just avoids a wasted round trip for the
-  // common "user re-opens the tab" case.
-  const existing = await sb(`trivia_attempts?clerk_id=eq.${encodeURIComponent(userId)}&question_id=eq.${questionId}&date=eq.${date}&select=correct`);
-  if (existing && existing.length) {
-    return NextResponse.json({ alreadyAnswered: true, correct: existing[0].correct, awarded: 0 });
-  }
-
   const qRows = await sb(`trivia_questions?id=eq.${questionId}&select=correct_option,category`);
   const question = qRows?.[0];
   if (!question) return NextResponse.json({ error: 'Question not found' }, { status: 404 });
+
+  // Already answered today? Return the stored result instead of re-scoring
+  // -- the PK on (clerk_id, question_id, date) is the real guard against
+  // double-award; this check just avoids a wasted round trip for the
+  // common "user re-opens the tab" case. correctOption is included here too
+  // (previously omitted) -- the UI needs it to highlight the right answer,
+  // not just show the pass/fail line, on a mid-session reload or re-submit.
+  const existing = await sb(`trivia_attempts?clerk_id=eq.${encodeURIComponent(userId)}&question_id=eq.${questionId}&date=eq.${date}&select=correct`);
+  if (existing && existing.length) {
+    return NextResponse.json({ alreadyAnswered: true, correct: existing[0].correct, correctOption: question.correct_option, awarded: 0 });
+  }
 
   const correct = +selectedOption === question.correct_option;
 

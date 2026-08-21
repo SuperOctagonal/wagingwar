@@ -41,41 +41,53 @@ function CreditsBadge({ account }) {
 }
 
 // ─── Trivia tab ─────────────────────────────────────────────────────────
-function TriviaSet({ title, questions, onAnswer, answering }) {
+// One question at a time: current index into the combined [racing, sports]
+// list, auto-advancing ~1.1s after each answer so the per-question result
+// (reused from the old TriviaSet's styling) is still visible before moving
+// on. Root cause of the completion summary "never appearing": it wasn't a
+// logic bug (the derived allAnswered/sessionCorrect state was already
+// correct) -- the old all-15-at-once layout put the summary banner above a
+// long scrollable list, so a user finishing question 15 at the bottom of
+// the page never scrolled back up to see it. Sequential flow removes the
+// scroll entirely; the summary is simply the final screen.
+function TriviaQuestionCard({ q, categoryLabel, index, total, onAnswer, answering }) {
   return (
-    <div style={{ marginBottom: 28 }}>
-      <div style={{ fontSize: 11, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '.4px', marginBottom: 10 }}>{title}</div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-        {questions.map(q => (
-          <div key={q.id} style={{ background: '#fff', border: `1px solid ${CT_LINE}`, borderRadius: 10, padding: '14px 16px' }}>
-            <div style={{ fontSize: 13, fontWeight: 600, color: TEXT, marginBottom: 10 }}>{q.question}</div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-              {q.options.map((opt, i) => {
-                const isSelected = q.selected === i;
-                const showResult = q.answered || q.result;
-                const isCorrect = q.result && q.result.correctOption === i;
-                const isWrongPick = q.result && isSelected && !q.result.correct;
-                let bg = '#fff', border = CT_LINE, color = TEXT;
-                if (showResult) {
-                  if (isCorrect) { bg = '#f0fdf4'; border = '#16a34a'; color = '#16a34a'; }
-                  else if (isWrongPick) { bg = '#fef2f2'; border = '#dc2626'; color = '#dc2626'; }
-                }
-                return (
-                  <button key={i} disabled={q.answered || answering === q.id}
-                    onClick={() => onAnswer(q, i)}
-                    style={{ padding: '8px 10px', fontSize: 12, fontWeight: 600, borderRadius: 6, border: `1px solid ${border}`, background: bg, color, cursor: q.answered ? 'default' : 'pointer', textAlign: 'left' }}>
-                    {opt}
-                  </button>
-                );
-              })}
-            </div>
-            {q.result && (
-              <div style={{ marginTop: 8, fontSize: 11, fontWeight: 700, color: q.result.correct ? '#16a34a' : '#dc2626' }}>
-                {q.result.correct ? `+${q.result.awarded} credits` : 'Not quite — try tomorrow’s set'}
-              </div>
-            )}
+    <div style={{ maxWidth: 480 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 8 }}>
+        <span style={{ fontSize: 11, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '.4px' }}>
+          {categoryLabel} · Question {index + 1} of {total}
+        </span>
+      </div>
+      <div style={{ background: CT_LINE, height: 4, borderRadius: 2, marginBottom: 16, overflow: 'hidden' }}>
+        <div style={{ width: `${(index / total) * 100}%`, height: '100%', background: '#0d2416', transition: 'width .3s ease' }} />
+      </div>
+      <div style={{ background: '#fff', border: `1px solid ${CT_LINE}`, borderRadius: 10, padding: '16px 18px' }}>
+        <div style={{ fontSize: 14, fontWeight: 600, color: TEXT, marginBottom: 14 }}>{q.question}</div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+          {q.options.map((opt, i) => {
+            const isSelected = q.selected === i;
+            const showResult = q.answered || q.result;
+            const isCorrect = q.result && q.result.correctOption === i;
+            const isWrongPick = q.result && isSelected && !q.result.correct;
+            let bg = '#fff', border = CT_LINE, color = TEXT;
+            if (showResult) {
+              if (isCorrect) { bg = '#f0fdf4'; border = '#16a34a'; color = '#16a34a'; }
+              else if (isWrongPick) { bg = '#fef2f2'; border = '#dc2626'; color = '#dc2626'; }
+            }
+            return (
+              <button key={i} disabled={q.answered || answering}
+                onClick={() => onAnswer(q, i)}
+                style={{ padding: '10px 12px', fontSize: 13, fontWeight: 600, borderRadius: 6, border: `1px solid ${border}`, background: bg, color, cursor: q.answered ? 'default' : 'pointer', textAlign: 'left' }}>
+                {opt}
+              </button>
+            );
+          })}
+        </div>
+        {q.result && (
+          <div style={{ marginTop: 10, fontSize: 12, fontWeight: 700, color: q.result.correct ? '#16a34a' : '#dc2626' }}>
+            {q.result.correct ? `+${q.result.awarded} credits` : 'Not quite — try tomorrow’s set'}
           </div>
-        ))}
+        )}
       </div>
     </div>
   );
@@ -83,38 +95,52 @@ function TriviaSet({ title, questions, onAnswer, answering }) {
 
 function TriviaTab({ onCreditsChange }) {
   const [data, setData] = useState(null);
-  const [answering, setAnswering] = useState(null);
+  const [answering, setAnswering] = useState(false);
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const advanceTimerRef = useRef(null);
 
-  const load = useCallback(() => { api('/api/games/trivia').then(setData); }, []);
+  const load = useCallback(() => {
+    api('/api/games/trivia').then(d => {
+      setData(d);
+      if (d) {
+        const all = [...d.racing, ...d.sports];
+        const firstUnanswered = all.findIndex(q => !q.answered);
+        setCurrentIndex(firstUnanswered === -1 ? all.length : firstUnanswered);
+      }
+    });
+  }, []);
   useEffect(() => { load(); }, [load]);
+  useEffect(() => () => { if (advanceTimerRef.current) clearTimeout(advanceTimerRef.current); }, []);
 
   const handleAnswer = useCallback(async (question, optionIndex) => {
-    setAnswering(question.id);
+    setAnswering(true);
     const result = await api('/api/games/trivia/submit', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ question_id: question.id, selected_option: optionIndex }),
     });
-    setAnswering(null);
+    setAnswering(false);
     if (!result) return;
     setData(prev => {
       const patch = list => list.map(q => q.id === question.id ? { ...q, answered: true, selected: optionIndex, result } : q);
       return { ...prev, racing: patch(prev.racing), sports: patch(prev.sports) };
     });
     if (result.balance != null) onCreditsChange(result.balance);
+    // Brief pause so the correct/incorrect highlight + credits line (above)
+    // is actually visible before moving on, rather than an instant cut.
+    advanceTimerRef.current = setTimeout(() => setCurrentIndex(i => i + 1), 1100);
   }, [onCreditsChange]);
 
   if (!data) return <div style={{ padding: 24, color: '#9ca3af', fontSize: 12 }}>Loading today&apos;s questions…</div>;
 
   // Session summary -- derived from the per-question `result` objects
   // already attached by handleAnswer (no new API call, existing inline
-  // per-question feedback in TriviaSet untouched), falling back to the
-  // GET route's `attempts` for any question answered in an earlier
-  // pageload this session (a mid-session reload has `answered:true` but
-  // no client-side `result`, since that's only ever attached at the
-  // moment of a fresh submit). CREDITS_PER_CORRECT is a fixed 10/correct
-  // (see submit route), so it's safe to derive awarded credits from the
-  // correctness flag alone rather than needing the original submit
-  // response for pre-reload answers.
+  // per-question feedback untouched), falling back to the GET route's
+  // `attempts` for any question answered in an earlier pageload this
+  // session (a mid-session reload has `answered:true` but no client-side
+  // `result`, since that's only ever attached at the moment of a fresh
+  // submit). CREDITS_PER_CORRECT is a fixed 10/correct (see submit route),
+  // so it's safe to derive awarded credits from the correctness flag alone
+  // rather than needing the original submit response for pre-reload answers.
   const attemptsMap = new Map((data.attempts || []).map(a => [a.question_id, a.correct]));
   const isCorrect = q => q.result ? q.result.correct : attemptsMap.get(q.id);
   const allQuestions = [...data.racing, ...data.sports];
@@ -123,13 +149,22 @@ function TriviaTab({ onCreditsChange }) {
   const sessionAwarded = sessionCorrect * 10;
   const sessionAccuracy = allQuestions.length ? Math.round(sessionCorrect / allQuestions.length * 100) : 0;
 
+  const currentQuestion = allQuestions[currentIndex];
+  const categoryLabel = currentIndex < data.racing.length ? 'Racing' : 'Sports';
+
   return (
     <div style={{ padding: 16, maxWidth: 640 }}>
-      <div style={{ fontSize: 11, color: '#9ca3af', marginBottom: 16 }}>
-        {data.racing.length} racing + {data.sports.length} sports questions daily · 10 credits per correct answer · resets at midnight AEST
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 8 }}>
+        <div style={{ fontSize: 11, color: '#9ca3af' }}>
+          {data.racing.length} racing + {data.sports.length} sports questions daily · 10 credits per correct answer · resets at midnight AEST
+        </div>
+        {sessionAwarded > 0 && (
+          <div style={{ fontSize: 12, fontWeight: 700, color: GOLD, fontFamily: 'JetBrains Mono, monospace' }}>+{sessionAwarded} this set</div>
+        )}
       </div>
-      {allAnswered && (
-        <div style={{ background: '#0d2416', borderRadius: 10, padding: '16px 18px', marginBottom: 20, display: 'flex', justifyContent: 'space-around', textAlign: 'center' }}>
+
+      {allAnswered ? (
+        <div style={{ background: '#0d2416', borderRadius: 10, padding: '16px 18px', display: 'flex', justifyContent: 'space-around', textAlign: 'center' }}>
           <div>
             <div style={{ fontSize: 20, fontWeight: 800, color: GOLD, fontFamily: 'JetBrains Mono, monospace' }}>{sessionCorrect}/{allQuestions.length}</div>
             <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.6)', textTransform: 'uppercase', letterSpacing: '.4px', marginTop: 2 }}>Correct</div>
@@ -143,9 +178,17 @@ function TriviaTab({ onCreditsChange }) {
             <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.6)', textTransform: 'uppercase', letterSpacing: '.4px', marginTop: 2 }}>Accuracy</div>
           </div>
         </div>
-      )}
-      <TriviaSet title="Racing" questions={data.racing} onAnswer={handleAnswer} answering={answering} />
-      <TriviaSet title="Sports" questions={data.sports} onAnswer={handleAnswer} answering={answering} />
+      ) : currentQuestion ? (
+        <TriviaQuestionCard
+          key={currentQuestion.id}
+          q={currentQuestion}
+          categoryLabel={categoryLabel}
+          index={currentIndex}
+          total={allQuestions.length}
+          onAnswer={handleAnswer}
+          answering={answering}
+        />
+      ) : null}
     </div>
   );
 }
