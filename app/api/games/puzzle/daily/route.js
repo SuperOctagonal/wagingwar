@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { auth, clerkClient } from '@clerk/nextjs/server';
 import { earnCredits } from '@/lib/credits';
 import { AU_VENUE_STATE } from '@/lib/venues';
+import { getVenueHint } from '@/lib/venueHints';
 
 const SURL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SKEY = process.env.SUPABASE_SERVICE_KEY;
@@ -79,6 +80,10 @@ export async function GET() {
     maxGuesses: MAX_GUESSES,
     completed: !!(existing && existing.length),
     score: existing?.[0]?.score ?? null,
+    // Category-level hint, safe to send unconditionally -- it never gives
+    // away the word itself (see lib/venueHints.js), just narrows the
+    // category the way a crossword clue does.
+    hint: getVenueHint(word, AU_VENUE_STATE[word]),
   });
 }
 

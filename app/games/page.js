@@ -201,6 +201,7 @@ function DailyPuzzle({ onCreditsChange }) {
   const [won, setWon] = useState(false);
   const [finished, setFinished] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [revealedWord, setRevealedWord] = useState(null);
 
   useEffect(() => { api('/api/games/puzzle/daily').then(s => { setStatus(s); setFinished(!!s?.completed); }); }, []);
 
@@ -224,6 +225,10 @@ function DailyPuzzle({ onCreditsChange }) {
         body: JSON.stringify({ action: 'complete', won: !!result.won, guessCount: newGuesses.length }),
       });
       setFinished(true);
+      // Server only ever includes `word` when the puzzle wasn't won (see
+      // that route's POST /complete) -- nothing to reveal on a win, the
+      // guess grid already shows it.
+      if (completeResult?.word) setRevealedWord(completeResult.word);
       if (completeResult?.balance != null) onCreditsChange(completeResult.balance);
     }
   }, [status, current, guesses, submitting, onCreditsChange]);
@@ -235,9 +240,15 @@ function DailyPuzzle({ onCreditsChange }) {
   return (
     <div style={{ padding: 16, maxWidth: 420 }}>
       <div style={{ fontSize: 13, fontWeight: 700, color: TEXT, marginBottom: 4 }}>Guess the Venue</div>
-      <div style={{ fontSize: 11, color: '#9ca3af', marginBottom: 16 }}>
+      <div style={{ fontSize: 11, color: '#9ca3af', marginBottom: 8 }}>
         {status.wordLength} letters · {status.maxGuesses} guesses · one attempt per day
       </div>
+      {status.hint && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#f8fafc', border: `1px solid ${CT_LINE}`, borderRadius: 6, padding: '7px 10px', marginBottom: 16, fontSize: 12, color: '#374151' }}>
+          <i className="ti ti-bulb" style={{ fontSize: 13, color: GOLD, flexShrink: 0 }} />
+          <span><strong>Hint:</strong> {status.hint}</span>
+        </div>
+      )}
 
       {status.completed && !guesses.length ? (
         <div style={{ fontSize: 12, color: '#6b7280' }}>You&apos;ve already played today&apos;s puzzle — come back tomorrow.</div>
@@ -254,6 +265,17 @@ function DailyPuzzle({ onCreditsChange }) {
               </div>
             ))}
           </div>
+
+          {guesses.length > 0 && (
+            <div style={{ display: 'flex', gap: 14, marginBottom: 16, fontSize: 10, color: '#6b7280', flexWrap: 'wrap' }}>
+              {[['correct', 'Correct letter & spot'], ['present', 'Correct letter, wrong spot'], ['absent', 'Not in the word']].map(([f, label]) => (
+                <div key={f} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                  <div style={{ width: 10, height: 10, borderRadius: 2, background: letterBg(f) }} />
+                  {label}
+                </div>
+              ))}
+            </div>
+          )}
 
           {!finished && (
             <div style={{ display: 'flex', gap: 8 }}>
@@ -272,8 +294,16 @@ function DailyPuzzle({ onCreditsChange }) {
           )}
 
           {finished && (
-            <div style={{ marginTop: 12, fontSize: 12, fontWeight: 700, color: won ? '#16a34a' : '#dc2626' }}>
-              {won ? `Solved in ${guesses.length}! Credits added.` : 'Out of guesses — see you tomorrow.'}
+            <div style={{ marginTop: 12 }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: won ? '#16a34a' : '#dc2626' }}>
+                {won ? `Solved in ${guesses.length}! Credits added.` : 'Out of guesses — see you tomorrow.'}
+              </div>
+              {!won && revealedWord && (
+                <div style={{ marginTop: 10, background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: 6, padding: '10px 14px', textAlign: 'center' }}>
+                  <div style={{ fontSize: 9, color: '#991b1b', textTransform: 'uppercase', letterSpacing: '.4px', marginBottom: 4 }}>The venue was</div>
+                  <div style={{ fontSize: 18, fontWeight: 800, color: '#991b1b', letterSpacing: 2, fontFamily: 'JetBrains Mono, monospace' }}>{revealedWord}</div>
+                </div>
+              )}
             </div>
           )}
         </>
@@ -448,13 +478,19 @@ function PuzzleTab({ onCreditsChange }) {
 // label, the server has already decided the actual prize before this ever
 // renders. Plain reward language throughout ("received", "reward"), never
 // "won"/"jackpot"/"bet" -- this is a loyalty spin, not a betting mechanic.
+// Two alternating brand colours (no red/gold-heavy casino palette, no
+// suit/chip/card iconography anywhere in this component) -- teal and dark
+// green only, gold reserved for the ring/hub/pointer trim, same restraint
+// as the rest of this page.
+const WHEEL_TEAL = '#0F6E56';
+const WHEEL_DARK_GREEN = '#173404';
 const WHEEL_SEGMENTS = [
-  { label: '+10 Credits', color: '#0d2416' },
-  { label: '+25 Credits', color: '#173404' },
-  { label: '+50 Credits', color: '#0d2416' },
-  { label: '+100 Credits', color: '#173404' },
-  { label: 'Streak Shield', color: '#3b2a0d' },
-  { label: 'Loyal Punter Badge', color: '#173404' },
+  { label: '+10 Credits' },
+  { label: '+25 Credits' },
+  { label: '+50 Credits' },
+  { label: '+100 Credits' },
+  { label: 'Streak Shield' },
+  { label: 'Loyal Punter Badge' },
 ];
 
 function segmentIndexForPrize(prize) {
@@ -464,40 +500,82 @@ function segmentIndexForPrize(prize) {
   return 0;
 }
 
+// 340px wheel, precise 60deg segments (360 / 6, exact, no eyeballing).
+// Every label sits at the identical LABEL_RADIUS and is positioned by the
+// identical trig formula (only `i` changes), so all six are uniform --
+// angle measured clockwise from 12 o'clock to match the wheel's own
+// rotate(deg) convention, x/y from actual sin/cos rather than a hand-tuned
+// translate() pixel offset.
+const WHEEL_SIZE = 340;
+const WHEEL_RADIUS = WHEEL_SIZE / 2;
+const LABEL_RADIUS = WHEEL_RADIUS * 0.62;
+const SEGMENT_DEG = 360 / WHEEL_SEGMENTS.length; // 60, exact
+
+function labelPosition(index) {
+  const midAngleDeg = index * SEGMENT_DEG + SEGMENT_DEG / 2;
+  const rad = (midAngleDeg * Math.PI) / 180;
+  const x = LABEL_RADIUS * Math.sin(rad);
+  const y = -LABEL_RADIUS * Math.cos(rad);
+  return { x, y };
+}
+
 function PrizeWheel({ status, onSpin, spinning, rotation }) {
-  const seg = 360 / WHEEL_SEGMENTS.length;
-  const gradient = WHEEL_SEGMENTS.map((s, i) => `${s.color} ${i * seg}deg ${(i + 1) * seg}deg`).join(', ');
+  const gradient = WHEEL_SEGMENTS
+    .map((_, i) => `${i % 2 === 0 ? WHEEL_TEAL : WHEEL_DARK_GREEN} ${i * SEGMENT_DEG}deg ${(i + 1) * SEGMENT_DEG}deg`)
+    .join(', ');
+  // Thicker dark dividers at each of the 6 exact segment boundaries
+  // (0/60/120/180/240/300deg), drawn as radial lines from the hub to the
+  // rim rather than relying on the conic-gradient's own (thin, antialiased)
+  // colour seam.
+  const dividerAngles = Array.from({ length: WHEEL_SEGMENTS.length }, (_, i) => i * SEGMENT_DEG);
+
   return (
-    <div style={{ position: 'relative', width: 240, height: 240, margin: '0 auto' }}>
+    <div style={{ position: 'relative', width: WHEEL_SIZE, height: WHEEL_SIZE, margin: '0 auto' }}>
+      {/* Gold outer ring */}
       <div style={{
         width: '100%', height: '100%', borderRadius: '50%',
-        background: `conic-gradient(${gradient})`,
-        border: `3px solid ${GOLD}`,
-        transform: `rotate(${rotation}deg)`,
-        transition: spinning ? 'transform 3s cubic-bezier(0.17, 0.67, 0.2, 1)' : 'none',
-        position: 'relative',
+        background: GOLD, padding: 6, boxSizing: 'border-box',
       }}>
-        {WHEEL_SEGMENTS.map((s, i) => {
-          const angle = i * seg + seg / 2;
-          return (
-            <div key={i} style={{
-              position: 'absolute', top: '50%', left: '50%', width: 100,
-              // rotate(angle) positions the label out along the wedge's
-              // radius; the final rotate(-angle) counter-rotates the text
-              // itself back to horizontal -- without it (previously a
-              // no-op rotate(0deg)) the text inherited the full wedge
-              // angle, reading upside-down for every bottom-half segment.
-              transform: `rotate(${angle}deg) translate(0, -92px) rotate(${-angle}deg)`,
-              transformOrigin: 'top left',
-              fontSize: 9, fontWeight: 700, color: '#fff', textAlign: 'center',
-            }}>
-              {s.label}
-            </div>
-          );
-        })}
+        <div style={{
+          width: '100%', height: '100%', borderRadius: '50%', position: 'relative', overflow: 'hidden',
+          background: `conic-gradient(${gradient})`,
+          transform: `rotate(${rotation}deg)`,
+          transition: spinning ? 'transform 3s cubic-bezier(0.17, 0.67, 0.2, 1)' : 'none',
+        }}>
+          {dividerAngles.map(angle => (
+            <div key={angle} style={{
+              position: 'absolute', left: '50%', top: '50%',
+              width: 3, height: WHEEL_RADIUS,
+              background: WHEEL_DARK_GREEN,
+              transformOrigin: '50% 0%',
+              transform: `translate(-50%, 0) rotate(${angle}deg)`,
+            }} />
+          ))}
+          {WHEEL_SEGMENTS.map((s, i) => {
+            const { x, y } = labelPosition(i);
+            return (
+              <div key={i} style={{
+                position: 'absolute', left: `calc(50% + ${x}px)`, top: `calc(50% + ${y}px)`,
+                transform: 'translate(-50%, -50%)', width: 84,
+                fontSize: 10, fontWeight: 700, color: '#fff', textAlign: 'center', lineHeight: 1.25,
+              }}>
+                {s.label}
+              </div>
+            );
+          })}
+          {/* Gold centre hub with dark pin */}
+          <div style={{
+            position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
+            width: 32, height: 32, borderRadius: '50%', background: GOLD,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            boxShadow: '0 1px 4px rgba(0,0,0,0.35)',
+          }}>
+            <div style={{ width: 10, height: 10, borderRadius: '50%', background: WHEEL_DARK_GREEN }} />
+          </div>
+        </div>
       </div>
-      {/* Pointer */}
-      <div style={{ position: 'absolute', top: -10, left: '50%', transform: 'translateX(-50%)', width: 0, height: 0, borderLeft: '8px solid transparent', borderRight: '8px solid transparent', borderTop: `14px solid ${GOLD}` }} />
+      {/* Gold pointer at top */}
+      <div style={{ position: 'absolute', top: -4, left: '50%', transform: 'translateX(-50%)', width: 0, height: 0, borderLeft: '10px solid transparent', borderRight: '10px solid transparent', borderTop: `18px solid ${GOLD}`, filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.3))' }} />
     </div>
   );
 }
