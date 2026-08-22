@@ -313,14 +313,26 @@ function DailyPuzzle({ onCreditsChange }) {
 }
 
 // ─── Track Dash sprite art ──────────────────────────────────────────────────
-// Real sprite assets (CC0, no attribution required) replacing the previous
-// canvas shape-drawing -- see public/games/trackdash/CREDITS.md for the
-// exact source pack + license of each file. Loaded once at module scope
-// (not per-render) since these are small, static, session-long assets.
+// Real sprite assets (CC0, no attribution required) -- see
+// public/games/trackdash/CREDITS.md for the exact source pack + license of
+// each file. Loaded once at module scope (not per-render) since these are
+// small, static, session-long assets.
+//
+// horse_run.png was re-processed after the first ship: the OpenGameArt
+// source, despite being an RGBA PNG, had every pixel's alpha baked to 255 --
+// i.e. a fake "transparent" background that was actually solid opaque white
+// (confirmed by reading the raw pixel buffer, not just the PNG color-type
+// byte). That's what rendered as a white box behind the horse. Fixed by
+// chroma-keying pure-white pixels to alpha 0 (with a short falloff band for
+// anti-aliased edge pixels) and re-saving losslessly -- the horse's own
+// palette (browns + black) never touches white, so nothing of the actual art
+// was at risk. The four Kenney obstacle PNGs already had real alpha
+// channels; nothing needed doing there.
 const SPRITE_BASE = '/games/trackdash';
 const HORSE_SRC = `${SPRITE_BASE}/horse_run.png`;
 // 5-frame run cycle, 82x66 per frame, laid out in a single horizontal strip.
 const HORSE_FRAME_W = 82, HORSE_FRAME_H = 66, HORSE_FRAMES = 5;
+const HORSE_ASPECT = HORSE_FRAME_W / HORSE_FRAME_H;
 
 function loadSprite(src) {
   if (typeof window === 'undefined') return null;
@@ -333,23 +345,30 @@ const horseSprite = loadSprite(HORSE_SRC);
 
 // Racing-themed obstacles (hay bale, hurdle) mixed with lighthearted ones
 // (traffic cone, ball) for variety -- one is chosen at random per spawn (see
-// start()'s spawn logic below). Each keeps the exact w/h bounding box the
-// old shape-drawing version used, so collision math is untouched.
+// start()'s spawn logic below). `w`/`h` now match each source PNG's real
+// pixel aspect ratio (the first ship forced several square source images
+// into portrait boxes, distorting them) -- see each sprite's real dimensions
+// in public/games/trackdash/CREDITS.md.
 const OBSTACLE_TYPES = [
-  { key: 'haybale',   w: 24, h: 20, sprite: loadSprite(`${SPRITE_BASE}/obstacle_haybale.png`) },
-  { key: 'hurdle',    w: 22, h: 26, sprite: loadSprite(`${SPRITE_BASE}/obstacle_hurdle.png`) },
-  { key: 'cone',      w: 16, h: 22, sprite: loadSprite(`${SPRITE_BASE}/obstacle_cone.png`) },
-  { key: 'beachball', w: 20, h: 20, sprite: loadSprite(`${SPRITE_BASE}/obstacle_ball.png`) },
+  { key: 'haybale',   w: 46, h: 46, sprite: loadSprite(`${SPRITE_BASE}/obstacle_haybale.png`) },
+  { key: 'hurdle',    w: 46, h: 46, sprite: loadSprite(`${SPRITE_BASE}/obstacle_hurdle.png`) },
+  { key: 'cone',      w: 36, h: 35, sprite: loadSprite(`${SPRITE_BASE}/obstacle_cone.png`) },
+  { key: 'beachball', w: 30, h: 30, sprite: loadSprite(`${SPRITE_BASE}/obstacle_ball.png`) },
 ];
 
+// Player runs left-to-right through the scene (obstacles approach from the
+// right), but the source sprite sheet faces left -- flipped here via
+// scale(-1,1) around the sprite's own right edge rather than baking a
+// mirrored copy of the asset, so the single source file stays the source of
+// truth.
 function drawHorse(ctx, x, y, w, h, elapsedMs) {
   if (!horseSprite || !horseSprite.complete || !horseSprite.naturalWidth) return;
   const frame = Math.floor(elapsedMs / 80) % HORSE_FRAMES;
-  ctx.drawImage(
-    horseSprite,
-    frame * HORSE_FRAME_W, 0, HORSE_FRAME_W, HORSE_FRAME_H,
-    x, y, w, h,
-  );
+  ctx.save();
+  ctx.translate(x + w, y);
+  ctx.scale(-1, 1);
+  ctx.drawImage(horseSprite, frame * HORSE_FRAME_W, 0, HORSE_FRAME_W, HORSE_FRAME_H, 0, 0, w, h);
+  ctx.restore();
 }
 
 function drawObstacle(ctx, sprite, x, yTop, w, h) {
@@ -357,7 +376,108 @@ function drawObstacle(ctx, sprite, x, yTop, w, h) {
   ctx.drawImage(sprite, x, yTop, w, h);
 }
 
-// ─── Track Dash — minimal canvas endless runner ───────────────────────────
+// ─── Track Dash scene layers ────────────────────────────────────────────────
+// Fixed logical coordinate space the game always draws in; the canvas
+// element is scaled to the actual container width via CSS (aspectRatio),
+// so this never needs to know its real on-screen pixel size.
+const SCENE_W = 1200, SCENE_H = 260;
+// Every band below fills its own full rect before anything is drawn on top
+// of it, so there's no way for a gap to open between bands regardless of
+// bump/post/mark shapes -- the first ship had exactly that bug (hill bumps
+// were drawn as a silhouette *inside* the sky rect instead of the hill band
+// owning its own filled rect, leaving an unpainted strip between sky and
+// fence).
+const SKY_TOP = 0, SKY_H = 80;                    // sky: 0..80
+const HILL_TOP = SKY_H, HILL_H = 70;              // hills: 80..150
+const FENCE_TOP = HILL_TOP + HILL_H, FENCE_H = 46; // fence: 150..196
+const FENCE_BOTTOM = FENCE_TOP + FENCE_H;
+const RAIL_Y = FENCE_BOTTOM;                       // gold rail marking the running line
+const RAIL_H = 3;
+const DIRT_TOP = RAIL_Y + RAIL_H;                  // dirt: ..260
+const FOOT_LINE = DIRT_TOP + 14;                   // where feet / obstacle bases actually rest
+
+const SKY_TOP_COLOR = '#0a1a12', SKY_BOTTOM_COLOR = '#173a27';
+const HILL_BASE_COLOR = '#173a27';
+const HILL_COLOR = '#0d2416';
+const FENCE_COLOR = '#1c4d2e';
+const POST_COLOR = '#0d2416';
+const DIRT_COLOR = '#5c4028';
+const DIRT_MARK_COLOR = 'rgba(0,0,0,0.18)';
+
+// Deterministic pseudo-random ground-texture marks (fixed seed layout,
+// scrolled at render time) -- avoids re-rolling Math.random() every frame,
+// which would make the dirt band flicker instead of scroll.
+const DIRT_MARKS = Array.from({ length: 26 }, (_, i) => ({
+  xFrac: (i * 197 % 997) / 997,
+  yFrac: (i * 71 % 131) / 131,
+  w: 6 + (i % 4) * 2,
+}));
+const HILL_BUMPS = Array.from({ length: 8 }, (_, i) => ({
+  h: 32 + (i % 3) * 16,
+  w: 220,
+}));
+
+function drawScene(ctx, scrollPx) {
+  // Sky
+  const skyGrad = ctx.createLinearGradient(0, SKY_TOP, 0, SKY_H);
+  skyGrad.addColorStop(0, SKY_TOP_COLOR);
+  skyGrad.addColorStop(1, SKY_BOTTOM_COLOR);
+  ctx.fillStyle = skyGrad;
+  ctx.fillRect(0, SKY_TOP, SCENE_W, SKY_H);
+
+  // Hill/skyline band -- base rect filled first so the band can never show
+  // a gap, then bump silhouettes drawn on top with peaks touching the
+  // sky/hill seam and bases sitting on the hill/fence seam. Slow parallax
+  // (much slower than the foreground) so it reads as distant background.
+  ctx.fillStyle = HILL_BASE_COLOR;
+  ctx.fillRect(0, HILL_TOP, SCENE_W, HILL_H);
+  const bumpW = HILL_BUMPS[0].w;
+  const hillShift = (scrollPx * 0.12) % bumpW;
+  const tiled = HILL_BUMPS.concat(HILL_BUMPS, HILL_BUMPS);
+  const hillBase = HILL_TOP + HILL_H;
+  ctx.fillStyle = HILL_COLOR;
+  ctx.beginPath();
+  ctx.moveTo(-hillShift - bumpW, hillBase);
+  tiled.forEach((b, i) => {
+    const cx = -hillShift + i * b.w - bumpW;
+    ctx.quadraticCurveTo(cx, hillBase - b.h, cx + b.w / 2, hillBase);
+  });
+  ctx.lineTo(SCENE_W + bumpW * 2, hillBase);
+  ctx.closePath();
+  ctx.fill();
+
+  // Fence/track band
+  ctx.fillStyle = FENCE_COLOR;
+  ctx.fillRect(0, FENCE_TOP, SCENE_W, FENCE_H);
+  const postSpacing = 60;
+  const postShift = scrollPx % postSpacing;
+  ctx.fillStyle = POST_COLOR;
+  for (let x = -postShift; x < SCENE_W + postSpacing; x += postSpacing) {
+    ctx.fillRect(x, FENCE_TOP, 5, FENCE_H);
+  }
+  ctx.fillStyle = 'rgba(255,255,255,0.12)';
+  ctx.fillRect(0, FENCE_TOP + 14, SCENE_W, 2);
+  ctx.fillRect(0, FENCE_BOTTOM - 16, SCENE_W, 2);
+
+  // Gold rail stripe marking the running line
+  ctx.fillStyle = GOLD;
+  ctx.fillRect(0, RAIL_Y, SCENE_W, RAIL_H);
+
+  // Dirt/ground band with scattered texture marks, scrolled at full
+  // foreground speed so it reads as the ground the horse is running on.
+  ctx.fillStyle = DIRT_COLOR;
+  ctx.fillRect(0, DIRT_TOP, SCENE_W, SCENE_H - DIRT_TOP);
+  ctx.fillStyle = DIRT_MARK_COLOR;
+  const markShift = scrollPx % SCENE_W;
+  DIRT_MARKS.forEach(m => {
+    let x = m.xFrac * SCENE_W - markShift;
+    x = ((x % SCENE_W) + SCENE_W) % SCENE_W;
+    const y = DIRT_TOP + 6 + m.yFrac * (SCENE_H - DIRT_TOP - 12);
+    ctx.fillRect(x, y, m.w, 2);
+  });
+}
+
+// ─── Track Dash — canvas endless runner ────────────────────────────────────
 function TrackDash({ onCreditsChange }) {
   const canvasRef = useRef(null);
   const stateRef = useRef(null);
@@ -365,12 +485,20 @@ function TrackDash({ onCreditsChange }) {
   const [lastResult, setLastResult] = useState(null);
   const [highScore, setHighScore] = useState(0);
 
-  const W = 560, H = 180, GROUND = 140;
+  const W = SCENE_W, H = SCENE_H;
+  const GROUND = FOOT_LINE; // top-of-box y when the player is resting on the ground
+  const PLAYER_H = 76, PLAYER_W = Math.round(PLAYER_H * HORSE_ASPECT);
+  const PLAYER_X = Math.round(W * 0.075);
+  // Canvas is ~2.14x wider than the original 560px design -- scale
+  // horizontal speed by the same factor so obstacles take the same amount
+  // of *time* to cross the screen (same difficulty/pacing), not the same
+  // pixel distance.
+  const SPEED_SCALE = W / 560;
 
   const jump = useCallback(() => {
     const s = stateRef.current;
-    if (s && s.player.y >= GROUND && s.running) s.player.vy = -9;
-  }, []);
+    if (s && s.player.y >= GROUND - PLAYER_H && s.running) s.player.vy = -9;
+  }, [GROUND, PLAYER_H]);
 
   useEffect(() => {
     function onKey(e) { if (e.code === 'Space') { e.preventDefault(); jump(); } }
@@ -383,13 +511,17 @@ function TrackDash({ onCreditsChange }) {
     setPlaying(true);
     const canvas = canvasRef.current;
     const ctx = canvas.getContext('2d');
+    ctx.imageSmoothingEnabled = false; // crisp pixel-art scaling
+    const playerRestY = GROUND - PLAYER_H;
     const s = {
       running: true,
-      player: { x: 40, y: GROUND, vy: 0 },
+      player: { x: PLAYER_X, y: playerRestY, vy: 0 },
       obstacles: [],
-      speed: 4,
+      cleared: 0,
+      speed: 4 * SPEED_SCALE,
       elapsed: 0,
       lastSpawn: 0,
+      scroll: 0,
     };
     stateRef.current = s;
 
@@ -401,39 +533,46 @@ function TrackDash({ onCreditsChange }) {
       if (!s.running) return;
 
       s.elapsed += dt;
-      s.speed = 4 + s.elapsed / 4000; // gradually speeds up
+      s.speed = SPEED_SCALE * (4 + s.elapsed / 4000); // gradually speeds up
+      s.scroll += s.speed;
       s.player.vy += 0.5;
-      s.player.y = Math.min(GROUND, s.player.y + s.player.vy);
-      if (s.player.y >= GROUND) { s.player.y = GROUND; s.player.vy = 0; }
+      s.player.y = Math.min(playerRestY, s.player.y + s.player.vy);
+      if (s.player.y >= playerRestY) { s.player.y = playerRestY; s.player.vy = 0; }
 
       s.lastSpawn += dt;
       const spawnGap = Math.max(700, 1400 - s.elapsed / 20);
       if (s.lastSpawn > spawnGap) {
         s.lastSpawn = 0;
         const t = OBSTACLE_TYPES[Math.floor(Math.random() * OBSTACLE_TYPES.length)];
-        s.obstacles.push({ x: W, w: t.w, h: t.h, sprite: t.sprite });
+        s.obstacles.push({ x: W, w: t.w, h: t.h, sprite: t.sprite, cleared: false });
       }
       s.obstacles.forEach(o => { o.x -= s.speed; });
-      s.obstacles = s.obstacles.filter(o => o.x > -20);
+      s.obstacles = s.obstacles.filter(o => o.x > -60);
 
-      const px = s.player.x, py = s.player.y, pw = 26, ph = 26;
+      const px = s.player.x, py = s.player.y, pw = PLAYER_W, ph = PLAYER_H;
       for (const o of s.obstacles) {
-        const ox = o.x, oy = GROUND + 26 - o.h, ow = o.w, oh = o.h;
+        const ox = o.x, oy = GROUND - o.h, ow = o.w, oh = o.h;
         if (px < ox + ow && px + pw > ox && py < oy + oh && py + ph > oy) {
           s.running = false;
         }
+        if (!o.cleared && ox + ow < px) { o.cleared = true; s.cleared += 1; }
       }
 
-      ctx.clearRect(0, 0, W, H);
-      ctx.fillStyle = '#0d2416';
-      ctx.fillRect(0, 0, W, H);
-      ctx.fillStyle = 'rgba(255,255,255,0.15)';
-      ctx.fillRect(0, GROUND + 26, W, 2);
+      drawScene(ctx, s.scroll);
       drawHorse(ctx, px, py, pw, ph, s.elapsed);
-      s.obstacles.forEach(o => drawObstacle(ctx, o.sprite, o.x, GROUND + 26 - o.h, o.w, o.h));
-      ctx.fillStyle = 'rgba(255,255,255,0.8)';
-      ctx.font = '12px monospace';
-      ctx.fillText(`${Math.floor(s.elapsed / 100)}`, 10, 16);
+      s.obstacles.forEach(o => drawObstacle(ctx, o.sprite, o.x, GROUND - o.h, o.w, o.h));
+
+      // HUD — score + in-run clear streak, overlaid top-left of the scene.
+      ctx.font = '700 22px monospace';
+      ctx.fillStyle = 'rgba(0,0,0,0.35)';
+      ctx.fillText(`${Math.floor(s.elapsed / 100)}`, 22, 40);
+      ctx.fillStyle = GOLD;
+      ctx.fillText(`${Math.floor(s.elapsed / 100)}`, 20, 38);
+      ctx.font = '700 13px monospace';
+      ctx.fillStyle = 'rgba(0,0,0,0.35)';
+      ctx.fillText(`STREAK ${s.cleared}`, 22, 60);
+      ctx.fillStyle = 'rgba(255,255,255,0.85)';
+      ctx.fillText(`STREAK ${s.cleared}`, 20, 58);
 
       if (s.running) { raf = requestAnimationFrame(loop); }
       else {
@@ -446,7 +585,7 @@ function TrackDash({ onCreditsChange }) {
     }
     raf = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(raf);
-  }, [onCreditsChange]);
+  }, [onCreditsChange, GROUND, PLAYER_H, PLAYER_W, PLAYER_X, SPEED_SCALE, W]);
 
   return (
     <div style={{ padding: 16 }}>
@@ -455,7 +594,7 @@ function TrackDash({ onCreditsChange }) {
         Space / tap to jump · unlimited plays · credits taper off after a few runs each day
       </div>
       <canvas ref={canvasRef} width={W} height={H} onClick={jump}
-        style={{ width: '100%', maxWidth: W, borderRadius: 10, border: `1px solid ${CT_LINE}`, cursor: 'pointer', display: 'block' }} />
+        style={{ width: '100%', aspectRatio: `${W} / ${H}`, borderRadius: 10, border: `1px solid ${CT_LINE}`, cursor: 'pointer', display: 'block' }} />
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 10 }}>
         <button onClick={start} disabled={playing}
           style={{ padding: '8px 18px', background: '#0d2416', color: GOLD, border: 'none', borderRadius: 6, fontSize: 12, fontWeight: 700, cursor: playing ? 'default' : 'pointer', opacity: playing ? 0.5 : 1 }}>
