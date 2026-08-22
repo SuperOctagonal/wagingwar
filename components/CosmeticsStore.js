@@ -5,15 +5,9 @@ import { useUser } from '@clerk/nextjs';
 import Avatar from '@/components/Avatar';
 import NameFlair from '@/components/NameFlair';
 import { punterFallback } from '@/lib/punterFallback';
+import { TIER_ORDER, TIER_COLORS } from '@/lib/cosmeticsCatalog';
 
 const G = '#00471b';
-const TIER_ORDER = { bronze: 0, silver: 1, gold: 2, diamond: 3 };
-const TIER_COLORS = {
-  bronze:   { bg: '#fdf4e7', border: '#d97706', text: '#92400e' },
-  silver:   { bg: '#f1f5f9', border: '#94a3b8', text: '#475569' },
-  gold:     { bg: '#fef9c3', border: '#eab308', text: '#854d0e' },
-  diamond:  { bg: '#ecfeff', border: '#06b6d4', text: '#0e7490' },
-};
 
 async function api(path, opts) {
   try {
