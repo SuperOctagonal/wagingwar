@@ -310,6 +310,30 @@ export default function CompetitionsPage() {
     () => btmChallenge ? (btmChallenge.race.horses || []).filter(h => !h.scratched && !scratchings.has(`${btmChallenge.venue}||${btmChallenge.raceNum}||${(h.name||'').toUpperCase()}`)) : [],
     [btmChallenge, scratchings],
   );
+  // The model's own rank-1 pick is excluded from what's *selectable* --
+  // it's visible elsewhere on the site (Races page), so leaving it pickable
+  // here let every entrant just copy it, collapsing the competition into
+  // "did the model win today" with no real leaderboard signal. Kept
+  // separate from btmActiveHorses (which stays the true "still running"
+  // list) rather than filtering that directly, since other logic may
+  // reasonably want the real active field later.
+  //
+  // Exception: if the model's horse is already this user's own saved pick
+  // (possible for picks made before this fix shipped, or in the edge case
+  // where a user's genuine alternative happens to coincide with the
+  // model's), it stays in the list so their existing selection keeps
+  // rendering/highlighting normally -- this only blocks *newly choosing*
+  // the model's pick, it never hides an already-locked-in one.
+  const btmSelectableHorses = useMemo(() => {
+    if (!btmModelPick) return btmActiveHorses;
+    return btmActiveHorses.filter(h => (h.name || '').toUpperCase() !== btmModelPick.toUpperCase() || h.name === btmPick);
+  }, [btmActiveHorses, btmModelPick, btmPick]);
+  // True only when a horse is genuinely being hidden from someone who
+  // hasn't already picked it -- drives the explanatory note so it never
+  // shows when there's nothing actually excluded (e.g. no eligible model
+  // pick) or when the "excluded" horse is just the user's own pick still
+  // rendering per the exception above.
+  const btmModelPickHidden = !!btmModelPick && btmActiveHorses.some(h => (h.name || '').toUpperCase() === btmModelPick.toUpperCase() && h.name !== btmPick);
   const btmWinnerRow = useMemo(() => {
     if (!btmChallenge) return null;
     return todayRaceResultsData.find(r =>
@@ -1459,15 +1483,22 @@ export default function CompetitionsPage() {
                 {isBtmLocked() && !btmPick ? (
                   <div style={{ fontSize: 11, color: '#9ca3af' }}>This race has already started.</div>
                 ) : (
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                    {btmActiveHorses.map(h => (
-                      <button key={h.name} disabled={isBtmLocked() || btmPickSaving} onClick={() => saveBtmPick(h.name)}
-                        style={{ padding: '6px 12px', fontSize: 11, fontWeight: 600, borderRadius: 5, cursor: isBtmLocked() ? 'default' : 'pointer', fontFamily: 'inherit',
-                          background: btmPick === h.name ? '#d1fae5' : '#fff', color: '#111827', border: `1px solid ${btmPick === h.name ? '#16a34a' : '#d1d5db'}`, opacity: isBtmLocked() ? 0.6 : 1 }}>
-                        {h.name}
-                      </button>
-                    ))}
-                  </div>
+                  <>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                      {btmSelectableHorses.map(h => (
+                        <button key={h.name} disabled={isBtmLocked() || btmPickSaving} onClick={() => saveBtmPick(h.name)}
+                          style={{ padding: '6px 12px', fontSize: 11, fontWeight: 600, borderRadius: 5, cursor: isBtmLocked() ? 'default' : 'pointer', fontFamily: 'inherit',
+                            background: btmPick === h.name ? '#d1fae5' : '#fff', color: '#111827', border: `1px solid ${btmPick === h.name ? '#16a34a' : '#d1d5db'}`, opacity: isBtmLocked() ? 0.6 : 1 }}>
+                          {h.name}
+                        </button>
+                      ))}
+                    </div>
+                    {btmModelPickHidden && (
+                      <div style={{ marginTop: 8, fontSize: 10, color: '#9ca3af', fontStyle: 'italic' }}>
+                        The model&apos;s own pick isn&apos;t available to select — beat it with a different runner.
+                      </div>
+                    )}
+                  </>
                 )}
                 {btmPick && <div style={{ marginTop: 10, fontSize: 10, color: '#9ca3af' }}>Check back after the race for the reveal — your pick vs. the winner vs. the model&apos;s own pick.</div>}
               </>
