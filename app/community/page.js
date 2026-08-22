@@ -9,6 +9,19 @@ import UpgradeModal from '@/components/UpgradeModal';
 import { awardPoints } from '@/lib/points';
 import { punterFallback } from '@/lib/punterFallback';
 import { fetchDisplayNames } from '@/lib/displayNames';
+import { fetchEquippedCosmetics } from '@/lib/cosmetics';
+import Avatar from '@/components/Avatar';
+import NameFlair from '@/components/NameFlair';
+
+// Colour-only extraction from an equipped flair style, for the two RightColumn
+// sidebar lists -- too narrow (200px) for NameFlair's full tag-pill
+// treatment, but still worth surfacing the colour signal on the name text.
+function flairColor(style) {
+  if (!style) return null;
+  if (style.kind === 'color') return style.color;
+  if (style.kind === 'tag') return style.textColor || null;
+  return null;
+}
 
 const SURL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SKEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -113,20 +126,6 @@ async function loadReplies(postId) {
 }
 
 // ─── shared atoms ─────────────────────────────────────────────────────────────
-
-function Avatar({ profile, size = 32 }) {
-  const name = profile?.display_name || '?';
-  const initial = name[0]?.toUpperCase() || '?';
-  return (
-    <div style={{
-      width: size, height: size, borderRadius: '50%', background: '#00471b',
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-      flexShrink: 0, fontSize: Math.round(size * 0.4), fontWeight: 700, color: '#fff',
-    }}>
-      {initial}
-    </div>
-  );
-}
 
 function TierBadge({ profile }) {
   const tier = getTier(profile?.points || 0);
@@ -740,7 +739,7 @@ function LadderPage({ profile, onClose }) {
 
 // ─── left column ─────────────────────────────────────────────────────────────
 
-function LeftColumn({ profile, punterName, userId, section, onSection, missions, badges, onShowRanks, onShowLadder, betStats, postCount }) {
+function LeftColumn({ profile, punterName, cosmetics, userId, section, onSection, missions, badges, onShowRanks, onShowLadder, betStats, postCount }) {
   const tier = getTier(profile?.points || 0);
   const totalPoints = profile?.points || 0;
   const allTierPts = ALL_TIERS.map(t => t.points).sort((a,b)=>a-b);
@@ -755,9 +754,11 @@ function LeftColumn({ profile, punterName, userId, section, onSection, missions,
         {profile ? (
           <>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-              <Avatar profile={{ display_name: punterName }} size={40} />
+              <Avatar profile={{ display_name: punterName }} size={40} border={cosmetics?.border?.style} />
               <div>
-                <div style={{ fontSize: 13, fontWeight: 700, color: '#111827', marginBottom: 3 }}>{punterName}</div>
+                <div style={{ marginBottom: 3 }}>
+                  <NameFlair name={punterName} flair={cosmetics?.flair?.style} fontSize={13} fontWeight={700} />
+                </div>
                 <button onClick={onShowLadder} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
                   <span style={{ fontSize: 9, fontWeight: 700, padding: '2px 6px', borderRadius: 3, background: `${tier.color}22`, color: tier.color }}>{tier.name}</span>
                 </button>
@@ -882,7 +883,8 @@ function RightColumn({ leaderboard, contributors, stats }) {
         {leaderboard.slice(0, 5).map((e, i) => (
           <div key={e.clerk_id || i} style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 5 }}>
             <Medal i={i} />
-            <span style={{ fontSize: 10, fontWeight: 600, color: '#374151', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.display_name || 'Anonymous'}</span>
+            <Avatar profile={{ display_name: e.display_name }} size={16} border={e.cosmetics?.border?.style} />
+            <span style={{ fontSize: 10, fontWeight: 600, color: flairColor(e.cosmetics?.flair?.style) || '#374151', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.display_name || 'Anonymous'}</span>
             <span style={{ fontSize: 10, fontWeight: 700, color: '#059669', flexShrink: 0 }}>
               {e.roi != null ? `${e.roi > 0 ? '+' : ''}${e.roi}%` : '—'}
             </span>
@@ -897,7 +899,8 @@ function RightColumn({ leaderboard, contributors, stats }) {
         {contributors.slice(0, 5).map((c, i) => (
           <div key={c.clerk_id || i} style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 5 }}>
             <Medal i={i} />
-            <span style={{ fontSize: 10, fontWeight: 600, color: '#374151', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.display_name || 'Anonymous'}</span>
+            <Avatar profile={{ display_name: c.display_name }} size={16} border={c.cosmetics?.border?.style} />
+            <span style={{ fontSize: 10, fontWeight: 600, color: flairColor(c.cosmetics?.flair?.style) || '#374151', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.display_name || 'Anonymous'}</span>
             <span style={{ fontSize: 10, fontWeight: 700, color: '#00471b', flexShrink: 0 }}>{(c.points || 0).toLocaleString()}pts</span>
           </div>
         ))}
@@ -962,6 +965,7 @@ function CommunityPageInner() {
   // for the same fix). app/account/page.js already computes bet stats this way.
   const [betStats,     setBetStats]     = useState({ total: 0, wins: 0 });
   const [postCount,    setPostCount]    = useState(0);
+  const [cosmetics,    setCosmetics]    = useState({ border: null, flair: null });
 
   useEffect(() => {
     setLoading(true);
@@ -1009,6 +1013,8 @@ function CommunityPageInner() {
       const resultedBets = (bets || []).filter(b => b.result && b.result !== 'pending' && b.result !== 'scratched' && b.result !== 'unresolved' && b.result !== 'abandoned');
       setBetStats({ total: resultedBets.length, wins: resultedBets.filter(b => b.result === 'win').length });
       setPostCount(posts?.length || 0);
+      const equipped = await fetchEquippedCosmetics([userId]);
+      setCosmetics(equipped[userId] || { border: null, flair: null });
     })();
     setBadges([]);
     sb(`user_missions?select=*,missions(title,points)&clerk_id=eq.${userId}&limit=5`).then(r => {
@@ -1031,14 +1037,14 @@ function CommunityPageInner() {
     sb('competition_entries?select=clerk_id,roi&order=roi.desc.nullslast&limit=5').then(async r => {
       if (!r || !r.length) { setLeaderboard([]); return; }
       const ids = r.map(e => e.clerk_id).filter(Boolean);
-      const nameMap = await fetchDisplayNames(ids);
-      setLeaderboard(r.map(e => ({ ...e, display_name: nameMap[e.clerk_id] || punterFallback(e.clerk_id) })));
+      const [nameMap, cosmeticsMap] = await Promise.all([fetchDisplayNames(ids), fetchEquippedCosmetics(ids)]);
+      setLeaderboard(r.map(e => ({ ...e, display_name: nameMap[e.clerk_id] || punterFallback(e.clerk_id), cosmetics: cosmeticsMap[e.clerk_id] })));
     });
     sb('user_profiles?select=clerk_id,points&order=points.desc&limit=5').then(async r => {
       if (!r || !r.length) { setContributors([]); return; }
       const ids = r.map(c => c.clerk_id).filter(Boolean);
-      const nameMap = await fetchDisplayNames(ids);
-      setContributors(r.map(c => ({ ...c, display_name: nameMap[c.clerk_id] || punterFallback(c.clerk_id) })));
+      const [nameMap, cosmeticsMap] = await Promise.all([fetchDisplayNames(ids), fetchEquippedCosmetics(ids)]);
+      setContributors(r.map(c => ({ ...c, display_name: nameMap[c.clerk_id] || punterFallback(c.clerk_id), cosmetics: cosmeticsMap[c.clerk_id] })));
     });
     Promise.all([sbCount('user_profiles'), sbCount('posts')]).then(([members, postsCount]) => {
       setStats({ members, posts: postsCount });
@@ -1089,6 +1095,7 @@ function CommunityPageInner() {
       <LeftColumn
         profile={profile}
         punterName={punterName}
+        cosmetics={cosmetics}
         userId={userId}
         section={section}
         onSection={s => setSection(s)}

@@ -14,6 +14,9 @@ import { normaliseVenue } from '@/lib/venues';
 import { punterFallback } from '@/lib/punterFallback';
 import { fetchDisplayNames } from '@/lib/displayNames';
 import { selectBeatModelRace } from '@/lib/beatModel';
+import { fetchEquippedCosmetics } from '@/lib/cosmetics';
+import Avatar from '@/components/Avatar';
+import NameFlair from '@/components/NameFlair';
 
 const SURL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SKEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -1124,6 +1127,20 @@ export default function CompetitionsPage() {
   // than a fabricated value. User's own row: pale gold background + "(you)"
   // in brown — no other row styling.
   function LeaderboardTable({ rows }) {
+    // Self-contained cosmetics fetch -- this one component backs all three
+    // leaderboards on this page (today's Field, Beat the Model, All-time),
+    // so fetching here means every caller gets avatars/flair for free
+    // rather than each of the three call sites needing its own fetch +
+    // prop-drilling. Keyed off the actual clerk_ids so it only re-fetches
+    // when the visible entrant set changes, not on every render.
+    const idsKey = rows.map(u => u.clerk_id).join(',');
+    const [cosmeticsMap, setCosmeticsMap] = useState({});
+    useEffect(() => {
+      let cancelled = false;
+      fetchEquippedCosmetics(rows.map(u => u.clerk_id)).then(map => { if (!cancelled) setCosmeticsMap(map); });
+      return () => { cancelled = true; };
+    }, [idsKey]);
+
     if (!rows.length) return <div style={{ fontSize: 11, color: '#9ca3af', padding: '10px 2px' }}>No entrants yet.</div>;
     return (
       <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
@@ -1137,21 +1154,28 @@ export default function CompetitionsPage() {
           </tr>
         </thead>
         <tbody>
-          {rows.map(u => (
-            <tr key={u.clerk_id} style={{ background: u.isMe ? '#fffbea' : 'transparent' }}>
-              <td style={gridTdStyle('left', { mono: true, bold: true })}>{u.rank}</td>
-              <td style={gridTdStyle('left', { ellipsis: true })}>
-                {u.username}{u.isMe && <span style={{ color: '#854F0B', fontWeight: 600 }}> (you)</span>}
-              </td>
-              <td style={gridTdStyle('right', { mono: true })}>{u.hitPct != null ? `${u.hitPct.toFixed(0)}%` : '—'}</td>
-              <td style={gridTdStyle('left')}>
-                {u.streak
-                  ? <span style={{ color: u.streak > 0 ? '#16a34a' : '#dc2626', fontWeight: 700 }}>{u.streak > 0 ? `${u.streak}W` : `${Math.abs(u.streak)}L`}</span>
-                  : <span style={{ color: '#9ca3af' }}>—</span>}
-              </td>
-              <td style={gridTdStyle('right', { mono: true, bold: true, fs: 12 })}>{u.score}</td>
-            </tr>
-          ))}
+          {rows.map(u => {
+            const cosmetics = cosmeticsMap[u.clerk_id];
+            return (
+              <tr key={u.clerk_id} style={{ background: u.isMe ? '#fffbea' : 'transparent' }}>
+                <td style={gridTdStyle('left', { mono: true, bold: true })}>{u.rank}</td>
+                <td style={gridTdStyle('left', { ellipsis: true })}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <Avatar profile={{ display_name: u.username }} size={18} border={cosmetics?.border?.style} />
+                    <NameFlair name={u.username} flair={cosmetics?.flair?.style} fontSize={11} fontWeight={400} color="#111827" />
+                    {u.isMe && <span style={{ color: '#854F0B', fontWeight: 600, fontSize: 11 }}> (you)</span>}
+                  </div>
+                </td>
+                <td style={gridTdStyle('right', { mono: true })}>{u.hitPct != null ? `${u.hitPct.toFixed(0)}%` : '—'}</td>
+                <td style={gridTdStyle('left')}>
+                  {u.streak
+                    ? <span style={{ color: u.streak > 0 ? '#16a34a' : '#dc2626', fontWeight: 700 }}>{u.streak > 0 ? `${u.streak}W` : `${Math.abs(u.streak)}L`}</span>
+                    : <span style={{ color: '#9ca3af' }}>—</span>}
+                </td>
+                <td style={gridTdStyle('right', { mono: true, bold: true, fs: 12 })}>{u.score}</td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     );

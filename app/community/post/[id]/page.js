@@ -8,6 +8,9 @@ import UpgradeModal from '@/components/UpgradeModal';
 import { awardPoints } from '@/lib/points';
 import { punterFallback } from '@/lib/punterFallback';
 import { fetchDisplayNames } from '@/lib/displayNames';
+import { fetchEquippedCosmetics } from '@/lib/cosmetics';
+import Avatar from '@/components/Avatar';
+import NameFlair from '@/components/NameFlair';
 
 const SURL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SKEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -71,20 +74,6 @@ function getTierBadge(points) {
   return { label, ...(palettes[label] || palettes.Recruit) };
 }
 
-function Avatar({ profile, size = 32 }) {
-  const name = profile?.display_name || '?';
-  const initial = name[0]?.toUpperCase() || '?';
-  return (
-    <div style={{
-      width: size, height: size, borderRadius: '50%', background: '#00471b',
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-      flexShrink: 0, fontSize: Math.round(size * 0.4), fontWeight: 700, color: '#fff',
-    }}>
-      {initial}
-    </div>
-  );
-}
-
 function TierBadge({ profile }) {
   const { label, bg, color } = getTierBadge(profile?.points || 0);
   return (
@@ -134,15 +123,21 @@ export default function PostDetailPage() {
       const replyRows = await sb(`replies?select=*&post_id=eq.${id}&order=created_at.asc`);
 
       // One batched Clerk lookup covering both the post author and every
-      // reply author, instead of two separate user_profiles joins.
+      // reply author, instead of two separate user_profiles joins. Equipped
+      // cosmetics are batched the same way, via a separate helper (that
+      // data lives in Supabase, not Clerk, so it's a different call, but
+      // same "one request for every author on the page" shape).
       const allIds = [...new Set([p.user_id, ...(replyRows || []).map(r => r.clerk_id)].filter(Boolean))];
-      const nameMap = allIds.length ? await fetchDisplayNames(allIds) : {};
+      const [nameMap, cosmeticsMap] = await Promise.all([
+        allIds.length ? fetchDisplayNames(allIds) : {},
+        allIds.length ? fetchEquippedCosmetics(allIds) : {},
+      ]);
 
-      if (p.user_id) p.author = { display_name: nameMap[p.user_id] || punterFallback(p.user_id) };
+      if (p.user_id) p.author = { display_name: nameMap[p.user_id] || punterFallback(p.user_id), cosmetics: cosmeticsMap[p.user_id] };
       setPost(p);
 
       if (replyRows && replyRows.length) {
-        setReplies(replyRows.map(r => ({ ...r, author: r.clerk_id ? { display_name: nameMap[r.clerk_id] || punterFallback(r.clerk_id) } : null })));
+        setReplies(replyRows.map(r => ({ ...r, author: r.clerk_id ? { display_name: nameMap[r.clerk_id] || punterFallback(r.clerk_id), cosmetics: cosmeticsMap[r.clerk_id] } : null })));
       }
       setLoading(false);
     })();
@@ -276,8 +271,8 @@ export default function PostDetailPage() {
 
             {/* Meta line */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16, flexWrap: 'wrap', fontSize: 11, color: '#6B7280' }}>
-              <Avatar profile={post.author} size={20} />
-              <span style={{ fontWeight: 700, color: '#374151' }}>{post.author?.display_name || 'Anonymous'}</span>
+              <Avatar profile={post.author} size={20} border={post.author?.cosmetics?.border?.style} />
+              <NameFlair name={post.author?.display_name || 'Anonymous'} flair={post.author?.cosmetics?.flair?.style} fontSize={11} fontWeight={700} color="#374151" />
               <TierBadge profile={post.author} />
               <span>·</span>
               <span>{timeAgo(post.created_at)}</span>
@@ -323,10 +318,10 @@ export default function PostDetailPage() {
                   <tr key={r.id}>
                     <td style={{ ...tdStyle({ width: 140 }) }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-                        <Avatar profile={r.author} size={20} />
-                        <span style={{ fontSize: 11, fontWeight: 700, color: '#374151', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          {r.author?.display_name || 'Anonymous'}
-                        </span>
+                        <Avatar profile={r.author} size={20} border={r.author?.cosmetics?.border?.style} />
+                        <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          <NameFlair name={r.author?.display_name || 'Anonymous'} flair={r.author?.cosmetics?.flair?.style} fontSize={11} fontWeight={700} color="#374151" />
+                        </div>
                       </div>
                       <TierBadge profile={r.author} />
                     </td>

@@ -6,6 +6,9 @@ import Link from 'next/link';
 import { getTier, ALL_TIERS } from '@/lib/tiers';
 import useIsPro from '@/hooks/useIsPro';
 import { punterFallback } from '@/lib/punterFallback';
+import { fetchEquippedCosmetics } from '@/lib/cosmetics';
+import Avatar from '@/components/Avatar';
+import NameFlair from '@/components/NameFlair';
 
 const SURL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SKEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -22,6 +25,7 @@ export default function ProfileRail({ children }) {
   // approach app/account/page.js already uses for its own bet stats.
   const [betStats, setBetStats] = useState({ total: 0, wins: 0 });
   const [postCount, setPostCount] = useState(0);
+  const [cosmetics, setCosmetics] = useState({ border: null, flair: null });
   const userId = user?.id;
 
   useEffect(() => {
@@ -53,6 +57,8 @@ export default function ProfileRail({ children }) {
           const posts = await postRes.json();
           setPostCount(posts.length);
         }
+        const equipped = await fetchEquippedCosmetics([userId]);
+        setCosmetics(equipped[userId] || { border: null, flair: null });
       } catch {}
     }
 
@@ -88,19 +94,17 @@ export default function ProfileRail({ children }) {
 
   // What other users see too — never real name.
   const punterName = user.username || punterFallback(user.id);
-  const initial = punterName[0]?.toUpperCase() || '?';
 
   return (
     <div className="profile-rail" style={{ width: 220, background: '#fff', borderRight: '0.5px solid #e5e7eb', overflowY: 'auto', flexShrink: 0, display: 'flex', flexDirection: 'column' }}>
       <div style={{ padding: '14px 12px' }}>
         {/* Avatar + name + tier badge */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-          {user.hasImage
-            ? <img src={user.imageUrl} alt="" style={{ width: 40, height: 40, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
-            : <div style={{ width: 40, height: 40, borderRadius: '50%', background: '#00471b', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 16, fontWeight: 700, color: '#fff' }}>{initial}</div>
-          }
+          <Avatar profile={{ display_name: punterName }} size={40} imageUrl={user.hasImage ? user.imageUrl : undefined} border={cosmetics.border?.style} />
           <div>
-            <div style={{ fontSize: 12, fontWeight: 700, color: '#111827', marginBottom: 3 }}>{punterName}</div>
+            <div style={{ marginBottom: 3 }}>
+              <NameFlair name={punterName} flair={cosmetics.flair?.style} fontSize={12} fontWeight={700} />
+            </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
               <span style={{ fontSize: 9, fontWeight: 500, padding: '2px 7px', borderRadius: 4, background: isPro ? '#FAEEDA' : '#E1F5EE', color: isPro ? '#854F0B' : '#0F6E56' }}>
                 {isPro ? 'PRO' : 'FREE'}

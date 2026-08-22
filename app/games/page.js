@@ -5,7 +5,10 @@ import { useUser } from '@clerk/nextjs';
 import useIsMobile from '@/hooks/useIsMobile';
 import { fetchDisplayNames } from '@/lib/displayNames';
 import { punterFallback } from '@/lib/punterFallback';
+import { fetchEquippedCosmetics } from '@/lib/cosmetics';
 import MainTabBar from '@/components/MainTabBar';
+import Avatar from '@/components/Avatar';
+import NameFlair from '@/components/NameFlair';
 
 const GOLD = '#e8b84a';
 const TEXT = '#111827';
@@ -697,8 +700,11 @@ function PuzzleLeaderboard() {
   useEffect(() => {
     api('/api/games/leaderboard?game_type=track_dash').then(async d => {
       if (!d) return;
-      const nameMap = await fetchDisplayNames(d.rows.map(r => r.clerk_id));
-      setRows(d.rows.map(r => ({ ...r, name: nameMap[r.clerk_id] || punterFallback(r.clerk_id) })));
+      const [nameMap, cosmeticsMap] = await Promise.all([
+        fetchDisplayNames(d.rows.map(r => r.clerk_id)),
+        fetchEquippedCosmetics(d.rows.map(r => r.clerk_id)),
+      ]);
+      setRows(d.rows.map(r => ({ ...r, name: nameMap[r.clerk_id] || punterFallback(r.clerk_id), cosmetics: cosmeticsMap[r.clerk_id] })));
     });
   }, []);
   if (!rows.length) return null;
@@ -710,7 +716,8 @@ function PuzzleLeaderboard() {
       {rows.slice(0, 10).map((r, i) => (
         <div key={r.clerk_id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 0', borderBottom: i < 9 ? `1px solid ${CT_LINE}` : 'none' }}>
           <span style={{ fontSize: 10, fontWeight: 700, color: '#9ca3af', width: 18 }}>#{i + 1}</span>
-          <span style={{ flex: 1, fontSize: 12, color: TEXT }}>{r.name}</span>
+          <Avatar profile={{ display_name: r.name }} size={18} border={r.cosmetics?.border?.style} />
+          <span style={{ flex: 1 }}><NameFlair name={r.name} flair={r.cosmetics?.flair?.style} fontSize={12} fontWeight={400} color={TEXT} /></span>
           <span style={{ fontFamily: 'JetBrains Mono, monospace', fontWeight: 700, fontSize: 12 }}>{r.score}</span>
         </div>
       ))}
