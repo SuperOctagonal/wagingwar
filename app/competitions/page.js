@@ -7,6 +7,7 @@ import useIsPro from '@/hooks/useIsPro';
 import useIsMobile from '@/hooks/useIsMobile';
 import useUserSettings from '@/hooks/useUserSettings';
 import UpgradeModal from '@/components/UpgradeModal';
+import MainTabBar from '@/components/MainTabBar';
 import { parseCSV, buildRaces } from '@/lib/csvParser';
 import { scoreHorse, getDefaultWeights } from '@/lib/scoring';
 import { normaliseVenue } from '@/lib/venues';
@@ -237,7 +238,11 @@ function applyLbRanks(sorted) {
 }
 
 const LB_TABS      = [{ id: 'alltime', label: 'All-time' }, { id: 'yearly', label: 'Yearly' }, { id: 'monthly', label: 'Monthly' }, { id: 'weekly', label: 'Weekly' }];
-const MAIN_TABS     = [{ id: 'today', label: 'Today' }, { id: 'beat-model', label: '🤖 Beat the Model' }, { id: 'alltime', label: 'All-time' }];
+const MAIN_TABS     = [
+  { id: 'today',      label: 'Today',           icon: 'ti-calendar' },
+  { id: 'beat-model', label: 'Beat the Model',   icon: 'ti-trophy' },
+  { id: 'alltime',    label: 'All-time',         icon: 'ti-history' },
+];
 
 export default function CompetitionsPage() {
   const { user, isLoaded } = useUser();
@@ -1548,20 +1553,10 @@ export default function CompetitionsPage() {
 
   // ─── Persistent tab bar — shown above all three views (not just linked
   // one-way from Today into the others), so any view is reachable from any
-  // other. ───────────────────────────────────────────────────────────────
-  const mainTabBar = (
-    <div style={{ background: '#fff', borderBottom: `0.5px solid ${CT_LINE}`, padding: '8px 16px', display: 'flex', gap: 6, flexShrink: 0, flexWrap: 'wrap' }}>
-      {MAIN_TABS.map(t => {
-        const active = mainTab === t.id;
-        return (
-          <button key={t.id} onClick={() => setMainTab(t.id)}
-            style={{ padding: '5px 12px', borderRadius: 5, fontSize: 11, fontWeight: 700, border: `0.5px solid ${active ? '#111827' : CT_LINE}`, cursor: 'pointer', fontFamily: 'inherit', background: active ? '#111827' : '#fff', color: active ? '#fff' : '#374151' }}>
-            {t.label}
-          </button>
-        );
-      })}
-    </div>
-  );
+  // other. Shared MainTabBar component -- same icon-tile styling as the
+  // Games page's Trivia/Puzzle/Track Dash/Prizes nav, not a hand-duplicated
+  // copy of it. ───────────────────────────────────────────────────────────
+  const mainTabBar = <MainTabBar tabs={MAIN_TABS} activeId={mainTab} onSelect={setMainTab} />;
 
   // ─── Main render ──────────────────────────────────────────────────────────────
   return (

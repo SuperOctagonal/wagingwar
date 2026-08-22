@@ -5,6 +5,7 @@ import { useUser } from '@clerk/nextjs';
 import useIsMobile from '@/hooks/useIsMobile';
 import { fetchDisplayNames } from '@/lib/displayNames';
 import { punterFallback } from '@/lib/punterFallback';
+import MainTabBar from '@/components/MainTabBar';
 
 const GOLD = '#e8b84a';
 const TEXT = '#111827';
@@ -937,28 +938,10 @@ export default function GamesPage() {
       {/* Persistent tab bar — built as a real always-visible component from
           the start, above whichever tab is active, not a breadcrumb (see
           the Competitions "Beat the Model" tab-bar fix earlier this
-          session for why that matters). Icon + label tiles inside a
-          bordered group container, not plain pills — active tab is a dark
-          green fill with a gold icon and white label, inactive tabs are
-          transparent with muted icon/label. */}
-      <div style={{ background: '#fff', borderBottom: `0.5px solid ${CT_LINE}`, padding: '8px 16px', flexShrink: 0 }}>
-        <div style={{ display: 'inline-flex', gap: 4, padding: 4, border: `1px solid ${CT_LINE}`, borderRadius: 10, background: '#fff' }}>
-          {MAIN_TABS.map(t => {
-            const active = mainTab === t.id;
-            return (
-              <button key={t.id} onClick={() => setMainTab(t.id)}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: 6,
-                  padding: '7px 14px', borderRadius: 7, border: 'none', cursor: 'pointer',
-                  background: active ? '#0d2416' : 'transparent',
-                }}>
-                <i className={`ti ${t.icon}`} style={{ fontSize: 15, color: active ? GOLD : '#9ca3af' }} />
-                <span style={{ fontSize: 12, fontWeight: 700, color: active ? '#fff' : '#6b7280' }}>{t.label}</span>
-              </button>
-            );
-          })}
-        </div>
-      </div>
+          session for why that matters). Shared MainTabBar component (also
+          used by Competitions' Today/Beat the Model/All-time nav) so the
+          icon-tile styling lives in one place. */}
+      <MainTabBar tabs={MAIN_TABS} activeId={mainTab} onSelect={setMainTab} />
 
       <div style={{ flex: 1, overflowY: 'auto' }}>
         {mainTab === 'trivia' && <TriviaTab onCreditsChange={handleCreditsChange} />}
