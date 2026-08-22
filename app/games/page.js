@@ -349,12 +349,35 @@ const horseSprite = loadSprite(HORSE_SRC);
 // pixel aspect ratio (the first ship forced several square source images
 // into portrait boxes, distorting them) -- see each sprite's real dimensions
 // in public/games/trackdash/CREDITS.md.
+//
+// `hit` is a per-side inset (fraction of w/h) shrinking the *collision* box
+// away from the drawn box -- draw size is unaffected. Measured directly from
+// each PNG's alpha channel (fraction of the box that's actually transparent
+// padding on that side), then padded a further ~5-8% for a forgiving margin
+// (standard runner-game practice: the hitbox should read as slightly more
+// generous than the art, never a "why did that count" moment). Most of these
+// sprites already fill their box tightly -- hurdle's real art starts ~27%
+// down from the top of its box (the fence posts don't reach the top), so
+// that's the one obstacle that needed a real inset; the rest get a small
+// uniform margin only.
+const NO_INSET = { l: 0.08, r: 0.08, t: 0.08, b: 0.08 };
 const OBSTACLE_TYPES = [
-  { key: 'haybale',   w: 46, h: 46, sprite: loadSprite(`${SPRITE_BASE}/obstacle_haybale.png`) },
-  { key: 'hurdle',    w: 46, h: 46, sprite: loadSprite(`${SPRITE_BASE}/obstacle_hurdle.png`) },
-  { key: 'cone',      w: 36, h: 35, sprite: loadSprite(`${SPRITE_BASE}/obstacle_cone.png`) },
-  { key: 'beachball', w: 30, h: 30, sprite: loadSprite(`${SPRITE_BASE}/obstacle_ball.png`) },
+  { key: 'haybale',   w: 46, h: 46, sprite: loadSprite(`${SPRITE_BASE}/obstacle_haybale.png`), hit: NO_INSET },
+  { key: 'hurdle',    w: 46, h: 46, sprite: loadSprite(`${SPRITE_BASE}/obstacle_hurdle.png`), hit: { l: 0.06, r: 0.06, t: 0.22, b: 0.06 } },
+  { key: 'cone',      w: 36, h: 35, sprite: loadSprite(`${SPRITE_BASE}/obstacle_cone.png`), hit: NO_INSET },
+  { key: 'beachball', w: 30, h: 30, sprite: loadSprite(`${SPRITE_BASE}/obstacle_ball.png`), hit: NO_INSET },
 ];
+
+// Player hitbox inset -- measured from horse_run.png's alpha channel across
+// all 5 run-cycle frames (the union of where the horse's body/legs/head
+// ever actually are, so a mid-stride leg extension never gets clipped by
+// too-tight an inset): real art occupies roughly x 22-77 of 82 and y 26-56
+// of 66 within the frame. That's a LOT of transparent padding (the previous
+// hitbox was the full drawn box, which is what made collisions feel
+// unfairly early after the redesign scaled the box up without touching
+// this). Padded a couple more percent past the measured art edges for a
+// forgiving margin, same reasoning as the obstacle insets above.
+const PLAYER_HIT = { l: 0.24, r: 0.08, t: 0.34, b: 0.14 };
 
 // Player runs left-to-right through the scene (obstacles approach from the
 // right), but the source sprite sheet faces left -- flipped here via
@@ -417,6 +440,30 @@ const HILL_BUMPS = Array.from({ length: 8 }, (_, i) => ({
   w: 220,
 }));
 
+// Clouds -- simple flat puffs (each just 3 overlapping circles, one fill
+// colour, no gradients/outlines) tiled across a fixed-width repeat unit so
+// they scroll seamlessly, same tiling technique as the hill band but at a
+// much slower parallax rate (clouds read as further away / higher up than
+// the hills). 3 per repeat unit, unit repeated 3x across SCENE_W's width in
+// draw() the same way HILL_BUMPS is, so it always covers the canvas plus a
+// margin on both sides regardless of scroll offset.
+const CLOUD_UNIT_W = 520;
+const CLOUDS = [
+  { cx: 90,  cy: 22, scale: 1.0 },
+  { cx: 260, cy: 40, scale: 0.7 },
+  { cx: 420, cy: 16, scale: 0.85 },
+];
+const CLOUD_COLOR = 'rgba(210, 222, 228, 0.14)';
+
+function drawCloud(ctx, cx, cy, scale) {
+  const r = 11 * scale;
+  ctx.beginPath();
+  ctx.arc(cx - r * 1.1, cy + r * 0.3, r * 0.8, 0, Math.PI * 2);
+  ctx.arc(cx, cy, r, 0, Math.PI * 2);
+  ctx.arc(cx + r * 1.2, cy + r * 0.25, r * 0.75, 0, Math.PI * 2);
+  ctx.fill();
+}
+
 function drawScene(ctx, scrollPx) {
   // Sky
   const skyGrad = ctx.createLinearGradient(0, SKY_TOP, 0, SKY_H);
@@ -424,6 +471,14 @@ function drawScene(ctx, scrollPx) {
   skyGrad.addColorStop(1, SKY_BOTTOM_COLOR);
   ctx.fillStyle = skyGrad;
   ctx.fillRect(0, SKY_TOP, SCENE_W, SKY_H);
+
+  // Clouds -- flat, subtle, drift very slowly (far slower than the hills)
+  ctx.fillStyle = CLOUD_COLOR;
+  const cloudShift = (scrollPx * 0.03) % CLOUD_UNIT_W;
+  for (let u = -1; u <= Math.ceil(SCENE_W / CLOUD_UNIT_W) + 1; u++) {
+    const unitX = u * CLOUD_UNIT_W - cloudShift;
+    CLOUDS.forEach(c => drawCloud(ctx, unitX + c.cx, c.cy, c.scale));
+  }
 
   // Hill/skyline band -- base rect filled first so the band can never show
   // a gap, then bump silhouettes drawn on top with peaks touching the
@@ -544,15 +599,23 @@ function TrackDash({ onCreditsChange }) {
       if (s.lastSpawn > spawnGap) {
         s.lastSpawn = 0;
         const t = OBSTACLE_TYPES[Math.floor(Math.random() * OBSTACLE_TYPES.length)];
-        s.obstacles.push({ x: W, w: t.w, h: t.h, sprite: t.sprite, cleared: false });
+        s.obstacles.push({ x: W, w: t.w, h: t.h, sprite: t.sprite, hit: t.hit, cleared: false });
       }
       s.obstacles.forEach(o => { o.x -= s.speed; });
       s.obstacles = s.obstacles.filter(o => o.x > -60);
 
+      // Collision uses inset hitboxes (see PLAYER_HIT / OBSTACLE_TYPES[].hit)
+      // -- shrunk from the drawn box to match each sprite's actual visible
+      // art, not its full transparent-padded bounding box. Draw calls below
+      // still use the untouched full px/py/pw/ph and ox/oy/ow/oh.
       const px = s.player.x, py = s.player.y, pw = PLAYER_W, ph = PLAYER_H;
+      const phx = px + pw * PLAYER_HIT.l, phy = py + ph * PLAYER_HIT.t;
+      const phw = pw * (1 - PLAYER_HIT.l - PLAYER_HIT.r), phh = ph * (1 - PLAYER_HIT.t - PLAYER_HIT.b);
       for (const o of s.obstacles) {
         const ox = o.x, oy = GROUND - o.h, ow = o.w, oh = o.h;
-        if (px < ox + ow && px + pw > ox && py < oy + oh && py + ph > oy) {
+        const ohx = ox + ow * o.hit.l, ohy = oy + oh * o.hit.t;
+        const ohw = ow * (1 - o.hit.l - o.hit.r), ohh = oh * (1 - o.hit.t - o.hit.b);
+        if (phx < ohx + ohw && phx + phw > ohx && phy < ohy + ohh && phy + phh > ohy) {
           s.running = false;
         }
         if (!o.cleared && ox + ow < px) { o.cleared = true; s.cleared += 1; }
