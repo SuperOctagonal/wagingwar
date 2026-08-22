@@ -9,6 +9,7 @@ import { fetchEquippedCosmetics } from '@/lib/cosmetics';
 import MainTabBar from '@/components/MainTabBar';
 import Avatar from '@/components/Avatar';
 import NameFlair from '@/components/NameFlair';
+import LockerTab from '@/components/LockerTab';
 
 const GOLD = '#e8b84a';
 const TEXT = '#111827';
@@ -19,6 +20,7 @@ const MAIN_TABS = [
   { id: 'puzzle', label: 'Puzzle', icon: 'ti-puzzle' },
   { id: 'trackdash', label: 'Track Dash', icon: 'ti-run' },
   { id: 'prizes', label: 'Prizes', icon: 'ti-disc' },
+  { id: 'store', label: 'Store', icon: 'ti-building-store' },
 ];
 
 async function api(path, opts) {
@@ -960,6 +962,12 @@ export default function GamesPage() {
           </>
         )}
         {mainTab === 'prizes' && <PrizesTab onCreditsChange={handleCreditsChange} />}
+        {/* Store tab currently shows the Locker view only -- the Browse/
+            basket-checkout half (batch 3) lands here as a sub-tab
+            alongside it, not a separate page, once it exists. Showing
+            Locker alone now rather than a picker with a dead "Browse"
+            entry that does nothing yet. */}
+        {mainTab === 'store' && <LockerTab />}
       </div>
     </main>
   );
