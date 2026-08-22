@@ -13,6 +13,7 @@ const CT_LINE = '#e5e7eb';
 const MAIN_TABS = [
   { id: 'trivia', label: 'Trivia', icon: 'ti-brain' },
   { id: 'puzzle', label: 'Puzzle', icon: 'ti-puzzle' },
+  { id: 'trackdash', label: 'Track Dash', icon: 'ti-run' },
   { id: 'prizes', label: 'Prizes', icon: 'ti-disc' },
 ];
 
@@ -379,6 +380,20 @@ const OBSTACLE_TYPES = [
 // forgiving margin, same reasoning as the obstacle insets above.
 const PLAYER_HIT = { l: 0.24, r: 0.08, t: 0.34, b: 0.14 };
 
+// Gap between obstacle spawns -- randomized around a speed-scaled baseline
+// rather than the fixed deterministic curve the game shipped with (which
+// made spacing fully predictable once you learned the curve). `elapsed` is
+// the run's elapsed ms, same input the old fixed formula used, so the
+// baseline still tightens as the run speeds up. The random factor widens
+// spacing out in both directions -- never so tight it's unfair (hard floor
+// below), never so loose it reads as dead time (1.5x ceiling on a baseline
+// that's already shrinking).
+function rollSpawnGap(elapsedMs) {
+  const baseline = Math.max(700, 1400 - elapsedMs / 20);
+  const gap = baseline * (0.7 + Math.random() * 0.8); // random in [0.7x, 1.5x] of baseline
+  return Math.max(500, gap);
+}
+
 // Player runs left-to-right through the scene (obstacles approach from the
 // right), but the source sprite sheet faces left -- flipped here via
 // scale(-1,1) around the sprite's own right edge rather than baking a
@@ -576,6 +591,7 @@ function TrackDash({ onCreditsChange }) {
       speed: 4 * SPEED_SCALE,
       elapsed: 0,
       lastSpawn: 0,
+      nextSpawnGap: rollSpawnGap(0),
       scroll: 0,
     };
     stateRef.current = s;
@@ -595,9 +611,9 @@ function TrackDash({ onCreditsChange }) {
       if (s.player.y >= playerRestY) { s.player.y = playerRestY; s.player.vy = 0; }
 
       s.lastSpawn += dt;
-      const spawnGap = Math.max(700, 1400 - s.elapsed / 20);
-      if (s.lastSpawn > spawnGap) {
+      if (s.lastSpawn > s.nextSpawnGap) {
         s.lastSpawn = 0;
+        s.nextSpawnGap = rollSpawnGap(s.elapsed);
         const t = OBSTACLE_TYPES[Math.floor(Math.random() * OBSTACLE_TYPES.length)];
         s.obstacles.push({ x: W, w: t.w, h: t.h, sprite: t.sprite, hit: t.hit, cleared: false });
       }
@@ -701,27 +717,6 @@ function PuzzleLeaderboard() {
   );
 }
 
-function PuzzleTab({ onCreditsChange }) {
-  const [sub, setSub] = useState('daily');
-  return (
-    <div>
-      <div style={{ display: 'flex', gap: 6, padding: '10px 16px 0' }}>
-        {[{ id: 'daily', label: 'Daily Puzzle' }, { id: 'trackdash', label: 'Track Dash' }].map(t => (
-          <button key={t.id} onClick={() => setSub(t.id)}
-            style={{ padding: '5px 12px', borderRadius: 5, fontSize: 11, fontWeight: 700, border: `0.5px solid ${sub === t.id ? '#111827' : CT_LINE}`, cursor: 'pointer', background: sub === t.id ? '#111827' : '#fff', color: sub === t.id ? '#fff' : '#374151' }}>
-            {t.label}
-          </button>
-        ))}
-      </div>
-      {sub === 'daily' ? <DailyPuzzle onCreditsChange={onCreditsChange} /> : (
-        <>
-          <TrackDash onCreditsChange={onCreditsChange} />
-          <PuzzleLeaderboard />
-        </>
-      )}
-    </div>
-  );
-}
 
 // Order must match lib/wheel.js's PRIZE_TABLE exactly -- purely a display
 // label, the server has already decided the actual prize before this ever
@@ -967,7 +962,13 @@ export default function GamesPage() {
 
       <div style={{ flex: 1, overflowY: 'auto' }}>
         {mainTab === 'trivia' && <TriviaTab onCreditsChange={handleCreditsChange} />}
-        {mainTab === 'puzzle' && <PuzzleTab onCreditsChange={handleCreditsChange} />}
+        {mainTab === 'puzzle' && <DailyPuzzle onCreditsChange={handleCreditsChange} />}
+        {mainTab === 'trackdash' && (
+          <>
+            <TrackDash onCreditsChange={handleCreditsChange} />
+            <PuzzleLeaderboard />
+          </>
+        )}
         {mainTab === 'prizes' && <PrizesTab onCreditsChange={handleCreditsChange} />}
       </div>
     </main>
