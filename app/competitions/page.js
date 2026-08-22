@@ -12,7 +12,6 @@ import { scoreHorse, getDefaultWeights } from '@/lib/scoring';
 import { normaliseVenue } from '@/lib/venues';
 import { punterFallback } from '@/lib/punterFallback';
 import { fetchDisplayNames } from '@/lib/displayNames';
-import { awardPoints } from '@/lib/points';
 import { selectBeatModelRace } from '@/lib/beatModel';
 
 const SURL = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -273,6 +272,12 @@ export default function CompetitionsPage() {
   const [btmWon,        setBtmWon]        = useState(false);
   const [btmPickSaving, setBtmPickSaving] = useState(false);
   const [btmStats,      setBtmStats]      = useState({ participants: 0, correct: 0 });
+  const [btmSubTab,        setBtmSubTab]        = useState('today');
+  const [btmHistory,       setBtmHistory]       = useState([]);
+  const [btmHistoryLoading,setBtmHistoryLoading] = useState(false);
+  const [btmStreak,        setBtmStreak]        = useState(0);
+  const [btmLeaderboard,   setBtmLeaderboard]   = useState([]);
+  const [btmLbLoading,     setBtmLbLoading]     = useState(false);
 
   // Record + P&L state
   const [allCompScoresData, setAllCompScoresData]     = useState([]);
@@ -747,6 +752,23 @@ export default function CompetitionsPage() {
     });
   }, [btmChallenge?.venue, btmChallenge?.raceNum, today, isPro]);
 
+  // Separate, best-effort write for model_pick -- kept out of the upsert
+  // above deliberately: PostgREST rejects an entire insert if the payload
+  // references a column the table doesn't have yet, so bundling this in
+  // would have broken the already-working challenge write the moment
+  // btm_challenges.model_pick doesn't exist (it doesn't, as of this build --
+  // needs a manual `ALTER TABLE btm_challenges ADD COLUMN model_pick text;`
+  // before this actually starts persisting). sbFetch already swallows
+  // errors, so until that column exists this just silently no-ops each day.
+  useEffect(() => {
+    if (!btmChallenge || !btmModelPick || !SURL || !SKEY || !isPro) return;
+    sbFetch(`btm_challenges?comp_date=eq.${today}`, {
+      method: 'PATCH',
+      prefer: 'return=minimal',
+      body: { model_pick: btmModelPick },
+    });
+  }, [btmChallenge?.venue, btmChallenge?.raceNum, today, isPro, btmModelPick]);
+
   // Load this user's existing pick + resolution state for today
   useEffect(() => {
     if (!user?.id || !isPro || !SURL || !SKEY) { setBtmPick(null); setBtmResolved(false); setBtmWon(false); return; }
@@ -763,21 +785,35 @@ export default function CompetitionsPage() {
   // this app's point-awarding actions (no server cron exists to hook into;
   // see the "Beat the Model" plan notes). Known, accepted tradeoff: stays
   // unresolved (and the bonus unawarded) until a user with a pending pick
-  // actually visits after the race jumps. The resolved=eq.false filter on
-  // the PATCH, plus checking the returned row count, stops a double-award
-  // if this fires from more than one open tab.
+  // actually visits after the race jumps. Write goes through
+  // /api/beat-model/resolve (service key) -- the previous direct anon-key
+  // PATCH was silently blocked by RLS on btm_picks (HTTP 200, zero rows
+  // actually updated, confirmed live), so this never actually resolved for
+  // anyone. That route does its own resolved=eq.false idempotency check
+  // (same intent as the array-length check this replaces) and awards the
+  // beat_model_correct points server-side, so this effect only updates
+  // local UI state now, on confirmed success.
   useEffect(() => {
     if (!user?.id || !isPro || !btmChallenge || !btmPick || btmResolved || !btmWinnerRow) return;
     const won = (btmWinnerRow.horse_name || '').toLowerCase() === btmPick.toLowerCase();
     (async () => {
-      const patched = await sbFetch(
-        `btm_picks?clerk_id=eq.${encodeURIComponent(user.id)}&comp_date=eq.${today}&resolved=eq.false`,
-        { method: 'PATCH', prefer: 'return=representation', body: { resolved: true, won } },
-      );
-      if (Array.isArray(patched) && patched.length) {
-        setBtmResolved(true);
-        setBtmWon(won);
-        if (won) awardPoints(user.id, 'beat_model_correct').catch(() => {});
+      try {
+        const res = await fetch('/api/beat-model/resolve', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ won }),
+        });
+        if (!res.ok) {
+          console.error('[BeatModel] resolve failed', res.status, await res.text().catch(() => ''));
+          return;
+        }
+        const data = await res.json();
+        if (data?.updated) {
+          setBtmResolved(true);
+          setBtmWon(won);
+        }
+      } catch (err) {
+        console.error('[BeatModel] resolve network error', err);
       }
     })();
   }, [user?.id, isPro, btmChallenge, btmPick, btmResolved, btmWinnerRow, today]);
@@ -797,6 +833,45 @@ export default function CompetitionsPage() {
     const id = setInterval(load, 60000);
     return () => clearInterval(id);
   }, [today, isPro, btmChallenge?.venue, btmChallenge?.raceNum]);
+
+  // Pick history + derived streak — lazy-loaded on the History sub-tab, and
+  // refetched whenever a resolve just landed (btmResolved flipping true)
+  // so the streak shown doesn't go stale right after today's reveal.
+  useEffect(() => {
+    if (!user?.id || !isPro || mainTab !== 'beat-model' || btmSubTab !== 'history') return;
+    setBtmHistoryLoading(true);
+    fetch('/api/beat-model/history')
+      .then(res => res.ok ? res.json() : Promise.reject(res.status))
+      .then(data => {
+        setBtmHistory(Array.isArray(data.history) ? data.history : []);
+        setBtmStreak(data.streak || 0);
+      })
+      .catch(err => console.error('[BeatModel] history load failed', err))
+      .finally(() => setBtmHistoryLoading(false));
+  }, [user?.id, isPro, mainTab, btmSubTab, btmResolved]);
+
+  // All-time Beat the Model leaderboard — lazy-loaded on its own sub-tab;
+  // usernames resolved client-side via fetchDisplayNames, same pattern as
+  // the points-based all-time leaderboard.
+  useEffect(() => {
+    if (!user?.id || !isPro || mainTab !== 'beat-model' || btmSubTab !== 'leaderboard') return;
+    setBtmLbLoading(true);
+    fetch('/api/beat-model/leaderboard')
+      .then(res => res.ok ? res.json() : Promise.reject(res.status))
+      .then(async data => {
+        const rows = Array.isArray(data.leaderboard) ? data.leaderboard : [];
+        const ids = rows.map(r => r.clerk_id);
+        const nameMap = ids.length ? await fetchDisplayNames(ids) : {};
+        setBtmLeaderboard(rows.map((r, i) => ({
+          ...r,
+          rank: i + 1,
+          username: nameMap[r.clerk_id] || punterFallback(r.clerk_id),
+          isMe: r.clerk_id === user.id,
+        })));
+      })
+      .catch(err => console.error('[BeatModel] leaderboard load failed', err))
+      .finally(() => setBtmLbLoading(false));
+  }, [user?.id, isPro, mainTab, btmSubTab]);
 
   useEffect(() => {
     if (!SURL || !SKEY || !isPro) return;
@@ -839,16 +914,30 @@ export default function CompetitionsPage() {
     // awardPoints' existing max:1/day cap on beat_model_participate already
     // stops repeat picking from farming points, so no extra guard needed here.
     if (!horseName || !btmChallenge || isBtmLocked()) return;
-    setBtmPick(horseName);
-    if (!user?.id || !SURL || !SKEY) return;
+    if (!user?.id) return;
     setBtmPickSaving(true);
-    await sbFetch('btm_picks?on_conflict=clerk_id,comp_date', {
-      method: 'POST',
-      prefer: 'resolution=merge-duplicates,return=minimal',
-      body: { clerk_id: user.id, comp_date: today, horse_name: horseName },
-    });
-    setBtmPickSaving(false);
-    awardPoints(user.id, 'beat_model_participate').catch(() => {});
+    // Write goes through /api/beat-model/pick (service key) -- the previous
+    // direct anon-key upsert was silently blocked by RLS on btm_picks
+    // (confirmed live: 401, no INSERT policy for the anon role), so no pick
+    // had ever actually persisted. State is only set here on confirmed
+    // success now, not optimistically before the write -- the UI reflects
+    // what's actually saved, not what was attempted.
+    try {
+      const res = await fetch('/api/beat-model/pick', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ horse_name: horseName }),
+      });
+      if (!res.ok) {
+        console.error('[BeatModel] pick save failed', res.status, await res.text().catch(() => ''));
+        return;
+      }
+      setBtmPick(horseName);
+    } catch (err) {
+      console.error('[BeatModel] pick save network error', err);
+    } finally {
+      setBtmPickSaving(false);
+    }
   }
 
   // ─── Loading gate ─────────────────────────────────────────────────────────────
@@ -1258,9 +1347,85 @@ export default function CompetitionsPage() {
   );
 
   // ─── Beat the Model tab ─────────────────────────────────────────────────────
-  const beatModelTab = (
-    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'auto', background: '#fff' }}>
-      <div style={{ padding: '16px', maxWidth: 560 }}>
+  const BTM_SUB_TABS = [{ id: 'today', label: 'Today' }, { id: 'history', label: 'History' }, { id: 'leaderboard', label: 'Leaderboard' }];
+  const btmSubTabBar = (
+    <div style={{ display: 'flex', gap: 6, padding: '0 16px 14px', flexWrap: 'wrap' }}>
+      {BTM_SUB_TABS.map(t => {
+        const active = btmSubTab === t.id;
+        return (
+          <button key={t.id} onClick={() => setBtmSubTab(t.id)}
+            style={{ padding: '4px 10px', borderRadius: 4, fontSize: 10, fontWeight: 600, border: `0.5px solid ${active ? '#111827' : CT_LINE}`, cursor: 'pointer', fontFamily: 'inherit', background: active ? '#111827' : '#fff', color: active ? '#fff' : '#374151' }}>
+            {t.label}
+          </button>
+        );
+      })}
+      {btmStreak > 0 && (
+        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, fontWeight: 700, color: '#e8b84a' }}>
+          🔥 {btmStreak} day{btmStreak !== 1 ? 's' : ''}
+        </div>
+      )}
+    </div>
+  );
+
+  const btmHistoryPanel = (
+    <div style={{ padding: '0 16px 16px' }}>
+      {btmHistoryLoading ? (
+        <div style={{ textAlign: 'center', padding: '24px 0', color: '#9ca3af', fontSize: 12 }}>Loading…</div>
+      ) : !btmHistory.length ? (
+        <div style={{ textAlign: 'center', padding: '24px 0', color: '#9ca3af', fontSize: 12 }}>No picks yet — make your first pick on the Today tab.</div>
+      ) : (
+        <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
+            <thead>
+              <tr>
+                <th style={gridThStyle('left')}>Date</th>
+                <th style={gridThStyle('left')}>Race</th>
+                <th style={gridThStyle('left')}>Your pick</th>
+                <th style={gridThStyle('left')}>Winner</th>
+                <th style={gridThStyle('left')}>Model&apos;s pick</th>
+                <th style={gridThStyle('right')}>Result</th>
+              </tr>
+            </thead>
+            <tbody>
+              {btmHistory.map(h => (
+                <tr key={h.comp_date}>
+                  <td style={gridTdStyle('left', { mono: true })}>{h.comp_date}</td>
+                  <td style={gridTdStyle('left')}>{h.venue ? `${titleCase(h.venue)} R${h.race_num}` : '—'}</td>
+                  <td style={gridTdStyle('left')}>{h.your_pick || '—'}</td>
+                  <td style={gridTdStyle('left')}>{h.winner || (h.resolved ? '—' : 'Pending')}</td>
+                  <td style={gridTdStyle('left')}>{h.model_pick || '—'}</td>
+                  <td style={gridTdStyle('right')}>
+                    {!h.resolved ? <span style={{ color: '#9ca3af' }}>—</span>
+                      : h.won ? <span style={{ color: '#16a34a', fontWeight: 700 }}>Hit</span>
+                      : <span style={{ color: '#dc2626', fontWeight: 700 }}>Miss</span>}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+
+  const btmLeaderboardPanel = (
+    <div style={{ padding: '0 16px 16px' }}>
+      {btmLbLoading ? (
+        <div style={{ textAlign: 'center', padding: '24px 0', color: '#9ca3af', fontSize: 12 }}>Loading…</div>
+      ) : (
+        <>
+          <LeaderboardTable rows={btmLeaderboard} />
+          <div style={{ marginTop: 10, fontSize: 10, color: '#9ca3af', lineHeight: 1.6 }}>
+            Ranked by current streak, then hit rate. Streak breaks on any day without a correct pick — including missed days.
+          </div>
+        </>
+      )}
+    </div>
+  );
+
+  const beatModelTodayPanel = (
+    <div style={{ padding: '0 16px 16px', maxWidth: 560 }}>
+      <>
         {!btmChallenge ? (
           <div style={{ textAlign: 'center', padding: '24px 8px', color: '#6b7280', fontSize: 12 }}>
             {csvRaces ? 'No eligible race found for today.' : 'Loading race data…'}
@@ -1329,7 +1494,16 @@ export default function CompetitionsPage() {
             </div>
           </>
         )}
-      </div>
+      </>
+    </div>
+  );
+
+  const beatModelTab = (
+    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'auto', background: '#fff' }}>
+      <div style={{ padding: '16px 0 0' }}>{btmSubTabBar}</div>
+      {btmSubTab === 'today' && beatModelTodayPanel}
+      {btmSubTab === 'history' && btmHistoryPanel}
+      {btmSubTab === 'leaderboard' && btmLeaderboardPanel}
     </div>
   );
 
