@@ -1,16 +1,22 @@
 'use client';
 
+import Link from 'next/link';
+
 // Shared username renderer -- plain name by default, optionally coloured
 // and/or followed by a small tag pill when the user has an equipped flair
 // cosmetic. `flair` is an equipped flair cosmetic's `style` object (see
 // lib/cosmeticsCatalog.js): { kind: 'color', color } or
 // { kind: 'tag', label, bg, color, textColor? }.
-export default function NameFlair({ name, flair, fontSize = 12, fontWeight = 700, color = '#111827' }) {
+//
+// `href` (optional, typically `/u/${clerkId}`) wraps the whole name+tag in
+// a link to that user's public profile -- omitted call sites (or ones with
+// no clerk_id available yet) render exactly as before, non-clickable.
+export default function NameFlair({ name, flair, fontSize = 12, fontWeight = 700, color = '#111827', href }) {
   const textColor = flair?.kind === 'color' ? flair.color
     : flair?.kind === 'tag' ? (flair.textColor || color)
     : color;
 
-  return (
+  const content = (
     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
       <span style={{ fontSize, fontWeight, color: textColor }}>{name}</span>
       {flair?.kind === 'tag' && (
@@ -20,4 +26,7 @@ export default function NameFlair({ name, flair, fontSize = 12, fontWeight = 700
       )}
     </span>
   );
+
+  if (!href) return content;
+  return <Link href={href} style={{ textDecoration: 'none' }}>{content}</Link>;
 }

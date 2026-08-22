@@ -1,5 +1,7 @@
 'use client';
 
+import Link from 'next/link';
+
 // Shared avatar circle -- replaces the two near-identical `Avatar`
 // functions that used to live separately in app/community/page.js and
 // app/community/post/[id]/page.js. Other users are still shown as an
@@ -30,7 +32,7 @@ function ringBackground(style) {
   }
 }
 
-export default function Avatar({ profile, size = 32, imageUrl, border }) {
+export default function Avatar({ profile, size = 32, imageUrl, border, href }) {
   const name = profile?.display_name || '?';
   const initial = name[0]?.toUpperCase() || '?';
   const ringBg = ringBackground(border);
@@ -50,11 +52,9 @@ export default function Avatar({ profile, size = 32, imageUrl, border }) {
       </div>
     );
 
-  if (!ringBg) {
-    return <div style={{ flexShrink: 0 }}>{circle}</div>;
-  }
-
-  return (
+  const wrapped = !ringBg ? (
+    <div style={{ flexShrink: 0 }}>{circle}</div>
+  ) : (
     <div
       title={border?.name}
       style={{
@@ -79,4 +79,10 @@ export default function Avatar({ profile, size = 32, imageUrl, border }) {
       </div>
     </div>
   );
+
+  // `href` (typically `/u/${clerkId}`) makes the avatar itself clickable to
+  // that user's public profile -- omitted call sites render exactly as
+  // before, non-clickable.
+  if (!href) return wrapped;
+  return <Link href={href} style={{ display: 'inline-flex', flexShrink: 0 }}>{wrapped}</Link>;
 }

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { useUser } from '@clerk/nextjs';
 import useIsPro from '@/hooks/useIsPro';
 import useIsMobile from '@/hooks/useIsMobile';
@@ -192,7 +193,15 @@ function PostTable({ posts, section, loading, onNavigate, isMobile = false }) {
                       {section === 'all' && <CatBadge section={p.section} />}
                       <div style={{ fontSize: 12, fontWeight: 700, color: '#111827' }}>{p.title}</div>
                     </div>
-                    <div style={{ fontSize: 10, color: '#6B7280' }}>Started by <span style={{ fontWeight: 600 }}>{p.author?.display_name || 'Anonymous'}</span></div>
+                    <div style={{ fontSize: 10, color: '#6B7280' }}>
+                      Started by{' '}
+                      {/* stopPropagation: this row navigates to the post on
+                          click, but the author name should navigate to
+                          their profile instead, not both at once */}
+                      <span onClick={e => p.user_id && e.stopPropagation()} style={{ fontWeight: 600, color: p.user_id ? '#111827' : undefined }}>
+                        {p.user_id ? <Link href={`/u/${p.user_id}`} style={{ color: 'inherit', textDecoration: 'none' }}>{p.author?.display_name || 'Anonymous'}</Link> : (p.author?.display_name || 'Anonymous')}
+                      </span>
+                    </div>
                   </div>
                 </div>
               </td>
@@ -202,7 +211,9 @@ function PostTable({ posts, section, loading, onNavigate, isMobile = false }) {
               {!isMobile && (
                 <td style={{ padding: '9px 12px', textAlign: 'right' }}>
                   <div style={{ fontSize: 11, color: '#374151', fontWeight: 600 }}>{timeAgo(p.last_activity_at || p.created_at)}</div>
-                  <div style={{ fontSize: 10, color: '#6B7280' }}>by {p.author?.display_name || 'Anonymous'}</div>
+                  <div style={{ fontSize: 10, color: '#6B7280' }} onClick={e => p.user_id && e.stopPropagation()}>
+                    by {p.user_id ? <Link href={`/u/${p.user_id}`} style={{ color: 'inherit', textDecoration: 'none' }}>{p.author?.display_name || 'Anonymous'}</Link> : (p.author?.display_name || 'Anonymous')}
+                  </div>
                 </td>
               )}
             </tr>
@@ -754,10 +765,10 @@ function LeftColumn({ profile, punterName, cosmetics, userId, section, onSection
         {profile ? (
           <>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-              <Avatar profile={{ display_name: punterName }} size={40} border={cosmetics?.border?.style} />
+              <Avatar profile={{ display_name: punterName }} size={40} border={cosmetics?.border?.style} href={userId ? `/u/${userId}` : undefined} />
               <div>
                 <div style={{ marginBottom: 3 }}>
-                  <NameFlair name={punterName} flair={cosmetics?.flair?.style} fontSize={13} fontWeight={700} />
+                  <NameFlair name={punterName} flair={cosmetics?.flair?.style} fontSize={13} fontWeight={700} href={userId ? `/u/${userId}` : undefined} />
                 </div>
                 <button onClick={onShowLadder} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
                   <span style={{ fontSize: 9, fontWeight: 700, padding: '2px 6px', borderRadius: 3, background: `${tier.color}22`, color: tier.color }}>{tier.name}</span>
@@ -883,8 +894,12 @@ function RightColumn({ leaderboard, contributors, stats }) {
         {leaderboard.slice(0, 5).map((e, i) => (
           <div key={e.clerk_id || i} style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 5 }}>
             <Medal i={i} />
-            <Avatar profile={{ display_name: e.display_name }} size={16} border={e.cosmetics?.border?.style} />
-            <span style={{ fontSize: 10, fontWeight: 600, color: flairColor(e.cosmetics?.flair?.style) || '#374151', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.display_name || 'Anonymous'}</span>
+            <Avatar profile={{ display_name: e.display_name }} size={16} border={e.cosmetics?.border?.style} href={e.clerk_id ? `/u/${e.clerk_id}` : undefined} />
+            <span style={{ fontSize: 10, fontWeight: 600, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {e.clerk_id ? (
+                <Link href={`/u/${e.clerk_id}`} style={{ color: flairColor(e.cosmetics?.flair?.style) || '#374151', textDecoration: 'none' }}>{e.display_name || 'Anonymous'}</Link>
+              ) : (e.display_name || 'Anonymous')}
+            </span>
             <span style={{ fontSize: 10, fontWeight: 700, color: '#059669', flexShrink: 0 }}>
               {e.roi != null ? `${e.roi > 0 ? '+' : ''}${e.roi}%` : '—'}
             </span>
@@ -899,8 +914,12 @@ function RightColumn({ leaderboard, contributors, stats }) {
         {contributors.slice(0, 5).map((c, i) => (
           <div key={c.clerk_id || i} style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 5 }}>
             <Medal i={i} />
-            <Avatar profile={{ display_name: c.display_name }} size={16} border={c.cosmetics?.border?.style} />
-            <span style={{ fontSize: 10, fontWeight: 600, color: flairColor(c.cosmetics?.flair?.style) || '#374151', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.display_name || 'Anonymous'}</span>
+            <Avatar profile={{ display_name: c.display_name }} size={16} border={c.cosmetics?.border?.style} href={c.clerk_id ? `/u/${c.clerk_id}` : undefined} />
+            <span style={{ fontSize: 10, fontWeight: 600, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {c.clerk_id ? (
+                <Link href={`/u/${c.clerk_id}`} style={{ color: flairColor(c.cosmetics?.flair?.style) || '#374151', textDecoration: 'none' }}>{c.display_name || 'Anonymous'}</Link>
+              ) : (c.display_name || 'Anonymous')}
+            </span>
             <span style={{ fontSize: 10, fontWeight: 700, color: '#00471b', flexShrink: 0 }}>{(c.points || 0).toLocaleString()}pts</span>
           </div>
         ))}

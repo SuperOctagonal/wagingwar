@@ -1161,8 +1161,8 @@ export default function CompetitionsPage() {
                 <td style={gridTdStyle('left', { mono: true, bold: true })}>{u.rank}</td>
                 <td style={gridTdStyle('left', { ellipsis: true })}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <Avatar profile={{ display_name: u.username }} size={18} border={cosmetics?.border?.style} />
-                    <NameFlair name={u.username} flair={cosmetics?.flair?.style} fontSize={11} fontWeight={400} color="#111827" />
+                    <Avatar profile={{ display_name: u.username }} size={18} border={cosmetics?.border?.style} href={`/u/${u.clerk_id}`} />
+                    <NameFlair name={u.username} flair={cosmetics?.flair?.style} fontSize={11} fontWeight={400} color="#111827" href={`/u/${u.clerk_id}`} />
                     {u.isMe && <span style={{ color: '#854F0B', fontWeight: 600, fontSize: 11 }}> (you)</span>}
                   </div>
                 </td>

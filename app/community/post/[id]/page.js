@@ -271,8 +271,8 @@ export default function PostDetailPage() {
 
             {/* Meta line */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16, flexWrap: 'wrap', fontSize: 11, color: '#6B7280' }}>
-              <Avatar profile={post.author} size={20} border={post.author?.cosmetics?.border?.style} />
-              <NameFlair name={post.author?.display_name || 'Anonymous'} flair={post.author?.cosmetics?.flair?.style} fontSize={11} fontWeight={700} color="#374151" />
+              <Avatar profile={post.author} size={20} border={post.author?.cosmetics?.border?.style} href={post.user_id ? `/u/${post.user_id}` : undefined} />
+              <NameFlair name={post.author?.display_name || 'Anonymous'} flair={post.author?.cosmetics?.flair?.style} fontSize={11} fontWeight={700} color="#374151" href={post.user_id ? `/u/${post.user_id}` : undefined} />
               <TierBadge profile={post.author} />
               <span>·</span>
               <span>{timeAgo(post.created_at)}</span>
@@ -318,9 +318,9 @@ export default function PostDetailPage() {
                   <tr key={r.id}>
                     <td style={{ ...tdStyle({ width: 140 }) }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-                        <Avatar profile={r.author} size={20} border={r.author?.cosmetics?.border?.style} />
+                        <Avatar profile={r.author} size={20} border={r.author?.cosmetics?.border?.style} href={r.clerk_id ? `/u/${r.clerk_id}` : undefined} />
                         <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          <NameFlair name={r.author?.display_name || 'Anonymous'} flair={r.author?.cosmetics?.flair?.style} fontSize={11} fontWeight={700} color="#374151" />
+                          <NameFlair name={r.author?.display_name || 'Anonymous'} flair={r.author?.cosmetics?.flair?.style} fontSize={11} fontWeight={700} color="#374151" href={r.clerk_id ? `/u/${r.clerk_id}` : undefined} />
                         </div>
                       </div>
                       <TierBadge profile={r.author} />

@@ -718,8 +718,8 @@ function PuzzleLeaderboard() {
       {rows.slice(0, 10).map((r, i) => (
         <div key={r.clerk_id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 0', borderBottom: i < 9 ? `1px solid ${CT_LINE}` : 'none' }}>
           <span style={{ fontSize: 10, fontWeight: 700, color: '#9ca3af', width: 18 }}>#{i + 1}</span>
-          <Avatar profile={{ display_name: r.name }} size={18} border={r.cosmetics?.border?.style} />
-          <span style={{ flex: 1 }}><NameFlair name={r.name} flair={r.cosmetics?.flair?.style} fontSize={12} fontWeight={400} color={TEXT} /></span>
+          <Avatar profile={{ display_name: r.name }} size={18} border={r.cosmetics?.border?.style} href={`/u/${r.clerk_id}`} />
+          <span style={{ flex: 1 }}><NameFlair name={r.name} flair={r.cosmetics?.flair?.style} fontSize={12} fontWeight={400} color={TEXT} href={`/u/${r.clerk_id}`} /></span>
           <span style={{ fontFamily: 'JetBrains Mono, monospace', fontWeight: 700, fontSize: 12 }}>{r.score}</span>
         </div>
       ))}

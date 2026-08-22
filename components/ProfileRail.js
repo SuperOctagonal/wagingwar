@@ -100,10 +100,10 @@ export default function ProfileRail({ children }) {
       <div style={{ padding: '14px 12px' }}>
         {/* Avatar + name + tier badge */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-          <Avatar profile={{ display_name: punterName }} size={40} imageUrl={user.hasImage ? user.imageUrl : undefined} border={cosmetics.border?.style} />
+          <Avatar profile={{ display_name: punterName }} size={40} imageUrl={user.hasImage ? user.imageUrl : undefined} border={cosmetics.border?.style} href={`/u/${user.id}`} />
           <div>
             <div style={{ marginBottom: 3 }}>
-              <NameFlair name={punterName} flair={cosmetics.flair?.style} fontSize={12} fontWeight={700} />
+              <NameFlair name={punterName} flair={cosmetics.flair?.style} fontSize={12} fontWeight={700} href={`/u/${user.id}`} />
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
               <span style={{ fontSize: 9, fontWeight: 500, padding: '2px 7px', borderRadius: 4, background: isPro ? '#FAEEDA' : '#E1F5EE', color: isPro ? '#854F0B' : '#0F6E56' }}>
