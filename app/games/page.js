@@ -312,104 +312,50 @@ function DailyPuzzle({ onCreditsChange }) {
   );
 }
 
-// ─── Track Dash canvas art — plain shapes, no image assets ────────────────
-// Player: a simple horse silhouette (body + neck/head + 4 legs + tail) drawn
-// with basic path fills, sized to the same collision bounding box the
-// previous plain rectangle used.
-function drawHorse(ctx, x, y, w, h) {
-  ctx.save();
-  ctx.translate(x, y);
-  ctx.fillStyle = GOLD;
-  // Body
-  ctx.beginPath();
-  ctx.ellipse(w * 0.42, h * 0.55, w * 0.4, h * 0.3, 0, 0, Math.PI * 2);
-  ctx.fill();
-  // Neck + head
-  ctx.beginPath();
-  ctx.moveTo(w * 0.7, h * 0.4);
-  ctx.lineTo(w * 0.98, h * 0.08);
-  ctx.lineTo(w * 1.08, h * 0.22);
-  ctx.lineTo(w * 0.9, h * 0.52);
-  ctx.closePath();
-  ctx.fill();
-  // Legs
-  ctx.fillRect(w * 0.12, h * 0.75, w * 0.1, h * 0.3);
-  ctx.fillRect(w * 0.32, h * 0.78, w * 0.1, h * 0.28);
-  ctx.fillRect(w * 0.52, h * 0.78, w * 0.1, h * 0.28);
-  ctx.fillRect(w * 0.7, h * 0.75, w * 0.1, h * 0.3);
-  // Tail
-  ctx.beginPath();
-  ctx.moveTo(w * 0.05, h * 0.35);
-  ctx.quadraticCurveTo(-w * 0.18, h * 0.55, w * 0.02, h * 0.85);
-  ctx.lineTo(w * 0.14, h * 0.65);
-  ctx.closePath();
-  ctx.fill();
-  ctx.restore();
+// ─── Track Dash sprite art ──────────────────────────────────────────────────
+// Real sprite assets (CC0, no attribution required) replacing the previous
+// canvas shape-drawing -- see public/games/trackdash/CREDITS.md for the
+// exact source pack + license of each file. Loaded once at module scope
+// (not per-render) since these are small, static, session-long assets.
+const SPRITE_BASE = '/games/trackdash';
+const HORSE_SRC = `${SPRITE_BASE}/horse_run.png`;
+// 5-frame run cycle, 82x66 per frame, laid out in a single horizontal strip.
+const HORSE_FRAME_W = 82, HORSE_FRAME_H = 66, HORSE_FRAMES = 5;
+
+function loadSprite(src) {
+  if (typeof window === 'undefined') return null;
+  const img = new window.Image();
+  img.src = src;
+  return img;
 }
 
+const horseSprite = loadSprite(HORSE_SRC);
+
 // Racing-themed obstacles (hay bale, hurdle) mixed with lighthearted ones
-// (traffic cone, beach ball) for variety -- one is chosen at random per
-// spawn (see OBSTACLE_TYPES / start()'s spawn logic below).
-function drawHaybale(ctx, x, yTop, w, h) {
-  ctx.save();
-  ctx.fillStyle = '#c9922b';
-  ctx.fillRect(x, yTop, w, h);
-  ctx.strokeStyle = '#8a6420';
-  ctx.lineWidth = 2;
-  for (let i = 1; i < 3; i++) {
-    const ly = yTop + (h / 3) * i;
-    ctx.beginPath(); ctx.moveTo(x, ly); ctx.lineTo(x + w, ly); ctx.stroke();
-  }
-  ctx.restore();
-}
-function drawHurdle(ctx, x, yTop, w, h) {
-  ctx.save();
-  ctx.fillStyle = '#3b2a0d';
-  ctx.fillRect(x + 2, yTop + h * 0.3, 3, h * 0.7);
-  ctx.fillRect(x + w - 5, yTop + h * 0.3, 3, h * 0.7);
-  const barH = h * 0.35, stripes = 4;
-  for (let i = 0; i < stripes; i++) {
-    ctx.fillStyle = i % 2 === 0 ? '#dc2626' : '#fff';
-    ctx.fillRect(x + (w / stripes) * i, yTop, w / stripes, barH);
-  }
-  ctx.restore();
-}
-function drawCone(ctx, x, yTop, w, h) {
-  ctx.save();
-  ctx.fillStyle = '#f97316';
-  ctx.beginPath();
-  ctx.moveTo(x + w / 2, yTop);
-  ctx.lineTo(x + w, yTop + h * 0.85);
-  ctx.lineTo(x, yTop + h * 0.85);
-  ctx.closePath();
-  ctx.fill();
-  ctx.fillStyle = '#fff';
-  ctx.fillRect(x + w * 0.15, yTop + h * 0.45, w * 0.7, h * 0.12);
-  ctx.fillStyle = '#c2410c';
-  ctx.fillRect(x - 2, yTop + h * 0.85, w + 4, h * 0.15);
-  ctx.restore();
-}
-function drawBeachBall(ctx, x, yTop, w, h) {
-  ctx.save();
-  const r = Math.min(w, h) / 2, cx = x + w / 2, cy = yTop + h / 2;
-  ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.fillStyle = '#fff'; ctx.fill();
-  const colors = ['#dc2626', '#2563eb', '#eab308', '#16a34a'];
-  colors.forEach((c, i) => {
-    ctx.beginPath();
-    ctx.moveTo(cx, cy);
-    ctx.arc(cx, cy, r, (Math.PI / 2) * i, (Math.PI / 2) * (i + 1));
-    ctx.closePath();
-    ctx.fillStyle = c;
-    ctx.fill();
-  });
-  ctx.restore();
-}
+// (traffic cone, ball) for variety -- one is chosen at random per spawn (see
+// start()'s spawn logic below). Each keeps the exact w/h bounding box the
+// old shape-drawing version used, so collision math is untouched.
 const OBSTACLE_TYPES = [
-  { key: 'haybale',   w: 24, h: 20, draw: drawHaybale },
-  { key: 'hurdle',    w: 22, h: 26, draw: drawHurdle },
-  { key: 'cone',      w: 16, h: 22, draw: drawCone },
-  { key: 'beachball', w: 20, h: 20, draw: drawBeachBall },
+  { key: 'haybale',   w: 24, h: 20, sprite: loadSprite(`${SPRITE_BASE}/obstacle_haybale.png`) },
+  { key: 'hurdle',    w: 22, h: 26, sprite: loadSprite(`${SPRITE_BASE}/obstacle_hurdle.png`) },
+  { key: 'cone',      w: 16, h: 22, sprite: loadSprite(`${SPRITE_BASE}/obstacle_cone.png`) },
+  { key: 'beachball', w: 20, h: 20, sprite: loadSprite(`${SPRITE_BASE}/obstacle_ball.png`) },
 ];
+
+function drawHorse(ctx, x, y, w, h, elapsedMs) {
+  if (!horseSprite || !horseSprite.complete || !horseSprite.naturalWidth) return;
+  const frame = Math.floor(elapsedMs / 80) % HORSE_FRAMES;
+  ctx.drawImage(
+    horseSprite,
+    frame * HORSE_FRAME_W, 0, HORSE_FRAME_W, HORSE_FRAME_H,
+    x, y, w, h,
+  );
+}
+
+function drawObstacle(ctx, sprite, x, yTop, w, h) {
+  if (!sprite || !sprite.complete || !sprite.naturalWidth) return;
+  ctx.drawImage(sprite, x, yTop, w, h);
+}
 
 // ─── Track Dash — minimal canvas endless runner ───────────────────────────
 function TrackDash({ onCreditsChange }) {
@@ -465,7 +411,7 @@ function TrackDash({ onCreditsChange }) {
       if (s.lastSpawn > spawnGap) {
         s.lastSpawn = 0;
         const t = OBSTACLE_TYPES[Math.floor(Math.random() * OBSTACLE_TYPES.length)];
-        s.obstacles.push({ x: W, w: t.w, h: t.h, draw: t.draw });
+        s.obstacles.push({ x: W, w: t.w, h: t.h, sprite: t.sprite });
       }
       s.obstacles.forEach(o => { o.x -= s.speed; });
       s.obstacles = s.obstacles.filter(o => o.x > -20);
@@ -483,8 +429,8 @@ function TrackDash({ onCreditsChange }) {
       ctx.fillRect(0, 0, W, H);
       ctx.fillStyle = 'rgba(255,255,255,0.15)';
       ctx.fillRect(0, GROUND + 26, W, 2);
-      drawHorse(ctx, px, py, pw, ph);
-      s.obstacles.forEach(o => o.draw(ctx, o.x, GROUND + 26 - o.h, o.w, o.h));
+      drawHorse(ctx, px, py, pw, ph, s.elapsed);
+      s.obstacles.forEach(o => drawObstacle(ctx, o.sprite, o.x, GROUND + 26 - o.h, o.w, o.h));
       ctx.fillStyle = 'rgba(255,255,255,0.8)';
       ctx.font = '12px monospace';
       ctx.fillText(`${Math.floor(s.elapsed / 100)}`, 10, 16);
