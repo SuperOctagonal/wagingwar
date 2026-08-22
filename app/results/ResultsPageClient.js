@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useUser } from '@clerk/nextjs';
 import { scoreGroup, getDefaultWeights, GRP_KEYS, calcPaceMap, pointsForPlace } from '@/lib/scoring';
-import { normaliseVenue, isKnownAuVenue } from '@/lib/venues';
+import { normaliseVenue, isKnownAuVenue, AU_VENUE_STATE } from '@/lib/venues';
 import { paidPlacesForFieldSize, estimatePlacePrice } from '@/lib/placePrice';
 import { fetchAllRows } from '@/lib/fetchAllRows';
 import { ODDS_BANDS } from '@/lib/oddsBucket';
@@ -263,6 +263,33 @@ function buildSummaryFromRecords(records) {
     .map(([venue, subset]) => ({ venue, ...tally(subset) }))
     .sort((a, b) => a.venue.localeCompare(b.venue));
 
+  // State performance — same records, re-aggregated by state via the
+  // existing AU_VENUE_STATE venue->state allowlist (lib/venues.js) rather
+  // than any new state-detection logic. Deliberately NOT the same shape as
+  // venueRows: always all 8 states in a fixed order (not just whichever
+  // states had a race today), and — unlike Venue Performance, which has no
+  // sample-size guard at all — rows below MIN_SAMPLE starts are flagged
+  // insufficientData rather than shown as a misleading 100%-off-one-start
+  // win rate. A state with zero starts in the current window is a third,
+  // distinct case (dataless, not "insufficient") so MetricTable can tell
+  // "only 3 starts" apart from "no races here today" instead of collapsing
+  // both into the same italic label.
+  const STATE_ORDER = ['QLD', 'NSW', 'VIC', 'ACT', 'TAS', 'NT', 'SA', 'WA'];
+  const MIN_SAMPLE = 10;
+  const stateMap = {};
+  records.forEach(r => {
+    const state = AU_VENUE_STATE[normaliseVenue(r.venue)];
+    if (!state) return; // no real AU venue should fail this, but never miscount silently
+    if (!stateMap[state]) stateMap[state] = [];
+    stateMap[state].push(r);
+  });
+  const stateRows = STATE_ORDER.map(state => {
+    const subset = stateMap[state] || [];
+    if (!subset.length) return { state, starts: 0, noData: true };
+    const t = tally(subset);
+    return { state, ...t, insufficientData: t.starts < MIN_SAMPLE };
+  });
+
   // Odds band performance — bucket rank-1 picks by their own SP. Bands come
   // from lib/oddsBucket.js, the single shared source Insights and the
   // BetFilterPanel odds filter also use, so all three stay in sync. Explicit
@@ -317,7 +344,7 @@ function buildSummaryFromRecords(records) {
       .map(k => ({ label: k, total: tierMap[k].total, winPct: tierMap[k].wins / tierMap[k].total, placePct: tierMap[k].places / tierMap[k].total, pnl: tierMap[k].pnl }));
   }
 
-  return { total, wins, places, winPct, placePct, best, condRows, maxWin, maxLoss, venueRows, oddsRows, distRows, confRows, dayTally, notionalPnl };
+  return { total, wins, places, winPct, placePct, best, condRows, maxWin, maxLoss, venueRows, stateRows, oddsRows, distRows, confRows, dayTally, notionalPnl };
 }
 
 function getBarrierFromCSV(allRaces, allVenues, venue, raceNum, horseName) {
@@ -906,14 +933,19 @@ const thStyle = (align) => ({ textAlign: align, padding: align === 'left' ? '2px
 // into the numeric columns' space on a narrow card).
 const tdStyle = (align, isName) => ({ textAlign: align, padding: align === 'left' ? '2px 2px 2px 4px' : '2px 2px', color: '#111827', fontFamily: isName ? undefined : 'JetBrains Mono, monospace', fontSize: isName ? 9 : 8, fontWeight: isName ? 600 : 400, lineHeight: isName ? 1.25 : undefined, overflow: isName ? 'visible' : 'hidden', textOverflow: isName ? 'clip' : 'ellipsis', whiteSpace: isName ? 'normal' : 'nowrap', overflowWrap: isName ? 'break-word' : undefined });
 
-// Shared table for the 4 row-based cards (Venue, Track Condition, Odds Band,
-// Distance Breakdown) — zebra striping, muted uppercase column headers, dark
-// body text throughout, win% colored green (the only place color carries
-// signal), and a left border accent: green if that row's win% beats the
-// day's overall average, grey otherwise — an at-a-glance over/under signal.
-// table-layout:fixed + an explicit <colgroup> keeps all 8 columns inside the
-// card width (no horizontal scroll) regardless of name length — the name
-// column gets whatever's left, the count/pct/pnl columns are narrow and fixed.
+// Shared table for the 5 row-based cards (Venue, State, Track Condition,
+// Odds Band, Distance Breakdown) — zebra striping, muted uppercase column
+// headers, dark body text throughout, win% colored green (the only place
+// color carries signal), and a left border accent: green if that row's
+// win% beats the day's overall average, grey otherwise — an at-a-glance
+// over/under signal. table-layout:fixed + an explicit <colgroup> keeps all
+// 8 columns inside the card width (no horizontal scroll) regardless of
+// name length — the name column gets whatever's left, the count/pct/pnl
+// columns are narrow and fixed.
+//
+// Only State Performance's rows ever carry `noData`/`insufficientData` --
+// every other caller's rows are plain tallies and render through the
+// normal (green/grey-accented, real percentages) branch unchanged.
 function MetricTable({ rows, nameKey, nameLabel, avgWinPct }) {
   if (!rows.length) return <div style={{ fontSize: 10, color: '#111827' }}>—</div>;
   return (
@@ -943,6 +975,36 @@ function MetricTable({ rows, nameKey, nameLabel, avgWinPct }) {
         </thead>
         <tbody>
           {rows.map((r, i) => {
+            // noData: genuinely zero starts in this window (e.g. a state
+            // with no meetings today) -- distinct from insufficientData
+            // (some starts, just fewer than MIN_SAMPLE), which is itself
+            // distinct from Venue Performance's rows, which never carry
+            // either flag and always render real percentages (that card
+            // has no sample-size guard at all, unchanged).
+            if (r.noData) {
+              return (
+                <tr key={r[nameKey]} style={{ background: i % 2 === 0 ? '#fff' : '#f8fafc', borderLeft: '3px solid #e5e7eb' }}>
+                  <td style={tdStyle('left', true)}>{r[nameKey]}</td>
+                  <td style={tdStyle('right')}>0</td>
+                  <td style={tdStyle('right')}>0</td>
+                  <td style={tdStyle('right')}>0</td>
+                  <td style={tdStyle('right')}>0</td>
+                  <td colSpan={3} style={{ ...tdStyle('right'), color: '#d1d5db' }}>—</td>
+                </tr>
+              );
+            }
+            if (r.insufficientData) {
+              return (
+                <tr key={r[nameKey]} style={{ background: i % 2 === 0 ? '#fff' : '#f8fafc', borderLeft: '3px solid #d1d5db' }}>
+                  <td style={tdStyle('left', true)}>{r[nameKey]}</td>
+                  <td style={tdStyle('right')}>{r.starts}</td>
+                  <td style={tdStyle('right')}>{r.firsts}</td>
+                  <td style={tdStyle('right')}>{r.seconds}</td>
+                  <td style={tdStyle('right')}>{r.thirds}</td>
+                  <td colSpan={3} style={{ ...tdStyle('right'), color: '#9ca3af', fontStyle: 'italic' }}>insufficient data</td>
+                </tr>
+              );
+            }
             const above = r.winPct > avgWinPct;
             return (
               <tr key={r[nameKey]} style={{ background: i % 2 === 0 ? '#fff' : '#f8fafc', borderLeft: `3px solid ${above ? '#16a34a' : '#d1d5db'}` }}>
@@ -1058,7 +1120,7 @@ function ScoreBandCard({ scoreBands, scoreBandsLoading }) {
 }
 
 function DailyModelSummaryCards({ data, showComparison, allTimeWinPct, scoreBands, scoreBandsLoading }) {
-  const { total, wins, places, winPct, placePct, best, condRows, maxWin, maxLoss, venueRows, oddsRows, distRows, confRows, dayTally, notionalPnl } = data;
+  const { total, wins, places, winPct, placePct, best, condRows, maxWin, maxLoss, venueRows, stateRows, oddsRows, distRows, confRows, dayTally, notionalPnl } = data;
 
   return (
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 8, maxWidth: 1000 }}>
@@ -1126,6 +1188,10 @@ function DailyModelSummaryCards({ data, showComparison, allTimeWinPct, scoreBand
 
         <SummaryCard icon="ti-map-pin" label="Venue performance">
           <MetricTable rows={venueRows} nameKey="venue" nameLabel="Venue" avgWinPct={winPct} />
+        </SummaryCard>
+
+        <SummaryCard icon="ti-map" label="State performance">
+          <MetricTable rows={stateRows} nameKey="state" nameLabel="State" avgWinPct={winPct} />
         </SummaryCard>
 
         <SummaryCard icon="ti-coin" label="Odds band performance">
