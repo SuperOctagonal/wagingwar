@@ -8,7 +8,6 @@ import useIsPro from '@/hooks/useIsPro';
 import useIsMobile from '@/hooks/useIsMobile';
 import { isSiteAdmin } from '@/lib/admin';
 import { punterFallback } from '@/lib/punterFallback';
-import { brisbaneTodayISO } from '@/lib/raceTime';
 
 const SURL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SKEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -108,19 +107,22 @@ export default function TopNav() {
   // known, accepted minor edge case: could show on a day with literally no
   // usable race data at all, which is rare. Pro-gated since the whole
   // Competitions page is.
+  //
+  // Goes through /api/beat-model/today (service key) rather than a direct
+  // anon-key read -- btm_picks has no anon-role SELECT policy, so the
+  // previous direct fetch always got back `200 []` (confirmed live,
+  // including a completely unfiltered anon SELECT), meaning this badge
+  // could never see a real saved pick and would show "pending" regardless
+  // of actual state.
   useEffect(() => {
-    if (!user?.id || !isPro || !SURL || !SKEY) { setBtmPending(false); return; }
+    if (!user?.id || !isPro) { setBtmPending(false); return; }
     let cancelled = false;
     const load = async () => {
       try {
-        const today = brisbaneTodayISO();
-        const res = await fetch(
-          `${SURL}/rest/v1/btm_picks?clerk_id=eq.${encodeURIComponent(user.id)}&comp_date=eq.${today}&select=horse_name`,
-          { headers: { apikey: SKEY, Authorization: `Bearer ${SKEY}` } },
-        );
+        const res = await fetch('/api/beat-model/today');
         if (res.ok && !cancelled) {
-          const rows = await res.json();
-          setBtmPending(Array.isArray(rows) && rows.length === 0);
+          const data = await res.json();
+          setBtmPending(!data.pick);
         }
       } catch {}
     };

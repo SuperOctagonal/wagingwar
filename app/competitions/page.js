@@ -774,17 +774,34 @@ export default function CompetitionsPage() {
     });
   }, [btmChallenge?.venue, btmChallenge?.raceNum, today, isPro, btmModelPick]);
 
-  // Load this user's existing pick + resolution state for today
+  // Load this user's existing pick + resolution state for today, plus the
+  // day's aggregate participant/correct stats -- both come from
+  // /api/beat-model/today (service key). Previously two separate anon-key
+  // sbFetch calls to btm_picks, both silently broken: btm_picks has no
+  // anon-role SELECT policy, so those calls always returned `200 []`
+  // (confirmed live) rather than an error, meaning btmPick/btmStats could
+  // never reflect a real saved pick regardless of what was actually in the
+  // table. This one fetch now serves both, polled the same way the old
+  // stats-only effect did (today's participant count can change as other
+  // users pick throughout the day).
   useEffect(() => {
-    if (!user?.id || !isPro || !SURL || !SKEY) { setBtmPick(null); setBtmResolved(false); setBtmWon(false); return; }
-    sbFetch(`btm_picks?clerk_id=eq.${encodeURIComponent(user.id)}&comp_date=eq.${today}&select=horse_name,resolved,won`)
-      .then(rows => {
-        if (!Array.isArray(rows) || !rows.length) return;
-        setBtmPick(rows[0].horse_name);
-        setBtmResolved(!!rows[0].resolved);
-        setBtmWon(!!rows[0].won);
-      });
-  }, [user?.id, today, isPro]);
+    if (!user?.id || !isPro || !btmChallenge) { setBtmPick(null); setBtmResolved(false); setBtmWon(false); return; }
+    function load() {
+      fetch('/api/beat-model/today')
+        .then(res => res.ok ? res.json() : null)
+        .then(data => {
+          if (!data) return;
+          setBtmPick(data.pick?.horse_name || null);
+          setBtmResolved(!!data.pick?.resolved);
+          setBtmWon(!!data.pick?.won);
+          setBtmStats(data.stats || { participants: 0, correct: 0 });
+        })
+        .catch(err => console.error('[BeatModel] today load failed', err));
+    }
+    load();
+    const id = setInterval(load, 60000);
+    return () => clearInterval(id);
+  }, [user?.id, today, isPro, btmChallenge?.venue, btmChallenge?.raceNum]);
 
   // Resolve once the winner is known — client-triggered like the rest of
   // this app's point-awarding actions (no server cron exists to hook into;
@@ -822,22 +839,6 @@ export default function CompetitionsPage() {
       }
     })();
   }, [user?.id, isPro, btmChallenge, btmPick, btmResolved, btmWinnerRow, today]);
-
-  // Aggregate participant/correct counts — a simple stat line rather than
-  // forcing this into LeaderboardTable's multi-metric (hitPct/streak/score)
-  // shape, which doesn't fit a single binary-outcome race well.
-  useEffect(() => {
-    if (!SURL || !SKEY || !isPro || !btmChallenge) return;
-    function load() {
-      sbFetch(`btm_picks?comp_date=eq.${today}&select=resolved,won`).then(rows => {
-        if (!Array.isArray(rows)) return;
-        setBtmStats({ participants: rows.length, correct: rows.filter(r => r.resolved && r.won).length });
-      });
-    }
-    load();
-    const id = setInterval(load, 60000);
-    return () => clearInterval(id);
-  }, [today, isPro, btmChallenge?.venue, btmChallenge?.raceNum]);
 
   // Pick history + derived streak — lazy-loaded on the History sub-tab, and
   // refetched whenever a resolve just landed (btmResolved flipping true)
