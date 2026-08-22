@@ -9,7 +9,7 @@ import { fetchEquippedCosmetics } from '@/lib/cosmetics';
 import MainTabBar from '@/components/MainTabBar';
 import Avatar from '@/components/Avatar';
 import NameFlair from '@/components/NameFlair';
-import LockerTab from '@/components/LockerTab';
+import StoreTab from '@/components/StoreTab';
 
 const GOLD = '#e8b84a';
 const TEXT = '#111827';
@@ -962,12 +962,9 @@ export default function GamesPage() {
           </>
         )}
         {mainTab === 'prizes' && <PrizesTab onCreditsChange={handleCreditsChange} />}
-        {/* Store tab currently shows the Locker view only -- the Browse/
-            basket-checkout half (batch 3) lands here as a sub-tab
-            alongside it, not a separate page, once it exists. Showing
-            Locker alone now rather than a picker with a dead "Browse"
-            entry that does nothing yet. */}
-        {mainTab === 'store' && <LockerTab />}
+        {/* Browse (catalog + basket checkout) now exists alongside Locker,
+            so the Store tab renders the real Browse/Locker picker. */}
+        {mainTab === 'store' && <StoreTab />}
       </div>
     </main>
   );
