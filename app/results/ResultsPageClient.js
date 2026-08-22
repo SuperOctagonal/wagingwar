@@ -1280,7 +1280,7 @@ function ExoticsTable({ rows }) {
 // track (per-venue), and by race-position-within-meeting (first 4 vs the
 // actual last 4 races of that specific card, since meeting length varies
 // day to day — not a fixed race number).
-function ExoticsSection({ exotics, exoticsLoading }) {
+function ExoticsSection({ exotics, exoticsLoading, exoticsTimedOut }) {
   return (
     <div style={{ marginTop: 18 }}>
       <div style={{ fontSize: 10, fontWeight: 600, color: '#374151', textTransform: 'uppercase', letterSpacing: '.5px', marginBottom: 8 }}>
@@ -1289,7 +1289,13 @@ function ExoticsSection({ exotics, exoticsLoading }) {
 
       {exoticsLoading && <div style={{ fontSize: 10, color: '#9ca3af', padding: '8px 0' }}>Loading…</div>}
 
-      {!exoticsLoading && (
+      {!exoticsLoading && exoticsTimedOut && (
+        <div style={{ fontSize: 10, color: '#dc2626', padding: '8px 0' }}>
+          Taking longer than expected — try a shorter date range.
+        </div>
+      )}
+
+      {!exoticsLoading && !exoticsTimedOut && (
         <>
           <div style={{ fontSize: 9, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '.4px', marginBottom: 4 }}>By Track</div>
           <div style={{ background: '#fff', border: '0.5px solid #e5e7eb', borderRadius: 8, padding: '8px 10px', marginBottom: 14 }}>
@@ -1379,6 +1385,7 @@ export default function ResultsPage() {
   const [scoreBandsLoading, setScoreBandsLoading] = useState(false);
   const [exotics, setExotics] = useState(null);
   const [exoticsLoading, setExoticsLoading] = useState(false);
+  const [exoticsTimedOut, setExoticsTimedOut] = useState(false);
   const todayAEST = new Date().toLocaleDateString('sv-SE', { timeZone: 'Australia/Brisbane' });
   const weights = useMemo(() => getDefaultWeights(), []);
 
@@ -1828,11 +1835,20 @@ export default function ResultsPage() {
       .then(r => r.ok ? r.json() : null)
       .then(data => { if (!cancelled) { setScoreBands(data); setScoreBandsLoading(false); } })
       .catch(() => { if (!cancelled) { setScoreBands(null); setScoreBandsLoading(false); } });
-    fetch(`/api/results-exotics?${qs}`)
+    setExoticsTimedOut(false);
+    // Exotic hit-rate computation over a 30-day window can be genuinely slow
+    // (large-window scoring/join work server-side) rather than hung, but a
+    // bare "Loading..." with no ceiling makes the two indistinguishable to
+    // the user. Abort and surface a distinct message after 40s so a real
+    // failure/timeout doesn't just look like an unusually slow success.
+    const exoticsController = new AbortController();
+    const exoticsTimer = setTimeout(() => exoticsController.abort(), 40000);
+    fetch(`/api/results-exotics?${qs}`, { signal: exoticsController.signal })
       .then(r => r.ok ? r.json() : null)
       .then(data => { if (!cancelled) { setExotics(data); setExoticsLoading(false); } })
-      .catch(() => { if (!cancelled) { setExotics(null); setExoticsLoading(false); } });
-    return () => { cancelled = true; };
+      .catch(() => { if (!cancelled) { setExotics(null); setExoticsLoading(false); setExoticsTimedOut(true); } })
+      .finally(() => clearTimeout(exoticsTimer));
+    return () => { cancelled = true; exoticsController.abort(); clearTimeout(exoticsTimer); };
   }, [selectedDate, trendWindow]);
 
   // All-time average win% ("on this day" comparison line) — computed once
@@ -2076,7 +2092,7 @@ export default function ResultsPage() {
               scoreBandsLoading={scoreBandsLoading}
             />
 
-            <ExoticsSection exotics={exotics} exoticsLoading={exoticsLoading} />
+            <ExoticsSection exotics={exotics} exoticsLoading={exoticsLoading} exoticsTimedOut={exoticsTimedOut} />
           </>
         ))}
       </div>
