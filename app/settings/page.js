@@ -5,7 +5,6 @@ import { useUser, useClerk, useReverification } from '@clerk/nextjs';
 import { isReverificationCancelledError } from '@clerk/nextjs/errors';
 import useIsPro from '@/hooks/useIsPro';
 import { punterFallback } from '@/lib/punterFallback';
-import CosmeticsStore from '@/components/CosmeticsStore';
 
 const SURL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SKEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -39,7 +38,6 @@ async function sbFetch(path, opts = {}) {
 
 const NAV = [
   { key: 'profile',       label: 'Profile',          pro: false },
-  { key: 'cosmetics',     label: 'Cosmetics',        pro: false },
   { key: 'notifications', label: 'Notifications',    pro: false },
   { key: 'betting',       label: 'Betting defaults', pro: true  },
   { key: 'races',         label: 'Races page',       pro: true  },
@@ -473,8 +471,6 @@ export default function SettingsPage() {
           <SaveBt saving={saving} onClick={save} />
         </>
       );
-
-      case 'cosmetics': return <CosmeticsStore />;
 
       case 'notifications': return (
         <>
