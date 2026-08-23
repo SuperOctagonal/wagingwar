@@ -1,0 +1,19 @@
+# Gecko Catch sprite credits
+
+All assets below are CC0 (public domain) — no attribution required by license.
+Kept here for provenance/record-keeping only, not because it's legally required.
+License confirmed by reading each pack's actual license file/page directly
+(not assumed from a search snippet) — see notes below.
+
+| File | Source | License |
+|---|---|---|
+| `gecko.png` | tile index 147, cropped from `Tilemap/tilemap.png`, "Tiny Creatures" pack by Clint Bellanger (opengameart.org/content/tiny-creatures) | CC0 |
+| `bee.png` | tile index 141, cropped from `Tilemap/tilemap.png`, "Tiny Creatures" pack by Clint Bellanger (opengameart.org/content/tiny-creatures) | CC0 |
+| `fly.png` | `greenfly_spritesheet.png`, "16x16 Flies" (opengameart.org/content/16x16-flies) | CC0 |
+
+Notes:
+- "Tiny Creatures" ships as a 180-tile, 16x16-per-tile sheet (`Tilemap/tilemap.png`, 10 cols x 18 rows) plus one PNG per tile under `Tiles/`. License verified by reading the pack's own `License.txt` directly (not the OpenGameArt listing page alone): "License: (Creative Commons Zero, CC0) ... free to use in personal, educational and commercial projects. Support my work by crediting Clint Bellanger (this is not mandatory)." The pack is itself an expansion of Kenney's Tiny Dungeon/Tiny Town, made with Kenney's permission, per the same license file.
+- `gecko.png` is tile index 147 (row 14, col 6 of the sheet, 0-indexed) — a green lizard/gecko-shaped creature in the pack's monster set. It's a single static pose (the whole pack is icon-style, no walk cycle), which is fine here since the gecko only ever moves left/right and is flipped horizontally by direction (same `scale(-1,1)` technique Track Dash uses for the horse) rather than needing an animated stride.
+- `bee.png` is tile index 141 (row 14, col 0) — the pack's actual creature is a striped bee, not a wasp. The original brief said "wasp or spider"; a bee is the same genre-equivalent flying/stinging avoid-obstacle and comes from the same already-verified pack rather than pulling in a third license to source a literal wasp, same reasoning Track Dash used substituting a soccer ball for a beach ball / a crate for a hay bale.
+- `fly.png` is the untouched 3-frame (48x16, 16x16/frame) run/flutter-cycle strip from "16x16 Flies" — license verified by reading the OpenGameArt listing page directly: CC0 badge linking to the standard CC0 legal code, no attribution or usage-restriction notes from the artist.
+- All three files' alpha channels were checked directly (reading the raw decoded pixel buffer, not just the PNG header) after the Track Dash horse sprite's fake-opaque-white-background bug from earlier this session — and this batch caught a real, different instance of the same class of bug: `gecko.png` and `bee.png` were initially cropped from the pack's individual per-tile exports (`Tiles/tile_0147.png`, `tile_0141.png`), which turned out to be flattened onto an opaque background (`hasAlpha: false`, confirmed via PNG metadata) despite the source sheet (`Tilemap/tilemap.png`) having real per-pixel alpha. The first alpha-bounds check ran against those flattened per-tile files using a hardcoded RGBA byte stride, which silently produced plausible-looking (but meaningless) numbers on what was actually a 3-channel, no-alpha image — the bug wasn't caught until a live Playwright screenshot showed a solid black box behind the gecko and bee. Fixed by re-cropping both sprites directly from the alpha-preserving sheet instead of the per-tile exports, then re-verifying real transparency by compositing onto a magenta background and re-measuring alpha bounds with a stride that reads the buffer's actual channel count rather than assuming 4. Final real transparency: `gecko.png` 124/256px fully transparent, `bee.png` 49/256px, `fly.png` genuinely had alpha from the start (confirmed via `file`: "RGBA, non-interlaced").

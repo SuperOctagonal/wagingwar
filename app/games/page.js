@@ -19,6 +19,7 @@ const MAIN_TABS = [
   { id: 'trivia', label: 'Trivia', icon: 'ti-brain' },
   { id: 'puzzle', label: 'Puzzle', icon: 'ti-puzzle' },
   { id: 'trackdash', label: 'Track Dash', icon: 'ti-run' },
+  { id: 'geckocatch', label: 'Gecko Catch', icon: 'ti-bug' },
   { id: 'prizes', label: 'Prizes', icon: 'ti-disc' },
   { id: 'store', label: 'Store', icon: 'ti-building-store' },
 ];
@@ -697,10 +698,391 @@ function TrackDash({ onCreditsChange }) {
   );
 }
 
-function PuzzleLeaderboard() {
+// ─── Gecko Catch sprite art ─────────────────────────────────────────────────
+// Real sprite assets (CC0, no attribution required) -- see
+// public/games/geckocatch/CREDITS.md for the exact source pack + license of
+// each file, and that file's notes for a real bug caught during this
+// batch: the pack's individual per-tile PNG exports (Tiles/tile_0147.png,
+// tile_0141.png) turned out to be flattened onto an opaque background
+// (hasAlpha: false) despite the source sheet (Tilemap/tilemap.png) having
+// real per-pixel alpha -- an early alpha-bounds check on the per-tile files
+// used a hardcoded RGBA byte stride that silently produced plausible-looking
+// garbage on what was actually a 3-channel (no-alpha) image, masking the
+// problem until a live Playwright screenshot showed a solid black box
+// behind the gecko/bee. Fixed by re-cropping both sprites directly from the
+// alpha-preserving sheet instead of using the flattened per-tile exports.
+const GC_SPRITE_BASE = '/games/geckocatch';
+const GECKO_SRC = `${GC_SPRITE_BASE}/gecko.png`;
+const BEE_SRC = `${GC_SPRITE_BASE}/bee.png`;
+const FLY_SRC = `${GC_SPRITE_BASE}/fly.png`;
+const GECKO_NATIVE = 16, BEE_NATIVE = 16;
+const FLY_FRAME_W = 16, FLY_FRAME_H = 16, FLY_FRAMES = 3;
+
+const geckoSprite = loadSprite(GECKO_SRC);
+const beeSprite = loadSprite(BEE_SRC);
+const flySprite = loadSprite(FLY_SRC);
+
+// Real measured insets (raw alpha buffer, correct byte stride this time) on
+// the corrected, actually-transparent crops: gecko art spans x 1-13/16,
+// y 2-13/16 (l=0.06 r=0.13 t=0.13 b=0.13); bee art spans nearly the full box
+// with only a sliver of padding on the bottom (l=0 r=0 t=0 b=0.06). Used
+// directly rather than a generic uniform margin now that real numbers exist.
+const GECKO_HIT = { l: 0.06, r: 0.13, t: 0.13, b: 0.13 };
+const BEE_HIT = { l: 0.0, r: 0.0, t: 0.0, b: 0.06 };
+// Fly's real per-frame bounds (measured) range roughly l 0-0.13, r 0.13,
+// t 0.06-0.25, b 0.06-0.19 across its 3 frames -- averaged and rounded to a
+// single box loose enough to cover all three without ever clipping a wider
+// frame, since this is the "catch" target and a stingy hitbox here would
+// just feel like a miscount rather than a fair dodge.
+const FLY_HIT = { l: 0.06, r: 0.12, t: 0.18, b: 0.12 };
+
+function drawGecko(ctx, x, y, w, h, facingRight) {
+  if (!geckoSprite || !geckoSprite.complete || !geckoSprite.naturalWidth) return;
+  ctx.save();
+  if (facingRight) {
+    ctx.translate(x + w, y);
+    ctx.scale(-1, 1);
+    ctx.drawImage(geckoSprite, 0, 0, GECKO_NATIVE, GECKO_NATIVE, 0, 0, w, h);
+  } else {
+    ctx.drawImage(geckoSprite, 0, 0, GECKO_NATIVE, GECKO_NATIVE, x, y, w, h);
+  }
+  ctx.restore();
+}
+
+function drawBee(ctx, x, y, w, h) {
+  if (!beeSprite || !beeSprite.complete || !beeSprite.naturalWidth) return;
+  ctx.drawImage(beeSprite, 0, 0, BEE_NATIVE, BEE_NATIVE, x, y, w, h);
+}
+
+function drawFly(ctx, x, y, w, h, elapsedMs) {
+  if (!flySprite || !flySprite.complete || !flySprite.naturalWidth) return;
+  const frame = Math.floor(elapsedMs / 90) % FLY_FRAMES;
+  ctx.drawImage(flySprite, frame * FLY_FRAME_W, 0, FLY_FRAME_W, FLY_FRAME_H, x, y, w, h);
+}
+
+// ─── Gecko Catch scene layers ───────────────────────────────────────────────
+// Vertical scene (taller than wide, unlike Track Dash's wide runner strip)
+// -- canopy band at the top (static leaves), a bark band filling most of the
+// height (the "trunk" the gecko and bugs are constrained to, full canvas
+// width -- same "every band fills its own full rect first" rule Track
+// Dash's drawScene uses, so no gap can open between bands regardless of
+// texture shapes), and a roots/ground band at the bottom.
+const GC_W = 480, GC_H = 720;
+const GC_CANOPY_TOP = 0, GC_CANOPY_H = 64;
+const GC_BARK_TOP = GC_CANOPY_H, GC_BARK_H = GC_H - GC_CANOPY_H - 56;
+const GC_BARK_BOTTOM = GC_BARK_TOP + GC_BARK_H;
+const GC_ROOTS_TOP = GC_BARK_BOTTOM, GC_ROOTS_H = GC_H - GC_BARK_BOTTOM;
+
+const GC_CANOPY_COLOR = '#173404';
+const GC_LEAF_COLOR = '#1f4d0a';
+const GC_BARK_TOP_COLOR = '#4a3323';
+const GC_BARK_BOTTOM_COLOR = '#3a2819';
+const GC_BARK_GROOVE_COLOR = 'rgba(0,0,0,0.22)';
+const GC_ROOTS_COLOR = '#2b1d12';
+const GC_ROOTS_TEXTURE = 'rgba(255,255,255,0.05)';
+
+// Deterministic leaf clumps (fixed layout, drawn once per frame at fixed
+// position -- canopy doesn't scroll, it's the static "top of the tree").
+const GC_LEAVES = Array.from({ length: 9 }, (_, i) => ({
+  cx: (i + 0.5) * (GC_W / 9),
+  cy: 22 + (i % 3) * 12,
+  r: 20 + (i % 4) * 5,
+}));
+
+// Deterministic bark groove lines (fixed x positions, scrolled vertically at
+// render time via scrollPx) -- same "avoid re-rolling Math.random() every
+// frame" reasoning as Track Dash's DIRT_MARKS.
+const GC_GROOVES = Array.from({ length: 14 }, (_, i) => ({
+  xFrac: (i * 131 % 480) / 480,
+  wobble: (i % 5) * 6,
+}));
+
+function drawGeckoScene(ctx, scrollPx) {
+  // Canopy
+  ctx.fillStyle = GC_CANOPY_COLOR;
+  ctx.fillRect(0, GC_CANOPY_TOP, GC_W, GC_CANOPY_H);
+  ctx.fillStyle = GC_LEAF_COLOR;
+  GC_LEAVES.forEach(l => {
+    ctx.beginPath();
+    ctx.arc(l.cx, l.cy, l.r, 0, Math.PI * 2);
+    ctx.fill();
+  });
+
+  // Bark/trunk band -- vertical gradient (subtle depth), full width, scrolls
+  // downward via scrollPx to sell the "sliding down the trunk" read.
+  const barkGrad = ctx.createLinearGradient(0, GC_BARK_TOP, GC_W, GC_BARK_TOP);
+  barkGrad.addColorStop(0, GC_BARK_BOTTOM_COLOR);
+  barkGrad.addColorStop(0.5, GC_BARK_TOP_COLOR);
+  barkGrad.addColorStop(1, GC_BARK_BOTTOM_COLOR);
+  ctx.fillStyle = barkGrad;
+  ctx.fillRect(0, GC_BARK_TOP, GC_W, GC_BARK_H);
+
+  ctx.strokeStyle = GC_BARK_GROOVE_COLOR;
+  ctx.lineWidth = 3;
+  const grooveShift = scrollPx % 140;
+  for (let pass = -1; pass <= Math.ceil(GC_BARK_H / 140) + 1; pass++) {
+    const baseY = GC_BARK_TOP + pass * 140 + grooveShift;
+    GC_GROOVES.forEach(g => {
+      const x = g.xFrac * GC_W;
+      ctx.beginPath();
+      ctx.moveTo(x - g.wobble, baseY);
+      ctx.quadraticCurveTo(x, baseY + 35, x + g.wobble, baseY + 70);
+      ctx.stroke();
+    });
+  }
+
+  // Roots/ground band
+  ctx.fillStyle = GC_ROOTS_COLOR;
+  ctx.fillRect(0, GC_ROOTS_TOP, GC_W, GC_ROOTS_H);
+  ctx.fillStyle = GC_ROOTS_TEXTURE;
+  for (let x = 10; x < GC_W; x += 46) {
+    ctx.fillRect(x, GC_ROOTS_TOP + 10, 22, GC_ROOTS_H - 18);
+  }
+}
+
+// Spawn gap -- same shape as Track Dash's rollSpawnGap: baseline tightens
+// with elapsed time, actual gap randomized in a band around it so spacing
+// isn't a fully learnable fixed curve.
+function rollBugGap(elapsedMs) {
+  const baseline = Math.max(420, 900 - elapsedMs / 30);
+  const gap = baseline * (0.7 + Math.random() * 0.8);
+  return Math.max(300, gap);
+}
+
+// Bad-obstacle (bee) share of spawns -- ramps from 18% to 28% over the
+// run's first 60s (per the approved plan), then holds at 28%. Flies stay
+// the majority of spawns throughout so catching is always the primary loop.
+function rollBeeChance(elapsedMs) {
+  const t = Math.min(1, elapsedMs / 60000);
+  return 0.18 + t * (0.28 - 0.18);
+}
+
+// ─── Gecko Catch — canvas arcade catcher ───────────────────────────────────
+function GeckoCatch({ onCreditsChange }) {
+  const canvasRef = useRef(null);
+  const stateRef = useRef(null);
+  const [playing, setPlaying] = useState(false);
+  const [lastResult, setLastResult] = useState(null);
+  const [highScore, setHighScore] = useState(0);
+
+  const W = GC_W, H = GC_H;
+  const GECKO_SIZE = 44;
+  const BEE_SIZE = 32;
+  const FLY_SIZE = 30;
+  const GECKO_Y = GC_BARK_TOP + GC_BARK_H * 0.8;
+  const GECKO_SPEED = 6.5; // px/frame-at-60fps-equivalent, keyboard movement
+  const MOVE_MARGIN = 4; // keeps the sprite box fully inside the bark band
+
+  const start = useCallback(() => {
+    setLastResult(null);
+    setPlaying(true);
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext('2d');
+    ctx.imageSmoothingEnabled = false;
+    const s = {
+      running: true,
+      geckoX: W / 2 - GECKO_SIZE / 2,
+      facingRight: true,
+      keys: { left: false, right: false },
+      dragTargetX: null,
+      bugs: [], // { x, y, kind: 'fly'|'bee', size, cleared }
+      score: 0,
+      lives: 3,
+      invincibleUntil: 0,
+      elapsed: 0,
+      lastSpawn: 0,
+      nextSpawnGap: rollBugGap(0),
+      scroll: 0,
+    };
+    stateRef.current = s;
+
+    let raf;
+    let lastTs = performance.now();
+    function loop(ts) {
+      const dt = Math.min(32, ts - lastTs);
+      lastTs = ts;
+      if (!s.running) return;
+
+      s.elapsed += dt;
+      s.scroll += 2.2 + s.elapsed / 8000; // bark scroll speed creeps up too, matches fall-speed ramp
+
+      // Movement -- keyboard velocity, or ease toward a drag/tap target if
+      // one is active (drag takes priority since it's the more deliberate
+      // input while held).
+      if (s.dragTargetX != null) {
+        const dx = s.dragTargetX - (s.geckoX + GECKO_SIZE / 2);
+        if (Math.abs(dx) > 1) {
+          const step = Math.sign(dx) * Math.min(Math.abs(dx), GECKO_SPEED * 1.6);
+          s.geckoX += step;
+          s.facingRight = step > 0;
+        }
+      } else {
+        if (s.keys.left) { s.geckoX -= GECKO_SPEED; s.facingRight = false; }
+        if (s.keys.right) { s.geckoX += GECKO_SPEED; s.facingRight = true; }
+      }
+      s.geckoX = Math.max(MOVE_MARGIN, Math.min(W - GECKO_SIZE - MOVE_MARGIN, s.geckoX));
+
+      // Spawn
+      const fallSpeed = 2.2 + s.elapsed / 9000;
+      s.lastSpawn += dt;
+      if (s.lastSpawn > s.nextSpawnGap) {
+        s.lastSpawn = 0;
+        s.nextSpawnGap = rollBugGap(s.elapsed);
+        const isBee = Math.random() < rollBeeChance(s.elapsed);
+        const size = isBee ? BEE_SIZE : FLY_SIZE;
+        s.bugs.push({
+          x: Math.random() * (W - size),
+          y: GC_CANOPY_H - size,
+          kind: isBee ? 'bee' : 'fly',
+          size,
+          cleared: false,
+        });
+      }
+      s.bugs.forEach(b => { b.y += fallSpeed * (b.kind === 'bee' ? 1.15 : 1); });
+      s.bugs = s.bugs.filter(b => b.y < GC_ROOTS_TOP + 20);
+
+      // Collision -- inset hitboxes (GECKO_HIT / BEE_HIT / FLY_HIT), same
+      // technique as Track Dash: shrunk from the drawn box to match real
+      // art, draw calls below still use the untouched full box.
+      const gx = s.geckoX, gy = GECKO_Y, gw = GECKO_SIZE, gh = GECKO_SIZE;
+      const ghx = gx + gw * GECKO_HIT.l, ghy = gy + gh * GECKO_HIT.t;
+      const ghw = gw * (1 - GECKO_HIT.l - GECKO_HIT.r), ghh = gh * (1 - GECKO_HIT.t - GECKO_HIT.b);
+      const invincible = s.elapsed < s.invincibleUntil;
+
+      for (const b of s.bugs) {
+        if (b.cleared) continue;
+        const hit = b.kind === 'bee' ? BEE_HIT : FLY_HIT;
+        const bhx = b.x + b.size * hit.l, bhy = b.y + b.size * hit.t;
+        const bhw = b.size * (1 - hit.l - hit.r), bhh = b.size * (1 - hit.t - hit.b);
+        const overlap = ghx < bhx + bhw && ghx + ghw > bhx && ghy < bhy + bhh && ghy + ghh > bhy;
+        if (!overlap) continue;
+
+        if (b.kind === 'fly') {
+          b.cleared = true;
+          s.score += 1;
+        } else if (!invincible) {
+          b.cleared = true;
+          s.lives -= 1;
+          s.invincibleUntil = s.elapsed + 1200;
+          if (s.lives <= 0) s.running = false;
+        }
+      }
+      s.bugs = s.bugs.filter(b => !b.cleared);
+
+      drawGeckoScene(ctx, s.scroll);
+      s.bugs.forEach(b => {
+        if (b.kind === 'fly') drawFly(ctx, b.x, b.y, b.size, b.size, s.elapsed);
+        else drawBee(ctx, b.x, b.y, b.size, b.size);
+      });
+      // Invincibility flash -- blink the gecko instead of drawing solid, so
+      // a hit is visibly acknowledged rather than just silently costing a
+      // life the player has to infer from the HUD.
+      const flashHidden = invincible && Math.floor(s.elapsed / 100) % 2 === 0;
+      if (!flashHidden) drawGecko(ctx, s.geckoX, GECKO_Y, GECKO_SIZE, GECKO_SIZE, s.facingRight);
+
+      // HUD — score + lives, overlaid top-left of the scene.
+      ctx.font = '700 22px monospace';
+      ctx.fillStyle = 'rgba(0,0,0,0.35)';
+      ctx.fillText(`${s.score}`, 22, 40);
+      ctx.fillStyle = GOLD;
+      ctx.fillText(`${s.score}`, 20, 38);
+      ctx.font = '700 15px monospace';
+      const hearts = '♥'.repeat(Math.max(0, s.lives)) + '♡'.repeat(Math.max(0, 3 - s.lives));
+      ctx.fillStyle = 'rgba(0,0,0,0.35)';
+      ctx.fillText(hearts, 22, 62);
+      ctx.fillStyle = '#ef4444';
+      ctx.fillText(hearts, 20, 60);
+
+      if (s.running) { raf = requestAnimationFrame(loop); }
+      else {
+        setPlaying(false);
+        const score = s.score;
+        setHighScore(h => Math.max(h, score));
+        api('/api/games/puzzle/geckocatch', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ score }) })
+          .then(r => { if (r) { setLastResult({ score, ...r }); if (r.balance != null) onCreditsChange(r.balance); } });
+      }
+    }
+    raf = requestAnimationFrame(loop);
+    return () => cancelAnimationFrame(raf);
+  }, [onCreditsChange, GC_H, GC_W, GECKO_Y, W, GECKO_SIZE, BEE_SIZE, FLY_SIZE]);
+
+  useEffect(() => {
+    function onKeyDown(e) {
+      const s = stateRef.current;
+      if (!s || !s.running) return;
+      if (e.code === 'ArrowLeft') { e.preventDefault(); s.keys.left = true; }
+      if (e.code === 'ArrowRight') { e.preventDefault(); s.keys.right = true; }
+    }
+    function onKeyUp(e) {
+      const s = stateRef.current;
+      if (!s) return;
+      if (e.code === 'ArrowLeft') s.keys.left = false;
+      if (e.code === 'ArrowRight') s.keys.right = false;
+    }
+    window.addEventListener('keydown', onKeyDown);
+    window.addEventListener('keyup', onKeyUp);
+    return () => { window.removeEventListener('keydown', onKeyDown); window.removeEventListener('keyup', onKeyUp); };
+  }, []);
+
+  // Drag/tap-to-follow -- pointer position (in scene coordinates, scaled
+  // from the canvas's actual on-screen size back to the fixed GC_W logical
+  // space) becomes the gecko's target X for as long as the pointer is down;
+  // clearing dragTargetX on release hands control back to arrow keys.
+  const pointerToSceneX = useCallback((clientX) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return null;
+    const rect = canvas.getBoundingClientRect();
+    return ((clientX - rect.left) / rect.width) * GC_W;
+  }, []);
+  const onPointerDown = useCallback((e) => {
+    const s = stateRef.current;
+    if (!s || !s.running) return;
+    s.dragTargetX = pointerToSceneX(e.clientX);
+  }, [pointerToSceneX]);
+  const onPointerMove = useCallback((e) => {
+    const s = stateRef.current;
+    if (!s || !s.running || s.dragTargetX == null) return;
+    s.dragTargetX = pointerToSceneX(e.clientX);
+  }, [pointerToSceneX]);
+  const onPointerUp = useCallback(() => {
+    const s = stateRef.current;
+    if (s) s.dragTargetX = null;
+  }, []);
+
+  return (
+    <div style={{ padding: 16 }}>
+      <div style={{ fontSize: 13, fontWeight: 700, color: TEXT, marginBottom: 4 }}>Gecko Catch</div>
+      <div style={{ fontSize: 11, color: '#9ca3af', marginBottom: 12 }}>
+        Arrow keys or drag/tap to move · catch flies, avoid bees · 3 lives · unlimited plays, credits taper off after a few runs each day
+      </div>
+      <canvas ref={canvasRef} width={W} height={H}
+        onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp} onPointerLeave={onPointerUp}
+        style={{ width: '100%', maxWidth: 420, aspectRatio: `${W} / ${H}`, borderRadius: 10, border: `1px solid ${CT_LINE}`, cursor: 'pointer', display: 'block', touchAction: 'none' }} />
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 10 }}>
+        <button onClick={start} disabled={playing}
+          style={{ padding: '8px 18px', background: '#0d2416', color: GOLD, border: 'none', borderRadius: 6, fontSize: 12, fontWeight: 700, cursor: playing ? 'default' : 'pointer', opacity: playing ? 0.5 : 1 }}>
+          {playing ? 'Playing…' : 'Start run'}
+        </button>
+        {highScore > 0 && <span style={{ fontSize: 11, color: '#6b7280' }}>Best this session: <b>{highScore}</b></span>}
+      </div>
+      {lastResult && (
+        <div style={{ marginTop: 8, fontSize: 11, color: '#374151' }}>
+          Score {lastResult.score} · run #{lastResult.playNumber} today
+          {lastResult.awarded > 0 ? <span style={{ color: '#16a34a', fontWeight: 700 }}> · +{lastResult.awarded} credits</span> : <span style={{ color: '#9ca3af' }}> · no credits this run (daily cap reached)</span>}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Generic daily leaderboard card for any puzzle_scores game_type -- Track
+// Dash and Gecko Catch both use this unchanged, just with a different
+// gameType/title, rather than duplicating the fetch/render logic per game.
+function PuzzleLeaderboard({ gameType, title }) {
   const [rows, setRows] = useState([]);
   useEffect(() => {
-    api('/api/games/leaderboard?game_type=track_dash').then(async d => {
+    setRows([]);
+    api(`/api/games/leaderboard?game_type=${gameType}`).then(async d => {
       if (!d) return;
       const [nameMap, cosmeticsMap] = await Promise.all([
         fetchDisplayNames(d.rows.map(r => r.clerk_id)),
@@ -708,12 +1090,12 @@ function PuzzleLeaderboard() {
       ]);
       setRows(d.rows.map(r => ({ ...r, name: nameMap[r.clerk_id] || punterFallback(r.clerk_id), cosmetics: cosmeticsMap[r.clerk_id] })));
     });
-  }, []);
+  }, [gameType]);
   if (!rows.length) return null;
   return (
     <div style={{ padding: '0 16px 16px', maxWidth: 420 }}>
       <div style={{ fontSize: 11, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '.4px', marginBottom: 8 }}>
-        Track Dash — Today&apos;s Top Scores
+        {title} — Today&apos;s Top Scores
       </div>
       {rows.slice(0, 10).map((r, i) => (
         <div key={r.clerk_id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 0', borderBottom: i < 9 ? `1px solid ${CT_LINE}` : 'none' }}>
@@ -958,7 +1340,13 @@ export default function GamesPage() {
         {mainTab === 'trackdash' && (
           <>
             <TrackDash onCreditsChange={handleCreditsChange} />
-            <PuzzleLeaderboard />
+            <PuzzleLeaderboard gameType="track_dash" title="Track Dash" />
+          </>
+        )}
+        {mainTab === 'geckocatch' && (
+          <>
+            <GeckoCatch onCreditsChange={handleCreditsChange} />
+            <PuzzleLeaderboard gameType="gecko_catch" title="Gecko Catch" />
           </>
         )}
         {mainTab === 'prizes' && <PrizesTab onCreditsChange={handleCreditsChange} />}
