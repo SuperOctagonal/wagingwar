@@ -1839,13 +1839,16 @@ export default function ResultsPage() {
     // Exotic hit-rate computation over a 30-day window can be genuinely slow
     // (large-window scoring/join work server-side) rather than hung, but a
     // bare "Loading..." with no ceiling makes the two indistinguishable to
-    // the user. Abort and surface a distinct message after 60s so a real
+    // the user. Abort and surface a distinct message after 90s so a real
     // failure/timeout doesn't just look like an unusually slow success --
-    // measured production timing under real concurrent load (this route +
-    // results-score-bands firing together) ranged 25-39s, so 40s cut it too
-    // close; 60s gives real headroom above observed worst case.
+    // real production step-by-step timing (resolveWindowDates ~19.4s before
+    // its fix, the raw Supabase fetch itself ~50.2s for the full 30-day data
+    // volume, plus scoring/metrics on top) put the pre-fix total near 70s,
+    // and the raw fetch time is real necessary data volume with no further
+    // room to cut, so 90s gives real headroom above that rather than
+    // chasing the fetch time down further.
     const exoticsController = new AbortController();
-    const exoticsTimer = setTimeout(() => exoticsController.abort(), 60000);
+    const exoticsTimer = setTimeout(() => exoticsController.abort(), 90000);
     fetch(`/api/results-exotics?${qs}`, { signal: exoticsController.signal })
       .then(r => r.ok ? r.json() : null)
       .then(data => { if (!cancelled) { setExotics(data); setExoticsLoading(false); } })
