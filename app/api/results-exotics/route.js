@@ -76,16 +76,21 @@ function tallyToRow(label, tally) {
 }
 
 export async function GET(req) {
+  const tRouteStart = Date.now();
   const { searchParams } = new URL(req.url);
   const end = searchParams.get('date');
   const windowParam = searchParams.get('window') || 'today';
+  console.log(`[timing] results-exotics REQUEST START end=${end} window=${windowParam} t=${tRouteStart}`);
   if (!end || !/^\d{4}-\d{2}-\d{2}$/.test(end)) {
     return NextResponse.json({ error: 'Invalid date' }, { status: 400 });
   }
 
+  const tFetch = Date.now();
   const { ok, races, startDate } = await fetchRankedResultedRaces(end, windowParam);
+  console.log(`[timing] results-exotics fetchRankedResultedRaces returned in ${Date.now() - tFetch}ms, races=${races.length}`);
   if (!ok) return NextResponse.json({ error: 'Supabase fetch failed' }, { status: 502 });
 
+  const tMetrics = Date.now();
   const byTrack = {};
   // "First 4" / "last 4" races of a meeting, by race number within that
   // specific card (not a fixed race number — meeting length varies).
@@ -117,6 +122,9 @@ export async function GET(req) {
     first4: tallyToRow('First 4 races', byPosition.first4),
     last4: tallyToRow('Last 4 races', byPosition.last4),
   };
+
+  console.log(`[timing] results-exotics metrics/tally done in ${Date.now() - tMetrics}ms`);
+  console.log(`[timing] results-exotics REQUEST TOTAL ${Date.now() - tRouteStart}ms end=${end} window=${windowParam}`);
 
   return NextResponse.json({ byTrack: trackRows, byPosition: positionRows, dateRange: { start: startDate, end } });
 }
