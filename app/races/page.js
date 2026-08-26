@@ -308,7 +308,7 @@ const TC_PILL = {
 
 // ─── left rail ────────────────────────────────────────────────────────────────
 
-function LeftRail({ allVenues, allRaces, selectedRaceKey, onSelect, trackConds, raceResults, abandonedVenues, minRunners }) {
+function LeftRail({ allVenues, allRaces, selectedRaceKey, onSelect, trackConds, raceResults, abandonedVenues, calendarMismatchVenues, minRunners }) {
   const [now,     setNow]     = useState(() => Date.now());
   const [showAll, setShowAll] = useState(false);
   const [pinned,  setPinned]  = useState(() => {
@@ -367,7 +367,8 @@ function LeftRail({ allVenues, allRaces, selectedRaceKey, onSelect, trackConds, 
   const renderTile = (venue) => {
     const raceKeys   = allVenues[venue] || [];
     const isAbandoned = (abandonedVenues || new Set()).has(normaliseVenue(venue));
-    const tc         = !isAbandoned && trackConds[venue];
+    const isCalendarMismatch = !isAbandoned && (calendarMismatchVenues || new Set()).has(normaliseVenue(venue));
+    const tc         = !isAbandoned && !isCalendarMismatch && trackConds[venue];
     const pill       = TC_PILL[tc];
     const isActive   = raceKeys.some(k => k === selectedRaceKey);
     const isPinned  = pinned.includes(venue);
@@ -423,6 +424,10 @@ function LeftRail({ allVenues, allRaces, selectedRaceKey, onSelect, trackConds, 
           {isAbandoned ? (
             <span style={{ fontSize: 8, fontWeight: 700, padding: '1px 4px', borderRadius: 3, background: '#6b7280', color: '#fff', flexShrink: 0 }}>
               Abandoned
+            </span>
+          ) : isCalendarMismatch ? (
+            <span style={{ fontSize: 8, fontWeight: 700, padding: '1px 4px', borderRadius: 3, background: '#0891b2', color: '#fff', flexShrink: 0 }} title="No longer listed on Racing Australia's calendar for today — may have been rescheduled">
+              Not on Calendar
             </span>
           ) : pill && (
             <span style={{ fontSize: 8, fontWeight: 700, padding: '1px 4px', borderRadius: 3, background: pill.bg, color: '#fff', flexShrink: 0 }}>
@@ -2574,6 +2579,7 @@ function RacesPageInner() {
   const [todayBets,     setTodayBets]     = useState({});
   const [venueTrackConds, setVenueTrackConds] = useState({});
   const [venueAbandoned,  setVenueAbandoned]  = useState(new Set());
+  const [venueCalendarMismatch, setVenueCalendarMismatch] = useState(new Set());
   const [scratchedRows,   setScratchedRows]   = useState([]);
   const [now,             setNow]             = useState(() => Date.now());
   const popupRef     = useRef(null);
@@ -2840,21 +2846,23 @@ function RacesPageInner() {
     if (isHistoricalMode) return;
     const todayISO = new Date().toLocaleDateString('sv-SE', { timeZone: 'Australia/Brisbane' });
     fetch(
-      `${SURL}/rest/v1/today_meetings?date=eq.${todayISO}&select=venue,track_condition,condition_override,is_abandoned`,
+      `${SURL}/rest/v1/today_meetings?date=eq.${todayISO}&select=venue,track_condition,condition_override,is_abandoned,calendar_mismatch`,
       { headers: { apikey: SKEY, Authorization: `Bearer ${SKEY}` } }
     )
       .then(r => r.ok ? r.json() : r.text().then(t => Promise.reject(`HTTP ${r.status}: ${t}`)))
       .then(rows => {
-        const tc = {}, aband = new Set();
+        const tc = {}, aband = new Set(), mismatch = new Set();
         rows.forEach(r => {
           const norm = normaliseVenue(r.venue);
           const effectiveCond = r.condition_override || r.track_condition;
           if (effectiveCond) tc[norm] = effectiveCond;
           if (r.is_abandoned) aband.add(norm);
+          if (r.calendar_mismatch) mismatch.add(norm);
         });
-        console.log('[today_meetings] track conds:', Object.keys(tc).length, 'abandoned:', [...aband]);
+        console.log('[today_meetings] track conds:', Object.keys(tc).length, 'abandoned:', [...aband], 'not on calendar:', [...mismatch]);
         setVenueTrackConds(tc);
         setVenueAbandoned(aband);
+        setVenueCalendarMismatch(mismatch);
       })
       .catch(e => console.error('[today_meetings] fetch failed:', e));
   }, [allRaces, isHistoricalMode]);
@@ -3035,7 +3043,7 @@ function RacesPageInner() {
       {/* Left rail — width-based, not touch-based: a wide landscape phone still gets it */}
       {showLeftRail && (
         <div id="races-left-col" className={isNarrow ? 'flex' : 'mob-page'} style={isNarrow ? undefined : railScrollStyle}>
-          <LeftRail allVenues={allVenues} allRaces={allRaces} selectedRaceKey={selectedKey} onSelect={handleSelectRace} trackConds={trackConds} raceResults={raceResults} abandonedVenues={venueAbandoned} minRunners={userSettings.racesMinRunners} />
+          <LeftRail allVenues={allVenues} allRaces={allRaces} selectedRaceKey={selectedKey} onSelect={handleSelectRace} trackConds={trackConds} raceResults={raceResults} abandonedVenues={venueAbandoned} calendarMismatchVenues={venueCalendarMismatch} minRunners={userSettings.racesMinRunners} />
         </div>
       )}
 
