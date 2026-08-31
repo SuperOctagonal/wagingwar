@@ -541,7 +541,6 @@ export default function MybetsPage() {
     const mappedView  = viewMap[settings.mybetsView];
     if (mappedRange) setDateRange(mappedRange);
     if (mappedView)  setBetView(mappedView);
-    if (settings.defBetType) setQlBetType(settings.defBetType.toLowerCase());
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [settingsLoading]);
 
