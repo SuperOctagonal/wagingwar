@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useUser } from '@clerk/nextjs';
-import ProfileRail from '@/components/ProfileRail';
 import useIsPro from '@/hooks/useIsPro';
 import useIsMobile from '@/hooks/useIsMobile';
 import useUserSettings from '@/hooks/useUserSettings';
@@ -10,14 +9,9 @@ import UpgradeModal from '@/components/UpgradeModal';
 import BottomSheet from '@/components/BottomSheet';
 import BetFilterPanel from '@/components/BetFilterPanel';
 import ShareMenu from '@/components/ShareMenu';
-import { awardPoints } from '@/lib/points';
 import { parseCSV, buildRaces } from '@/lib/csvParser';
 import { normaliseVenue } from '@/lib/venues';
-import { validateBetForm } from '@/lib/betValidation';
 import { brisbaneDateTimeToInstant } from '@/lib/raceTime';
-import { estimatePlacePrice, paidPlacesForFieldSize } from '@/lib/placePrice';
-import { scoreGroup, getDefaultWeights, GRP_KEYS } from '@/lib/scoring';
-import { BOOKMAKERS } from '@/lib/bookmakers';
 import {
   LineChart, Line, AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine,
@@ -529,28 +523,11 @@ export default function MybetsPage() {
   // reused for both this and the Log Bet modal's Share Bet button below.
   const [battleCardQualifies, setBattleCardQualifies] = useState(null);
 
-  // CSV data for Quick Log
-  const [csvMeetings, setCsvMeetings] = useState([]);   // ['Flemington', ...]
+  // CSV race data — used to resolve post-times for pending bets (see the
+  // pendingBets useMemo below). Previously also fed the Quick Log form,
+  // removed with the My Bets sidebar (Log Bet now lives on the Races page).
   const [csvVenues,   setCsvVenues]   = useState({});   // { 'Flemington': ['Flemington_R1', ...] }
   const [csvRaces,    setCsvRaces]    = useState({});   // { 'Flemington_R1': { num, horses, ... } }
-
-  // Quick Log form
-  const [qlMeeting,   setQlMeeting]   = useState('');
-  const [qlRace,      setQlRace]      = useState('');
-  const [qlHorse,     setQlHorse]     = useState('');
-  const [qlBetType,   setQlBetType]   = useState('win');
-  const [qlStake,     setQlStake]     = useState('');
-  const [qlOdds,      setQlOdds]      = useState('');
-  const [qlPlaceOdds, setQlPlaceOdds] = useState('');
-  const [qlFormError, setQlFormError] = useState('');
-  const [qlBookmaker, setQlBookmaker] = useState('Sportsbet');
-  const [qlSaving,    setQlSaving]    = useState(false);
-  const [qlToast,        setQlToast]        = useState(null);
-  const [shareToast,     setShareToast]     = useState(null); // Share Bet -> Share to Community outcome message
-  const [qlRaceTime,     setQlRaceTime]     = useState('');
-  const [qlTab,          setQlTab]          = useState('');
-  const [raceDate,       setRaceDate]       = useState(null);
-  const [qlStakeWarning, setQlStakeWarning] = useState(false);
 
   const todayISO = new Date().toLocaleDateString('en-CA', { timeZone: 'Australia/Sydney' });
   const [now, setNow] = useState(() => Date.now());
@@ -649,62 +626,6 @@ export default function MybetsPage() {
   }, []);
   const fetchBattleCardImage = useCallback(share => fetch(`/api/battle-card?shareId=${share.id}`), []);
 
-  // Bet Share ShareMenu wiring — same shape, fed from the Log Bet modal's
-  // live form state (see qlBetShareBody below) rather than saved bet_log
-  // data, so Share Bet works independent of Save Bet.
-  const createBetShareUrl = useCallback(async () => {
-    const res = await fetch('/api/bet-card/share', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(qlBetShareBody()),
-    });
-    if (!res.ok) throw new Error(`bet-card/share ${res.status}`);
-    return res.json(); // { id, url }
-  }, [qlHorse, qlMeeting, qlRace, qlOdds, qlStake]); // eslint-disable-line react-hooks/exhaustive-deps
-  const fetchBetCardImage = useCallback(share => fetch(`/api/bet-card?shareId=${share.id}`), []);
-
-  function qlBetShareBody() {
-    return {
-      horse_name: qlHorse,
-      venue: qlMeeting || null,
-      race_number: qlRace || null,
-      odds: qlOdds,
-      stake: qlStake,
-    };
-  }
-
-  // "Share to Community" — creates a real post in the existing feed
-  // (POST /api/community/post) with image_url pointing at the same public
-  // bet-card image endpoint FB/X use, so there's one image, not a second
-  // upload path. That route is Pro-gated (free = read-only in Community,
-  // an existing tier boundary) -- unlike Facebook/X/device share, which
-  // stay open to everyone as a deliberate growth mechanic, this one
-  // inherits the gate rather than silently failing or quietly bypassing it.
-  const handleShareBetToCommunity = useCallback(async ({ id }) => {
-    if (!user?.id) return;
-    const title = `${qlHorse} @ ${qlMeeting || 'TBC'} — $${(+qlStake).toFixed(2)} at $${(+qlOdds).toFixed(2)}`;
-    const res = await fetch('/api/community/post', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        section: 'shared_bets',
-        title,
-        body: 'Shared from my Waging War bet slip',
-        image_url: `/api/bet-card?shareId=${id}`,
-      }),
-    });
-    if (res.ok) {
-      window.dispatchEvent(new Event('ww:profile:refresh'));
-      awardPoints(user.id, 'community_post', title.slice(0, 100)).catch(() => {});
-      setShareToast('Posted to Community');
-    } else if (res.status === 403) {
-      setShareToast('Community posting is a Pro feature');
-    } else {
-      setShareToast('Couldn’t post to Community — try again');
-    }
-    setTimeout(() => setShareToast(null), 4000);
-  }, [user?.id, qlHorse, qlMeeting, qlStake, qlOdds]);
-
   // ww:refresh event — re-pull bets from DB (dispatched by TopNav refresh button)
   useEffect(() => {
     const handler = async () => {
@@ -787,16 +708,8 @@ export default function MybetsPage() {
     ).then(data => setRacePopupData(Array.isArray(data) ? data : []));
   }, [racePopup]);
 
-  // Fetch race date from today_meetings so Quick Log uses the correct betting date
-  useEffect(() => {
-    sbFetch('today_meetings?select=date&limit=1').then(data => {
-      if (Array.isArray(data) && data.length > 0 && data[0].date === todayISO) {
-        setRaceDate(data[0].date);
-      }
-    });
-  }, []);
-
-  // Load CSV race data from localStorage (key: ww_csv, set by races page)
+  // Load CSV race data from localStorage (key: ww_csv, set by races page) —
+  // used to resolve post-times for pending bets (see the pendingBets useMemo).
   useEffect(() => {
     try {
       const csv = localStorage.getItem('ww_csv');
@@ -804,162 +717,11 @@ export default function MybetsPage() {
         const { allRaces: ar, allVenues: av } = buildRaces(parseCSV(csv));
         setCsvRaces(ar);
         setCsvVenues(av);
-        setCsvMeetings(Object.keys(av));
       }
     } catch (e) {
       console.error('[MyBets] CSV parse error:', e);
     }
   }, []);
-
-  // Race options for selected meeting — populated from CSV, falls back to R1-R12
-  const csvRaceOptions = useMemo(() => {
-    if (!qlMeeting) return [];
-    return (csvVenues[qlMeeting] || [])
-      .map(k => ({ key: k, value: csvRaces[k]?.num || '', label: `R${csvRaces[k]?.num}` }))
-      .filter(o => o.value);
-  }, [csvVenues, csvRaces, qlMeeting]);
-
-  // Horses available for the selected meeting + race
-  const csvHorses = useMemo(() => {
-    if (!qlMeeting || !qlRace) return [];
-    const venueKeys = csvVenues[qlMeeting] || [];
-    // Compare numerically so "01" matches "1", etc.
-    const raceKey = venueKeys.find(k => {
-      const rc = csvRaces[k];
-      return rc && +rc.num === +qlRace;
-    });
-    if (!raceKey) return [];
-    const rc = csvRaces[raceKey];
-    if (!rc || !rc.horses) return [];
-    return rc.horses
-      .filter(h => !h.scratched)
-      .sort((a, b) => (+a.tab || 99) - (+b.tab || 99))
-      .map(h => ({ name: h.name, tab: h.tab, odds: h.rawOdds }));
-  }, [csvRaces, csvVenues, qlMeeting, qlRace]);
-
-  // Auto-populate race time when meeting + race are selected
-  useEffect(() => {
-    if (!qlMeeting || !qlRace) { setQlRaceTime(''); return; }
-    // 1. In-memory CSV (immediate, no network)
-    const venueKeys = csvVenues[qlMeeting] || [];
-    const raceKey = venueKeys.find(k => csvRaces[k] && String(+csvRaces[k].num) === String(+qlRace));
-    const inMemTime = raceKey ? (csvRaces[raceKey]?.time || '') : '';
-    if (inMemTime) { setQlRaceTime(inMemTime); return; }
-    // 2. race_schedule fallback (for when no CSV is loaded but schedule data exists)
-    const date = raceDate || todayISO;
-    sbFetch(`race_schedule?date=eq.${date}&select=venue,race_num,post_time`)
-      .then(rows => {
-        if (!Array.isArray(rows) || !rows.length) return;
-        const match = rows.find(r =>
-          String(+r.race_num) === String(+qlRace) &&
-          normName(normaliseVenue(r.venue)) === normName(normaliseVenue(qlMeeting))
-        );
-        if (match?.post_time) setQlRaceTime(match.post_time);
-      });
-  }, [qlMeeting, qlRace, csvVenues, csvRaces, raceDate, todayISO]);
-
-  const handleQuickLog = useCallback(async () => {
-    console.log('[QuickLog] Save Bet clicked | horse:', qlHorse, '| stake:', qlStake, '| odds:', qlOdds, '| user:', !!user?.id);
-    console.log('[QuickLog] Date check — raceDate:', raceDate, '| todayISO:', todayISO, '| will use:', raceDate || todayISO);
-    if (!qlHorse.trim()) {
-      setQlFormError('Enter a horse name'); return;
-    }
-    const validationErr = validateBetForm({ betType: qlBetType, stake: qlStake, odds: qlOdds, placeOdds: qlPlaceOdds });
-    if (validationErr) {
-      setQlFormError(validationErr); return;
-    }
-    if (!user?.id) {
-      console.log('[QuickLog] Blocked: not logged in'); return;
-    }
-    setQlFormError('');
-    const alertThreshold = +(settings.stakingAlert || 0);
-    if (alertThreshold > 0 && +qlStake > alertThreshold && !qlStakeWarning) {
-      setQlStakeWarning(true);
-      return;
-    }
-    setQlStakeWarning(false);
-    setQlSaving(true);
-
-    const normVenue = normaliseVenue(qlMeeting || '') || null;
-    const qlPlaceOddsVal = qlBetType === 'place' ? +qlOdds : qlBetType === 'each-way' ? +qlPlaceOdds : null;
-    // Same formula as the render-scoped qlRaceDate (used for the raceHasPassed
-    // UI check further down this component) -- computed locally here instead
-    // of closing over that later `const` directly, since a useCallback's
-    // dependency array is evaluated during render, before qlRaceDate's own
-    // declaration runs (confirmed at build time: "Cannot access before
-    // initialization" on /mybets prerender when it was referenced there).
-    const betRaceDate = (raceDate && raceDate >= todayISO) ? raceDate : todayISO;
-
-    // Model rank for the selected horse — same GRP_KEYS/scoreGroup pipeline
-    // the Races-page bet-save path already uses, just computed locally here
-    // since Quick Log doesn't otherwise score the field. Default weights and
-    // a 'good' trackCond fallback (this form has no track-condition source
-    // to hand), unlike Races' bet-save which passes the user's own custom
-    // weights and the race's real condition — a supplementary analytics
-    // field, not the primary betting-decision surface, so that gap is
-    // acceptable. Previously this was never set at all for Quick-Log-
-    // originated bets (always null), unlike the Races-page path.
-    let qlRank = null;
-    const qlRaceKey = (csvVenues[qlMeeting] || []).find(k => csvRaces[k] && +csvRaces[k].num === +qlRace);
-    const qlRaceHorses = qlRaceKey ? (csvRaces[qlRaceKey]?.horses || []) : [];
-    if (qlRaceHorses.length) {
-      const weights = getDefaultWeights();
-      const scored = qlRaceHorses
-        .filter(h => !h.scratched)
-        .map(h => {
-          const grpScores = {};
-          GRP_KEYS.forEach(gk => { grpScores[gk] = scoreGroup(h, gk, weights, 'good'); });
-          const total = GRP_KEYS.reduce((a, gk) => a + grpScores[gk].total, 0);
-          return { name: h.name, total };
-        })
-        .sort((a, b) => b.total - a.total);
-      const idx = scored.findIndex(h => h.name === qlHorse.trim());
-      if (idx !== -1) qlRank = idx + 1;
-    }
-
-    const insertBody = {
-      date:        betRaceDate,
-      horse_name:  qlHorse.trim(),
-      track:       normVenue,
-      venue:       normVenue,
-      race_number: qlRace     ? +qlRace : null,
-      bet_type:    qlBetType,
-      stake:       +qlStake,
-      odds:        +qlOdds,
-      place_odds:  qlPlaceOddsVal,
-      bookmaker:   qlBookmaker || null,
-      race_time:   qlRaceTime  || null,
-      tab_no:      qlTab       || null,
-      rank:        qlRank,
-    };
-
-    let ok = false;
-    try {
-      const res = await fetch('/api/log-bet', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(insertBody),
-      });
-      if (!res.ok) {
-        const errText = await res.text();
-        console.error('[QuickLog] /api/log-bet error — status:', res.status, '| body:', errText);
-      } else {
-        ok = true;
-        const inserted = await res.json();
-        const newBet = Array.isArray(inserted) ? inserted[0] : inserted;
-        if (newBet) setBets(prev => [newBet, ...prev]);
-        loadBets(user.id).then(fresh => { if (fresh.length) setBets(fresh); });
-        try { awardPoints(user.id, 'bet_logged', qlHorse.trim()).catch(() => {}); } catch {}
-        setQlHorse(''); setQlStake(''); setQlOdds(''); setQlPlaceOdds('');
-      }
-    } catch (err) {
-      console.error('[QuickLog] Network error:', err);
-    }
-
-    setQlToast(ok ? 'success' : 'error');
-    setQlSaving(false);
-    setTimeout(() => setQlToast(null), 2500);
-  }, [user?.id, todayISO, raceDate, qlHorse, qlMeeting, qlRace, qlBetType, qlStake, qlOdds, qlPlaceOdds, qlRaceTime, qlBookmaker, qlTab, csvVenues, csvRaces]);
 
   // Opens the in-app confirm modal (below) rather than deleting immediately —
   // executeDeleteBet does the actual removal once confirmed there.
@@ -1364,7 +1126,6 @@ export default function MybetsPage() {
     ];
     return (
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
-        <ProfileRail />
         <main className="mob-page" style={{ flex: 1, overflowY: 'auto', background: '#f8fafc', position: 'relative' }}>
           {/* Mock ledger (blurred) */}
           <div style={{ padding: '16px 20px', filter: 'blur(3px)', pointerEvents: 'none', userSelect: 'none', overflowX: 'hidden' }}>
@@ -1438,21 +1199,6 @@ export default function MybetsPage() {
     return <circle key={`msd-${cx}-${cy}`} cx={cx} cy={cy} r={2.5} fill={c} stroke="#fff" strokeWidth={1} />;
   };
 
-  // Race-has-passed check for Quick Log — recalculated every second via `now`
-  const qlAestNow = new Date(new Date(now).toLocaleString('en-US', { timeZone: 'Australia/Brisbane' }));
-  const qlAestDateISO = `${qlAestNow.getFullYear()}-${String(qlAestNow.getMonth()+1).padStart(2,'0')}-${String(qlAestNow.getDate()).padStart(2,'0')}`;
-  const qlAestMins = qlAestNow.getHours() * 60 + qlAestNow.getMinutes();
-  const qlRaceMins = parseRaceTime(qlRaceTime);
-  const qlRaceDate = (raceDate && raceDate >= qlAestDateISO) ? raceDate : qlAestDateISO;
-  const raceHasPassed = !!qlRaceTime && isFinite(qlRaceMins) &&
-    qlRaceDate === qlAestDateISO && qlRaceMins <= qlAestMins;
-  const qlBtnDisabled = qlSaving || raceHasPassed || !qlHorse.trim() || !!validateBetForm({ betType: qlBetType, stake: qlStake, odds: qlOdds, placeOdds: qlPlaceOdds });
-
-  // Estimated place price from the entered win odds + race field size — placeholder only.
-  const qlPlaceOddsPlaceholder = (qlOdds && +qlOdds > 1 && csvHorses.length > 0)
-    ? estimatePlacePrice(+qlOdds, paidPlacesForFieldSize(csvHorses.length)).toFixed(2)
-    : '1.80';
-
   const sbPnl = tabStats.pnl;
   const sbPnlPos = sbPnl !== null && sbPnl >= 0;
   const sbPnlColor = sbPnl === null ? '#9ca3af' : sbPnlPos ? '#0F6E56' : '#dc2626';
@@ -1474,128 +1220,6 @@ export default function MybetsPage() {
     <>
     <style>{`.ww-bets-table td, .ww-bets-table th { padding: ${tablePad} !important; font-size: ${tableFs}px !important; }`}</style>
     <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
-      <ProfileRail>
-        <div style={{ borderTop: '1px solid #e5e7eb', padding: '10px 12px' }}>
-          <div style={{ fontSize: 10, fontWeight: 700, color: '#374151', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 8 }}>Log a Bet</div>
-          {csvMeetings.length > 0 ? (
-            <select value={qlMeeting} onChange={e => { setQlMeeting(e.target.value); setQlRace(''); setQlHorse(''); setQlOdds(''); setQlTab(''); }} style={{ ...inp, marginBottom: 5 }}>
-              <option value="">Meeting…</option>
-              {csvMeetings.map(v => <option key={v} value={v}>{v}</option>)}
-            </select>
-          ) : (
-            <input value={qlMeeting} onChange={e => setQlMeeting(e.target.value)} placeholder="Track…" style={{ ...inp, marginBottom: 5 }} />
-          )}
-          <select value={qlRace} onChange={e => { setQlRace(e.target.value); setQlHorse(''); setQlOdds(''); setQlTab(''); }} style={{ ...inp, marginBottom: 5 }}>
-            <option value="">Race…</option>
-            {csvRaceOptions.length > 0
-              ? csvRaceOptions.map(o => <option key={o.key} value={o.value}>{o.label}</option>)
-              : Array.from({ length: 12 }, (_, i) => i + 1).map(n => <option key={n} value={n}>R{n}</option>)}
-          </select>
-          {csvHorses.length > 0 ? (
-            <select value={qlHorse} onChange={e => { const h = csvHorses.find(x => x.name === e.target.value); setQlHorse(e.target.value); if (h?.odds && qlBetType !== 'place') setQlOdds(h.odds.toFixed(2)); setQlTab(h?.tab ? String(h.tab) : ''); }} style={{ ...inp, marginBottom: 5 }}>
-              <option value="">Horse…</option>
-              {csvHorses.map(h => <option key={h.name} value={h.name}>{h.tab ? `${h.tab}. ` : ''}{h.name}{h.odds ? ` ($${h.odds.toFixed(1)})` : ''}</option>)}
-            </select>
-          ) : (
-            <input value={qlHorse} onChange={e => setQlHorse(e.target.value)} placeholder="Horse *" style={{ ...inp, marginBottom: 5 }} />
-          )}
-          <select value={qlBetType} onChange={e => {
-            const bt = e.target.value;
-            setQlBetType(bt);
-            if (bt === 'place') {
-              setQlOdds('');
-            } else if (!qlOdds) {
-              const h = csvHorses.find(x => x.name === qlHorse);
-              if (h?.odds) setQlOdds(h.odds.toFixed(2));
-            }
-          }} style={{ ...inp, marginBottom: 5 }}>
-            <option value="win">Win</option>
-            <option value="place">Place</option>
-            <option value="each-way">E/W</option>
-          </select>
-          {qlBetType === 'each-way' ? (
-            <>
-              <div style={{ marginBottom: 5 }}>
-                <input value={qlStake} onChange={e => setQlStake(e.target.value)} type="number" placeholder="$Stake" min="0.01" step="0.01" style={{ ...inp, width: '100%' }} />
-              </div>
-              <div style={{ display: 'flex', gap: 5, marginBottom: 5 }}>
-                <input value={qlOdds} onChange={e => setQlOdds(e.target.value)} type="number" placeholder="$Win Odds" min="1.01" step="0.01" style={{ ...inp, flex: 1 }} />
-                <input value={qlPlaceOdds} onChange={e => setQlPlaceOdds(e.target.value)} type="number" placeholder={qlPlaceOddsPlaceholder} min="1.01" step="0.01" style={{ ...inp, flex: 1 }} />
-              </div>
-            </>
-          ) : (
-            <div style={{ display: 'flex', gap: 5, marginBottom: 5 }}>
-              <input value={qlStake} onChange={e => setQlStake(e.target.value)} type="number" placeholder="$Stake" min="0.01" step="0.01" style={{ ...inp, flex: 1 }} />
-              <input value={qlOdds} onChange={e => setQlOdds(e.target.value)} type="number" placeholder={qlBetType === 'place' ? '$Place Odds' : '$Odds'} min="1.01" step="0.01" style={{ ...inp, flex: 1 }} />
-            </div>
-          )}
-          {qlBetType === 'each-way' && qlStake && qlOdds && qlPlaceOdds && +qlStake > 0 && +qlOdds > 1 && +qlPlaceOdds > 1 ? (
-            <div style={{ fontSize: 10, color: '#065f46', background: '#d1fae5', borderRadius: 5, padding: '5px 8px', marginBottom: 5 }}>
-              <div>Total outlay: <strong>${(+qlStake * 2).toFixed(2)}</strong></div>
-              <div>Best case: <strong>${(+qlStake * +qlOdds + +qlStake * +qlPlaceOdds).toFixed(2)}</strong></div>
-            </div>
-          ) : qlBetType !== 'each-way' && qlStake && qlOdds && +qlStake > 0 && +qlOdds > 1 && (
-            <div style={{ fontSize: 10, color: '#065f46', background: '#d1fae5', borderRadius: 5, padding: '5px 8px', marginBottom: 5 }}>
-              Potential return: <strong>${(+qlStake * +qlOdds).toFixed(2)}</strong>
-            </div>
-          )}
-          {qlFormError && (
-            <div style={{ fontSize: 10, color: '#991b1b', background: '#fee2e2', borderRadius: 5, padding: '5px 8px', marginBottom: 5, fontWeight: 600 }}>
-              {qlFormError}
-            </div>
-          )}
-          <select value={qlBookmaker} onChange={e => setQlBookmaker(e.target.value)} style={{ ...inp, marginBottom: 8 }}>
-            {BOOKMAKERS.map(b => <option key={b} value={b}>{b}</option>)}
-          </select>
-          {qlStakeWarning ? (
-            <div style={{ background: '#fef3c7', border: '1px solid #fde68a', borderRadius: 6, padding: '8px 10px' }}>
-              <div style={{ fontSize: 11, fontWeight: 600, color: '#92400e', marginBottom: 6 }}>Stake is higher than usual — confirm?</div>
-              <div style={{ display: 'flex', gap: 6 }}>
-                <button onClick={handleQuickLog} style={{ flex: 1, padding: '5px 0', background: '#00471b', color: '#fff', border: 'none', borderRadius: 5, fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>Confirm</button>
-                <button onClick={() => setQlStakeWarning(false)} style={{ flex: 1, padding: '5px 0', background: '#fff', color: '#374151', border: '1px solid #d1d5db', borderRadius: 5, fontSize: 11, cursor: 'pointer' }}>Cancel</button>
-              </div>
-            </div>
-          ) : (
-            <div style={{ display: 'flex', gap: 6, alignItems: 'stretch' }}>
-              <button
-                onClick={handleQuickLog}
-                disabled={qlBtnDisabled}
-                style={{ flex: 1, padding: '7px 0', background: raceHasPassed ? '#6b7280' : '#059669', color: '#fff', border: 'none', borderRadius: 5, fontSize: 12, fontWeight: 700, cursor: qlBtnDisabled ? 'default' : 'pointer', opacity: qlBtnDisabled ? 0.6 : 1 }}
-              >
-                {qlSaving ? '…' : 'Save Bet'}
-              </button>
-              <ShareMenu
-                userId={user?.id}
-                qualifies={!!qlHorse.trim() && +qlStake > 0 && +qlOdds > 1}
-                openTitle="Share this bet"
-                lockedTitle="Fill in horse, stake and odds to share"
-                label="Share Bet"
-                pointsAction="bet_card_share"
-                createPublicUrl={createBetShareUrl}
-                fetchImage={fetchBetCardImage}
-                fileName="bet-card.png"
-                shareTitle="My Waging War Bet"
-                shareText={`${qlHorse} @ ${qlMeeting || 'TBC'} — $${qlStake || '0'} at $${qlOdds || '0'}`}
-                extraActions={[
-                  { label: 'Share to Community', icon: 'ti-users', onClick: handleShareBetToCommunity },
-                ]}
-                wrapperStyle={{ flexShrink: 0 }}
-              />
-            </div>
-          )}
-          {qlToast && (
-            <div style={{ marginTop: 6, fontSize: 11, fontWeight: 600, textAlign: 'center', color: qlToast === 'success' ? '#059669' : '#dc2626' }}>
-              {qlToast === 'success' ? '✓ Logged' : '✗ Failed'}
-            </div>
-          )}
-          {shareToast && (
-            <div style={{ marginTop: 6, fontSize: 11, fontWeight: 600, textAlign: 'center', color: shareToast === 'Posted to Community' ? '#059669' : '#92400e' }}>
-              {shareToast}
-            </div>
-          )}
-        </div>
-      </ProfileRail>
-
       {/* ── Main content ── */}
       <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflowY: 'auto', overflowX: 'hidden', background: '#f3f4f6' }}>
 
