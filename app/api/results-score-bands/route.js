@@ -4,7 +4,9 @@ import { fetchRankedResultedRaces } from '@/lib/serverResultsData';
 // Minimum resulted starts a band needs before its win%/ROI is shown — a
 // single lucky/unlucky race in a rarely-hit band would otherwise produce a
 // misleading 100%/0%.
-const MIN_SAMPLE = 10;
+// Temporarily floored at 1 (was 10) so any real sample shows a percentage;
+// one-line revert if this needs to go back.
+const MIN_SAMPLE = 1;
 
 // 20-point bands. The spec's example numbers (300-330 etc.) assumed a much
 // higher score ceiling than the live model actually produces — measured

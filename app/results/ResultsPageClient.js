@@ -275,7 +275,9 @@ function buildSummaryFromRecords(records) {
   // "only 3 starts" apart from "no races here today" instead of collapsing
   // both into the same italic label.
   const STATE_ORDER = ['QLD', 'NSW', 'VIC', 'ACT', 'TAS', 'NT', 'SA', 'WA'];
-  const MIN_SAMPLE = 10;
+  // Temporarily floored at 1 (was 10) so any real sample shows a percentage;
+  // one-line revert if this needs to go back.
+  const MIN_SAMPLE = 1;
   const stateMap = {};
   records.forEach(r => {
     const state = AU_VENUE_STATE[normaliseVenue(r.venue)];

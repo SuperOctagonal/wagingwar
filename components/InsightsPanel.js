@@ -486,7 +486,7 @@ export default function InsightsPanel() {
 
           {/* 3+4. CLV + ROI by rank */}
           <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 12 }}>
-            <Card title="CLV Tracker" info="Closing Line Value — compares your taken odds to the final market price at jump time (race_results.sp). Consistently beating the SP means you have a real edge. 50% beat rate = no edge. Needs 10+ bets in a rank to show a real percentage.">
+            <Card title="CLV Tracker" info="Closing Line Value — compares your taken odds to the final market price at jump time (race_results.sp). Consistently beating the SP means you have a real edge. 50% beat rate = no edge. Shows a percentage once a rank has any settled bets (temporarily lowered from a 10-bet minimum).">
               {summaryLoading ? (
                 <div style={{ padding: '10px 0', textAlign: 'center', color: '#9ca3af', fontSize: 12 }}>Loading…</div>
               ) : !summary || summary.clv.every(r => r.n === 0) ? (
@@ -534,7 +534,7 @@ export default function InsightsPanel() {
               )}
             </Card>
 
-            <Card title="ROI by Model Rank" info="P&L efficiency grouped by the model's ranking of each horse. R1 = top pick. Shows whether your edge is concentrated in highly-ranked selections or spread across the field. Needs 10+ bets in a rank to show a real percentage.">
+            <Card title="ROI by Model Rank" info="P&L efficiency grouped by the model's ranking of each horse. R1 = top pick. Shows whether your edge is concentrated in highly-ranked selections or spread across the field. Shows a percentage once a rank has any settled bets (temporarily lowered from a 10-bet minimum).">
               {summaryLoading ? (
                 <div style={{ padding: '10px 0', textAlign: 'center', color: '#9ca3af', fontSize: 12 }}>Loading…</div>
               ) : !summary || summary.roiByRank.every(r => r.n === 0) ? (
@@ -561,7 +561,7 @@ export default function InsightsPanel() {
                     </div>
                     {r.n > 0 && (
                       <div style={{ fontSize: 10, color: '#9ca3af', marginLeft: 32 }}>
-                        {r.insufficientData ? `insufficient data (n=${r.n}, need 10+)` : `n=${r.n} · ${r.sr.toFixed(0)}% SR`}
+                        {r.insufficientData ? `insufficient data (n=${r.n})` : `n=${r.n} · ${r.sr.toFixed(0)}% SR`}
                       </div>
                     )}
                   </div>
@@ -571,7 +571,7 @@ export default function InsightsPanel() {
           </div>
 
           {/* 5. EDGE ZONE HEATMAP — server-computed, see summary.edgeHeatmap */}
-          <Card title="Edge Zone Heatmap" info="Your ROI broken down by model rank AND odds range. Each cell needs 10+ bets to display. Dark green = your most profitable zone, red = worst. A gold ring flags a clear edge (±20% ROI or more) once a cell has enough bets.">
+          <Card title="Edge Zone Heatmap" info="Your ROI broken down by model rank AND odds range. Each cell shows a percentage once it has any settled bets (temporarily lowered from a 10-bet minimum). Dark green = your most profitable zone, red = worst. A gold ring flags a clear edge (±20% ROI or more) once a cell has enough bets.">
             {summaryLoading ? (
               <div style={{ padding: '10px 0', textAlign: 'center', color: '#9ca3af', fontSize: 12 }}>Loading…</div>
             ) : !summary ? (
@@ -624,7 +624,7 @@ export default function InsightsPanel() {
 
           {/* 6+8. TRACK CONDITIONS + TOP VENUES */}
           <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 12 }}>
-            <Card title="Track Condition Breakdown" info="Record (Starts-Wins-2nds-3rds), ROI, and P&L split by track condition. Needs 10+ bets on a condition to show ROI/SR/P&L. Some punters have a real edge on certain surfaces — this reveals it.">
+            <Card title="Track Condition Breakdown" info="Record (Starts-Wins-2nds-3rds), ROI, and P&L split by track condition. Shows ROI/SR/P&L once a condition has any settled bets (temporarily lowered from a 10-bet minimum). Some punters have a real edge on certain surfaces — this reveals it.">
               {summaryLoading ? (
                 <div style={{ padding: '10px 0', textAlign: 'center', color: '#9ca3af', fontSize: 12 }}>Loading…</div>
               ) : !summary || summary.condition.every(c => c.n === 0) ? (
@@ -663,7 +663,7 @@ export default function InsightsPanel() {
               )}
             </Card>
 
-            <Card title="Top Venues" info="Record (Starts-Wins-2nds-3rds), strike rate, ROI and P&L at each track. Needs 10+ bets at a venue to show ROI/Strike/P&L. Sort by ROI to find where you have a genuine edge, or by Bets to weight results by sample size.">
+            <Card title="Top Venues" info="Record (Starts-Wins-2nds-3rds), strike rate, ROI and P&L at each track. Shows ROI/Strike/P&L once a venue has any settled bets (temporarily lowered from a 10-bet minimum). Sort by ROI to find where you have a genuine edge, or by Bets to weight results by sample size.">
               <div style={{ display: 'flex', gap: 6, marginBottom: 12 }}>
                 {[['roi','ROI'],['bets','Bets'],['pnl','P&L'],['sr','Strike']].map(([v, label]) => (
                   <button key={v} onClick={() => setSortVenue(v)} style={{
@@ -723,7 +723,7 @@ export default function InsightsPanel() {
               ) : summaryLoading ? (
                 <div style={{ padding: '10px 0', textAlign: 'center', color: '#9ca3af', fontSize: 12 }}>Loading…</div>
               ) : !summary || summary.kelly.zones.length === 0 ? (
-                <EmptyState msg="Need 10+ settled bets in a zone to show this breakdown" />
+                <EmptyState msg="Need at least one settled bet in a zone to show this breakdown" />
               ) : (
                 <>
                   <div style={{ fontSize: 11, color: '#9ca3af', marginBottom: 10 }}>

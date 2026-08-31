@@ -3,11 +3,9 @@ import { fetchRankedResultedRaces } from '@/lib/serverResultsData';
 
 // A metric with fewer than this many computable races shows "insufficient
 // data" instead of a real (and easily misleading on a small n) percentage.
-// Lower than Score Bands' floor (10) deliberately: most tracks only race
-// once weekly (~8-10 races/meeting), so a 10-race floor excluded almost
-// every single-meeting track even over a 7-day window. 6 is roughly a
-// partial-to-full meeting — still a real sample, not just noise.
-const MIN_SAMPLE = 6;
+// Temporarily floored at 1 (was 6) so any real sample shows a percentage;
+// one-line revert if this needs to go back.
+const MIN_SAMPLE = 1;
 
 function sameSet(a, b) {
   if (a.length !== b.length) return false;
