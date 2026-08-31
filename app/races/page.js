@@ -701,7 +701,7 @@ function RaceCountdown({ rc }) {
 
 // ─── race header ──────────────────────────────────────────────────────────────
 
-function RaceHeader({ rc, trackCond, trackCondConfirmed, setTrackCond, weights, setWeights, runnerCount, onUpgrade, isPro, isMobile }) {
+function RaceHeader({ rc, trackCond, trackCondConfirmed, setTrackCond, weights, setWeights, runnerCount, onUpgrade, isPro, isMobile, onOpenGeneralBet }) {
   const [tcOpen, setTcOpen] = useState(false);
   return (
     <div id="rh-outer" className="px-2.5 md:px-4 py-1.5 md:py-2.5 bg-white flex flex-nowrap items-center justify-between gap-3 flex-shrink-0 overflow-x-auto" style={{ borderBottom: '4px solid #00471B' }}>
@@ -768,6 +768,16 @@ function RaceHeader({ rc, trackCond, trackCondConfirmed, setTrackCond, weights, 
         )}
         {/* Weights */}
         <WeightsPanel weights={weights} setWeights={setWeights} onUpgrade={onUpgrade} />
+        {/* General Log Bet — meeting/race/horse picker, for logging a bet
+            without going via a specific runner row first */}
+        <button
+          onClick={onOpenGeneralBet}
+          className="flex items-center gap-1 text-[10px] font-bold px-2.5 py-1.5 rounded-lg border transition-colors whitespace-nowrap"
+          style={{ color: '#00471b', background: '#f0fdf4', borderColor: '#bbf7d0' }}
+        >
+          <i className="ti ti-plus text-xs" />
+          Log Bet
+        </button>
       </div>
     </div>
   );
@@ -1503,6 +1513,105 @@ function BetModal({ horse, onClose }) {
         {betBody}
       </div>
       {toast && toastEl}
+    </div>
+  );
+}
+
+// ─── general log bet modal ──────────────────────────────────────────────────
+// Entry point for logging a bet without going through a specific runner row
+// first — user picks Meeting → Race → Horse themselves, then it hands off to
+// the same BetModal every per-runner "+ Bet" button already uses, so bet
+// type/stake/odds/bookmaker/save/share all come from one shared implementation.
+
+function GeneralLogBetModal({ allVenues, allRaces, trackConds, onPick, onClose }) {
+  const isMobile = useIsMobile();
+  const venues = useMemo(() => Object.keys(allVenues).sort(), [allVenues]);
+  const [venue, setVenue] = useState('');
+  const [raceKey, setRaceKey] = useState('');
+  const [horseName, setHorseName] = useState('');
+
+  const raceOptions = useMemo(() => {
+    if (!venue) return [];
+    return (allVenues[venue] || [])
+      .slice()
+      .sort((a, b) => (+allRaces[a]?.num || 0) - (+allRaces[b]?.num || 0));
+  }, [venue, allVenues, allRaces]);
+
+  const horseOptions = useMemo(() => {
+    if (!raceKey || !allRaces[raceKey]) return [];
+    return (allRaces[raceKey].horses || []).filter(h => !h.scratched);
+  }, [raceKey, allRaces]);
+
+  const canContinue = venue && raceKey && horseName;
+
+  const handleContinue = () => {
+    const rc = allRaces[raceKey];
+    const horse = horseOptions.find(h => h.name === horseName);
+    if (!rc || !horse) return;
+    onPick({
+      ...horse,
+      _venue: rc.venue,
+      _raceNum: rc.num,
+      _raceName: rc.name || null,
+      _meetingDate: rc.date || null,
+      _trackCond: trackConds[rc.venue] || 'good',
+      _myOdds: horse.rawOdds,
+      _raceTime: rc.time || null,
+      _fieldSize: (rc.horses ? rc.horses.filter(h => !h.scratched).length : 0) || null,
+    });
+  };
+
+  const inp = { width: '100%', border: '1px solid #e5e7eb', borderRadius: 8, padding: '8px 10px', fontSize: 13, fontWeight: 500 };
+
+  const body = (
+    <div className="p-4 space-y-3">
+      <div>
+        <label className="block text-[10px] font-semibold text-gray-500 mb-1">Meeting</label>
+        <select value={venue} onChange={e => { setVenue(e.target.value); setRaceKey(''); setHorseName(''); }} style={inp}>
+          <option value="">Meeting…</option>
+          {venues.map(v => <option key={v} value={v}>{v}</option>)}
+        </select>
+      </div>
+      <div>
+        <label className="block text-[10px] font-semibold text-gray-500 mb-1">Race</label>
+        <select value={raceKey} onChange={e => { setRaceKey(e.target.value); setHorseName(''); }} disabled={!venue} style={inp}>
+          <option value="">Race…</option>
+          {raceOptions.map(k => <option key={k} value={k}>R{allRaces[k]?.num}{allRaces[k]?.name ? ` — ${allRaces[k].name}` : ''}</option>)}
+        </select>
+      </div>
+      <div>
+        <label className="block text-[10px] font-semibold text-gray-500 mb-1">Horse</label>
+        <select value={horseName} onChange={e => setHorseName(e.target.value)} disabled={!raceKey} style={inp}>
+          <option value="">Horse…</option>
+          {horseOptions.map(h => <option key={h.name} value={h.name}>{h.tab ? `${h.tab}. ` : ''}{h.name}</option>)}
+        </select>
+      </div>
+      <button
+        onClick={handleContinue}
+        disabled={!canContinue}
+        className="w-full py-2 rounded-lg text-[13px] font-bold text-white transition-colors"
+        style={{ background: canContinue ? '#00471b' : '#9ca3af', cursor: canContinue ? 'pointer' : 'default' }}
+      >
+        Continue
+      </button>
+    </div>
+  );
+
+  if (isMobile) {
+    return <BottomSheet isOpen onClose={onClose} title="Log a Bet">{body}</BottomSheet>;
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-2xl w-80" onClick={e => e.stopPropagation()}>
+        <div className="bg-brand px-4 py-3 flex items-center justify-between rounded-t-2xl">
+          <div className="text-white font-semibold text-[13px]">Log a Bet</div>
+          <button onClick={onClose} className="text-white/60 hover:text-white">
+            <i className="ti ti-x text-lg" />
+          </button>
+        </div>
+        {body}
+      </div>
     </div>
   );
 }
@@ -2571,6 +2680,7 @@ function RacesPageInner() {
   const [view,        setView]        = useState('field');
   const [upgradeOpen,   setUpgradeOpen]   = useState(false);
   const [betTarget,     setBetTarget]     = useState(null);
+  const [generalBetOpen, setGeneralBetOpen] = useState(false);
   const [raceResults,   setRaceResults]   = useState({});
   const [resultPopup,   setResultPopup]   = useState(null);
   const [bbTarget,      setBbTarget]      = useState(null);
@@ -2658,6 +2768,17 @@ function RacesPageInner() {
     const rc = allRaces[selectedKey];
     setBetTarget({ ...runner, _rank: rank, _venue: rc?.venue, _raceNum: rc?.num, _raceName: rc?.name || null, _meetingDate: rc?.date || null, _trackCond: trackCond, _myOdds: runner.rawOdds, _raceTime: rc?.time || null, _fieldSize: (rc?.horses ? rc.horses.filter(h => !h.scratched).length : 0) || null });
   }, [allRaces, selectedKey, trackCond, isPro]);
+
+  const handleOpenGeneralBet = useCallback(() => {
+    if (!isPro) { setUpgradeOpen(true); return; }
+    setGeneralBetOpen(true);
+  }, [isPro]);
+
+  const handleGeneralBetPick = useCallback((horse) => {
+    setGeneralBetOpen(false);
+    setBetTarget(horse);
+  }, []);
+
   const hideTimerRef = useRef(null);
 
   useEffect(() => {
@@ -3178,7 +3299,8 @@ function RacesPageInner() {
                   )}
                   <RaceHeader rc={currentRace} trackCond={trackCond} trackCondConfirmed={trackCondConfirmed} setTrackCond={setTrackCond}
                     weights={weights} setWeights={setWeights} runnerCount={results.length}
-                    onUpgrade={() => setUpgradeOpen(true)} isPro={isPro} isMobile={isNarrow} />
+                    onUpgrade={() => setUpgradeOpen(true)} isPro={isPro} isMobile={isNarrow}
+                    onOpenGeneralBet={handleOpenGeneralBet} />
                   {(() => {
                     const venueRaces = (allVenues[currentRace.venue] || [])
                       .slice()
@@ -3275,6 +3397,16 @@ function RacesPageInner() {
 
       {/* Log Bet modal */}
       {betTarget && <BetModal horse={betTarget} onClose={() => setBetTarget(null)} />}
+      {/* General Log Bet modal — meeting/race/horse picker, hands off to BetModal */}
+      {generalBetOpen && (
+        <GeneralLogBetModal
+          allVenues={allVenues}
+          allRaces={allRaces}
+          trackConds={trackConds}
+          onPick={handleGeneralBetPick}
+          onClose={() => setGeneralBetOpen(false)}
+        />
+      )}
       {/* Race result modal */}
       {resultPopup && <RaceResultModal result={resultPopup} results={results} onClose={() => setResultPopup(null)} />}
       {/* Blackbook modal */}
