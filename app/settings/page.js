@@ -5,6 +5,7 @@ import { useUser, useClerk, useReverification } from '@clerk/nextjs';
 import { isReverificationCancelledError } from '@clerk/nextjs/errors';
 import useIsPro from '@/hooks/useIsPro';
 import { punterFallback } from '@/lib/punterFallback';
+import { BOOKMAKERS } from '@/lib/bookmakers';
 
 const SURL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SKEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -511,7 +512,7 @@ export default function SettingsPage() {
             <SecTitle>Betting defaults</SecTitle>
             <Field label="Default bookmaker">
               <Sel value={s.defBookmaker} onChange={v => set('defBookmaker', v)}
-                options={['Sportsbet','TAB','Ladbrokes','Neds','Betfair','Bet365']} />
+                options={BOOKMAKERS} />
             </Field>
             <Field label="Default stake ($)">
               <Inp type="number" value={s.defStake} onChange={v => set('defStake', v)} placeholder="50" />

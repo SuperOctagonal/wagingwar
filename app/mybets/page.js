@@ -17,6 +17,7 @@ import { validateBetForm } from '@/lib/betValidation';
 import { brisbaneDateTimeToInstant } from '@/lib/raceTime';
 import { estimatePlacePrice, paidPlacesForFieldSize } from '@/lib/placePrice';
 import { scoreGroup, getDefaultWeights, GRP_KEYS } from '@/lib/scoring';
+import { BOOKMAKERS } from '@/lib/bookmakers';
 import {
   LineChart, Line, AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine,
@@ -24,8 +25,6 @@ import {
 
 const SURL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SKEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-const BOOKMAKERS = ['Sportsbet','TAB','Betfair','Bet365','BlueBet','Ladbrokes','Neds','Other'];
 
 // Direct REST fetch — bypasses Supabase JS client schema cache
 async function sbFetch(path, opts = {}) {

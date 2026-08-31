@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { auth, clerkClient } from '@clerk/nextjs/server';
+import { ALL_KNOWN_BOOKMAKERS } from '@/lib/bookmakers';
 
 const SURL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SKEY = process.env.SUPABASE_SERVICE_KEY;
@@ -17,6 +18,9 @@ export async function POST(req) {
   const body = await req.json().catch(() => null);
   if (!body?.horse_name || !(+body?.stake > 0) || !(+body?.odds > 1)) {
     return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+  }
+  if (body.bookmaker != null && body.bookmaker !== '' && !ALL_KNOWN_BOOKMAKERS.includes(body.bookmaker)) {
+    return NextResponse.json({ error: `Unknown bookmaker: ${body.bookmaker}` }, { status: 400 });
   }
 
   const betDate = body.date ?? new Date().toISOString().slice(0, 10);

@@ -15,6 +15,7 @@ import { normaliseVenue, stripSponsorPrefix, SPONSOR_PREFIXES } from '@/lib/venu
 import { isRacesAdmin } from '@/lib/admin';
 import { validateBetForm } from '@/lib/betValidation';
 import { estimatePlacePrice, paidPlacesForFieldSize } from '@/lib/placePrice';
+import { BOOKMAKERS as BOOKIES } from '@/lib/bookmakers';
 
 const SURL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SKEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -1116,8 +1117,6 @@ function RaceResultModal({ result, results, onClose }) {
 }
 
 // ─── bet modal ────────────────────────────────────────────────────────────────
-
-const BOOKIES = ['Sportsbet','TAB','Betfair','Bet365','BlueBet','Ladbrokes','Neds','Other'];
 
 function BetModal({ horse, onClose }) {
   const { user } = useUser();
