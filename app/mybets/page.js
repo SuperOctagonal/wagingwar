@@ -8,6 +8,7 @@ import useUserSettings from '@/hooks/useUserSettings';
 import UpgradeModal from '@/components/UpgradeModal';
 import BottomSheet from '@/components/BottomSheet';
 import BetFilterPanel from '@/components/BetFilterPanel';
+import InsightsPanel from '@/components/InsightsPanel';
 import ShareMenu from '@/components/ShareMenu';
 import { parseCSV, buildRaces } from '@/lib/csvParser';
 import { normaliseVenue } from '@/lib/venues';
@@ -498,6 +499,15 @@ export default function MybetsPage() {
 
   const [betView,          setBetView]          = useState('table');
   const [mainTab,          setMainTab]          = useState('ledger');
+  // Opens a specific tab when linked directly (e.g. /mybets?tab=insights from
+  // the account page and the former standalone Insights nav entry). Read via
+  // window.location directly rather than useSearchParams() -- avoids the
+  // Suspense-boundary requirement that hook imposes on an otherwise
+  // statically-rendered page, for a value only ever needed once on mount.
+  useEffect(() => {
+    const tab = new URLSearchParams(window.location.search).get('tab');
+    if (tab === 'insights' || tab === 'overview' || tab === 'ledger') setMainTab(tab);
+  }, []);
   const [chartType,        setChartType]        = useState('outcome');
   const [refreshing,       setRefreshing]       = useState(false);
   const [racePopup,        setRacePopup]        = useState(null);
@@ -1301,7 +1311,9 @@ export default function MybetsPage() {
         </div>
 
 
-        {/* DATE RANGE SWITCHER */}
+        {/* DATE RANGE SWITCHER — hidden on Insights, which has its own
+            date-range control and filters (see InsightsPanel). */}
+        {mainTab !== 'insights' && (
         <div className="mb-date-switch" style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 4, padding: '5px 10px', background: '#fff', border: '1px solid #e5e7eb', borderRadius: 6, margin: '6px 8px 0', ...(isMobile ? { overflowX: 'auto', flexWrap: 'nowrap', scrollbarWidth: 'none' } : { flexWrap: 'wrap' }) }}>
           {[['today','Today'],['yesterday','Yesterday'],['upcoming','Upcoming'],['this_week','This Week'],['this_month','This Month'],['all_time','All Time'],['custom','Custom']]
             .filter(([v]) => v !== 'upcoming' || hasUpcomingBets)
@@ -1318,11 +1330,12 @@ export default function MybetsPage() {
             <input type="date" value={customEnd} onChange={e => setCustomEnd(e.target.value)} style={{ fontSize: 10, padding: '2px 6px', border: '1px solid #e5e7eb', borderRadius: 4, color: '#374151' }} />
           </>)}
         </div>
+        )}
 
         {/* TAB BAR */}
         <div className="mb-tab-bar" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '5px 10px', background: '#fff', border: '1px solid #e5e7eb', borderRadius: 6, flexShrink: 0, gap: 8, margin: '4px 8px 6px' }}>
           <div style={{ display: 'flex', gap: 4, ...(isMobile && { flex: 1 }) }}>
-            {[['ledger', 'Ledger'], ['charts', 'Charts']].map(([v, l]) => (
+            {[['overview', 'Overview'], ['ledger', 'Ledger'], ['insights', 'Insights']].map(([v, l]) => (
               <button key={v} onClick={() => setMainTab(v)}
                 style={{ padding: '4px 14px', borderRadius: 5, fontSize: 11, fontWeight: 700, cursor: 'pointer', border: 'none',
                   background: mainTab === v ? '#00471b' : '#f3f4f6', color: mainTab === v ? '#fff' : '#111827',
@@ -1346,12 +1359,14 @@ export default function MybetsPage() {
 
         {/* BET FILTER PANEL — additive, AND'd with the date-range switcher and
             Win/Place/Loss pills above/below. Visible on both Ledger and
-            Charts since it filters both (via dateFilteredBets, the shared
+            Overview since it filters both (via dateFilteredBets, the shared
             source both branch from). Model rank filter excluded — not useful
-            in this ledger context. */}
+            in this ledger context. Hidden on Insights, which has its own. */}
+        {mainTab !== 'insights' && (
         <div style={{ margin: '0 8px 6px' }}>
           <BetFilterPanel bets={bets} results={betResults} isMobile={isMobile} onChange={handleFilterChange} excludeKeys={['rank']} />
         </div>
+        )}
 
         {mainTab === 'ledger' && (<>
 
@@ -1806,7 +1821,7 @@ export default function MybetsPage() {
 
         </>)}
 
-        {mainTab === 'charts' && (
+        {mainTab === 'overview' && (
           <div style={{ display: 'flex', flexDirection: 'column' }}>
             {/* Chart type pills */}
             <div style={{ flexShrink: 0, padding: '6px 10px', background: '#fff', borderBottom: '1px solid #e5e7eb', display: 'flex', gap: 4, ...(isMobile ? { overflowX: 'auto', flexWrap: 'nowrap', scrollbarWidth: 'none' } : { flexWrap: 'wrap' }) }}>
@@ -2151,6 +2166,13 @@ export default function MybetsPage() {
             </div>
           </div>
         )}
+
+        {/* INSIGHTS TAB — Batch 4 of the My Bets restructure: same component
+            (components/InsightsPanel.js) as the standalone /insights route,
+            just relocated here. Owns its own data fetching, date-range
+            control, and BetFilterPanel instance independent of the rest of
+            this page (see the mainTab !== 'insights' guards above). */}
+        {mainTab === 'insights' && <InsightsPanel />}
 
       </main>
 

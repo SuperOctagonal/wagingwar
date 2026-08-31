@@ -406,7 +406,7 @@ export default function AccountPage() {
                 <QuickLink href="/community" icon="👥" title="Community"        desc="Tips & discussion" />
                 <QuickLink href="/upcoming"  icon="🚀" title="Upcoming"         desc="What's next" />
                 <QuickLink href="/results"   icon="🏁" title="Results"          desc="Recent form" />
-                <QuickLink href="/insights"  icon="💡" title="Insights"         desc="Analytics dashboard" />
+                <QuickLink href="/mybets?tab=insights" icon="💡" title="Insights" desc="Analytics dashboard" />
               </div>
             </div>
 

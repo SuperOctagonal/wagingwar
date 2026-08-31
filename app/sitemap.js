@@ -16,7 +16,6 @@ export default async function sitemap() {
     '/races',
     '/results',
     '/mybets',
-    '/insights',
     '/competitions',
     '/blackbook',
     '/community',
