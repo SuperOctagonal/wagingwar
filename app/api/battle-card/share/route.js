@@ -29,7 +29,8 @@ export async function POST() {
   if (!SURL || !SKEY) return NextResponse.json({ error: 'Server config missing' }, { status: 500 });
 
   const bets = await fetchAllBets(userId);
-  const stats = findBattleCardStats(bets, { minSample: 10, normaliseVenueFn: normaliseVenue });
+  // Temporarily floored at 1 (was 10) so any real sample qualifies; one-line revert if needed.
+  const stats = findBattleCardStats(bets, { minSample: 1, normaliseVenueFn: normaliseVenue });
   if (!stats.qualifies) return NextResponse.json({ error: 'Not enough data yet' }, { status: 404 });
 
   const { bestZone, bestVenue, bestCondition } = stats;

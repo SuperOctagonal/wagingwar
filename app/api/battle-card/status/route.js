@@ -20,7 +20,8 @@ export async function GET() {
     { headers: { apikey: SKEY, Authorization: `Bearer ${SKEY}` } },
   );
   const bets = res.ok ? await res.json() : [];
-  const stats = findBattleCardStats(bets, { minSample: 10, normaliseVenueFn: normaliseVenue });
+  // Temporarily floored at 1 (was 10) so any real sample qualifies; one-line revert if needed.
+  const stats = findBattleCardStats(bets, { minSample: 1, normaliseVenueFn: normaliseVenue });
 
   return NextResponse.json({ qualifies: stats.qualifies });
 }

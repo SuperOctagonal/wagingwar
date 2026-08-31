@@ -528,7 +528,8 @@ export default function MybetsPage() {
   const [lastCheckedAt, setLastCheckedAt] = useState(null);
 
   // Battle Card share — null while checking, then true/false once
-  // /api/battle-card/status responds (n>=10 in all of best-zone/venue/condition).
+  // /api/battle-card/status responds (n>=1 in all of best-zone/venue/condition,
+  // temporarily floored from 10).
   // Menu state (device-share/FB/X/download/copy) lives in components/ShareMenu.js,
   // reused for both this and the Log Bet modal's Share Bet button below.
   const [battleCardQualifies, setBattleCardQualifies] = useState(null);
@@ -1232,7 +1233,7 @@ export default function MybetsPage() {
               )}
             </div>
 
-            {/* Battle Card share — locked state until n>=10 in best zone/venue/condition */}
+            {/* Battle Card share — locked state until n>=1 in best zone/venue/condition (temporarily floored from 10) */}
             {battleCardQualifies !== null && (
               <div style={{ position: 'absolute', top: 8, right: 8 }}>
                 <ShareMenu
@@ -1848,7 +1849,8 @@ export default function MybetsPage() {
               <div style={{ background: '#fff', borderRadius: 10, border: '1px solid #e5e7eb', padding: '10px 12px' }}>
                 {(() => {
                   const CG = '#1D9E75', CR = '#E24B4A', CB = '#3b82f6';
-                  const MIN_SAMPLE = 5;
+                  // Temporarily floored at 1 (was 5) so any real sample shows a percentage; one-line revert if needed.
+                  const MIN_SAMPLE = 1;
 
                   if (dateResulted.length === 0) {
                     return <div style={{ padding: 40, textAlign: 'center', color: '#9ca3af', fontSize: 12 }}>No resulted bets to chart yet</div>;
@@ -1929,7 +1931,7 @@ export default function MybetsPage() {
                             <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
                             <XAxis dataKey="label" tick={{ fontSize: 10, fill: '#111827' }} />
                             <YAxis tick={{ fontSize: 9, fill: '#9ca3af' }} tickFormatter={v => `${v}%`} />
-                            <Tooltip formatter={(v, n, p) => p.payload.smallSample ? ['< 5 bets', 'Small sample'] : [`${v}%`, 'ROI']} />
+                            <Tooltip formatter={(v, n, p) => p.payload.smallSample ? ['< 1 bet', 'Small sample'] : [`${v}%`, 'ROI']} />
                             <Bar dataKey="roi" radius={[3, 3, 0, 0]}>
                               {data.map((d, i) => <Cell key={i} fill={d.smallSample ? '#d1d5db' : d.roi >= 0 ? CG : CR} />)}
                             </Bar>
@@ -1985,7 +1987,7 @@ export default function MybetsPage() {
                             <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
                             <XAxis dataKey="label" tick={{ fontSize: 10, fill: '#111827' }} />
                             <YAxis tick={{ fontSize: 9, fill: '#9ca3af' }} tickFormatter={v => `${v}%`} />
-                            <Tooltip formatter={(v, n, p) => p.payload.smallSample ? ['< 5 bets', 'Small sample'] : [`${v}%`, 'ROI']} />
+                            <Tooltip formatter={(v, n, p) => p.payload.smallSample ? ['< 1 bet', 'Small sample'] : [`${v}%`, 'ROI']} />
                             <Bar dataKey="roi" radius={[3, 3, 0, 0]}>
                               {data.map((d, i) => <Cell key={i} fill={d.smallSample ? '#d1d5db' : d.roi >= 0 ? CG : CR} />)}
                             </Bar>
@@ -2012,7 +2014,7 @@ export default function MybetsPage() {
                             <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
                             <XAxis dataKey="label" tick={{ fontSize: 10, fill: '#111827' }} />
                             <YAxis tick={{ fontSize: 9, fill: '#9ca3af' }} tickFormatter={v => `${v}%`} />
-                            <Tooltip formatter={(v, n, p) => p.payload.smallSample ? ['< 5 bets', 'Small sample'] : [`${v}%`, 'ROI']} />
+                            <Tooltip formatter={(v, n, p) => p.payload.smallSample ? ['< 1 bet', 'Small sample'] : [`${v}%`, 'ROI']} />
                             <Bar dataKey="roi" radius={[3, 3, 0, 0]}>
                               {data.map((d, i) => <Cell key={i} fill={d.smallSample ? '#d1d5db' : d.roi >= 0 ? CG : CR} />)}
                             </Bar>
@@ -2071,7 +2073,8 @@ export default function MybetsPage() {
 
               {/* Edge Zone */}
               {dateResulted.length > 0 && (() => {
-                const MIN_EZ = 5;
+                // Temporarily floored at 1 (was 5) so any real sample shows a percentage; one-line revert if needed.
+                const MIN_EZ = 1;
                 const calcGroupExt = arr => {
                   const settled = arr.filter(b => b.status && b.status !== 'pending' && b.status !== 'scratched' && b.status !== 'unresolved' && b.status !== 'abandoned');
                   const wins   = settled.filter(b => b.status === 'win').length;

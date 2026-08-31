@@ -617,7 +617,7 @@ export default function InsightsPanel() {
                     </tbody>
                   </table>
                 </div>
-                <div style={{ fontSize: 10, color: '#9ca3af', marginTop: 8 }}>Min 10 bets to show a cell. Dark green = best ROI → red = worst. Gold ring = clear edge (±20% ROI).</div>
+                <div style={{ fontSize: 10, color: '#9ca3af', marginTop: 8 }}>Any settled bet shows a cell (temporarily lowered from a 10-bet minimum). Dark green = best ROI → red = worst. Gold ring = clear edge (±20% ROI).</div>
               </>
             )}
           </Card>

@@ -63,7 +63,8 @@ export async function GET(req) {
     if (!SURL || !SKEY) return new Response('Server config missing', { status: 500 });
 
     const bets = await fetchAllBets(userId);
-    const stats = findBattleCardStats(bets, { minSample: 10, normaliseVenueFn: normaliseVenue });
+    // Temporarily floored at 1 (was 10) so any real sample qualifies; one-line revert if needed.
+    const stats = findBattleCardStats(bets, { minSample: 1, normaliseVenueFn: normaliseVenue });
     if (!stats.qualifies) return new Response('Not enough data yet', { status: 404 });
     ({ bestZone, bestVenue, bestCondition } = stats);
   }
