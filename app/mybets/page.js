@@ -969,15 +969,6 @@ export default function MybetsPage() {
 
   const sortedLedgerBets = useMemo(() => {
     const dir = sortDir === 'asc' ? 1 : -1;
-    if (sortCol === 'time') {
-      console.log('[TimeSort] raw →', ledgerFilteredBets.map(b => ({
-        horse: (b.horse_name || '').slice(0, 14),
-        date: b.date,
-        fromMap: raceTimeMap[b.id] ?? null,
-        race_time: b.race_time ?? null,
-        parsed: parseRaceTime(raceTimeMap[b.id] || b.race_time),
-      })));
-    }
     const sorted = [...ledgerFilteredBets].sort((a, b) => {
       let va, vb;
       switch (sortCol) {
@@ -1012,13 +1003,6 @@ export default function MybetsPage() {
       if (va > vb) return 1 * dir;
       return 0;
     });
-    if (sortCol === 'time') {
-      console.log('[TimeSort] sorted →', sorted.map(b => ({
-        horse: (b.horse_name || '').slice(0, 14),
-        date: b.date,
-        parsed: parseRaceTime(raceTimeMap[b.id] || b.race_time),
-      })));
-    }
     return sorted;
   }, [ledgerFilteredBets, sortCol, sortDir, raceTimeMap]);
 
@@ -1265,7 +1249,7 @@ export default function MybetsPage() {
               {heroChartData.length > 1 ? (() => {
                 const finalPnl = heroChartData[heroChartData.length - 1].pnl;
                 return (
-                  <ResponsiveContainer width="100%" height="100%">
+                  <ResponsiveContainer width="100%" height={120}>
                     <AreaChart data={heroChartData} margin={{ top: 8, right: 8, bottom: 4, left: 32 }}>
                       <defs>
                         <linearGradient id="heroFill3c" x1="0" y1="0" x2="0" y2="1">
