@@ -29,7 +29,7 @@ const MYBETS_SECTIONS = [
   { id: 'ledger',   label: 'Ledger',   icon: 'list-details' },
   { id: 'bookies',  label: 'Bookies',  icon: 'building-bank' },
   { id: 'insights', label: 'Insights', icon: 'bulb' },
-  { id: 'health',   label: 'Health',   icon: 'heart-rate' },
+  { id: 'health',   label: 'Health',   icon: 'heart-rate-monitor' },
 ];
 
 // Direct REST fetch — bypasses Supabase JS client schema cache
@@ -2145,7 +2145,7 @@ export default function MybetsPage() {
         {(mainTab === 'bookies' || mainTab === 'health') && (
           <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 40 }}>
             <div style={{ textAlign: 'center', color: '#9ca3af' }}>
-              <i className={`ti ti-${mainTab === 'bookies' ? 'building-bank' : 'heart-rate'}`} style={{ fontSize: 32, display: 'block', marginBottom: 10 }} />
+              <i className={`ti ti-${mainTab === 'bookies' ? 'building-bank' : 'heart-rate-monitor'}`} style={{ fontSize: 32, display: 'block', marginBottom: 10 }} />
               <div style={{ fontSize: 14, fontWeight: 700, color: '#374151', marginBottom: 4 }}>
                 {mainTab === 'bookies' ? 'Bookies' : 'Health'} — coming soon
               </div>
