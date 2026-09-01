@@ -416,11 +416,33 @@ export default function CompetitionsPage() {
         });
         if (allWon) score += 3;
       }
-      return { ...entry, score, correct, decided, isMe: entry.clerk_id === user?.id };
+      const hitPct = decided > 0 ? (correct / decided * 100) : 0;
+      return { ...entry, score, correct, decided, hitPct, isMe: entry.clerk_id === user?.id };
     });
-    entries.sort((a, b) => b.score - a.score);
+    // Full deterministic tie-breaker chain: score, then hit rate (matches the
+    // "Ties are broken by hit rate" copy on the All-time leaderboard, which
+    // already did this via lbRanked's own sort -- this one didn't, which was
+    // the actual bug), then clerk_id alphabetically as a final fallback so
+    // equal-score-and-hit-rate entrants always land in the same order rather
+    // than whatever order comp_picks happened to come back in that poll.
+    entries.sort((a, b) => b.score - a.score || b.hitPct - a.hitPct || a.clerk_id.localeCompare(b.clerk_id));
     return entries.map((e, i) => ({ ...e, rank: i + 1 }));
   }, [allPicksData, results, liveWinnerMap, compRaces, selVenues, user?.id, hiddenFromLb, todayFinishPos]);
+
+  // Memoized on the same dependency as todayLeaderboard itself -- previously
+  // rebuilt fresh (new array + new row objects) in the render body on every
+  // render of this page, including the ~7 unrelated setInterval polls that
+  // touch other state, so LeaderboardTable's `rows` prop changed reference
+  // constantly even when the leaderboard itself hadn't. Combined with the
+  // sort-order instability fixed above, that's what caused the "you" row to
+  // visibly reflow every ~30s. Declared here (before the isPro===false early
+  // return below) rather than down by fieldPanel, since it's a hook and must
+  // run unconditionally on every render.
+  const todayLbRows = useMemo(() => todayLeaderboard.map(e => ({
+    clerk_id: e.clerk_id, rank: e.rank, username: e.uname,
+    hitPct: e.decided > 0 ? (e.correct / e.decided * 100) : null,
+    streak: null, score: e.score, isMe: e.isMe,
+  })), [todayLeaderboard]);
 
   const userScore = useMemo(() => {
     let s = 0;
@@ -665,7 +687,14 @@ export default function CompetitionsPage() {
     function loadAll() {
       sbFetch(`comp_picks_popular?comp_date=eq.${today}&select=venue,race_num,horse_name,pick_count`)
         .then(rows => { if (Array.isArray(rows)) setPopularData(rows); });
-      sbFetch(`comp_picks?comp_date=eq.${today}&hide_picks=eq.false&select=clerk_id,username,venue,race_num,horse_name`)
+      // order=clerk_id.asc, not score.desc -- comp_picks is a per-pick row
+      // (one per race per user), it has no score column at all; score is
+      // computed client-side afterwards from these rows + race results. Any
+      // deterministic ORDER BY fixes the actual bug (PostgREST/Postgres row
+      // order is otherwise unspecified without one), and clerk_id.asc
+      // matches the final tie-breaker in the entries.sort() below for
+      // consistency between the two.
+      sbFetch(`comp_picks?comp_date=eq.${today}&hide_picks=eq.false&select=clerk_id,username,venue,race_num,horse_name&order=clerk_id.asc`)
         .then(rows => Array.isArray(rows) ? resolveLiveUsernames(rows) : [])
         .then(rows => { if (Array.isArray(rows)) setAllPicksData(rows); });
     }
@@ -1334,11 +1363,6 @@ export default function CompetitionsPage() {
   })();
 
   // ─── Field (Today's live leaderboard) ───────────────────────────────────────
-  const todayLbRows = todayLeaderboard.map(e => ({
-    clerk_id: e.clerk_id, rank: e.rank, username: e.uname,
-    hitPct: e.decided > 0 ? (e.correct / e.decided * 100) : null,
-    streak: null, score: e.score, isMe: e.isMe,
-  }));
 
   const fieldPanel = (
     <div style={{ background: '#fff', padding: '14px 16px' }}>
