@@ -10,6 +10,7 @@ import BottomSheet from '@/components/BottomSheet';
 import BetFilterPanel from '@/components/BetFilterPanel';
 import InsightsPanel from '@/components/InsightsPanel';
 import BookiesPanel from '@/components/BookiesPanel';
+import HealthPanel from '@/components/HealthPanel';
 import ShareMenu from '@/components/ShareMenu';
 import { parseCSV, buildRaces } from '@/lib/csvParser';
 import { normaliseVenue } from '@/lib/venues';
@@ -2145,16 +2146,9 @@ export default function MybetsPage() {
             introduced here. */}
         {mainTab === 'bookies' && <BookiesPanel bets={bets} userId={user?.id} />}
 
-        {/* HEALTH — Phase 2, second push (not yet built). Placeholder. */}
-        {mainTab === 'health' && (
-          <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 40 }}>
-            <div style={{ textAlign: 'center', color: '#9ca3af' }}>
-              <i className="ti ti-heart-rate-monitor" style={{ fontSize: 32, display: 'block', marginBottom: 10 }} />
-              <div style={{ fontSize: 14, fontWeight: 700, color: '#374151', marginBottom: 4 }}>Health — coming soon</div>
-              <div style={{ fontSize: 12 }}>Per-bookmaker win-rate and turnover monitoring is on the way.</div>
-            </div>
-          </div>
-        )}
+        {/* HEALTH — Phase 2, second push. Shares the already-fetched `bets`
+            prop, same as Bookies/InsightsPanel. */}
+        {mainTab === 'health' && <HealthPanel bets={bets} />}
 
       </main>
 
