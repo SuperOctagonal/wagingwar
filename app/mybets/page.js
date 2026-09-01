@@ -9,6 +9,7 @@ import UpgradeModal from '@/components/UpgradeModal';
 import BottomSheet from '@/components/BottomSheet';
 import BetFilterPanel from '@/components/BetFilterPanel';
 import InsightsPanel from '@/components/InsightsPanel';
+import BookiesPanel from '@/components/BookiesPanel';
 import ShareMenu from '@/components/ShareMenu';
 import { parseCSV, buildRaces } from '@/lib/csvParser';
 import { normaliseVenue } from '@/lib/venues';
@@ -2139,21 +2140,18 @@ export default function MybetsPage() {
             this page (see the mainTab !== 'insights' guards above). */}
         {mainTab === 'insights' && <InsightsPanel bets={bets} />}
 
-        {/* BOOKIES / HEALTH — Phase 2 features, not yet built (schema/
-            thresholds pending sign-off). Placeholder so the sidebar's 5
-            sections are all clickable in Phase 1. */}
-        {(mainTab === 'bookies' || mainTab === 'health') && (
+        {/* BOOKIES — Phase 2, first push. Shares the already-fetched `bets`
+            prop, same as InsightsPanel, so no additional bet_log fetch is
+            introduced here. */}
+        {mainTab === 'bookies' && <BookiesPanel bets={bets} userId={user?.id} />}
+
+        {/* HEALTH — Phase 2, second push (not yet built). Placeholder. */}
+        {mainTab === 'health' && (
           <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 40 }}>
             <div style={{ textAlign: 'center', color: '#9ca3af' }}>
-              <i className={`ti ti-${mainTab === 'bookies' ? 'building-bank' : 'heart-rate-monitor'}`} style={{ fontSize: 32, display: 'block', marginBottom: 10 }} />
-              <div style={{ fontSize: 14, fontWeight: 700, color: '#374151', marginBottom: 4 }}>
-                {mainTab === 'bookies' ? 'Bookies' : 'Health'} — coming soon
-              </div>
-              <div style={{ fontSize: 12 }}>
-                {mainTab === 'bookies'
-                  ? 'Per-bookmaker balance tracking is on the way.'
-                  : 'Per-bookmaker win-rate and turnover monitoring is on the way.'}
-              </div>
+              <i className="ti ti-heart-rate-monitor" style={{ fontSize: 32, display: 'block', marginBottom: 10 }} />
+              <div style={{ fontSize: 14, fontWeight: 700, color: '#374151', marginBottom: 4 }}>Health — coming soon</div>
+              <div style={{ fontSize: 12 }}>Per-bookmaker win-rate and turnover monitoring is on the way.</div>
             </div>
           </div>
         )}
