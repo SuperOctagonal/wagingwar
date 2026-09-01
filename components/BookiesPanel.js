@@ -6,29 +6,11 @@
 // bet_log can't capture) joined against bet_log P&L for a computed running
 // balance. Schema and page layout signed off before this was built.
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { fetchAllRows } from '@/lib/fetchAllRows';
 import { BOOKMAKERS, ALL_KNOWN_BOOKMAKERS } from '@/lib/bookmakers';
+import { fetchBookmakerTransactions, computeBookmakerRows } from '@/lib/bookmakerStats';
 
 const SURL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SKEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-// Same settled-bet definition used across My Bets/Insights (calcRow,
-// computeInsightsSummary, etc.) -- win/loss/place, excluding
-// pending/unresolved/scratched/abandoned.
-const SETTLED = new Set(['win', 'loss', 'place']);
-function isOpenBet(b) {
-  return !SETTLED.has(b.status) && b.status !== 'scratched' && b.status !== 'abandoned';
-}
-// Mirrors app/mybets/page.js's computePnl exactly -- duplicated locally
-// rather than imported since page.js isn't meant to be imported as a module.
-function betPnl(b) {
-  const isEW = (b.bet_type || '').toLowerCase().includes('each');
-  const stk = +(b.stake || 0);
-  if (b.profit_loss !== null && b.profit_loss !== undefined) return +b.profit_loss;
-  if (b.return_amt !== null && b.return_amt !== undefined) return +b.return_amt - (isEW ? stk * 2 : stk);
-  if (b.status === 'loss') return isEW ? -(stk * 2) : -stk;
-  return 0;
-}
 
 const inp = { fontSize: 12, padding: '7px 10px', border: '1px solid #e5e7eb', borderRadius: 6, color: '#111827', outline: 'none', background: '#fff', width: '100%', boxSizing: 'border-box' };
 
@@ -47,40 +29,15 @@ export default function BookiesPanel({ bets, userId }) {
   const [saving, setSaving] = useState(false);
 
   const loadTransactions = useCallback(async () => {
-    if (!userId || !SURL || !SKEY) return;
+    if (!userId) return;
     setTxLoading(true);
-    const { ok, rows } = await fetchAllRows(
-      `${SURL}/rest/v1/bookmaker_transactions?clerk_id=eq.${encodeURIComponent(userId)}&order=occurred_at.desc`,
-      { apikey: SKEY, Authorization: `Bearer ${SKEY}` },
-    );
-    setTransactions(ok ? rows : []);
+    setTransactions(await fetchBookmakerTransactions(userId));
     setTxLoading(false);
   }, [userId]);
 
   useEffect(() => { loadTransactions(); }, [loadTransactions]);
 
-  const rows = useMemo(() => {
-    const byBookmaker = {};
-    const ensure = bk => (byBookmaker[bk] ||= { bookmaker: bk, txTotal: 0, n: 0, wins: 0, staked: 0, pnl: 0, open: 0 });
-
-    transactions.forEach(t => { ensure(t.bookmaker).txTotal += +t.amount; });
-    (bets || []).forEach(b => {
-      if (!b.bookmaker) return;
-      const row = ensure(b.bookmaker);
-      if (isOpenBet(b)) { row.open += +(b.stake || 0); return; }
-      if (!SETTLED.has(b.status)) return;
-      row.n += 1;
-      if (b.status === 'win') row.wins += 1;
-      row.staked += +(b.stake || 0);
-      row.pnl += betPnl(b);
-    });
-
-    return Object.values(byBookmaker).map(r => ({
-      ...r,
-      balance: r.txTotal + r.pnl,
-      roi: r.staked > 0 ? (r.pnl / r.staked) * 100 : null,
-    }));
-  }, [transactions, bets]);
+  const rows = useMemo(() => computeBookmakerRows(bets, transactions), [transactions, bets]);
 
   const sortedRows = useMemo(() => {
     const dir = sortDir === 'asc' ? 1 : -1;

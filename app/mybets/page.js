@@ -2148,7 +2148,7 @@ export default function MybetsPage() {
 
         {/* HEALTH — Phase 2, second push. Shares the already-fetched `bets`
             prop, same as Bookies/InsightsPanel. */}
-        {mainTab === 'health' && <HealthPanel bets={bets} />}
+        {mainTab === 'health' && <HealthPanel bets={bets} userId={user?.id} />}
 
       </main>
 
