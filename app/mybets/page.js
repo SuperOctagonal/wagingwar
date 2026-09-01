@@ -21,6 +21,17 @@ import {
 const SURL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SKEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
+// My Bets sidebar (desktop) / bottom tab bar (mobile) sections. Drives the
+// existing mainTab state -- only the trigger UI changed from a top tab bar
+// to this persistent nav, per the sidebar migration (2026-09).
+const MYBETS_SECTIONS = [
+  { id: 'overview', label: 'Overview', icon: 'layout-dashboard' },
+  { id: 'ledger',   label: 'Ledger',   icon: 'list-details' },
+  { id: 'bookies',  label: 'Bookies',  icon: 'building-bank' },
+  { id: 'insights', label: 'Insights', icon: 'bulb' },
+  { id: 'health',   label: 'Health',   icon: 'heart-rate' },
+];
+
 // Direct REST fetch — bypasses Supabase JS client schema cache
 async function sbFetch(path, opts = {}) {
   if (!SURL || !SKEY) return null;
@@ -506,7 +517,7 @@ export default function MybetsPage() {
   // statically-rendered page, for a value only ever needed once on mount.
   useEffect(() => {
     const tab = new URLSearchParams(window.location.search).get('tab');
-    if (tab === 'insights' || tab === 'overview' || tab === 'ledger') setMainTab(tab);
+    if (MYBETS_SECTIONS.some(s => s.id === tab)) setMainTab(tab);
   }, []);
   const [chartType,        setChartType]        = useState('outcome');
   const [refreshing,       setRefreshing]       = useState(false);
@@ -1187,11 +1198,6 @@ export default function MybetsPage() {
     const c = payload?.status === 'win' ? '#1D9E75' : payload?.status === 'loss' ? '#E24B4A' : '#6366f1';
     return <circle key={`hd-${cx}-${cy}`} cx={cx} cy={cy} r={3.5} fill={c} stroke="#fff" strokeWidth={1.5} />;
   };
-  const renderMobileSparkDot = ({ cx, cy, payload }) => {
-    if (cx == null || cy == null) return null;
-    const c = payload?.status === 'win' ? '#1D9E75' : payload?.status === 'loss' ? '#E24B4A' : '#6366f1';
-    return <circle key={`msd-${cx}-${cy}`} cx={cx} cy={cy} r={2.5} fill={c} stroke="#fff" strokeWidth={1} />;
-  };
 
   const sbPnl = tabStats.pnl;
   const sbPnlPos = sbPnl !== null && sbPnl >= 0;
@@ -1201,7 +1207,6 @@ export default function MybetsPage() {
     ? `${activeTab.charAt(0).toUpperCase() + activeTab.slice(1)} P&L`
     : _rl[dateRange] || "P&L";
   const sbStreakLabel = heroStreak ? `${heroStreak.type}${heroStreak.count}` : '—';
-  const sbStreakColor = heroStreak?.type === 'W' ? '#059669' : heroStreak?.type === 'L' ? '#dc2626' : '#9ca3af';
   const nextBetsPanel = null;
 
   if (!isLoaded) return null;
@@ -1214,107 +1219,30 @@ export default function MybetsPage() {
     <>
     <style>{`.ww-bets-table td, .ww-bets-table th { padding: ${tablePad} !important; font-size: ${tableFs}px !important; }`}</style>
     <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
+      {/* ── My Bets sidebar (desktop) — persistent left nav across all 5
+          sections, replacing the old top tab bar. Reuses mainTab/setMainTab
+          as-is; only the trigger UI changed. ── */}
+      {!isMobile && (
+        <nav style={{ width: 172, flexShrink: 0, background: '#fff', borderRight: '1px solid #e5e7eb', display: 'flex', flexDirection: 'column', padding: '12px 8px', overflowY: 'auto' }}>
+          {MYBETS_SECTIONS.map(({ id, label, icon }) => (
+            <button key={id} onClick={() => setMainTab(id)}
+              style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 8, border: 'none', cursor: 'pointer', marginBottom: 2, textAlign: 'left', width: '100%',
+                background: mainTab === id ? '#00471b' : 'transparent', color: mainTab === id ? '#fff' : '#374151', fontSize: 12, fontWeight: 700 }}>
+              <i className={`ti ti-${icon}`} style={{ fontSize: 15, width: 16, textAlign: 'center', flexShrink: 0 }} />
+              {label}
+            </button>
+          ))}
+        </nav>
+      )}
+
       {/* ── Main content ── */}
-      <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflowY: 'auto', overflowX: 'hidden', background: '#f3f4f6' }}>
-
-        {/* 3-COLUMN SCOREBOARD HEADER */}
-        <div className="mb-scoreboard" style={{ flexShrink: 0, display: 'flex', background: '#fff', borderBottom: '1px solid #e5e7eb', minHeight: isMobile ? 68 : 120, height: isMobile ? undefined : 120 }}>
-
-          {/* Col 1 — P&L + record + streak */}
-          <div style={{ flex: 1, padding: isMobile ? '8px 12px' : '12px 18px', borderRight: '1px solid #e5e7eb', display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 3, position: 'relative' }}>
-            <div style={{ fontSize: 9, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '.06em' }}>{sbPeriodLabel}</div>
-            <div style={{ fontSize: isMobile ? 22 : 28, fontWeight: 800, fontFamily: 'monospace', color: sbPnlColor, lineHeight: 1 }}>
-              {sbPnl === null ? '—' : (sbPnlPos ? '+$' : '-$') + Math.abs(sbPnl).toFixed(2)}
-            </div>
-            <div className="mb-scoreboard-detail">
-              <div style={{ fontSize: 11, fontFamily: 'monospace', color: '#374151', letterSpacing: '.04em', marginTop: 2 }}>{heroRecord}</div>
-              {heroStreak && (
-                <div style={{ fontSize: 11, fontWeight: 700, color: sbStreakColor }}>{sbStreakLabel} streak</div>
-              )}
-            </div>
-
-            {/* Battle Card share — locked state until n>=1 in best zone/venue/condition (temporarily floored from 10) */}
-            {battleCardQualifies !== null && (
-              <div style={{ position: 'absolute', top: 8, right: 8 }}>
-                <ShareMenu
-                  userId={user?.id}
-                  qualifies={battleCardQualifies}
-                  openTitle="Share your Battle Card"
-                  lockedTitle="Keep logging bets to unlock your Battle Card"
-                  label="Battle Card"
-                  isMobile={isMobile}
-                  pointsAction="battle_card_share"
-                  createPublicUrl={createBattleCardShareUrl}
-                  fetchImage={fetchBattleCardImage}
-                  fileName="battle-card.png"
-                  shareTitle="My Waging War Battle Card"
-                  shareText="Check out my edge on Waging War"
-                />
-              </div>
-            )}
-          </div>
-
-          {/* Col 2 — Cumulative chart (desktop only) */}
-          {!isMobile && (
-            <div style={{ flex: 1, borderRight: '1px solid #e5e7eb', overflow: 'hidden' }}>
-              {heroChartData.length > 1 ? (() => {
-                const finalPnl = heroChartData[heroChartData.length - 1].pnl;
-                return (
-                  <ResponsiveContainer width="100%" height={120}>
-                    <AreaChart data={heroChartData} margin={{ top: 8, right: 8, bottom: 4, left: 32 }}>
-                      <defs>
-                        <linearGradient id="heroFill3c" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor={finalPnl >= 0 ? '#1D9E75' : '#E24B4A'} stopOpacity={0.18} />
-                          <stop offset="95%" stopColor={finalPnl >= 0 ? '#1D9E75' : '#E24B4A'} stopOpacity={0} />
-                        </linearGradient>
-                      </defs>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" vertical={false} />
-                      <ReferenceLine y={0} stroke="#e5e7eb" />
-                      <XAxis dataKey="label" tick={{ fontSize: 8, fill: '#9ca3af' }} interval="preserveStartEnd" tickLine={false} axisLine={false} />
-                      <YAxis tick={{ fontSize: 8, fill: '#9ca3af' }} tickFormatter={v => `$${v}`} axisLine={false} tickLine={false} width={32} />
-                      <Tooltip content={({ active, payload }) => {
-                        if (!active || !payload?.length) return null;
-                        const d = payload[0].payload;
-                        return (
-                          <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 6, padding: '6px 10px', fontSize: 11 }}>
-                            <div style={{ color: '#6b7280', marginBottom: 2 }}>{d.horse}</div>
-                            <div style={{ fontWeight: 700, fontFamily: 'monospace', color: d.pnl >= 0 ? '#1D9E75' : '#E24B4A' }}>{d.pnl >= 0 ? '+$' : '-$'}{Math.abs(d.pnl).toFixed(2)}</div>
-                          </div>
-                        );
-                      }} />
-                      <Area type="monotone" dataKey="pnl" stroke={finalPnl >= 0 ? '#1D9E75' : '#E24B4A'} fill="url(#heroFill3c)" strokeWidth={2} dot={renderHeroDot} activeDot={{ r: 5, stroke: '#fff', strokeWidth: 2 }} />
-                    </AreaChart>
-                  </ResponsiveContainer>
-                );
-              })() : (
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#d1d5db', fontSize: 11 }}>No data yet</div>
-              )}
-            </div>
-          )}
-
-          {/* Col 3 — Stat grid (desktop only) */}
-          {!isMobile && (
-            <div style={{ flex: 1, padding: '12px 18px', display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 10 }}>
-              {[
-                { label: 'Strike',   value: dateStats.strike },
-                { label: 'Staked',   value: dateStats.staked },
-                { label: 'ROI',      value: dateStats.roi, color: parseFloat(dateStats.roi) > 0 ? '#059669' : parseFloat(dateStats.roi) < 0 ? '#dc2626' : '#374151' },
-                { label: 'Avg Odds', value: avgOdds },
-              ].map(({ label, value, color }) => (
-                <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-                  <span style={{ fontSize: 10, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '.06em' }}>{label}</span>
-                  <span style={{ fontSize: 14, fontWeight: 700, fontFamily: 'monospace', color: color || '#111827' }}>{value}</span>
-                </div>
-              ))}
-            </div>
-          )}
-
-        </div>
+      <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflowY: 'auto', overflowX: 'hidden', background: '#f3f4f6', ...(isMobile && { paddingBottom: 52 }) }}>
 
 
-        {/* DATE RANGE SWITCHER — hidden on Insights, which has its own
-            date-range control and filters (see InsightsPanel). */}
-        {mainTab !== 'insights' && (
+        {/* DATE RANGE SWITCHER — only Overview/Ledger use it; Insights has its
+            own date-range control and filters (see InsightsPanel), and
+            Bookies/Health aren't bet-log-date-filtered views. */}
+        {(mainTab === 'overview' || mainTab === 'ledger') && (
         <div className="mb-date-switch" style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 4, padding: '5px 10px', background: '#fff', border: '1px solid #e5e7eb', borderRadius: 6, margin: '6px 8px 0', ...(isMobile ? { overflowX: 'auto', flexWrap: 'nowrap', scrollbarWidth: 'none' } : { flexWrap: 'wrap' }) }}>
           {[['today','Today'],['yesterday','Yesterday'],['upcoming','Upcoming'],['this_week','This Week'],['this_month','This Month'],['all_time','All Time'],['custom','Custom']]
             .filter(([v]) => v !== 'upcoming' || hasUpcomingBets)
@@ -1333,19 +1261,11 @@ export default function MybetsPage() {
         </div>
         )}
 
-        {/* TAB BAR */}
-        <div className="mb-tab-bar" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '5px 10px', background: '#fff', border: '1px solid #e5e7eb', borderRadius: 6, flexShrink: 0, gap: 8, margin: '4px 8px 6px' }}>
-          <div style={{ display: 'flex', gap: 4, ...(isMobile && { flex: 1 }) }}>
-            {[['overview', 'Overview'], ['ledger', 'Ledger'], ['insights', 'Insights']].map(([v, l]) => (
-              <button key={v} onClick={() => setMainTab(v)}
-                style={{ padding: '4px 14px', borderRadius: 5, fontSize: 11, fontWeight: 700, cursor: 'pointer', border: 'none',
-                  background: mainTab === v ? '#00471b' : '#f3f4f6', color: mainTab === v ? '#fff' : '#111827',
-                  ...(isMobile && { flex: 1, textAlign: 'center' }) }}>
-                {l}
-              </button>
-            ))}
-          </div>
-          {mainTab === 'ledger' && !isMobile && (
+        {/* LEDGER VIEW TOGGLE — mainTab switching itself now lives in the
+            sidebar/mobile bottom bar (see MYBETS_SECTIONS); this bar is just
+            the Table/Terminal/Sessions/Kanban sub-view picker, Ledger-only. */}
+        {mainTab === 'ledger' && !isMobile && (
+          <div className="mb-tab-bar" style={{ display: 'flex', justifyContent: 'flex-end', padding: '5px 10px', background: '#fff', border: '1px solid #e5e7eb', borderRadius: 6, flexShrink: 0, margin: '4px 8px 6px' }}>
             <div style={{ display: 'flex', gap: 4 }}>
               {[['table', 'Table'], ['terminal', 'Terminal'], ['sessions', 'Sessions'], ['kanban', 'Kanban']].map(([v, l]) => (
                 <button key={v} onClick={() => setBetView(v)}
@@ -1355,15 +1275,16 @@ export default function MybetsPage() {
                 </button>
               ))}
             </div>
-          )}
-        </div>
+          </div>
+        )}
 
         {/* BET FILTER PANEL — additive, AND'd with the date-range switcher and
             Win/Place/Loss pills above/below. Visible on both Ledger and
             Overview since it filters both (via dateFilteredBets, the shared
             source both branch from). Model rank filter excluded — not useful
-            in this ledger context. Hidden on Insights, which has its own. */}
-        {mainTab !== 'insights' && (
+            in this ledger context. Hidden on Insights (has its own) and
+            Bookies/Health (not bet-log-date-filtered views). */}
+        {(mainTab === 'overview' || mainTab === 'ledger') && (
         <div style={{ margin: '0 8px 6px' }}>
           <BetFilterPanel bets={bets} results={betResults} isMobile={isMobile} onChange={handleFilterChange} excludeKeys={['rank']} />
         </div>
@@ -1824,6 +1745,47 @@ export default function MybetsPage() {
 
         {mainTab === 'overview' && (
           <div style={{ display: 'flex', flexDirection: 'column' }}>
+
+            {/* KPI CARDS — the old 3-column hero P&L strip's data (P&L,
+                Strike, Staked, ROI, Avg Odds), relocated here as its own
+                Overview-only row now that the strip itself is gone. Ledger
+                and Insights no longer show any of this. Battle Card share
+                (unrelated feature, previously absolutely-positioned over the
+                strip's first column) gets its own control alongside it. */}
+            <div style={{ flexShrink: 0, padding: '10px 12px', background: '#fff', borderBottom: '1px solid #e5e7eb', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', gap: 8, flex: 1, flexWrap: 'wrap' }}>
+                {[
+                  { label: sbPeriodLabel, value: sbPnl === null ? '—' : (sbPnlPos ? '+$' : '-$') + Math.abs(sbPnl).toFixed(2), color: sbPnlColor, sub: heroStreak ? `${heroRecord} · ${sbStreakLabel} streak` : heroRecord },
+                  { label: 'Strike',   value: dateStats.strike },
+                  { label: 'Staked',   value: dateStats.staked },
+                  { label: 'ROI',      value: dateStats.roi, color: parseFloat(dateStats.roi) > 0 ? '#059669' : parseFloat(dateStats.roi) < 0 ? '#dc2626' : '#374151' },
+                  { label: 'Avg Odds', value: avgOdds },
+                ].map(({ label, value, color, sub }) => (
+                  <div key={label} style={{ background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: 8, padding: '8px 14px', minWidth: 108 }}>
+                    <div style={{ fontSize: 9, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 3 }}>{label}</div>
+                    <div style={{ fontSize: 18, fontWeight: 800, fontFamily: 'monospace', color: color || '#111827', lineHeight: 1 }}>{value}</div>
+                    {sub && <div style={{ fontSize: 10, fontFamily: 'monospace', color: '#9ca3af', marginTop: 3 }}>{sub}</div>}
+                  </div>
+                ))}
+              </div>
+              {battleCardQualifies !== null && (
+                <ShareMenu
+                  userId={user?.id}
+                  qualifies={battleCardQualifies}
+                  openTitle="Share your Battle Card"
+                  lockedTitle="Keep logging bets to unlock your Battle Card"
+                  label="Battle Card"
+                  isMobile={isMobile}
+                  pointsAction="battle_card_share"
+                  createPublicUrl={createBattleCardShareUrl}
+                  fetchImage={fetchBattleCardImage}
+                  fileName="battle-card.png"
+                  shareTitle="My Waging War Battle Card"
+                  shareText="Check out my edge on Waging War"
+                />
+              )}
+            </div>
+
             {/* Chart type pills */}
             <div style={{ flexShrink: 0, padding: '6px 10px', background: '#fff', borderBottom: '1px solid #e5e7eb', display: 'flex', gap: 4, ...(isMobile ? { overflowX: 'auto', flexWrap: 'nowrap', scrollbarWidth: 'none' } : { flexWrap: 'wrap' }) }}>
               {[
@@ -2175,9 +2137,46 @@ export default function MybetsPage() {
             just relocated here. Owns its own data fetching, date-range
             control, and BetFilterPanel instance independent of the rest of
             this page (see the mainTab !== 'insights' guards above). */}
-        {mainTab === 'insights' && <InsightsPanel />}
+        {mainTab === 'insights' && <InsightsPanel bets={bets} />}
+
+        {/* BOOKIES / HEALTH — Phase 2 features, not yet built (schema/
+            thresholds pending sign-off). Placeholder so the sidebar's 5
+            sections are all clickable in Phase 1. */}
+        {(mainTab === 'bookies' || mainTab === 'health') && (
+          <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 40 }}>
+            <div style={{ textAlign: 'center', color: '#9ca3af' }}>
+              <i className={`ti ti-${mainTab === 'bookies' ? 'building-bank' : 'heart-rate'}`} style={{ fontSize: 32, display: 'block', marginBottom: 10 }} />
+              <div style={{ fontSize: 14, fontWeight: 700, color: '#374151', marginBottom: 4 }}>
+                {mainTab === 'bookies' ? 'Bookies' : 'Health'} — coming soon
+              </div>
+              <div style={{ fontSize: 12 }}>
+                {mainTab === 'bookies'
+                  ? 'Per-bookmaker balance tracking is on the way.'
+                  : 'Per-bookmaker win-rate and turnover monitoring is on the way.'}
+              </div>
+            </div>
+          </div>
+        )}
 
       </main>
+
+      {/* ── My Bets mobile bottom tab bar — same visual language as the
+          site's global mobile nav (components/TopNav.js MOB_TABS), stacked
+          directly above it (bottom: 52px = that bar's own height) so
+          neither overlaps the other. ── */}
+      {isMobile && (
+        <div style={{ position: 'fixed', left: 0, right: 0, bottom: 52, height: 52, background: '#00471b', borderTop: '1px solid rgba(255,255,255,0.12)', display: 'flex', zIndex: 900 }}>
+          {MYBETS_SECTIONS.map(({ id, label, icon }) => (
+            <button key={id} onClick={() => setMainTab(id)}
+              style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 2, background: 'none', cursor: 'pointer',
+                border: 'none', borderTop: mainTab === id ? '2px solid #fbbf24' : '2px solid transparent',
+                color: mainTab === id ? '#fbbf24' : 'rgba(255,255,255,0.45)', fontSize: 9, fontWeight: 600 }}>
+              <i className={`ti ti-${icon}`} style={{ fontSize: 15 }} />
+              {label}
+            </button>
+          ))}
+        </div>
+      )}
 
       {upgradeOpen && <UpgradeModal onClose={() => setUpgradeOpen(false)} />}
 

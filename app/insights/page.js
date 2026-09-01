@@ -1,11 +1,11 @@
-'use client';
+import { redirect } from 'next/navigation';
 
-// Standalone /insights route — kept alive for existing bookmarks/shared links
-// after Batch 4 of the My Bets restructure removed Insights from top nav and
-// relocated its content into My Bets' Insights tab. Actual implementation
-// lives in components/InsightsPanel.js, shared by both this route and that tab.
-import InsightsPanel from '@/components/InsightsPanel';
-
+// Standalone /insights route — no longer renders content directly (sidebar
+// migration, 2026-09). Redirects to the Insights section of My Bets' sidebar,
+// so existing bookmarks/shared links still land somewhere useful instead of
+// breaking. middleware.js already protects both /insights(.*) and /mybets(.*)
+// with the same auth.protect() check, so the redirect target is covered
+// without any middleware change.
 export default function InsightsPage() {
-  return <InsightsPanel />;
+  redirect('/mybets?tab=insights');
 }

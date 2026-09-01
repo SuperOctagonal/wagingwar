@@ -125,13 +125,22 @@ function EmptyState({ msg }) {
 // route (kept alive for existing bookmarks/links, no longer in top nav) and
 // inside My Bets' Insights tab. Same Pro-gating and server-side computation
 // (/api/insights/summary, /api/insights/ai-summary) either way -- this
-// component owns its own data fetching independent of whatever page embeds it.
-export default function InsightsPanel() {
+// component owns its own data fetching independent of whatever page embeds it,
+// EXCEPT bet_log: My Bets' Overview/Ledger already fetch the user's full
+// bet_log for their own use, so when embedded there it's passed in as the
+// `bets` prop instead of this component re-fetching the same rows a second
+// time (sidebar migration, 2026-09). The standalone /insights route (and any
+// other future embedder) that doesn't pass `bets` still gets the original
+// self-contained fetch as a fallback. race_results and the
+// /api/insights/summary + /api/insights/ai-summary calls are untouched --
+// only the raw bet_log fetch is de-duplicated.
+export default function InsightsPanel({ bets: sharedBets } = {}) {
   const { user, isLoaded } = useUser();
   const isPro = useIsPro();
   const isMobile = useIsMobile();
   const [lockVisible, setLockVisible] = useState(true);
-  const [bets, setBets] = useState([]);
+  const [ownBets, setOwnBets] = useState([]);
+  const bets = sharedBets ?? ownBets;
   const [results, setResults] = useState([]);
   const [userSettings, setUserSettings] = useState({});
   const [range, setRange] = useState('all_time');
@@ -145,17 +154,22 @@ export default function InsightsPanel() {
   useEffect(() => {
     if (!user?.id || !isPro) { if (isPro === false) setLoading(false); return; }
     setLoading(true);
+    const betsPromise = sharedBets != null
+      ? Promise.resolve(sharedBets)
+      : sbFetch(`bet_log?clerk_id=eq.${encodeURIComponent(user.id)}&select=*&order=date.asc,created_at.asc`);
     Promise.all([
-      sbFetch(`bet_log?clerk_id=eq.${encodeURIComponent(user.id)}&select=*&order=date.asc,created_at.asc`),
+      betsPromise,
       sbFetch(`user_settings?clerk_id=eq.${encodeURIComponent(user.id)}&select=settings`),
     ]).then(([betRows, settingRows]) => {
       const rows = betRows || [];
-      console.log('[insights] bet_log rows:', rows.length, '· statuses:', [...new Set(rows.map(b => b.status))]);
-      setBets(rows);
+      if (sharedBets == null) {
+        console.log('[insights] bet_log rows:', rows.length, '· statuses:', [...new Set(rows.map(b => b.status))]);
+        setOwnBets(rows);
+      }
       setUserSettings(settingRows?.[0]?.settings || {});
       setLoading(false);
     });
-  }, [user?.id, isPro]);
+  }, [user?.id, isPro, sharedBets]);
 
   useEffect(() => {
     if (!bets.length) return;
