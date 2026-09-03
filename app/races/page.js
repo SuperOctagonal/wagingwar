@@ -12,10 +12,11 @@ import BottomSheet from '@/components/BottomSheet';
 import ShareMenu from '@/components/ShareMenu';
 import { awardPoints } from '@/lib/points';
 import { normaliseVenue, stripSponsorPrefix, SPONSOR_PREFIXES } from '@/lib/venues';
-import { isRacesAdmin } from '@/lib/admin';
+import { isRacesAdmin, isSiteAdmin } from '@/lib/admin';
 import { validateBetForm } from '@/lib/betValidation';
 import { estimatePlacePrice, paidPlacesForFieldSize } from '@/lib/placePrice';
 import { BOOKMAKERS as BOOKIES } from '@/lib/bookmakers';
+import { PUNTERSEDGE_BOOKMAKER_COLUMNS, bookmakerNameForSlug } from '@/lib/puntersedgeBookmakers';
 
 const SURL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SKEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -1695,14 +1696,21 @@ function MobileRacePicker({ allVenues, allRaces, selectedRaceKey, onSelect }) {
 
 // ─── mobile runner card ───────────────────────────────────────────────────────
 
-function MobileRunnerCard({ runner, rank, rc, trackCond, onLogBet, isResulted, betBlocked = false, isPro, onUpgrade, isDbScratched, layers }) {
+function MobileRunnerCard({ runner, rank, rc, trackCond, onLogBet, isResulted, betBlocked = false, isPro, onUpgrade, isDbScratched, layers, isAdmin = false, livePrices = {} }) {
   const mktO = runner.rawOdds;
   const myO  = runner.myOdds;
   const wt   = runner['Weight'] ? `${runner['Weight']}kg` : '';
 
+  // Admin-only: odds_snapshot live price for the currently-picked bookmaker,
+  // falling back to the CSV rawOdds value -- never touches rawOdds itself,
+  // which the bet-modal pre-fill and Results page still read directly.
+  const liveP = isAdmin ? livePrices[stripCountry(runner.name).toUpperCase()] : undefined;
+  const displayPrice = liveP ?? mktO;
+  const isLivePrice = liveP != null;
+
   let valStr = '—', valColor = '#374151';
-  if (mktO && myO) {
-    const p = (mktO - myO) / myO * 100;
+  if (displayPrice && myO) {
+    const p = (displayPrice - myO) / myO * 100;
     const arrow = p >= 30 ? '▲' : p <= -30 ? '▼' : '';
     valStr  = `${arrow}${p >= 0 ? '+' : ''}${p.toFixed(0)}%`;
     valColor = p >= 20 ? '#27500A' : p <= -20 ? '#A32D2D' : '#374151';
@@ -1742,7 +1750,10 @@ function MobileRunnerCard({ runner, rank, rc, trackCond, onLogBet, isResulted, b
         <div style={{ flexShrink: 0, width: 34, textAlign: 'right', fontSize: 11, fontWeight: 600, color: '#059669' }}>
           {isDbScratched ? '—' : !isPro ? <LockBtn onClick={onUpgrade} /> : (myO ? `$${formatRacingOdds(myO)}` : '—')}
         </div>
-        <div style={{ flexShrink: 0, width: 42, textAlign: 'right', fontSize: 12, fontWeight: 600, color: '#111827' }}>{mktO ? `$${mktO.toFixed(2)}` : '—'}</div>
+        <div style={{ flexShrink: 0, width: 42, textAlign: 'right', fontSize: 12, fontWeight: 600, color: '#111827' }}>
+          {displayPrice ? `$${displayPrice.toFixed(2)}` : '—'}
+          {isLivePrice && <span style={{ display: 'block', fontSize: 6, fontWeight: 800, color: '#059669', letterSpacing: '0.3px' }}>LIVE</span>}
+        </div>
         <div style={{ flexShrink: 0, width: 32, textAlign: 'right', fontSize: 11, fontWeight: 500, color: valColor }}>
           {isPro ? valStr : <button onClick={onUpgrade} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '6px 4px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minHeight: 32, color: '#9ca3af' }}><i className="ti ti-lock" style={{ fontSize: 13 }} /></button>}
         </div>
@@ -1873,15 +1884,21 @@ function LockBtn({ onClick }) {
 
 const DEFAULT_COL_VIS = { form: true, speed: true, cond: true, conn: true, score: true, edge: true, value: true };
 
-function RunnerRow({ runner, rank, rc, trackCond, onLogBet, onShowPopup, onHidePopup, isResulted, betBlocked = false, isPro, onUpgrade, isDbScratched, colVis = DEFAULT_COL_VIS, todayBets = {} }) {
+function RunnerRow({ runner, rank, rc, trackCond, onLogBet, onShowPopup, onHidePopup, isResulted, betBlocked = false, isPro, onUpgrade, isDbScratched, colVis = DEFAULT_COL_VIS, todayBets = {}, isAdmin = false, livePrices = {} }) {
   const myO  = runner.myOdds;
   const mktO = runner.rawOdds;
+  // Admin-only: odds_snapshot live price for the currently-picked bookmaker,
+  // falling back to the CSV rawOdds value -- never touches rawOdds itself,
+  // which the bet-modal pre-fill and Results page still read directly.
+  const liveP = isAdmin ? livePrices[stripCountry(runner.name).toUpperCase()] : undefined;
+  const displayPrice = liveP ?? mktO;
+  const isLivePrice = liveP != null;
   const pm   = calcPaceMap(runner, rc.venue, +rc.dist, trackCond);
   const crsLabel = (() => { const c = runner.courseStarts||0; return c===0?'NEW':c===1?'1x':c<=4?`${c}x`:'VET'; })();
 
   let valStr = '—', valColor = '#374151';
-  if (mktO && myO) {
-    const p = (mktO - myO) / myO * 100;
+  if (displayPrice && myO) {
+    const p = (displayPrice - myO) / myO * 100;
     const arrow = p >= 30 ? '▲' : p <= -30 ? '▼' : '';
     valStr  = `${arrow}${p >= 0 ? '+' : ''}${p.toFixed(0)}%`;
     valColor = p >= 20 ? '#059669' : p <= -20 ? '#dc2626' : '#374151';
@@ -1960,7 +1977,10 @@ function RunnerRow({ runner, rank, rc, trackCond, onLogBet, onShowPopup, onHideP
         </td>
       )}
       {/* Ref $ */}
-      <td className={`${td} text-right text-[11px] tabular-nums whitespace-nowrap`} style={{ color: '#111827' }}>{mktO ? `$${mktO.toFixed(2)}` : '—'}</td>
+      <td className={`${td} text-right text-[11px] tabular-nums whitespace-nowrap`} style={{ color: '#111827' }}>
+        {displayPrice ? `$${displayPrice.toFixed(2)}` : '—'}
+        {isLivePrice && <span style={{ marginLeft: 3, fontSize: 7, fontWeight: 800, color: '#059669', background: '#d1fae5', padding: '1px 3px', borderRadius: 3, letterSpacing: '0.3px' }}>LIVE</span>}
+      </td>
       {/* Value */}
       {colVis.value && (
         <td className={`${td} text-right text-[10px] font-semibold tabular-nums whitespace-nowrap`} style={{ color: valColor }}>
@@ -1991,7 +2011,7 @@ function RunnerRow({ runner, rank, rc, trackCond, onLogBet, onShowPopup, onHideP
   );
 }
 
-function FieldView({ results, scratched, rc, trackCond, onLogBet, onShowPopup, onHidePopup, isResulted, betBlocked = false, isPro, onUpgrade, scratchingsSet = new Set(), colVis = DEFAULT_COL_VIS, todayBets = {}, isMobile }) {
+function FieldView({ results, scratched, rc, trackCond, onLogBet, onShowPopup, onHidePopup, isResulted, betBlocked = false, isPro, onUpgrade, scratchingsSet = new Set(), colVis = DEFAULT_COL_VIS, todayBets = {}, isMobile, isAdmin = false, livePrices = {} }) {
   const tcLabel = { good:'Good', soft:'Soft', heavy:'Heavy', synthetic:'Synth' }[trackCond] || 'Good';
   const scrKey = h => `${normaliseVenue(rc.venue)}||${rc.num}||${stripCountry(h.name).toUpperCase()}`;
   const activeResults = results.filter(h => !scratchingsSet.has(scrKey(h)));
@@ -2027,10 +2047,10 @@ function FieldView({ results, scratched, rc, trackCond, onLogBet, onShowPopup, o
           </thead>
           <tbody>
             {activeResults.map((r, i) => (
-              <RunnerRow key={r.tab || r.name} runner={r} rank={i+1} rc={rc} trackCond={trackCond} onLogBet={onLogBet} onShowPopup={onShowPopup} onHidePopup={onHidePopup} isResulted={isResulted} betBlocked={betBlocked} isPro={isPro} onUpgrade={onUpgrade} colVis={colVis} todayBets={todayBets} />
+              <RunnerRow key={r.tab || r.name} runner={r} rank={i+1} rc={rc} trackCond={trackCond} onLogBet={onLogBet} onShowPopup={onShowPopup} onHidePopup={onHidePopup} isResulted={isResulted} betBlocked={betBlocked} isPro={isPro} onUpgrade={onUpgrade} colVis={colVis} todayBets={todayBets} isAdmin={isAdmin} livePrices={livePrices} />
             ))}
             {dbScratched.map(r => (
-              <RunnerRow key={r.tab || r.name} runner={r} rank={null} rc={rc} trackCond={trackCond} onLogBet={onLogBet} onShowPopup={onShowPopup} onHidePopup={onHidePopup} isResulted={true} betBlocked isPro={isPro} onUpgrade={onUpgrade} isDbScratched colVis={colVis} todayBets={todayBets} />
+              <RunnerRow key={r.tab || r.name} runner={r} rank={null} rc={rc} trackCond={trackCond} onLogBet={onLogBet} onShowPopup={onShowPopup} onHidePopup={onHidePopup} isResulted={true} betBlocked isPro={isPro} onUpgrade={onUpgrade} isDbScratched colVis={colVis} todayBets={todayBets} isAdmin={isAdmin} livePrices={livePrices} />
             ))}
           </tbody>
           {scratched.length > 0 && (
@@ -2095,11 +2115,11 @@ function FieldView({ results, scratched, rc, trackCond, onLogBet, onShowPopup, o
         <div className="mob-page" style={{ flex: 1, minHeight: 0, overflowY: 'auto', overflowX: 'hidden' }}>
           {mobDisplayResults.map(r => (
             <MobileRunnerCard key={r.tab || r.name} runner={r} rank={mobRankMap.get(r.tab || r.name)} rc={rc} trackCond={trackCond}
-              onLogBet={onLogBet} isResulted={isResulted} betBlocked={betBlocked} isPro={isPro} onUpgrade={onUpgrade} layers={layers} />
+              onLogBet={onLogBet} isResulted={isResulted} betBlocked={betBlocked} isPro={isPro} onUpgrade={onUpgrade} layers={layers} isAdmin={isAdmin} livePrices={livePrices} />
           ))}
           {dbScratched.map(r => (
             <MobileRunnerCard key={r.tab || r.name} runner={r} rank={null} rc={rc} trackCond={trackCond}
-              onLogBet={onLogBet} isResulted={true} betBlocked isPro={isPro} onUpgrade={onUpgrade} isDbScratched layers={layers} />
+              onLogBet={onLogBet} isResulted={true} betBlocked isPro={isPro} onUpgrade={onUpgrade} isDbScratched layers={layers} isAdmin={isAdmin} livePrices={livePrices} />
           ))}
           {scratched.length > 0 && (
             <div style={{ padding: '8px 12px', fontSize: 9, color: '#9ca3af', background: '#f9fafb', borderTop: '1px solid #f3f4f6' }}>
@@ -2651,6 +2671,19 @@ function RacesPageInner() {
   const preferredViewRef = useRef('field');
   console.log('[Tier] isPro:', isPro, 'plan:', user?.publicMetadata?.plan);
 
+  // Temporary admin-only live-odds feature (PuntersEdge licensing not yet
+  // cleared for real subscribers -- see /odds lockdown, commit 905d605).
+  // Non-admins get the unchanged CSV-only REF $/VALUE behavior.
+  const isSiteAdminUser = isSiteAdmin(user?.id);
+  const [oddsBookmaker, setOddsBookmakerState] = useState(() => {
+    try { return localStorage.getItem('ww_odds_bookmaker') || PUNTERSEDGE_BOOKMAKER_COLUMNS[0]?.slug || ''; } catch { return PUNTERSEDGE_BOOKMAKER_COLUMNS[0]?.slug || ''; }
+  });
+  const setOddsBookmaker = (slug) => {
+    setOddsBookmakerState(slug);
+    try { localStorage.setItem('ww_odds_bookmaker', slug); } catch {}
+  };
+  const [livePrices, setLivePrices] = useState({});
+
   const todayISO = new Date().toLocaleDateString('sv-SE', { timeZone: 'Australia/Brisbane' });
   // Only tomorrow's card is actually populated by the pipeline right now — cap
   // the picker there rather than leaving it unbounded. Bump this once further-
@@ -2744,6 +2777,38 @@ function RacesPageInner() {
   } : { form: true, speed: true, cond: true, conn: true, score: true, edge: true, value: true };
 
   const currentRace = selectedKey ? allRaces[selectedKey] : null;
+
+  useEffect(() => {
+    if (!isSiteAdminUser || !oddsBookmaker || !currentRace?.venue || !currentRace?.num) {
+      setLivePrices({});
+      return;
+    }
+    if (!SURL || !SKEY) return;
+    let cancelled = false;
+    async function load() {
+      try {
+        const venue = normaliseVenue(currentRace.venue);
+        const raceNum = String(currentRace.num);
+        const res = await fetch(
+          `${SURL}/rest/v1/odds_snapshot?race_venue=eq.${encodeURIComponent(venue)}&race_num=eq.${encodeURIComponent(raceNum)}&bookmaker=eq.${encodeURIComponent(oddsBookmaker)}&select=horse_name,price,captured_at&order=captured_at.desc&limit=200`,
+          { headers: { apikey: SKEY, Authorization: `Bearer ${SKEY}` } },
+        );
+        if (!res.ok || cancelled) return;
+        const rows = await res.json();
+        const map = {};
+        // Rows are ordered newest-first, so the first hit per horse is the latest price.
+        for (const r of rows) {
+          const key = stripCountry(r.horse_name).toUpperCase();
+          if (!(key in map)) map[key] = Number(r.price);
+        }
+        if (!cancelled) setLivePrices(map);
+      } catch {}
+    }
+    load();
+    const interval = setInterval(load, 60000);
+    return () => { cancelled = true; clearInterval(interval); };
+  }, [isSiteAdminUser, oddsBookmaker, currentRace?.venue, currentRace?.num]);
+
   const trackCond = (currentRace && trackConds[currentRace.venue]) || 'good';
   // Distinct from trackCond itself: whether that value is real (DB-confirmed via
   // today_meetings, or the user manually picked one) vs just the unset 'good'
@@ -3338,6 +3403,21 @@ function RacesPageInner() {
                     );
                   })()}
                   {!isNarrow && <ViewTabBar view={view} setView={setView} runnerCount={results.length} isPast={isPast} />}
+                  {isSiteAdminUser && view === 'field' && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 10px', borderBottom: '1px solid #e5e7eb', background: '#fafafa' }}>
+                      <span style={{ fontSize: 9, fontWeight: 700, color: '#059669', background: '#d1fae5', padding: '2px 5px', borderRadius: 3 }}>ADMIN</span>
+                      <span style={{ fontSize: 10, color: '#6b7280' }}>Live price:</span>
+                      <select
+                        value={oddsBookmaker}
+                        onChange={e => setOddsBookmaker(e.target.value)}
+                        style={{ padding: '2px 6px', borderRadius: 6, border: '1px solid #d1d5db', fontSize: 11, background: '#fff' }}
+                      >
+                        {PUNTERSEDGE_BOOKMAKER_COLUMNS.map(c => (
+                          <option key={c.slug} value={c.slug}>{bookmakerNameForSlug(c.slug)}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
                   {currentRaceResult && (
                     <div style={{ background:'#f0fdf4', borderBottom:'1px solid #86efac', padding:'5px 12px', display:'flex', alignItems:'center', gap:8 }}>
                       <i className="ti ti-flag-check" style={{ color:'#16a34a', fontSize:13 }} />
@@ -3358,7 +3438,8 @@ function RacesPageInner() {
                       onShowPopup={showHorsePopup} onHidePopup={hideHorsePopup}
                       isResulted={!!currentRaceResult} betBlocked={betBlocked}
                       isPro={isPro} onUpgrade={() => setUpgradeOpen(true)}
-                      scratchingsSet={scratchingsSet} colVis={colVis} todayBets={todayBets} isMobile={isNarrow} />
+                      scratchingsSet={scratchingsSet} colVis={colVis} todayBets={todayBets} isMobile={isNarrow}
+                      isAdmin={isSiteAdminUser} livePrices={livePrices} />
                   )}
                   {view === 'form' && (
                     <FormView results={allHorsesForDisplay} scratched={scratched} onLogBet={handleLogBet} isResulted={!!currentRaceResult} betBlocked={betBlocked} rc={currentRace} isPro={isPro} onUpgrade={() => setUpgradeOpen(true)} scratchingsSet={scratchingsSet} />
