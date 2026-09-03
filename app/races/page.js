@@ -3154,7 +3154,11 @@ function RacesPageInner() {
 
   return (
     <>
-    <style>{`.ww-race-table td { padding: ${tablePad} !important; font-size: ${tableFs}px !important; }`}</style>
+    <style>{`
+      .ww-race-table td { padding: ${tablePad} !important; font-size: ${tableFs}px !important; }
+      .ww-race-table { border-collapse: collapse; }
+      .ww-race-table th, .ww-race-table td { border: 1px solid #000; }
+    `}</style>
     <div
       id="races-grid-outer"
       className={isNarrow ? 'flex flex-1 overflow-hidden' : undefined}
