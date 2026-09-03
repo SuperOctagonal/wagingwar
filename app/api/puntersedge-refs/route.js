@@ -111,5 +111,68 @@ export async function POST(request) {
     }
   }
 
+  // next-to-go carries the full per-bookmaker price breakdown (best-odds only
+  // gives a single best price), so it's fetched separately and matched the
+  // same way to build odds_snapshot -- one row per (horse, bookmaker) per run.
+  let ntgRaces = [];
+  try {
+    const r = await fetch(`${PE_BASE}/v1/racing/next-to-go?categories=horse`, {
+      headers: { 'X-API-Key': PE_KEY },
+    });
+    if (!r.ok) {
+      result.errors.push(`PuntersEdge next-to-go ${r.status}: ${await r.text()}`);
+    } else {
+      ntgRaces = await r.json();
+    }
+  } catch (err) {
+    result.errors.push(`PuntersEdge next-to-go network error: ${err.message}`);
+  }
+
+  const capturedAt = new Date().toISOString();
+  const snapshotRows = [];
+  result.snapshot_rows = 0;
+
+  for (const race of ntgRaces) {
+    if (race.country !== 'AU') continue;
+    const key = `${normaliseVenue(race.venue)}||${race.race_number}`;
+    const cards = byRace.get(key);
+    if (!cards) continue;
+    const ourNames = cards.map(c => c.horse_name);
+    for (const runner of (race.runners || [])) {
+      const matchedName = matchRunnerName(runner.name, ourNames);
+      if (!matchedName) continue;
+      for (const bm of (runner.bookmakers || [])) {
+        if (bm.win_price == null) continue;
+        snapshotRows.push({
+          race_venue: normaliseVenue(race.venue),
+          race_num: String(race.race_number),
+          race_date: dateISO,
+          horse_name: matchedName,
+          puntersedge_runner_ref: runner.runner_ref ?? null,
+          bookmaker: bm.key,
+          price: bm.win_price,
+          captured_at: capturedAt,
+        });
+      }
+    }
+  }
+
+  if (snapshotRows.length) {
+    try {
+      const r = await fetch(`${SURL}/rest/v1/odds_snapshot`, {
+        method: 'POST',
+        headers: { ...sbHeaders, 'Content-Type': 'application/json', Prefer: 'return=minimal' },
+        body: JSON.stringify(snapshotRows),
+      });
+      if (!r.ok) {
+        result.errors.push(`odds_snapshot insert ${r.status}: ${await r.text()}`);
+      } else {
+        result.snapshot_rows = snapshotRows.length;
+      }
+    } catch (err) {
+      result.errors.push(`odds_snapshot insert network error: ${err.message}`);
+    }
+  }
+
   return NextResponse.json(result, { status: result.errors.length ? 207 : 200 });
 }
