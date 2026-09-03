@@ -3157,7 +3157,7 @@ function RacesPageInner() {
     <style>{`
       .ww-race-table td { padding: ${tablePad} !important; font-size: ${tableFs}px !important; }
       .ww-race-table { border-collapse: collapse; }
-      .ww-race-table th, .ww-race-table td { border: 1px solid #000; }
+      .ww-race-table th, .ww-race-table td { border: 1px solid #d1d5db; }
     `}</style>
     <div
       id="races-grid-outer"
