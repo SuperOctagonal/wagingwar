@@ -98,13 +98,21 @@ export default function OddsTable({ venue, raceNum }) {
           </span>
         )}
       </div>
+      {/* Matches the Field tab's .ww-race-table treatment: border-collapse +
+          1px solid #d1d5db gridlines on every cell, light-gray uppercase
+          header -- same density/fonts as the Field table's default (Standard
+          density, Medium font) styling, not a separately-styled table. */}
+      <style>{`
+        .ww-odds-table { border-collapse: collapse; }
+        .ww-odds-table th, .ww-odds-table td { border: 1px solid #d1d5db; }
+      `}</style>
       <div style={{ background: '#fff', borderRadius: 10, border: '1px solid #e5e7eb', overflowX: 'auto' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+        <table className="ww-odds-table" style={{ width: '100%', fontSize: 11 }}>
           <thead>
-            <tr style={{ background: '#173404' }}>
-              <th style={{ padding: '6px 10px', fontSize: 10, fontWeight: 700, color: '#EAF3DE', textAlign: 'left', position: 'sticky', left: 0, background: '#173404' }}>Horse</th>
+            <tr>
+              <th style={{ padding: '3px 4px', fontSize: 9, fontWeight: 700, color: '#374151', background: '#f8fafc', textTransform: 'uppercase', letterSpacing: '0.5px', textAlign: 'left', position: 'sticky', left: 0 }}>Horse</th>
               {columns.map(c => (
-                <th key={c.slug} style={{ padding: '6px 10px', fontSize: 10, fontWeight: 700, color: '#EAF3DE', textAlign: 'right', whiteSpace: 'nowrap' }}>
+                <th key={c.slug} style={{ padding: '3px 4px', fontSize: 9, fontWeight: 700, color: '#374151', background: '#f8fafc', textTransform: 'uppercase', letterSpacing: '0.5px', textAlign: 'right', whiteSpace: 'nowrap' }}>
                   {bookmakerNameForSlug(c.slug)}
                 </th>
               ))}
@@ -115,8 +123,8 @@ export default function OddsTable({ venue, raceNum }) {
               const prices = columns.map(c => tableData.byHorseBookie[`${horse}||${c.slug}`]).filter(p => p != null);
               const best = prices.length ? Math.max(...prices) : null;
               return (
-                <tr key={horse} style={{ borderTop: '1px solid #f3f4f6' }}>
-                  <td style={{ padding: '6px 10px', fontWeight: 600, color: '#111827', position: 'sticky', left: 0, background: '#fff', whiteSpace: 'nowrap' }}>{horse}</td>
+                <tr key={horse}>
+                  <td style={{ padding: '3px 4px', fontWeight: 600, color: '#111827', background: '#fff', position: 'sticky', left: 0, whiteSpace: 'nowrap' }}>{horse}</td>
                   {columns.map(c => {
                     const price = tableData.byHorseBookie[`${horse}||${c.slug}`];
                     const isBest = price != null && price === best;
@@ -124,7 +132,7 @@ export default function OddsTable({ venue, raceNum }) {
                       <td
                         key={c.slug}
                         style={{
-                          padding: '6px 10px',
+                          padding: '3px 4px',
                           textAlign: 'right',
                           fontFamily: 'monospace',
                           color: price == null ? '#d1d5db' : isBest ? '#059669' : '#111827',
