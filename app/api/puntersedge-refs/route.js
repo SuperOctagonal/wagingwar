@@ -35,7 +35,12 @@ export async function POST(request) {
 
   let peRaces;
   try {
-    const r = await fetch(`${PE_BASE}/v1/racing/best-odds?categories=horse`, {
+    // num_races defaults to a small cap (confirmed empirically: 10) when
+    // omitted -- 150 is best-odds' documented max ("compare every race on
+    // the day's card in one call"), and costs the same credits as the
+    // truncated default (confirmed via /v1/usage before/after: flat 3
+    // credits/call regardless of race count).
+    const r = await fetch(`${PE_BASE}/v1/racing/best-odds?categories=horse&num_races=150`, {
       headers: { 'X-API-Key': PE_KEY },
     });
     if (!r.ok) {
@@ -116,7 +121,9 @@ export async function POST(request) {
   // same way to build odds_snapshot -- one row per (horse, bookmaker) per run.
   let ntgRaces = [];
   try {
-    const r = await fetch(`${PE_BASE}/v1/racing/next-to-go?categories=horse`, {
+    // Same fix as best-odds above -- 200 is next-to-go's documented max
+    // ("bulk-pull every currently quoted race"), same flat credit cost.
+    const r = await fetch(`${PE_BASE}/v1/racing/next-to-go?categories=horse&num_races=200`, {
       headers: { 'X-API-Key': PE_KEY },
     });
     if (!r.ok) {
