@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect, useMemo } from 'react';
 import ProfileRail from '@/components/ProfileRail';
+import PuntersEdgeCredit from '@/components/PuntersEdgeCredit';
 import { PUNTERSEDGE_BOOKMAKER_COLUMNS, bookmakerNameForSlug } from '@/lib/puntersedgeBookmakers';
 
 const SURL = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -136,6 +137,8 @@ export default function OddsPageClient() {
                   {raceNumsForVenue.map(n => <option key={n} value={n}>Race {n}</option>)}
                 </select>
               </div>
+
+              <PuntersEdgeCredit style={{ marginBottom: 8 }} />
 
               <div style={{ background: '#fff', borderRadius: 10, border: '1px solid #e5e7eb', overflowX: 'auto' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>

@@ -10,6 +10,7 @@ import useUserSettings from '@/hooks/useUserSettings';
 import UpgradeModal from '@/components/UpgradeModal';
 import BottomSheet from '@/components/BottomSheet';
 import ShareMenu from '@/components/ShareMenu';
+import PuntersEdgeCredit from '@/components/PuntersEdgeCredit';
 import { awardPoints } from '@/lib/points';
 import { normaliseVenue, stripSponsorPrefix, SPONSOR_PREFIXES } from '@/lib/venues';
 import { isRacesAdmin, isSiteAdmin } from '@/lib/admin';
@@ -3416,6 +3417,7 @@ function RacesPageInner() {
                           <option key={c.slug} value={c.slug}>{bookmakerNameForSlug(c.slug)}</option>
                         ))}
                       </select>
+                      <PuntersEdgeCredit style={{ marginLeft: 'auto' }} />
                     </div>
                   )}
                   {currentRaceResult && (
