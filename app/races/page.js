@@ -1742,7 +1742,7 @@ function MobileRunnerCard({ runner, rank, rc, trackCond, onLogBet, isResulted, b
   return (
     <div style={{ background: isDbScratched ? '#fafafa' : (rank===1 ? '#FAEEDA' : '#fff'), borderBottom: '1px solid #f1f5f9', padding: '4px 6px 5px 10px', opacity: isDbScratched ? 0.45 : 1, overflow: 'hidden' }}>
 
-      {/* Line 1: RNK (16) | NO/badge (16) | name (flex:1) | Score (32) | Edge $ (34) | Live $ (38) | Val (28) — gap:5 mirrors column header */}
+      {/* Line 1: RNK (16) | NO/badge (16) | name (flex:1) | Score (32) | WW $ (34) | Live $ (38) | Val (28) — gap:5 mirrors column header */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 1 }}>
         <div style={{ flexShrink: 0, width: 16, textAlign: 'center', fontSize: 9, fontWeight: 500, color: isDbScratched ? '#d1d5db' : '#6b7280', lineHeight: '16px' }}>
           {isDbScratched ? '—' : !isPro ? <LockBtn onClick={onUpgrade} /> : (rank || '—')}
@@ -1977,13 +1977,13 @@ function RunnerRow({ runner, rank, rc, trackCond, onLogBet, onShowPopup, onHideP
           {isDbScratched ? '—' : !isPro ? <LockBtn onClick={onUpgrade} /> : runner.totalFromGroups.toFixed(1)}
         </td>
       )}
-      {/* Edge $ */}
+      {/* WW $ */}
       {colVis.edge && (
         <td className={`${td} text-right text-[11px] font-semibold text-emerald-600 tabular-nums whitespace-nowrap`}>
           {!isPro ? <LockBtn onClick={onUpgrade} /> : (myO ? `$${formatRacingOdds(myO)}` : '—')}
         </td>
       )}
-      {/* Ref $ */}
+      {/* Price $ */}
       <td className={`${td} text-right text-[11px] tabular-nums whitespace-nowrap`} style={{ color: '#111827' }}>
         {displayPrice ? `$${displayPrice.toFixed(2)}` : '—'}
         {isLivePrice && <span style={{ marginLeft: 3, fontSize: 7, fontWeight: 800, color: '#059669', background: '#d1fae5', padding: '1px 3px', borderRadius: 3, letterSpacing: '0.3px' }}>LIVE</span>}
@@ -2045,8 +2045,8 @@ function FieldView({ results, scratched, rc, trackCond, onLogBet, onShowPopup, o
               {colVis.cond && <th style={{ ...th, textAlign:'right', width:'5%', color: GRP_LABELS.cond.color }}>{tcLabel}</th>}
               {colVis.conn && <th style={{ ...th, textAlign:'right', width:'5%', color: GRP_LABELS.conn.color }}>Conn</th>}
               {colVis.score && <th style={{ ...th, textAlign:'right', width:'5%' }}>Score</th>}
-              {colVis.edge && <th style={{ ...th, textAlign:'right', width:'6%' }}>Edge $</th>}
-              <th style={{ ...th, textAlign:'right', width:'6%' }}>Ref $</th>
+              {colVis.edge && <th style={{ ...th, textAlign:'right', width:'6%' }}>WW $</th>}
+              <th style={{ ...th, textAlign:'right', width:'6%' }}>Price $</th>
               {colVis.value && <th style={{ ...th, textAlign:'right', width:'5%' }}>Value</th>}
               <th style={{ ...th, width:'8%' }} />
               <th style={{ ...th, textAlign:'left', width:'16%' }}>Pace / Crs</th>
@@ -2113,8 +2113,8 @@ function FieldView({ results, scratched, rc, trackCond, onLogBet, onShowPopup, o
             {layers.pace && <span style={{ fontSize: 10, fontWeight: 400, color: '#6b7280', textTransform: 'none', letterSpacing: 0 }}>· Sorted by barrier</span>}
           </div>
           <div style={{ flexShrink: 0, width: 36, textAlign: 'right' }}>Score</div>
-          <div style={{ flexShrink: 0, width: 34, textAlign: 'right' }}>Edge $</div>
-          <div style={{ flexShrink: 0, width: 42, textAlign: 'right' }}>Ref $</div>
+          <div style={{ flexShrink: 0, width: 34, textAlign: 'right' }}>WW $</div>
+          <div style={{ flexShrink: 0, width: 42, textAlign: 'right' }}>Price $</div>
           <div style={{ flexShrink: 0, width: 32, textAlign: 'right' }}>Val</div>
         </div>
 
@@ -2680,7 +2680,7 @@ function RacesPageInner() {
 
   // Temporary admin-only live-odds feature (PuntersEdge licensing not yet
   // cleared for real subscribers -- see /odds lockdown, commit 905d605).
-  // Non-admins get the unchanged CSV-only REF $/VALUE behavior.
+  // Non-admins get the unchanged CSV-only PRICE $/VALUE behavior.
   const isSiteAdminUser = isSiteAdmin(user?.id);
   const [oddsBookmaker, setOddsBookmakerState] = useState(() => {
     try { return localStorage.getItem('ww_odds_bookmaker') || PUNTERSEDGE_BOOKMAKER_COLUMNS[0]?.slug || ''; } catch { return PUNTERSEDGE_BOOKMAKER_COLUMNS[0]?.slug || ''; }

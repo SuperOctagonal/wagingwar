@@ -5,7 +5,7 @@
 export default function PuntersEdgeCredit({ style }) {
   return (
     <div style={{ fontSize: 13, color: '#111827', ...style }}>
-      Prices by <a href="https://puntersedge.online" target="_blank" rel="noopener noreferrer" style={{ color: '#111827', textDecoration: 'underline' }}>PuntersEdge</a>
+      Live prices by <a href="https://puntersedge.online" target="_blank" rel="noopener noreferrer" style={{ color: '#111827', textDecoration: 'underline' }}>PuntersEdge</a>
     </div>
   );
 }
