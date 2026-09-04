@@ -11,6 +11,7 @@ import UpgradeModal from '@/components/UpgradeModal';
 import BottomSheet from '@/components/BottomSheet';
 import ShareMenu from '@/components/ShareMenu';
 import PuntersEdgeCredit from '@/components/PuntersEdgeCredit';
+import OddsTable from '@/components/OddsTable';
 import { awardPoints } from '@/lib/points';
 import { normaliseVenue, stripSponsorPrefix, SPONSOR_PREFIXES } from '@/lib/venues';
 import { isRacesAdmin, isSiteAdmin } from '@/lib/admin';
@@ -618,10 +619,15 @@ const VIEW_TABS = [
   { id: 'sectionals', label: 'Sectionals', icon: 'ti-chart-line', locked: true },
 ];
 
-function ViewTabBar({ view, setView, runnerCount, isPast }) {
+// Admin-only (PuntersEdge licensing, see the /odds lockdown) -- appended to
+// VIEW_TABS only when isSiteAdminUser is true, never shown locked/greyed-out
+// to non-admins.
+const ODDS_TAB = { id: 'odds', label: 'Odds', icon: 'ti-coin' };
+
+function ViewTabBar({ view, setView, runnerCount, isPast, tabs = VIEW_TABS }) {
   return (
     <div className="flex items-center border-b border-gray-200 bg-white px-2 flex-shrink-0 h-10">
-      {VIEW_TABS.map(t => (
+      {tabs.map(t => (
         <button
           key={t.id}
           onClick={() => !t.locked && setView(t.id)}
@@ -3403,7 +3409,7 @@ function RacesPageInner() {
                       </div>
                     );
                   })()}
-                  {!isNarrow && <ViewTabBar view={view} setView={setView} runnerCount={results.length} isPast={isPast} />}
+                  {!isNarrow && <ViewTabBar view={view} setView={setView} runnerCount={results.length} isPast={isPast} tabs={isSiteAdminUser ? [...VIEW_TABS, ODDS_TAB] : VIEW_TABS} />}
                   {isSiteAdminUser && view === 'field' && (
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 10px', borderBottom: '1px solid #e5e7eb', background: '#fafafa' }}>
                       <span style={{ fontSize: 9, fontWeight: 700, color: '#059669', background: '#d1fae5', padding: '2px 5px', borderRadius: 3 }}>ADMIN</span>
@@ -3448,6 +3454,11 @@ function RacesPageInner() {
                   )}
                   {view === 'pacemap' && (
                     <PaceMapView results={allHorsesForDisplay} scratched={scratched} rc={currentRace} trackCond={trackCond} isPro={isPro} onUpgrade={() => setUpgradeOpen(true)} scratchingsSet={scratchingsSet} />
+                  )}
+                  {view === 'odds' && isSiteAdminUser && (
+                    <div style={{ padding: 12 }}>
+                      <OddsTable venue={normaliseVenue(currentRace.venue)} raceNum={String(currentRace.num)} />
+                    </div>
                   )}
                 </div>
               );
