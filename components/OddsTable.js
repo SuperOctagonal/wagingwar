@@ -29,11 +29,12 @@ function sydneyToday() {
 // (which already has a race selected via the sidebar/R1-R8 pills).
 export default function OddsTable({ venue, raceNum }) {
   const [rows, setRows] = useState([]);
+  const [cardInfo, setCardInfo] = useState({});
   const [capturedAt, setCapturedAt] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!venue || !raceNum) { setRows([]); setCapturedAt(null); setLoading(false); return; }
+    if (!venue || !raceNum) { setRows([]); setCardInfo({}); setCapturedAt(null); setLoading(false); return; }
     let cancelled = false;
     async function load() {
       setLoading(true);
@@ -45,14 +46,25 @@ export default function OddsTable({ venue, raceNum }) {
       );
       const ts = latest[0]?.captured_at;
       if (!ts) {
-        if (!cancelled) { setRows([]); setCapturedAt(null); setLoading(false); }
+        if (!cancelled) { setRows([]); setCardInfo({}); setCapturedAt(null); setLoading(false); }
         return;
       }
-      const snapshot = await sb(
-        `odds_snapshot?race_date=eq.${today}&race_venue=eq.${encodeURIComponent(venue)}&race_num=eq.${encodeURIComponent(raceNum)}&captured_at=eq.${encodeURIComponent(ts)}&select=horse_name,bookmaker,price`,
-      );
+      // odds_snapshot itself has no horse number/barrier -- those live on
+      // race_cards (the same table the Field tab reads them from), joined
+      // here by horse_name since odds_snapshot.horse_name is already the
+      // matched race_cards.horse_name value (written by the puntersedge-refs
+      // ingest route's matcher, not a raw PuntersEdge name).
+      const [snapshot, cards] = await Promise.all([
+        sb(`odds_snapshot?race_date=eq.${today}&race_venue=eq.${encodeURIComponent(venue)}&race_num=eq.${encodeURIComponent(raceNum)}&captured_at=eq.${encodeURIComponent(ts)}&select=horse_name,bookmaker,price`),
+        sb(`race_cards?date=eq.${today}&venue=eq.${encodeURIComponent(venue)}&race_num=eq.${encodeURIComponent(raceNum)}&select=horse_name,barrier,form_data`),
+      ]);
       if (!cancelled) {
         setRows(snapshot);
+        const info = {};
+        for (const c of cards) {
+          info[c.horse_name] = { tab: c.form_data?.tab ?? null, barrier: c.barrier ?? null };
+        }
+        setCardInfo(info);
         setCapturedAt(ts);
         setLoading(false);
       }
@@ -63,13 +75,20 @@ export default function OddsTable({ venue, raceNum }) {
   }, [venue, raceNum]);
 
   const tableData = useMemo(() => {
-    const horses = [...new Set(rows.map(r => r.horse_name))].sort();
+    const horses = [...new Set(rows.map(r => r.horse_name))].sort((a, b) => {
+      const ta = Number(cardInfo[a]?.tab);
+      const tb = Number(cardInfo[b]?.tab);
+      if (Number.isFinite(ta) && Number.isFinite(tb)) return ta - tb;
+      if (Number.isFinite(ta)) return -1;
+      if (Number.isFinite(tb)) return 1;
+      return a.localeCompare(b);
+    });
     const byHorseBookie = {};
     for (const r of rows) {
       byHorseBookie[`${r.horse_name}||${r.bookmaker}`] = Number(r.price);
     }
     return { horses, byHorseBookie };
-  }, [rows]);
+  }, [rows, cardInfo]);
 
   const columns = useMemo(() => {
     const slugsPresent = new Set(rows.map(r => r.bookmaker));
@@ -122,9 +141,12 @@ export default function OddsTable({ venue, raceNum }) {
             {tableData.horses.map(horse => {
               const prices = columns.map(c => tableData.byHorseBookie[`${horse}||${c.slug}`]).filter(p => p != null);
               const best = prices.length ? Math.max(...prices) : null;
+              const info = cardInfo[horse];
               return (
                 <tr key={horse}>
-                  <td style={{ padding: '3px 4px', fontWeight: 600, color: '#111827', background: '#fff', position: 'sticky', left: 0, whiteSpace: 'nowrap' }}>{horse}</td>
+                  <td style={{ padding: '3px 4px', fontWeight: 600, color: '#111827', background: '#fff', position: 'sticky', left: 0, whiteSpace: 'nowrap' }}>
+                    {info?.tab ? `${info.tab}. ` : ''}{horse}{info?.barrier ? ` (${info.barrier})` : ''}
+                  </td>
                   {columns.map(c => {
                     const price = tableData.byHorseBookie[`${horse}||${c.slug}`];
                     const isBest = price != null && price === best;

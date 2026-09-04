@@ -3413,7 +3413,7 @@ function RacesPageInner() {
                       </div>
                     );
                   })()}
-                  {!isNarrow && <ViewTabBar view={view} setView={setView} runnerCount={results.length} isPast={isPast} tabs={isSiteAdminUser ? [...VIEW_TABS, ODDS_TAB] : VIEW_TABS} />}
+                  {!isNarrow && <ViewTabBar view={view} setView={setView} runnerCount={results.length} isPast={isPast} tabs={isSiteAdminUser ? [VIEW_TABS[0], ODDS_TAB, ...VIEW_TABS.slice(1)] : VIEW_TABS} />}
                   {isSiteAdminUser && view === 'field' && (
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 10px', borderBottom: '1px solid #e5e7eb', background: '#fafafa' }}>
                       <span style={{ fontSize: 9, fontWeight: 700, color: '#059669', background: '#d1fae5', padding: '2px 5px', borderRadius: 3 }}>ADMIN</span>
