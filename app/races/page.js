@@ -13,7 +13,7 @@ import ShareMenu from '@/components/ShareMenu';
 import PuntersEdgeCredit from '@/components/PuntersEdgeCredit';
 import OddsTable from '@/components/OddsTable';
 import { awardPoints } from '@/lib/points';
-import { normaliseVenue, stripSponsorPrefix, SPONSOR_PREFIXES } from '@/lib/venues';
+import { normaliseVenue, stripSponsorPrefix, SPONSOR_PREFIXES, resolveCrseAbbrev } from '@/lib/venues';
 import { isRacesAdmin, isSiteAdmin } from '@/lib/admin';
 import { validateBetForm } from '@/lib/betValidation';
 import { estimatePlacePrice, paidPlacesForFieldSize } from '@/lib/placePrice';
@@ -2351,7 +2351,11 @@ function FormView({ results, scratched, onLogBet, isResulted, betBlocked = false
   const getWinner = (dtl, horseName) => {
     const iso = toISO(dtl.date);
     if (!iso || !histResults[iso]) return '—';
-    const normV = normaliseVenue(dtl.crse);
+    // dtl.crse is the CSV's raw course abbreviation (e.g. "Cant", "Wfrm") --
+    // normaliseVenue() alone can't recognise these (see resolveCrseAbbrev's
+    // comment in lib/venues.js), which was why this column was blank on
+    // every row regardless of whether the horse itself won.
+    const normV = resolveCrseAbbrev(dtl.crse);
     const raceNum = histResults[iso].horseRace?.[`${normV}||${horseName.toUpperCase()}`];
     if (!raceNum) return '—';
     return histResults[iso].raceWinner?.[`${normV}||${raceNum}`] || '—';
