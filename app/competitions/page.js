@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo, Fragment } from 'react';
+import { useState, useEffect, useMemo, memo, Fragment } from 'react';
 import { useRouter } from 'next/navigation';
 import { useUser } from '@clerk/nextjs';
 import useIsPro from '@/hooks/useIsPro';
@@ -32,6 +32,79 @@ const METRO_VENUES = new Set([
 
 function aestISO() { return new Date().toLocaleDateString('sv-SE', { timeZone: 'Australia/Brisbane' }); }
 function rk(venue, num) { return `${normaliseVenue(venue||'')}||${num}`; }
+
+const gridThStyle = (align) => ({ textAlign: align, padding: '6px 8px', color: '#374151', fontWeight: 700, fontSize: 9, textTransform: 'uppercase', letterSpacing: '.3px', whiteSpace: 'nowrap', background: '#f9fafb', border: '1px solid #d1d5db' });
+const gridTdStyle = (align, opts = {}) => ({ textAlign: align, padding: '6px 8px', color: '#111827', fontFamily: opts.mono ? MONO : undefined, fontSize: opts.fs || 11, fontWeight: opts.bold ? 700 : 400, border: '1px solid #d1d5db', whiteSpace: 'nowrap', overflow: opts.ellipsis ? 'hidden' : undefined, textOverflow: opts.ellipsis ? 'ellipsis' : undefined });
+
+// 2026-09-06 throbbing fix: this used to be defined INSIDE the page
+// component's render body, which meant React saw a brand-new component
+// *type* on every render -- not just a re-render, a full unmount/remount,
+// tearing down and rebuilding this table (and re-firing its own mount-time
+// cosmetics fetch) every single time the page re-rendered, including the
+// page's old 1-second `now` tick. Moved to module scope so the component
+// type is stable across renders, and wrapped in memo() so it doesn't even
+// re-render (let alone remount) when its `rows` prop hasn't changed --
+// which is the common case, since todayLbRows/lbRanked etc. are already
+// memoized upstream.
+//
+// Self-contained cosmetics fetch -- this one component backs all three
+// leaderboards on this page (today's Field, Beat the Model, All-time),
+// so fetching here means every caller gets avatars/flair for free rather
+// than each of the three call sites needing its own fetch + prop-drilling.
+// Keyed off the actual clerk_ids so it only re-fetches when the visible
+// entrant set changes, not on every render.
+const LeaderboardTable = memo(function LeaderboardTable({ rows }) {
+  const idsKey = rows.map(u => u.clerk_id).join(',');
+  const [cosmeticsMap, setCosmeticsMap] = useState({});
+  useEffect(() => {
+    // TEMP debug for the 2026-09-06 throbbing fix -- confirms this only
+    // mounts once per genuine navigation, not every second. Remove once
+    // confirmed live.
+    console.log('[LeaderboardTable] mounted', new Date().toISOString());
+    let cancelled = false;
+    fetchEquippedCosmetics(rows.map(u => u.clerk_id)).then(map => { if (!cancelled) setCosmeticsMap(map); });
+    return () => { cancelled = true; };
+  }, [idsKey]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  if (!rows.length) return <div style={{ fontSize: 11, color: '#9ca3af', padding: '10px 2px' }}>No entrants yet.</div>;
+  return (
+    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
+      <thead>
+        <tr>
+          <th style={gridThStyle('left')}>#</th>
+          <th style={gridThStyle('left')}>Tipster</th>
+          <th style={gridThStyle('right')}>Hit%</th>
+          <th style={gridThStyle('left')}>Streak</th>
+          <th style={gridThStyle('right')}>Pts</th>
+        </tr>
+      </thead>
+      <tbody>
+        {rows.map(u => {
+          const cosmetics = cosmeticsMap[u.clerk_id];
+          return (
+            <tr key={u.clerk_id} style={{ background: u.isMe ? '#fffbea' : 'transparent' }}>
+              <td style={gridTdStyle('left', { mono: true, bold: true })}>{u.rank}</td>
+              <td style={gridTdStyle('left', { ellipsis: true })}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <Avatar profile={{ display_name: u.username }} size={18} border={cosmetics?.border?.style} href={`/u/${u.clerk_id}`} />
+                  <NameFlair name={u.username} flair={cosmetics?.flair?.style} fontSize={11} fontWeight={400} color="#111827" href={`/u/${u.clerk_id}`} />
+                  {u.isMe && <span style={{ color: '#854F0B', fontWeight: 600, fontSize: 11 }}> (you)</span>}
+                </div>
+              </td>
+              <td style={gridTdStyle('right', { mono: true })}>{u.hitPct != null ? `${u.hitPct.toFixed(0)}%` : '—'}</td>
+              <td style={gridTdStyle('left')}>
+                {u.streak
+                  ? <span style={{ color: u.streak > 0 ? '#16a34a' : '#dc2626', fontWeight: 700 }}>{u.streak > 0 ? `${u.streak}W` : `${Math.abs(u.streak)}L`}</span>
+                  : <span style={{ color: '#9ca3af' }}>—</span>}
+              </td>
+              <td style={gridTdStyle('right', { mono: true, bold: true, fs: 12 })}>{u.score}</td>
+            </tr>
+          );
+        })}
+      </tbody>
+    </table>
+  );
+});
 
 async function sbFetch(path, opts = {}) {
   if (!SURL || !SKEY) return null;
@@ -1142,73 +1215,6 @@ export default function CompetitionsPage() {
   // Bold date + "daily comp · X/Y picks decided" — full month name, no comma,
   // matching the results/blackbook/my-bets header convention.
   const headerDateStr = new Date().toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'long', timeZone: 'Australia/Brisbane' }).replace(',', '');
-
-  // Dense bordered-grid cell styles for the two real tables (Your Campaign,
-  // Field/Leaderboard) — 1px solid #d1d5db on every cell, #f9fafb header bg.
-  // Distinct from a plain hairline-divider table: every cell is boxed.
-  const gridThStyle = (align) => ({ textAlign: align, padding: '6px 8px', color: '#374151', fontWeight: 700, fontSize: 9, textTransform: 'uppercase', letterSpacing: '.3px', whiteSpace: 'nowrap', background: '#f9fafb', border: '1px solid #d1d5db' });
-  const gridTdStyle = (align, opts = {}) => ({ textAlign: align, padding: '6px 8px', color: '#111827', fontFamily: opts.mono ? MONO : undefined, fontSize: opts.fs || 11, fontWeight: opts.bold ? 700 : 400, border: '1px solid #d1d5db', whiteSpace: 'nowrap', overflow: opts.ellipsis ? 'hidden' : undefined, textOverflow: opts.ellipsis ? 'ellipsis' : undefined });
-
-  // ─── Leaderboard table — one shared component for both the live Today tab
-  // ("Field") and the historical All-time tab. Today has no real streak data
-  // (streak is a comp_scores column only populated once a day settles
-  // server-side), so those rows pass streak: null and get a plain "—" rather
-  // than a fabricated value. User's own row: pale gold background + "(you)"
-  // in brown — no other row styling.
-  function LeaderboardTable({ rows }) {
-    // Self-contained cosmetics fetch -- this one component backs all three
-    // leaderboards on this page (today's Field, Beat the Model, All-time),
-    // so fetching here means every caller gets avatars/flair for free
-    // rather than each of the three call sites needing its own fetch +
-    // prop-drilling. Keyed off the actual clerk_ids so it only re-fetches
-    // when the visible entrant set changes, not on every render.
-    const idsKey = rows.map(u => u.clerk_id).join(',');
-    const [cosmeticsMap, setCosmeticsMap] = useState({});
-    useEffect(() => {
-      let cancelled = false;
-      fetchEquippedCosmetics(rows.map(u => u.clerk_id)).then(map => { if (!cancelled) setCosmeticsMap(map); });
-      return () => { cancelled = true; };
-    }, [idsKey]);
-
-    if (!rows.length) return <div style={{ fontSize: 11, color: '#9ca3af', padding: '10px 2px' }}>No entrants yet.</div>;
-    return (
-      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
-        <thead>
-          <tr>
-            <th style={gridThStyle('left')}>#</th>
-            <th style={gridThStyle('left')}>Tipster</th>
-            <th style={gridThStyle('right')}>Hit%</th>
-            <th style={gridThStyle('left')}>Streak</th>
-            <th style={gridThStyle('right')}>Pts</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map(u => {
-            const cosmetics = cosmeticsMap[u.clerk_id];
-            return (
-              <tr key={u.clerk_id} style={{ background: u.isMe ? '#fffbea' : 'transparent' }}>
-                <td style={gridTdStyle('left', { mono: true, bold: true })}>{u.rank}</td>
-                <td style={gridTdStyle('left', { ellipsis: true })}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <Avatar profile={{ display_name: u.username }} size={18} border={cosmetics?.border?.style} href={`/u/${u.clerk_id}`} />
-                    <NameFlair name={u.username} flair={cosmetics?.flair?.style} fontSize={11} fontWeight={400} color="#111827" href={`/u/${u.clerk_id}`} />
-                    {u.isMe && <span style={{ color: '#854F0B', fontWeight: 600, fontSize: 11 }}> (you)</span>}
-                  </div>
-                </td>
-                <td style={gridTdStyle('right', { mono: true })}>{u.hitPct != null ? `${u.hitPct.toFixed(0)}%` : '—'}</td>
-                <td style={gridTdStyle('left')}>
-                  {u.streak
-                    ? <span style={{ color: u.streak > 0 ? '#16a34a' : '#dc2626', fontWeight: 700 }}>{u.streak > 0 ? `${u.streak}W` : `${Math.abs(u.streak)}L`}</span>
-                    : <span style={{ color: '#9ca3af' }}>—</span>}
-                </td>
-                <td style={gridTdStyle('right', { mono: true, bold: true, fs: 12 })}>{u.score}</td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
-    );
-  }
 
   // ─── Hero block — replaces the old header bar + footer bar entirely; PTS
   // and P&L now live in the stat strip here instead of a separate footer.
