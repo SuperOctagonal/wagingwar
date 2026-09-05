@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { normaliseVenue } from '@/lib/venues';
+import { normaliseVenue, AMBIGUOUS_VENUE_FALLBACKS } from '@/lib/venues';
 import { matchRunnerName } from '@/lib/puntersedgeMatch';
 import { fetchAllRows } from '@/lib/fetchAllRows';
 
@@ -65,13 +65,31 @@ export async function POST(request) {
     if (!byRace.has(key)) byRace.set(key, []);
     byRace.get(key).push(c);
   }
+  // Every canonical venue with at least one real race_cards row today --
+  // used to confirm a bare-name fallback venue ("Randwick" -> RANDWICK INS)
+  // is only applied when the bare name genuinely isn't racing under its own
+  // name, same condition worker.py's version checks via get_target_race_count.
+  const venuesWithCards = new Set([...byRace.keys()].map(k => k.split('||')[0]));
+
+  // Resolves a venue+race key, falling back to a known sub-venue when the
+  // canonical venue from PuntersEdge's bare name has no cards today but its
+  // fallback does -- see AMBIGUOUS_VENUE_FALLBACKS in lib/venues.js.
+  function resolveRaceKey(canonVenue, raceNum) {
+    const direct = `${canonVenue}||${raceNum}`;
+    if (byRace.has(direct)) return { key: direct, venue: canonVenue };
+    const fallback = AMBIGUOUS_VENUE_FALLBACKS[canonVenue];
+    if (fallback && !venuesWithCards.has(canonVenue) && venuesWithCards.has(fallback)) {
+      return { key: `${fallback}||${raceNum}`, venue: fallback };
+    }
+    return { key: direct, venue: canonVenue };
+  }
 
   const result = { date: dateISO, races: peRaces.length, matched: 0, unmatched: [], races_no_cards: [], errors: [] };
   const updateRows = [];
 
   for (const race of peRaces) {
     if (race.country !== 'AU') continue;
-    const key = `${normaliseVenue(race.venue)}||${race.race_number}`;
+    const { key, venue: resolvedVenue } = resolveRaceKey(normaliseVenue(race.venue), race.race_number);
     const cards = byRace.get(key);
     if (!cards) {
       result.races_no_cards.push(`${race.venue} R${race.race_number}`);
@@ -92,7 +110,7 @@ export async function POST(request) {
       if (card.puntersedge_runner_ref === runner.runner_ref) continue;
       updateRows.push({
         date: dateISO,
-        venue: normaliseVenue(race.venue),
+        venue: resolvedVenue,
         race_num: card.race_num,
         horse_name: matchedName,
         puntersedge_runner_ref: runner.runner_ref,
@@ -141,7 +159,7 @@ export async function POST(request) {
 
   for (const race of ntgRaces) {
     if (race.country !== 'AU') continue;
-    const key = `${normaliseVenue(race.venue)}||${race.race_number}`;
+    const { key, venue: resolvedVenue } = resolveRaceKey(normaliseVenue(race.venue), race.race_number);
     const cards = byRace.get(key);
     if (!cards) continue;
     const ourNames = cards.map(c => c.horse_name);
@@ -151,7 +169,7 @@ export async function POST(request) {
       for (const bm of (runner.bookmakers || [])) {
         if (bm.win_price == null) continue;
         snapshotRows.push({
-          race_venue: normaliseVenue(race.venue),
+          race_venue: resolvedVenue,
           race_num: String(race.race_number),
           race_date: dateISO,
           horse_name: matchedName,
