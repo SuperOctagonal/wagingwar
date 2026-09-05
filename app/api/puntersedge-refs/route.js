@@ -52,7 +52,7 @@ export async function POST(request) {
   }
 
   const cardsRes = await fetchAllRows(
-    `${SURL}/rest/v1/race_cards?date=eq.${dateISO}&select=venue,race_num,horse_name,puntersedge_runner_ref`,
+    `${SURL}/rest/v1/race_cards?date=eq.${dateISO}&select=venue,race_num,horse_name,puntersedge_runner_ref&order=venue,race_num,horse_name`,
     sbHeaders,
   );
   if (!cardsRes.ok) {
