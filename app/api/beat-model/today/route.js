@@ -1,11 +1,33 @@
 import { NextResponse } from 'next/server';
 import { auth, clerkClient } from '@clerk/nextjs/server';
+import { parseCSV, buildRaces } from '@/lib/csvParser';
+import { selectBeatModelRace } from '@/lib/beatModel';
 
 const SURL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SKEY = process.env.SUPABASE_SERVICE_KEY;
 
 function todayISO() {
   return new Date().toLocaleDateString('sv-SE', { timeZone: 'Australia/Brisbane' });
+}
+
+// Same source app/api/today-csv/route.js reads from -- full CSV (no
+// free-tier stripping needed here, this never reaches the client), used
+// purely to confirm a real challenge race exists today before the nav
+// badge can be shown. Never throws: any failure here means "can't confirm
+// a challenge exists", which should suppress the badge, not crash the
+// pending-pick check it's attached to.
+async function hasChallengeToday(compDate) {
+  try {
+    const res = await fetch(`${SURL}/storage/v1/object/wizard-csv/${compDate}.csv`, {
+      headers: { apikey: SKEY, Authorization: `Bearer ${SKEY}` },
+    });
+    if (!res.ok) return false;
+    const text = await res.text();
+    const built = buildRaces(parseCSV(text));
+    return !!selectBeatModelRace(built.allRaces);
+  } catch {
+    return false;
+  }
 }
 
 // Today's Beat the Model state -- the caller's own pick (if any) plus the
@@ -46,9 +68,15 @@ export async function GET() {
     correct: rows.filter(row => row.resolved && row.won).length,
   };
 
+  // Only fetched when actually needed (no pick yet) -- if the caller already
+  // has a pick, whether a challenge race exists is moot, so skip the extra
+  // Storage read + CSV parse for the common "already picked" case.
+  const hasChallenge = mine ? true : await hasChallengeToday(compDate);
+
   return NextResponse.json({
     ok: true,
     comp_date: compDate,
+    hasChallenge,
     pick: mine ? { horse_name: mine.horse_name, resolved: !!mine.resolved, won: !!mine.won } : null,
     stats,
   });

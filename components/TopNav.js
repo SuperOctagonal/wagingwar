@@ -99,12 +99,13 @@ export default function TopNav() {
   }, [user?.id]);
 
   // Beat the Model badge — plain dot (not a count, it's a single daily
-  // yes/no), shown when the user hasn't made today's pick yet. Doesn't
-  // check whether a real challenge race exists today (that's only known
-  // client-side, inside app/competitions/page.js, once CSV data loads) --
-  // known, accepted minor edge case: could show on a day with literally no
-  // usable race data at all, which is rare. Pro-gated since the whole
-  // Competitions page is.
+  // yes/no), shown when the user hasn't made today's pick yet AND a real
+  // challenge race exists today (server confirms this via the same
+  // selectBeatModelRace() logic the Competitions page uses client-side --
+  // fixed 2026-09-06; previously only checked for a missing btm_picks row,
+  // so the dot could nag indefinitely on a day with no usable race data at
+  // all, since the user had no possible action to clear it). Pro-gated
+  // since the whole Competitions page is.
   //
   // Goes through /api/beat-model/today (service key) rather than a direct
   // anon-key read -- btm_picks has no anon-role SELECT policy, so the
@@ -120,7 +121,11 @@ export default function TopNav() {
         const res = await fetch('/api/beat-model/today');
         if (res.ok && !cancelled) {
           const data = await res.json();
-          setBtmPending(!data.pick);
+          // hasChallenge confirms a real Beat the Model race exists today
+          // (server-side, via the same selectBeatModelRace() logic the
+          // Competitions page uses) -- without it, this badge could nag a
+          // user to "pick" on a day with no possible action to take.
+          setBtmPending(!!data.hasChallenge && !data.pick);
         }
       } catch {}
     };
