@@ -57,10 +57,6 @@ const LeaderboardTable = memo(function LeaderboardTable({ rows }) {
   const idsKey = rows.map(u => u.clerk_id).join(',');
   const [cosmeticsMap, setCosmeticsMap] = useState({});
   useEffect(() => {
-    // TEMP debug for the 2026-09-06 throbbing fix -- confirms this only
-    // mounts once per genuine navigation, not every second. Remove once
-    // confirmed live.
-    console.log('[LeaderboardTable] mounted', new Date().toISOString());
     let cancelled = false;
     fetchEquippedCosmetics(rows.map(u => u.clerk_id)).then(map => { if (!cancelled) setCosmeticsMap(map); });
     return () => { cancelled = true; };
