@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { normaliseVenue, AMBIGUOUS_VENUE_FALLBACKS } from '@/lib/venues';
+import { normaliseVenue, resolveAmbiguousVenue } from '@/lib/venues';
 import { matchRunnerName } from '@/lib/puntersedgeMatch';
 import { fetchAllRows } from '@/lib/fetchAllRows';
 
@@ -77,11 +77,8 @@ export async function POST(request) {
   function resolveRaceKey(canonVenue, raceNum) {
     const direct = `${canonVenue}||${raceNum}`;
     if (byRace.has(direct)) return { key: direct, venue: canonVenue };
-    const fallback = AMBIGUOUS_VENUE_FALLBACKS[canonVenue];
-    if (fallback && !venuesWithCards.has(canonVenue) && venuesWithCards.has(fallback)) {
-      return { key: `${fallback}||${raceNum}`, venue: fallback };
-    }
-    return { key: direct, venue: canonVenue };
+    const resolvedVenue = resolveAmbiguousVenue(canonVenue, venuesWithCards);
+    return { key: `${resolvedVenue}||${raceNum}`, venue: resolvedVenue };
   }
 
   const result = { date: dateISO, races: peRaces.length, matched: 0, unmatched: [], races_no_cards: [], errors: [] };

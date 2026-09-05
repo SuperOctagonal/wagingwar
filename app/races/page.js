@@ -23,6 +23,7 @@ import { PUNTERSEDGE_BOOKMAKER_COLUMNS, bookmakerNameForSlug } from '@/lib/punte
 const SURL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SKEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 import { parseCSV, buildRaces } from '@/lib/csvParser';
+import { fetchAllRows } from '@/lib/fetchAllRows';
 
 // Races-specific: the 3-column rail layout is a width decision, not a touch/coarse-pointer
 // one — a landscape phone (e.g. 844x390, coarse pointer) is plenty wide enough for
@@ -2712,6 +2713,13 @@ function RacesPageInner() {
   const isPast   = !isToday && !isFuture;
   const wasHistoricalRef = useRef(false);
   const dateInputRef     = useRef(null);
+  // Set once per mount from race_cards (already-resolved source of truth) --
+  // lets buildRaces() disambiguate a bare, ambiguous CSV Meeting name (e.g.
+  // "RANDWICK" when it's actually today's Randwick Ins meeting) the same way
+  // puntersedge-refs does. A ref, not state: loadCSV reads it synchronously
+  // and runs before the fetch that populates it would have committed a
+  // re-render, so a state value could still be stale on that first call.
+  const venuesWithDataRef = useRef(null);
 
   const [csvLoading,  setCsvLoading]  = useState(true);
   const [allRaces,    setAllRaces]    = useState({});
@@ -2886,7 +2894,7 @@ function RacesPageInner() {
 
   const loadCSV = useCallback((text, name, selectKey) => {
     try {
-      const { allRaces: ar, allVenues: av, raceKeys: rk } = buildRaces(parseCSV(text));
+      const { allRaces: ar, allVenues: av, raceKeys: rk } = buildRaces(parseCSV(text), venuesWithDataRef.current);
       if (rk.length === 0) { alert('No races found — check Race Number column'); return; }
       setAllRaces(ar); setAllVenues(av); setRaceKeys(rk);
       const defaultKey = (() => {
@@ -2926,23 +2934,42 @@ function RacesPageInner() {
     }
   }, [loadCSV]);
 
-  // On mount: try today's CSV from Storage, fall back to localStorage
+  // On mount: fetch race_cards' distinct venues first (already-resolved
+  // source of truth, same one puntersedge-refs checks against) so loadCSV
+  // can disambiguate an ambiguous bare CSV Meeting name on its very first
+  // call -- then load today's CSV from Storage, falling back to localStorage.
   useEffect(() => {
     const selectParam = searchParams.get('select');
-    fetch('/api/today-csv')
-      .then(r => r.ok ? r.text() : Promise.reject(r.status))
-      .then(text => {
-        localStorage.setItem('ww_csv', text);
-        localStorage.setItem('ww_csv_name', 'today.csv');
-        loadCSV(text, 'today.csv', selectParam);
-        setCsvLoading(false);
-      })
-      .catch(() => {
-        const saved = localStorage.getItem('ww_csv');
-        const savedName = localStorage.getItem('ww_csv_name') || 'saved.csv';
-        if (saved) loadCSV(saved, savedName, selectParam);
-        setCsvLoading(false);
-      });
+    const loadToday = () => {
+      fetch('/api/today-csv')
+        .then(r => r.ok ? r.text() : Promise.reject(r.status))
+        .then(text => {
+          localStorage.setItem('ww_csv', text);
+          localStorage.setItem('ww_csv_name', 'today.csv');
+          loadCSV(text, 'today.csv', selectParam);
+          setCsvLoading(false);
+        })
+        .catch(() => {
+          const saved = localStorage.getItem('ww_csv');
+          const savedName = localStorage.getItem('ww_csv_name') || 'saved.csv';
+          if (saved) loadCSV(saved, savedName, selectParam);
+          setCsvLoading(false);
+        });
+    };
+    if (!SURL || !SKEY) { loadToday(); return; }
+    const todayISO = new Date().toLocaleDateString('sv-SE', { timeZone: 'Australia/Brisbane' });
+    // fetchAllRows, not a plain fetch -- race_cards routinely exceeds
+    // PostgREST's 1000-row default page size on a big day (confirmed: 1172
+    // rows for a single day during the puntersedge-refs flickering
+    // investigation), and a truncated page could plausibly miss a real
+    // venue's rows entirely if it sits past the cutoff alphabetically.
+    fetchAllRows(
+      `${SURL}/rest/v1/race_cards?date=eq.${todayISO}&select=venue`,
+      { apikey: SKEY, Authorization: `Bearer ${SKEY}` },
+    )
+      .then(result => { venuesWithDataRef.current = new Set((result.ok ? result.rows : []).map(r => r.venue)); })
+      .catch(() => { venuesWithDataRef.current = null; })
+      .finally(loadToday);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
