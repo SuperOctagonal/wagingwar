@@ -1431,7 +1431,7 @@ export default function CompetitionsPage() {
         <div style={{ textAlign: 'center', padding: '24px 0', color: '#9ca3af', fontSize: 12 }}>No picks yet — make your first pick on the Today tab.</div>
       ) : (
         <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
+          <table style={{ width: 'auto', borderCollapse: 'collapse', fontSize: 11 }}>
             <thead>
               <tr>
                 <th style={gridThStyle('left')}>Date</th>
