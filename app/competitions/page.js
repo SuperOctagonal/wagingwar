@@ -862,15 +862,22 @@ export default function CompetitionsPage() {
     return () => clearInterval(id);
   }, [today, isPro]);
 
-  // Beat the Model — write today's selected race as a durable record
-  // (idempotent upsert; harmless if multiple clients race to write it,
-  // since every client computes the same selection independently).
+  // Beat the Model — write today's selected race as a durable record via
+  // /api/beat-model/challenge (service key), not a direct anon-key write --
+  // btm_challenges has RLS enabled with zero policies, so the previous
+  // direct sbFetch upsert had been silently rejected every single day since
+  // this feature shipped (confirmed live: 0 rows in btm_challenges for any
+  // date). Idempotent upsert; harmless if multiple clients race to write
+  // it, since every client computes the same selection independently.
+  // Includes model_pick directly now (no longer split into a second,
+  // separate write -- that split only existed because the column didn't
+  // exist yet; it does now).
   useEffect(() => {
-    if (!btmChallenge || !SURL || !SKEY || !isPro) return;
-    sbFetch('btm_challenges?on_conflict=comp_date', {
+    if (!btmChallenge || !isPro) return;
+    fetch('/api/beat-model/challenge', {
       method: 'POST',
-      prefer: 'resolution=merge-duplicates,return=minimal',
-      body: {
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
         comp_date: today,
         venue: btmChallenge.venue,
         race_num: btmChallenge.raceNum,
@@ -878,25 +885,9 @@ export default function CompetitionsPage() {
         prize_money: btmChallenge.prize,
         post_time: btmChallenge.postTimeISO,
         used_fallback: btmChallenge.usedFallback,
-      },
-    });
-  }, [btmChallenge?.venue, btmChallenge?.raceNum, today, isPro]);
-
-  // Separate, best-effort write for model_pick -- kept out of the upsert
-  // above deliberately: PostgREST rejects an entire insert if the payload
-  // references a column the table doesn't have yet, so bundling this in
-  // would have broken the already-working challenge write the moment
-  // btm_challenges.model_pick doesn't exist (it doesn't, as of this build --
-  // needs a manual `ALTER TABLE btm_challenges ADD COLUMN model_pick text;`
-  // before this actually starts persisting). sbFetch already swallows
-  // errors, so until that column exists this just silently no-ops each day.
-  useEffect(() => {
-    if (!btmChallenge || !btmModelPick || !SURL || !SKEY || !isPro) return;
-    sbFetch(`btm_challenges?comp_date=eq.${today}`, {
-      method: 'PATCH',
-      prefer: 'return=minimal',
-      body: { model_pick: btmModelPick },
-    });
+        model_pick: btmModelPick || null,
+      }),
+    }).catch(() => {});
   }, [btmChallenge?.venue, btmChallenge?.raceNum, today, isPro, btmModelPick]);
 
   // Load this user's existing pick + resolution state for today, plus the
