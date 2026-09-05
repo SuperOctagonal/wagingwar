@@ -2,6 +2,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import ProfileRail from '@/components/ProfileRail';
 import OddsTable from '@/components/OddsTable';
+import { fetchAllRows } from '@/lib/fetchAllRows';
 
 const SURL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SKEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -45,9 +46,19 @@ export default function OddsPageClient() {
         if (!cancelled) { setRaces([]); setLoading(false); }
         return;
       }
-      const snapshot = await sb(
-        `odds_snapshot?race_date=eq.${today}&captured_at=eq.${encodeURIComponent(ts)}&select=race_venue,race_num`,
+      // A single race day's odds_snapshot batch routinely exceeds
+      // PostgREST's default 1,000-row cap (confirmed live: 5,486 rows for
+      // one captured_at on a normal day) -- a plain fetch() silently
+      // truncates to whichever rows PostgREST returns first, missing
+      // venues/races past that cutoff. fetchAllRows pages through with
+      // offset/limit until a short page confirms there's nothing left,
+      // same pattern already used elsewhere in the codebase for this same
+      // PostgREST behavior.
+      const result = await fetchAllRows(
+        `${SURL}/rest/v1/odds_snapshot?race_date=eq.${today}&captured_at=eq.${encodeURIComponent(ts)}&select=race_venue,race_num`,
+        { apikey: SKEY, Authorization: `Bearer ${SKEY}` },
       );
+      const snapshot = result.ok ? result.rows : [];
       if (!cancelled) {
         const seen = new Map();
         for (const r of snapshot) {
