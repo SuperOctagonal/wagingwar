@@ -1380,41 +1380,17 @@ export default function CompetitionsPage() {
         <button onClick={() => setMainTab('alltime')} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 10, fontWeight: 700, color: '#111827', padding: 0 }}>
           Full leaderboard →
         </button>
-        {btmChallenge && (
-          <button onClick={() => setMainTab('beat-model')} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 10, fontWeight: 700, color: '#854d0e', padding: 0 }}>
-            🤖 Beat the Model →
-          </button>
-        )}
       </div>
     </div>
   );
 
-  const btmBannerLabel = !btmChallenge
-    ? null
-    : !user?.id || !btmPick
-    ? 'Pick today\'s winner and try to beat the model →'
-    : !btmResolved
-    ? 'Your pick is in — check back after the race →'
-    : btmWon
-    ? 'You beat the model! See the reveal →'
-    : 'See how your pick compared to the model →';
-
-  const btmBanner = btmBannerLabel && (
-    <button onClick={() => setMainTab('beat-model')} style={{
-      display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%',
-      background: btmResolved && btmWon ? '#0d2416' : '#fffbea', border: 'none', borderBottom: `0.5px solid ${CT_LINE}`,
-      padding: '10px 16px', cursor: 'pointer', flexShrink: 0, textAlign: 'left', fontFamily: 'inherit',
-    }}>
-      <span style={{ fontSize: 11, fontWeight: 700, color: btmResolved && btmWon ? '#e8b84a' : '#854d0e' }}>
-        🤖 Beat the Model — {btmBannerLabel}
-      </span>
-    </button>
-  );
-
+  // 2026-09-06: removed the in-page "Beat the Model" banner and the Field
+  // panel's bottom link -- both just called setMainTab('beat-model'), the
+  // exact same action as the top-level tab. The top-level tab (Today/Beat
+  // the Model/All-time) is now the single entry point.
   const todayTab = (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'auto', background: '#fff' }}>
       {heroBlock}
-      {btmBanner}
       {scratchAlerts.length > 0 && (
         <div style={{ background: '#fef2f2', borderBottom: '0.5px solid #fecaca', padding: '6px 16px', flexShrink: 0 }}>
           {scratchAlerts.map(race => (
