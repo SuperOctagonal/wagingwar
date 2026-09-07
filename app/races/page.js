@@ -18,7 +18,7 @@ import { isRacesAdmin, isSiteAdmin } from '@/lib/admin';
 import { validateBetForm } from '@/lib/betValidation';
 import { estimatePlacePrice, paidPlacesForFieldSize } from '@/lib/placePrice';
 import { BOOKMAKERS as BOOKIES } from '@/lib/bookmakers';
-import { PUNTERSEDGE_BOOKMAKER_COLUMNS, bookmakerNameForSlug } from '@/lib/puntersedgeBookmakers';
+import { PUNTERSEDGE_BOOKMAKER_COLUMNS, bookmakerNameForSlug, getPuntersEdgeSlug } from '@/lib/puntersedgeBookmakers';
 
 const SURL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SKEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -1156,36 +1156,54 @@ function BetModal({ horse, onClose, isAdmin = false, oddsBookmaker = '' }) {
 
   useEffect(() => { setOpen(true); }, []);
 
-  // Admin-only: on open, fetch a fresh odds_snapshot price for this runner +
-  // the currently-selected live-price bookmaker (same picker/source as the
-  // Field tab and Pace Map tab), rather than trusting whatever's already in
-  // the parent's livePrices state -- that can be up to 60s stale (its own
-  // poll interval). Same venue/race/bookmaker query shape as that existing
-  // fetch, matched client-side by stripCountry+uppercase like everywhere
-  // else. Only overwrites the odds field if it still holds the CSV-default
-  // pre-fill, so it never clobbers a value the user already typed.
+  // Mirrors the current `odds` value into a ref so the async fetch below can
+  // check "has the user already typed something" without depending on
+  // `odds` (which would re-fire the on-open effect every keystroke).
+  const oddsRef = useRef(odds);
+  useEffect(() => { oddsRef.current = odds; }, [odds]);
+
+  // Admin-only: looks up a fresh odds_snapshot price for this runner under a
+  // given PuntersEdge bookmaker slug -- same venue/race/bookmaker query shape
+  // as the Field tab/Pace Map tab's livePrices fetch, matched client-side by
+  // stripCountry+uppercase like everywhere else. Shared by the on-open
+  // pre-fill below and the bookmaker grid's onClick, so both stay backed by
+  // the exact same lookup.
+  const fetchLivePriceForBookmaker = useCallback(async (slug) => {
+    if (!slug || !horse?._venue || !horse?._raceNum || !horse?.name || !SURL || !SKEY) return null;
+    try {
+      const venue = normaliseVenue(horse._venue);
+      const raceNum = String(horse._raceNum);
+      const res = await fetch(
+        `${SURL}/rest/v1/odds_snapshot?race_venue=eq.${encodeURIComponent(venue)}&race_num=eq.${encodeURIComponent(raceNum)}&bookmaker=eq.${encodeURIComponent(slug)}&select=horse_name,price,captured_at&order=captured_at.desc&limit=200`,
+        { headers: { apikey: SKEY, Authorization: `Bearer ${SKEY}` } },
+      );
+      if (!res.ok) return null;
+      const rows = await res.json();
+      const targetName = stripCountry(horse.name).toUpperCase();
+      const hit = rows.find(r => stripCountry(r.horse_name).toUpperCase() === targetName);
+      return hit ? Number(hit.price) : null;
+    } catch { return null; }
+  }, [horse?._venue, horse?._raceNum, horse?.name]);
+
+  // On open: pre-fill from the currently-selected live-price bookmaker
+  // (same picker/source as the Field tab and Pace Map tab), rather than
+  // trusting whatever's already in the parent's livePrices state -- that can
+  // be up to 60s stale (its own poll interval). Only overwrites the odds
+  // field if it still holds the CSV-default pre-fill, so it never clobbers a
+  // value the user already typed -- and only then also syncs the bookmaker
+  // grid's highlighted button to match, so the two never disagree about
+  // which bookmaker the shown price actually came from.
   useEffect(() => {
-    if (!isAdmin || !oddsBookmaker || !horse?._venue || !horse?._raceNum || !horse?.name) return;
-    if (!SURL || !SKEY) return;
+    if (!isAdmin || !oddsBookmaker) return;
     let cancelled = false;
     (async () => {
-      try {
-        const venue = normaliseVenue(horse._venue);
-        const raceNum = String(horse._raceNum);
-        const res = await fetch(
-          `${SURL}/rest/v1/odds_snapshot?race_venue=eq.${encodeURIComponent(venue)}&race_num=eq.${encodeURIComponent(raceNum)}&bookmaker=eq.${encodeURIComponent(oddsBookmaker)}&select=horse_name,price,captured_at&order=captured_at.desc&limit=200`,
-          { headers: { apikey: SKEY, Authorization: `Bearer ${SKEY}` } },
-        );
-        if (!res.ok || cancelled) return;
-        const rows = await res.json();
-        const targetName = stripCountry(horse.name).toUpperCase();
-        const hit = rows.find(r => stripCountry(r.horse_name).toUpperCase() === targetName);
-        const livePrice = hit ? Number(hit.price) : null;
-        if (livePrice != null && !cancelled) {
-          const csvDefault = horse.rawOdds ? horse.rawOdds.toFixed(2) : '';
-          setOdds(prev => (prev === csvDefault ? livePrice.toFixed(2) : prev));
-        }
-      } catch {}
+      const livePrice = await fetchLivePriceForBookmaker(oddsBookmaker);
+      if (livePrice == null || cancelled) return;
+      const csvDefault = horse.rawOdds ? horse.rawOdds.toFixed(2) : '';
+      if (oddsRef.current === csvDefault) {
+        setOdds(livePrice.toFixed(2));
+        setBookie(bookmakerNameForSlug(oddsBookmaker));
+      }
     })();
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1211,6 +1229,23 @@ function BetModal({ horse, onClose, isAdmin = false, oddsBookmaker = '' }) {
       })
       .catch(() => {});
   }, [user?.id]);
+
+  // Admin-only: clicking a bookmaker in the grid re-fetches that bookmaker's
+  // live price and re-fills odds with it, keeping the grid's selection and
+  // the odds field in sync going forward (not just on initial open). Falls
+  // back to the CSV rawOdds value if this bookmaker has no live price (or no
+  // PuntersEdge coverage at all -- see getPuntersEdgeSlug). Non-admins: the
+  // isAdmin check below makes this identical to the plain setBookie(b) it
+  // replaced.
+  const handleBookieClick = async (b) => {
+    setBookie(b);
+    if (!isAdmin || !oddsBookmaker) return;
+    const slug = getPuntersEdgeSlug(b);
+    if (!slug) return;
+    const livePrice = await fetchLivePriceForBookmaker(slug);
+    if (livePrice != null) setOdds(livePrice.toFixed(2));
+    else if (horse.rawOdds) setOdds(horse.rawOdds.toFixed(2));
+  };
 
   const handleSave = async () => {
     const err = validateBetForm({ betType, stake, odds, placeOdds });
@@ -1459,7 +1494,7 @@ function BetModal({ horse, onClose, isAdmin = false, oddsBookmaker = '' }) {
         <div className="grid grid-cols-4 gap-1">
           {BOOKIES.map(b => (
             <button key={b}
-              onClick={() => setBookie(b)}
+              onClick={() => handleBookieClick(b)}
               className={['text-[9px] font-semibold py-1.5 px-1 rounded-lg border transition-colors truncate',
                 bookie === b ? 'bg-brand text-white border-brand' : 'bg-white text-gray-500 border-gray-200 hover:border-gray-300',
               ].join(' ')}>
