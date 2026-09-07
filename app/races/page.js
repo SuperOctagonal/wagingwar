@@ -2383,7 +2383,7 @@ function FormView({ results, scratched, onLogBet, isResulted, betBlocked = false
 
 // ─── pace map view ────────────────────────────────────────────────────────────
 
-function PaceMapView({ results, scratched, rc, trackCond, isPro, onUpgrade, scratchingsSet = new Set() }) {
+function PaceMapView({ results, scratched, rc, trackCond, isPro, onUpgrade, scratchingsSet = new Set(), isAdmin = false, livePrices = {} }) {
   const scrKey = h => `${normaliseVenue(rc.venue)}||${rc.num}||${stripCountry(h.name).toUpperCase()}`;
   const activeResults = results.filter(h => !scratchingsSet.has(scrKey(h)));
   const ranked = activeResults.map((r, i) => ({ ...r, systemRank: i + 1 }));
@@ -2447,7 +2447,13 @@ function PaceMapView({ results, scratched, rc, trackCond, isPro, onUpgrade, scra
           if (!h.pm) return null;
           const bp = h['BP'] ?? h.BP ?? '—';
           const myO = h.myOdds ? `$${formatRacingOdds(h.myOdds)}` : '—';
-          const spO = h.rawOdds ? `$${formatRacingOdds(h.rawOdds)}` : '—';
+          // Admin-only: odds_snapshot live price for the currently-picked
+          // bookmaker (same source/picker as the Field tab), falling back to
+          // the CSV rawOdds value -- same pattern as RunnerRow's Price $ column.
+          const liveP = isAdmin ? livePrices[stripCountry(h.name).toUpperCase()] : undefined;
+          const displayPrice = liveP ?? h.rawOdds;
+          const isLivePrice = liveP != null;
+          const spO = displayPrice ? `$${formatRacingOdds(displayPrice)}` : '—';
           const rkBg = h.systemRank===1?'#fbbf24':h.systemRank===2?'#d1d5db':h.systemRank===3?'#cd7f32':'#f3f4f6';
           const rkColor2 = h.systemRank<=3?'#374151':'#9ca3af';
           return (
@@ -2476,7 +2482,10 @@ function PaceMapView({ results, scratched, rc, trackCond, isPro, onUpgrade, scra
               <span className="text-[10px] font-bold w-8 text-right flex-shrink-0" style={{ color: h.pm.color }}>{h.pm.pct}%</span>
               <div className="w-20 flex-shrink-0 text-right border-l border-gray-100 pl-2">
                 <div className="text-[10px] font-semibold text-emerald-600">{myO}</div>
-                <div className="text-[9px] text-gray-400">SP {spO}</div>
+                <div className="text-[9px] text-gray-400">
+                  SP {spO}
+                  {isLivePrice && <span style={{ marginLeft: 2, fontSize: 6, fontWeight: 800, color: '#059669', background: '#d1fae5', padding: '1px 2px', borderRadius: 3, letterSpacing: '0.3px' }}>LIVE</span>}
+                </div>
               </div>
             </div>
           );
@@ -3441,7 +3450,7 @@ function RacesPageInner() {
                     );
                   })()}
                   {!isNarrow && <ViewTabBar view={view} setView={setView} runnerCount={results.length} isPast={isPast} tabs={isSiteAdminUser ? [VIEW_TABS[0], ODDS_TAB, ...VIEW_TABS.slice(1)] : VIEW_TABS} />}
-                  {isSiteAdminUser && view === 'field' && (
+                  {isSiteAdminUser && (view === 'field' || view === 'pacemap') && (
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 10px', borderBottom: '1px solid #e5e7eb', background: '#fafafa' }}>
                       <span style={{ fontSize: 9, fontWeight: 700, color: '#059669', background: '#d1fae5', padding: '2px 5px', borderRadius: 3 }}>ADMIN</span>
                       <span style={{ fontSize: 10, color: '#6b7280' }}>Live price:</span>
@@ -3484,7 +3493,7 @@ function RacesPageInner() {
                     <FormView results={allHorsesForDisplay} scratched={scratched} onLogBet={handleLogBet} isResulted={!!currentRaceResult} betBlocked={betBlocked} rc={currentRace} isPro={isPro} onUpgrade={() => setUpgradeOpen(true)} scratchingsSet={scratchingsSet} />
                   )}
                   {view === 'pacemap' && (
-                    <PaceMapView results={allHorsesForDisplay} scratched={scratched} rc={currentRace} trackCond={trackCond} isPro={isPro} onUpgrade={() => setUpgradeOpen(true)} scratchingsSet={scratchingsSet} />
+                    <PaceMapView results={allHorsesForDisplay} scratched={scratched} rc={currentRace} trackCond={trackCond} isPro={isPro} onUpgrade={() => setUpgradeOpen(true)} scratchingsSet={scratchingsSet} isAdmin={isSiteAdminUser} livePrices={livePrices} />
                   )}
                   {view === 'odds' && isSiteAdminUser && (
                     <div style={{ padding: 12 }}>
