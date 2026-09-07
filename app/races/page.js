@@ -1137,7 +1137,7 @@ function RaceResultModal({ result, results, onClose }) {
 
 // ─── bet modal ────────────────────────────────────────────────────────────────
 
-function BetModal({ horse, onClose }) {
+function BetModal({ horse, onClose, isAdmin = false, oddsBookmaker = '' }) {
   const { user } = useUser();
   const router = useRouter();
   const isMobile = useIsMobile();
@@ -1155,6 +1155,41 @@ function BetModal({ horse, onClose }) {
   const [shareToast,    setShareToast]    = useState(null); // Share Bet -> Share to Community outcome message
 
   useEffect(() => { setOpen(true); }, []);
+
+  // Admin-only: on open, fetch a fresh odds_snapshot price for this runner +
+  // the currently-selected live-price bookmaker (same picker/source as the
+  // Field tab and Pace Map tab), rather than trusting whatever's already in
+  // the parent's livePrices state -- that can be up to 60s stale (its own
+  // poll interval). Same venue/race/bookmaker query shape as that existing
+  // fetch, matched client-side by stripCountry+uppercase like everywhere
+  // else. Only overwrites the odds field if it still holds the CSV-default
+  // pre-fill, so it never clobbers a value the user already typed.
+  useEffect(() => {
+    if (!isAdmin || !oddsBookmaker || !horse?._venue || !horse?._raceNum || !horse?.name) return;
+    if (!SURL || !SKEY) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const venue = normaliseVenue(horse._venue);
+        const raceNum = String(horse._raceNum);
+        const res = await fetch(
+          `${SURL}/rest/v1/odds_snapshot?race_venue=eq.${encodeURIComponent(venue)}&race_num=eq.${encodeURIComponent(raceNum)}&bookmaker=eq.${encodeURIComponent(oddsBookmaker)}&select=horse_name,price,captured_at&order=captured_at.desc&limit=200`,
+          { headers: { apikey: SKEY, Authorization: `Bearer ${SKEY}` } },
+        );
+        if (!res.ok || cancelled) return;
+        const rows = await res.json();
+        const targetName = stripCountry(horse.name).toUpperCase();
+        const hit = rows.find(r => stripCountry(r.horse_name).toUpperCase() === targetName);
+        const livePrice = hit ? Number(hit.price) : null;
+        if (livePrice != null && !cancelled) {
+          const csvDefault = horse.rawOdds ? horse.rawOdds.toFixed(2) : '';
+          setOdds(prev => (prev === csvDefault ? livePrice.toFixed(2) : prev));
+        }
+      } catch {}
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     if (!user?.id || !SURL || !SKEY) return;
@@ -3534,7 +3569,7 @@ function RacesPageInner() {
       {upgradeOpen && <UpgradeModal onClose={() => setUpgradeOpen(false)} />}
 
       {/* Log Bet modal */}
-      {betTarget && <BetModal horse={betTarget} onClose={() => setBetTarget(null)} />}
+      {betTarget && <BetModal horse={betTarget} onClose={() => setBetTarget(null)} isAdmin={isSiteAdminUser} oddsBookmaker={oddsBookmaker} />}
       {/* General Log Bet modal — meeting/race/horse picker, hands off to BetModal */}
       {generalBetOpen && (
         <GeneralLogBetModal
