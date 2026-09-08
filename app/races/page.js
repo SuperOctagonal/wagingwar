@@ -1975,6 +1975,18 @@ function RunnerRow({ runner, rank, rc, trackCond, onLogBet, onShowPopup, onHideP
   const liveP = isAdmin ? livePrices[stripCountry(runner.name).toUpperCase()] : undefined;
   const displayPrice = liveP ?? mktO;
   const runnerSteamerFlags = isAdmin ? steamerFlags[steamerNameKey(runner.name)] : undefined;
+  // Temporary per-row debug aid, admin-only -- pinpoints exactly what key
+  // this row looks up and what it finds, vs. the top-level flags object
+  // already logged in RacesPageInner's effect (which the user confirmed
+  // matches OddsTable's exactly).
+  if (isAdmin) {
+    console.debug('[steamerFlags:RunnerRow per-row]', {
+      runnerName: runner.name,
+      lookupKey: steamerNameKey(runner.name),
+      found: runnerSteamerFlags,
+      allKeysInSteamerFlags: Object.keys(steamerFlags),
+    });
+  }
   const isLivePrice = liveP != null;
   const pm   = calcPaceMap(runner, rc.venue, +rc.dist, trackCond);
   const crsLabel = (() => { const c = runner.courseStarts||0; return c===0?'NEW':c===1?'1x':c<=4?`${c}x`:'VET'; })();
