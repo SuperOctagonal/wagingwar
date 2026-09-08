@@ -25,12 +25,24 @@ function Arrow({ flag, sinceLabel }) {
   );
 }
 
+// Wrapped in its own block-level div, same as the existing LIVE tag
+// (display:'block') next to it -- every render site (RunnerRow/
+// MobileRunnerCard's Price $, PaceMapView's SP, OddsTable's Best) is a
+// narrow, nowrap, fixed/percentage-width cell shared with a sibling column
+// (Value, or the next bookmaker column). An inline badge appended after the
+// price text extends that line's horizontal footprint past the cell's own
+// width, and in a fixed-width flex box (PaceMapView's w-20, MobileRunnerCard)
+// or a tight percentage-width table column (RunnerRow), that overflow
+// visually bleeds into the neighbouring column instead of the cell growing
+// to fit -- which is exactly what made this look like it was rendering
+// "inside" the Value column. Stacking it on its own line below the price
+// keeps this cell's width exactly what it already was with no badge at all.
 export default function SteamerDrifterBadge({ flags }) {
   if (!flags || (!flags.open && !flags.recent)) return null;
   return (
-    <>
+    <div style={{ lineHeight: 1.3 }}>
       <Arrow flag={flags.open} sinceLabel="since open" />
       <Arrow flag={flags.recent} sinceLabel="in last hour" />
-    </>
+    </div>
   );
 }
