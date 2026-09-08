@@ -18,7 +18,7 @@ function Arrow({ flag, sinceLabel }) {
   return (
     <span
       title={`${verb} ${flag.pct}% ${sinceLabel}`}
-      style={{ display: 'inline-flex', alignItems: 'center', color, background: bg, fontSize: 7, fontWeight: 800, marginLeft: 2, padding: '1px 3px', borderRadius: 3, letterSpacing: '0.2px', whiteSpace: 'nowrap' }}
+      style={{ display: 'inline-flex', alignItems: 'center', color, background: bg, fontSize: 10, fontWeight: 800, marginLeft: 2, padding: '1px 4px', borderRadius: 3, letterSpacing: '0.2px', whiteSpace: 'nowrap' }}
     >
       {arrow}{flag.pct}%
     </span>
