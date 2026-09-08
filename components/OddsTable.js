@@ -2,6 +2,8 @@
 import { useState, useEffect, useMemo } from 'react';
 import PuntersEdgeCredit from '@/components/PuntersEdgeCredit';
 import { PUNTERSEDGE_BOOKMAKER_COLUMNS, bookmakerNameForSlug } from '@/lib/puntersedgeBookmakers';
+import { fetchSteamerDrifterFlags, nameKey } from '@/lib/steamersDrifters';
+import SteamerDrifterBadge from '@/components/SteamerDrifterBadge';
 
 const SURL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SKEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -32,6 +34,7 @@ export default function OddsTable({ venue, raceNum }) {
   const [cardInfo, setCardInfo] = useState({});
   const [capturedAt, setCapturedAt] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [steamerFlags, setSteamerFlags] = useState({});
 
   useEffect(() => {
     if (!venue || !raceNum) { setRows([]); setCardInfo({}); setCapturedAt(null); setLoading(false); return; }
@@ -71,6 +74,21 @@ export default function OddsTable({ venue, raceNum }) {
     }
     load();
     const interval = setInterval(load, 60000);
+    return () => { cancelled = true; clearInterval(interval); };
+  }, [venue, raceNum]);
+
+  // Steamer/drifter flags -- computed by the shared helper (open-vs-now and
+  // 30-60min-ago-vs-now best-price moves), not derived here. Separate poll
+  // from the price table above since it needs its own multi-batch query.
+  useEffect(() => {
+    if (!venue || !raceNum) { setSteamerFlags({}); return; }
+    let cancelled = false;
+    async function loadFlags() {
+      const flags = await fetchSteamerDrifterFlags({ venue, raceNum, date: sydneyToday() });
+      if (!cancelled) setSteamerFlags(flags);
+    }
+    loadFlags();
+    const interval = setInterval(loadFlags, 60000);
     return () => { cancelled = true; clearInterval(interval); };
   }, [venue, raceNum]);
 
@@ -130,6 +148,7 @@ export default function OddsTable({ venue, raceNum }) {
           <thead>
             <tr>
               <th style={{ padding: '3px 4px', fontSize: 9, fontWeight: 700, color: '#374151', background: '#f8fafc', textTransform: 'uppercase', letterSpacing: '0.5px', textAlign: 'left', position: 'sticky', left: 0 }}>Horse</th>
+              <th style={{ padding: '3px 4px', fontSize: 9, fontWeight: 700, color: '#374151', background: '#f8fafc', textTransform: 'uppercase', letterSpacing: '0.5px', textAlign: 'right', whiteSpace: 'nowrap' }}>Best</th>
               {columns.map(c => (
                 <th key={c.slug} style={{ padding: '3px 4px', fontSize: 9, fontWeight: 700, color: '#374151', background: '#f8fafc', textTransform: 'uppercase', letterSpacing: '0.5px', textAlign: 'right', whiteSpace: 'nowrap' }}>
                   {bookmakerNameForSlug(c.slug)}
@@ -146,6 +165,10 @@ export default function OddsTable({ venue, raceNum }) {
                 <tr key={horse}>
                   <td style={{ padding: '3px 4px', fontWeight: 600, color: '#111827', background: '#fff', position: 'sticky', left: 0, whiteSpace: 'nowrap' }}>
                     {info?.tab ? `${info.tab}. ` : ''}{horse}{info?.barrier ? ` (${info.barrier})` : ''}
+                  </td>
+                  <td style={{ padding: '3px 4px', textAlign: 'right', fontFamily: 'monospace', fontWeight: 700, color: '#059669', whiteSpace: 'nowrap' }}>
+                    {best != null ? best.toFixed(2) : '—'}
+                    <SteamerDrifterBadge flags={steamerFlags[nameKey(horse)]} />
                   </td>
                   {columns.map(c => {
                     const price = tableData.byHorseBookie[`${horse}||${c.slug}`];

@@ -19,6 +19,8 @@ import { validateBetForm } from '@/lib/betValidation';
 import { estimatePlacePrice, paidPlacesForFieldSize } from '@/lib/placePrice';
 import { BOOKMAKERS as BOOKIES } from '@/lib/bookmakers';
 import { PUNTERSEDGE_BOOKMAKER_COLUMNS, bookmakerNameForSlug, getPuntersEdgeSlug } from '@/lib/puntersedgeBookmakers';
+import { fetchSteamerDrifterFlags, nameKey as steamerNameKey } from '@/lib/steamersDrifters';
+import SteamerDrifterBadge from '@/components/SteamerDrifterBadge';
 
 const SURL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SKEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -1774,7 +1776,7 @@ function MobileRacePicker({ allVenues, allRaces, selectedRaceKey, onSelect }) {
 
 // ─── mobile runner card ───────────────────────────────────────────────────────
 
-function MobileRunnerCard({ runner, rank, rc, trackCond, onLogBet, isResulted, betBlocked = false, isPro, onUpgrade, isDbScratched, layers, isAdmin = false, livePrices = {} }) {
+function MobileRunnerCard({ runner, rank, rc, trackCond, onLogBet, isResulted, betBlocked = false, isPro, onUpgrade, isDbScratched, layers, isAdmin = false, livePrices = {}, steamerFlags = {} }) {
   const mktO = runner.rawOdds;
   const myO  = runner.myOdds;
   const wt   = runner['Weight'] ? `${runner['Weight']}kg` : '';
@@ -1785,6 +1787,7 @@ function MobileRunnerCard({ runner, rank, rc, trackCond, onLogBet, isResulted, b
   const liveP = isAdmin ? livePrices[stripCountry(runner.name).toUpperCase()] : undefined;
   const displayPrice = liveP ?? mktO;
   const isLivePrice = liveP != null;
+  const runnerSteamerFlags = isAdmin ? steamerFlags[steamerNameKey(runner.name)] : undefined;
 
   let valStr = '—', valColor = '#374151';
   if (displayPrice && myO) {
@@ -1830,6 +1833,7 @@ function MobileRunnerCard({ runner, rank, rc, trackCond, onLogBet, isResulted, b
         </div>
         <div style={{ flexShrink: 0, width: 42, textAlign: 'right', fontSize: 12, fontWeight: 600, color: '#111827' }}>
           {displayPrice ? `$${displayPrice.toFixed(2)}` : '—'}
+          <SteamerDrifterBadge flags={runnerSteamerFlags} />
           {isLivePrice && <span style={{ display: 'block', fontSize: 6, fontWeight: 800, color: '#059669', letterSpacing: '0.3px' }}>LIVE</span>}
         </div>
         <div style={{ flexShrink: 0, width: 32, textAlign: 'right', fontSize: 11, fontWeight: 500, color: valColor }}>
@@ -1962,7 +1966,7 @@ function LockBtn({ onClick }) {
 
 const DEFAULT_COL_VIS = { form: true, speed: true, cond: true, conn: true, score: true, edge: true, value: true };
 
-function RunnerRow({ runner, rank, rc, trackCond, onLogBet, onShowPopup, onHidePopup, isResulted, betBlocked = false, isPro, onUpgrade, isDbScratched, colVis = DEFAULT_COL_VIS, todayBets = {}, isAdmin = false, livePrices = {} }) {
+function RunnerRow({ runner, rank, rc, trackCond, onLogBet, onShowPopup, onHidePopup, isResulted, betBlocked = false, isPro, onUpgrade, isDbScratched, colVis = DEFAULT_COL_VIS, todayBets = {}, isAdmin = false, livePrices = {}, steamerFlags = {} }) {
   const myO  = runner.myOdds;
   const mktO = runner.rawOdds;
   // Admin-only: odds_snapshot live price for the currently-picked bookmaker,
@@ -1970,6 +1974,7 @@ function RunnerRow({ runner, rank, rc, trackCond, onLogBet, onShowPopup, onHideP
   // which the bet-modal pre-fill and Results page still read directly.
   const liveP = isAdmin ? livePrices[stripCountry(runner.name).toUpperCase()] : undefined;
   const displayPrice = liveP ?? mktO;
+  const runnerSteamerFlags = isAdmin ? steamerFlags[steamerNameKey(runner.name)] : undefined;
   const isLivePrice = liveP != null;
   const pm   = calcPaceMap(runner, rc.venue, +rc.dist, trackCond);
   const crsLabel = (() => { const c = runner.courseStarts||0; return c===0?'NEW':c===1?'1x':c<=4?`${c}x`:'VET'; })();
@@ -2058,6 +2063,7 @@ function RunnerRow({ runner, rank, rc, trackCond, onLogBet, onShowPopup, onHideP
       <td className={`${td} text-right text-[11px] tabular-nums whitespace-nowrap`} style={{ color: '#111827' }}>
         {displayPrice ? `$${displayPrice.toFixed(2)}` : '—'}
         {isLivePrice && <span style={{ marginLeft: 3, fontSize: 7, fontWeight: 800, color: '#059669', background: '#d1fae5', padding: '1px 3px', borderRadius: 3, letterSpacing: '0.3px' }}>LIVE</span>}
+        <SteamerDrifterBadge flags={runnerSteamerFlags} />
       </td>
       {/* Value */}
       {colVis.value && (
@@ -2089,7 +2095,7 @@ function RunnerRow({ runner, rank, rc, trackCond, onLogBet, onShowPopup, onHideP
   );
 }
 
-function FieldView({ results, scratched, rc, trackCond, onLogBet, onShowPopup, onHidePopup, isResulted, betBlocked = false, isPro, onUpgrade, scratchingsSet = new Set(), colVis = DEFAULT_COL_VIS, todayBets = {}, isMobile, isAdmin = false, livePrices = {} }) {
+function FieldView({ results, scratched, rc, trackCond, onLogBet, onShowPopup, onHidePopup, isResulted, betBlocked = false, isPro, onUpgrade, scratchingsSet = new Set(), colVis = DEFAULT_COL_VIS, todayBets = {}, isMobile, isAdmin = false, livePrices = {}, steamerFlags = {} }) {
   const tcLabel = { good:'Good', soft:'Soft', heavy:'Heavy', synthetic:'Synth' }[trackCond] || 'Good';
   const scrKey = h => `${normaliseVenue(rc.venue)}||${rc.num}||${stripCountry(h.name).toUpperCase()}`;
   const activeResults = results.filter(h => !scratchingsSet.has(scrKey(h)));
@@ -2125,10 +2131,10 @@ function FieldView({ results, scratched, rc, trackCond, onLogBet, onShowPopup, o
           </thead>
           <tbody>
             {activeResults.map((r, i) => (
-              <RunnerRow key={r.tab || r.name} runner={r} rank={i+1} rc={rc} trackCond={trackCond} onLogBet={onLogBet} onShowPopup={onShowPopup} onHidePopup={onHidePopup} isResulted={isResulted} betBlocked={betBlocked} isPro={isPro} onUpgrade={onUpgrade} colVis={colVis} todayBets={todayBets} isAdmin={isAdmin} livePrices={livePrices} />
+              <RunnerRow key={r.tab || r.name} runner={r} rank={i+1} rc={rc} trackCond={trackCond} onLogBet={onLogBet} onShowPopup={onShowPopup} onHidePopup={onHidePopup} isResulted={isResulted} betBlocked={betBlocked} isPro={isPro} onUpgrade={onUpgrade} colVis={colVis} todayBets={todayBets} isAdmin={isAdmin} livePrices={livePrices} steamerFlags={steamerFlags} />
             ))}
             {dbScratched.map(r => (
-              <RunnerRow key={r.tab || r.name} runner={r} rank={null} rc={rc} trackCond={trackCond} onLogBet={onLogBet} onShowPopup={onShowPopup} onHidePopup={onHidePopup} isResulted={true} betBlocked isPro={isPro} onUpgrade={onUpgrade} isDbScratched colVis={colVis} todayBets={todayBets} isAdmin={isAdmin} livePrices={livePrices} />
+              <RunnerRow key={r.tab || r.name} runner={r} rank={null} rc={rc} trackCond={trackCond} onLogBet={onLogBet} onShowPopup={onShowPopup} onHidePopup={onHidePopup} isResulted={true} betBlocked isPro={isPro} onUpgrade={onUpgrade} isDbScratched colVis={colVis} todayBets={todayBets} isAdmin={isAdmin} livePrices={livePrices} steamerFlags={steamerFlags} />
             ))}
           </tbody>
           {scratched.length > 0 && (
@@ -2193,11 +2199,11 @@ function FieldView({ results, scratched, rc, trackCond, onLogBet, onShowPopup, o
         <div className="mob-page" style={{ flex: 1, minHeight: 0, overflowY: 'auto', overflowX: 'hidden' }}>
           {mobDisplayResults.map(r => (
             <MobileRunnerCard key={r.tab || r.name} runner={r} rank={mobRankMap.get(r.tab || r.name)} rc={rc} trackCond={trackCond}
-              onLogBet={onLogBet} isResulted={isResulted} betBlocked={betBlocked} isPro={isPro} onUpgrade={onUpgrade} layers={layers} isAdmin={isAdmin} livePrices={livePrices} />
+              onLogBet={onLogBet} isResulted={isResulted} betBlocked={betBlocked} isPro={isPro} onUpgrade={onUpgrade} layers={layers} isAdmin={isAdmin} livePrices={livePrices} steamerFlags={steamerFlags} />
           ))}
           {dbScratched.map(r => (
             <MobileRunnerCard key={r.tab || r.name} runner={r} rank={null} rc={rc} trackCond={trackCond}
-              onLogBet={onLogBet} isResulted={true} betBlocked isPro={isPro} onUpgrade={onUpgrade} isDbScratched layers={layers} isAdmin={isAdmin} livePrices={livePrices} />
+              onLogBet={onLogBet} isResulted={true} betBlocked isPro={isPro} onUpgrade={onUpgrade} isDbScratched layers={layers} isAdmin={isAdmin} livePrices={livePrices} steamerFlags={steamerFlags} />
           ))}
           {scratched.length > 0 && (
             <div style={{ padding: '8px 12px', fontSize: 9, color: '#9ca3af', background: '#f9fafb', borderTop: '1px solid #f3f4f6' }}>
@@ -2453,7 +2459,7 @@ function FormView({ results, scratched, onLogBet, isResulted, betBlocked = false
 
 // ─── pace map view ────────────────────────────────────────────────────────────
 
-function PaceMapView({ results, scratched, rc, trackCond, isPro, onUpgrade, scratchingsSet = new Set(), isAdmin = false, livePrices = {} }) {
+function PaceMapView({ results, scratched, rc, trackCond, isPro, onUpgrade, scratchingsSet = new Set(), isAdmin = false, livePrices = {}, steamerFlags = {} }) {
   const scrKey = h => `${normaliseVenue(rc.venue)}||${rc.num}||${stripCountry(h.name).toUpperCase()}`;
   const activeResults = results.filter(h => !scratchingsSet.has(scrKey(h)));
   const ranked = activeResults.map((r, i) => ({ ...r, systemRank: i + 1 }));
@@ -2555,6 +2561,7 @@ function PaceMapView({ results, scratched, rc, trackCond, isPro, onUpgrade, scra
                 <div className="text-[9px] text-gray-400">
                   SP {spO}
                   {isLivePrice && <span style={{ marginLeft: 2, fontSize: 6, fontWeight: 800, color: '#059669', background: '#d1fae5', padding: '1px 2px', borderRadius: 3, letterSpacing: '0.3px' }}>LIVE</span>}
+                  <SteamerDrifterBadge flags={isAdmin ? steamerFlags[steamerNameKey(h.name)] : undefined} />
                 </div>
               </div>
             </div>
@@ -2774,6 +2781,7 @@ function RacesPageInner() {
     try { localStorage.setItem('ww_odds_bookmaker', slug); } catch {}
   };
   const [livePrices, setLivePrices] = useState({});
+  const [steamerFlags, setSteamerFlags] = useState({});
 
   const todayISO = new Date().toLocaleDateString('sv-SE', { timeZone: 'Australia/Brisbane' });
   // Only tomorrow's card is actually populated by the pipeline right now — cap
@@ -2906,6 +2914,28 @@ function RacesPageInner() {
     const interval = setInterval(load, 60000);
     return () => { cancelled = true; clearInterval(interval); };
   }, [isSiteAdminUser, oddsBookmaker, currentRace?.venue, currentRace?.num]);
+
+  // Steamer/drifter flags for the current race -- best price across ALL
+  // bookmakers (not the single oddsBookmaker selection above), via the same
+  // shared helper OddsTable uses, so the Field tab and Pace Map tab agree
+  // with the Odds tab/page on every move flagged.
+  useEffect(() => {
+    if (!isSiteAdminUser || !currentRace?.venue || !currentRace?.num) {
+      setSteamerFlags({});
+      return;
+    }
+    let cancelled = false;
+    async function loadFlags() {
+      const venue = normaliseVenue(currentRace.venue);
+      const raceNum = String(currentRace.num);
+      const date = new Intl.DateTimeFormat('en-CA', { timeZone: 'Australia/Sydney' }).format(new Date());
+      const flags = await fetchSteamerDrifterFlags({ venue, raceNum, date });
+      if (!cancelled) setSteamerFlags(flags);
+    }
+    loadFlags();
+    const interval = setInterval(loadFlags, 60000);
+    return () => { cancelled = true; clearInterval(interval); };
+  }, [isSiteAdminUser, currentRace?.venue, currentRace?.num]);
 
   const trackCond = (currentRace && trackConds[currentRace.venue]) || 'good';
   // Distinct from trackCond itself: whether that value is real (DB-confirmed via
@@ -3557,13 +3587,13 @@ function RacesPageInner() {
                       isResulted={!!currentRaceResult} betBlocked={betBlocked}
                       isPro={isPro} onUpgrade={() => setUpgradeOpen(true)}
                       scratchingsSet={scratchingsSet} colVis={colVis} todayBets={todayBets} isMobile={isNarrow}
-                      isAdmin={isSiteAdminUser} livePrices={livePrices} />
+                      isAdmin={isSiteAdminUser} livePrices={livePrices} steamerFlags={steamerFlags} />
                   )}
                   {view === 'form' && (
                     <FormView results={allHorsesForDisplay} scratched={scratched} onLogBet={handleLogBet} isResulted={!!currentRaceResult} betBlocked={betBlocked} rc={currentRace} isPro={isPro} onUpgrade={() => setUpgradeOpen(true)} scratchingsSet={scratchingsSet} />
                   )}
                   {view === 'pacemap' && (
-                    <PaceMapView results={allHorsesForDisplay} scratched={scratched} rc={currentRace} trackCond={trackCond} isPro={isPro} onUpgrade={() => setUpgradeOpen(true)} scratchingsSet={scratchingsSet} isAdmin={isSiteAdminUser} livePrices={livePrices} />
+                    <PaceMapView results={allHorsesForDisplay} scratched={scratched} rc={currentRace} trackCond={trackCond} isPro={isPro} onUpgrade={() => setUpgradeOpen(true)} scratchingsSet={scratchingsSet} isAdmin={isSiteAdminUser} livePrices={livePrices} steamerFlags={steamerFlags} />
                   )}
                   {view === 'odds' && isSiteAdminUser && (
                     <div style={{ padding: 12 }}>
