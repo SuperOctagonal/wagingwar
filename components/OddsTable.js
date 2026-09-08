@@ -86,7 +86,13 @@ export default function OddsTable({ venue, raceNum }) {
     if (!venue || !raceNum) { setSteamerFlags({}); return; }
     let cancelled = false;
     async function loadFlags() {
-      const flags = await fetchSteamerDrifterFlags({ venue, raceNum, date: sydneyToday() });
+      const date = sydneyToday();
+      const flags = await fetchSteamerDrifterFlags({ venue, raceNum, date });
+      // Temporary debug aid, paired with the equivalent log in
+      // app/races/page.js's steamerFlags effect -- compare the two for the
+      // same race to confirm whether Field/PaceMap and OddsTable genuinely
+      // diverge at runtime.
+      console.debug('[steamerFlags:OddsTable]', { venue, raceNum, date, flags });
       if (!cancelled) setSteamerFlags(flags);
     }
     loadFlags();

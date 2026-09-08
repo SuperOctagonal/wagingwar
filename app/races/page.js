@@ -2930,6 +2930,11 @@ function RacesPageInner() {
       const raceNum = String(currentRace.num);
       const date = new Intl.DateTimeFormat('en-CA', { timeZone: 'Australia/Sydney' }).format(new Date());
       const flags = await fetchSteamerDrifterFlags({ venue, raceNum, date });
+      // Temporary debug aid -- admin-only, so this never reaches a real
+      // user's console. Compare this against OddsTable's own internal fetch
+      // (same helper, same args shape) for the same race/runner to confirm
+      // whether the two code paths genuinely diverge at runtime or agree.
+      console.debug('[steamerFlags:Field/PaceMap]', { venue, raceNum, date, rawCurrentRaceVenue: currentRace.venue, rawCurrentRaceNum: currentRace.num, flags });
       if (!cancelled) setSteamerFlags(flags);
     }
     loadFlags();
