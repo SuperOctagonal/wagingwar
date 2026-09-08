@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import PuntersEdgeCredit from '@/components/PuntersEdgeCredit';
 import { PUNTERSEDGE_BOOKMAKER_COLUMNS, bookmakerNameForSlug } from '@/lib/puntersedgeBookmakers';
 import { fetchSteamerDrifterFlags, nameKey } from '@/lib/steamersDrifters';
@@ -35,6 +35,8 @@ export default function OddsTable({ venue, raceNum }) {
   const [capturedAt, setCapturedAt] = useState(null);
   const [loading, setLoading] = useState(true);
   const [steamerFlags, setSteamerFlags] = useState({});
+  const [hasOverflow, setHasOverflow] = useState(false);
+  const scrollRef = useRef(null);
 
   useEffect(() => {
     if (!venue || !raceNum) { setRows([]); setCardInfo({}); setCapturedAt(null); setLoading(false); return; }
@@ -113,6 +115,22 @@ export default function OddsTable({ venue, raceNum }) {
     return PUNTERSEDGE_BOOKMAKER_COLUMNS.filter(c => slugsPresent.has(c.slug));
   }, [rows]);
 
+  // With up to 14 bookmaker columns + Horse + Best, this table is wider than
+  // its container on narrower layouts (the Races page's Odds tab, squeezed
+  // between the sidebar and right rail, hits this every time -- the /odds
+  // page's wider single-column layout usually doesn't). overflowX:auto alone
+  // gives no visual cue that more columns exist off-screen, so this measures
+  // actual overflow and shows an explicit "scroll for more" hint when true.
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const check = () => setHasOverflow(el.scrollWidth > el.clientWidth + 1);
+    check();
+    const ro = new ResizeObserver(check);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [columns, tableData]);
+
   if (loading) {
     return <div style={{ color: '#6b7280', fontSize: 13 }}>Loading odds…</div>;
   }
@@ -134,16 +152,30 @@ export default function OddsTable({ venue, raceNum }) {
             Updated {new Date(capturedAt).toLocaleTimeString('en-AU', { hour: '2-digit', minute: '2-digit' })}
           </span>
         )}
+        {hasOverflow && (
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 10, fontWeight: 700, color: '#6b7280', background: '#f3f4f6', padding: '2px 7px', borderRadius: 10, marginLeft: 'auto' }}>
+            Scroll for more bookmakers <i className="ti ti-arrow-right" style={{ fontSize: 11 }} />
+          </span>
+        )}
       </div>
       {/* Matches the Field tab's .ww-race-table treatment: border-collapse +
           1px solid #d1d5db gridlines on every cell, light-gray uppercase
           header -- same density/fonts as the Field table's default (Standard
-          density, Medium font) styling, not a separately-styled table. */}
+          density, Medium font) styling, not a separately-styled table.
+          Explicit scrollbar styling -- the default OS overlay scrollbar is
+          easy to miss entirely (which is the whole bug), so this keeps a
+          visible, always-there track+thumb instead of relying on the user
+          noticing a thin overlay bar on hover. */}
       <style>{`
         .ww-odds-table { border-collapse: collapse; }
         .ww-odds-table th, .ww-odds-table td { border: 1px solid #d1d5db; }
+        .ww-odds-scroll { scrollbar-width: auto; scrollbar-color: #9ca3af #f3f4f6; }
+        .ww-odds-scroll::-webkit-scrollbar { height: 10px; }
+        .ww-odds-scroll::-webkit-scrollbar-track { background: #f3f4f6; border-radius: 10px; }
+        .ww-odds-scroll::-webkit-scrollbar-thumb { background: #9ca3af; border-radius: 10px; }
+        .ww-odds-scroll::-webkit-scrollbar-thumb:hover { background: #6b7280; }
       `}</style>
-      <div style={{ background: '#fff', borderRadius: 10, border: '1px solid #e5e7eb', overflowX: 'auto' }}>
+      <div ref={scrollRef} className="ww-odds-scroll" style={{ background: '#fff', borderRadius: 10, border: '1px solid #e5e7eb', overflowX: 'auto' }}>
         <table className="ww-odds-table" style={{ width: '100%', fontSize: 11 }}>
           <thead>
             <tr>
