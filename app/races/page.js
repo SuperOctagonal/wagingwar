@@ -2684,7 +2684,7 @@ function MoversView({ isPro, onUpgrade, isAdmin }) {
           <div style={{ textAlign: 'center', padding: 24 }}>
             <i className="ti ti-lock" style={{ fontSize: 36, color: '#9ca3af', display: 'block', marginBottom: 12 }} />
             <div style={{ fontSize: 13, fontWeight: 700, color: '#111827', marginBottom: 6 }}>Market Movers is a Pro feature</div>
-            <div style={{ fontSize: 11, color: '#6b7280', marginBottom: 16 }}>Upgrade to see every firmer and drifter across today's races</div>
+            <div style={{ fontSize: 11, color: '#6b7280', marginBottom: 16 }}>Upgrade to see every firmer and drifter across today&apos;s races</div>
             <button onClick={onUpgrade} style={{ padding: '9px 22px', background: '#00471b', color: '#fff', border: 'none', borderRadius: 7, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
               Unlock with Pro
             </button>
