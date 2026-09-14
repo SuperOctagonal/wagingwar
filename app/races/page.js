@@ -19,8 +19,8 @@ import { validateBetForm } from '@/lib/betValidation';
 import { estimatePlacePrice, paidPlacesForFieldSize } from '@/lib/placePrice';
 import { BOOKMAKERS as BOOKIES } from '@/lib/bookmakers';
 import { PUNTERSEDGE_BOOKMAKER_COLUMNS, bookmakerNameForSlug, getPuntersEdgeSlug } from '@/lib/puntersedgeBookmakers';
-import { fetchSteamerDrifterFlags, nameKey as steamerNameKey } from '@/lib/steamersDrifters';
-import SteamerDrifterBadge from '@/components/SteamerDrifterBadge';
+import { fetchMarketMoveFlags, nameKey as marketMoveNameKey } from '@/lib/marketMoves';
+import FirmingDriftingBadge from '@/components/FirmingDriftingBadge';
 
 const SURL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SKEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -619,6 +619,7 @@ const VIEW_TABS = [
   { id: 'field',      label: 'Field',    icon: 'ti-layout-list' },
   { id: 'form',       label: 'Form',     icon: 'ti-horse-toy' },
   { id: 'pacemap',    label: 'Pace Map', icon: 'ti-map', premium: true },
+  { id: 'movers',     label: 'Movers',   icon: 'ti-arrows-vertical', premium: true },
   { id: 'sectionals', label: 'Sectionals', icon: 'ti-chart-line', locked: true },
 ];
 
@@ -712,8 +713,18 @@ function RaceCountdown({ rc }) {
 
 // ─── race header ──────────────────────────────────────────────────────────────
 
-function RaceHeader({ rc, trackCond, trackCondConfirmed, setTrackCond, weights, setWeights, runnerCount, onUpgrade, isPro, isMobile, onOpenGeneralBet }) {
+function RaceHeader({ rc, trackCond, trackCondConfirmed, setTrackCond, weights, setWeights, runnerCount, onUpgrade, isPro, isMobile, onOpenGeneralBet, isAdmin = false, marketMoves = {} }) {
   const [tcOpen, setTcOpen] = useState(false);
+  // Top firmer/top drifter for this race -- reads the SAME marketMoves
+  // object already fetched for the Field/Pace Map/Odds tabs, no separate
+  // fetch. Hidden entirely (not "Top firmer: none") when nothing in this
+  // race currently qualifies at the >=15% threshold.
+  const topFirmer = isAdmin
+    ? Object.entries(marketMoves).filter(([, v]) => v.move?.direction === 'firming').sort((a, b) => b[1].move.pct - a[1].move.pct)[0]
+    : null;
+  const topDrifter = isAdmin
+    ? Object.entries(marketMoves).filter(([, v]) => v.move?.direction === 'drifting').sort((a, b) => b[1].move.pct - a[1].move.pct)[0]
+    : null;
   return (
     <div id="rh-outer" className="px-2.5 md:px-4 py-1.5 md:py-2.5 bg-white flex flex-nowrap items-center justify-between gap-3 flex-shrink-0 overflow-x-auto" style={{ borderBottom: '4px solid #00471B' }}>
       <div id="rh-left-block">
@@ -728,6 +739,24 @@ function RaceHeader({ rc, trackCond, trackCondConfirmed, setTrackCond, weights, 
           {rc.cls  && <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-gray-100 text-gray-600">{rc.cls}</span>}
           {rc.prize && <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-gray-100 text-gray-500">${rc.prize}</span>}
           <RaceCountdown rc={rc} />
+          {topFirmer && (
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '2px 8px', borderRadius: 6, background: '#d1fae5' }}>
+              <i className="ti ti-trending-up" style={{ fontSize: 13, color: '#059669' }} />
+              <span style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.15 }}>
+                <span style={{ fontSize: 7, fontWeight: 700, color: '#059669', textTransform: 'uppercase', letterSpacing: '0.3px' }}>Top firmer</span>
+                <span style={{ fontSize: 10, fontWeight: 700, color: '#065f46' }}>{topFirmer[0]} ▲{topFirmer[1].move.pct}%</span>
+              </span>
+            </span>
+          )}
+          {topDrifter && (
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '2px 8px', borderRadius: 6, background: '#fee2e2' }}>
+              <i className="ti ti-trending-down" style={{ fontSize: 13, color: '#dc2626' }} />
+              <span style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.15 }}>
+                <span style={{ fontSize: 7, fontWeight: 700, color: '#dc2626', textTransform: 'uppercase', letterSpacing: '0.3px' }}>Top drifter</span>
+                <span style={{ fontSize: 10, fontWeight: 700, color: '#991b1b' }}>{topDrifter[0]} ▼{topDrifter[1].move.pct}%</span>
+              </span>
+            </span>
+          )}
         </div>
       </div>
       <div id="rh-right-block" className="flex items-center gap-2 flex-wrap relative">
@@ -1776,7 +1805,7 @@ function MobileRacePicker({ allVenues, allRaces, selectedRaceKey, onSelect }) {
 
 // ─── mobile runner card ───────────────────────────────────────────────────────
 
-function MobileRunnerCard({ runner, rank, rc, trackCond, onLogBet, isResulted, betBlocked = false, isPro, onUpgrade, isDbScratched, layers, isAdmin = false, livePrices = {}, steamerFlags = {} }) {
+function MobileRunnerCard({ runner, rank, rc, trackCond, onLogBet, isResulted, betBlocked = false, isPro, onUpgrade, isDbScratched, layers, isAdmin = false, livePrices = {}, marketMoves = {} }) {
   const mktO = runner.rawOdds;
   const myO  = runner.myOdds;
   const wt   = runner['Weight'] ? `${runner['Weight']}kg` : '';
@@ -1787,7 +1816,7 @@ function MobileRunnerCard({ runner, rank, rc, trackCond, onLogBet, isResulted, b
   const liveP = isAdmin ? livePrices[stripCountry(runner.name).toUpperCase()] : undefined;
   const displayPrice = liveP ?? mktO;
   const isLivePrice = liveP != null;
-  const runnerSteamerFlags = isAdmin ? steamerFlags[steamerNameKey(runner.name)] : undefined;
+  const runnerMove = isAdmin ? marketMoves[marketMoveNameKey(runner.name)]?.move : undefined;
 
   let valStr = '—', valColor = '#374151';
   if (displayPrice && myO) {
@@ -1833,7 +1862,7 @@ function MobileRunnerCard({ runner, rank, rc, trackCond, onLogBet, isResulted, b
         </div>
         <div style={{ flexShrink: 0, width: 42, textAlign: 'right', fontSize: 12, fontWeight: 600, color: '#111827' }}>
           {displayPrice ? `$${displayPrice.toFixed(2)}` : '—'}
-          <SteamerDrifterBadge flags={runnerSteamerFlags} />
+          <FirmingDriftingBadge move={runnerMove} />
           {isLivePrice && <span style={{ display: 'block', fontSize: 6, fontWeight: 800, color: '#059669', letterSpacing: '0.3px' }}>LIVE</span>}
         </div>
         <div style={{ flexShrink: 0, width: 32, textAlign: 'right', fontSize: 11, fontWeight: 500, color: valColor }}>
@@ -1966,7 +1995,7 @@ function LockBtn({ onClick }) {
 
 const DEFAULT_COL_VIS = { form: true, speed: true, cond: true, conn: true, score: true, edge: true, value: true };
 
-function RunnerRow({ runner, rank, rc, trackCond, onLogBet, onShowPopup, onHidePopup, isResulted, betBlocked = false, isPro, onUpgrade, isDbScratched, colVis = DEFAULT_COL_VIS, todayBets = {}, isAdmin = false, livePrices = {}, steamerFlags = {} }) {
+function RunnerRow({ runner, rank, rc, trackCond, onLogBet, onShowPopup, onHidePopup, isResulted, betBlocked = false, isPro, onUpgrade, isDbScratched, colVis = DEFAULT_COL_VIS, todayBets = {}, isAdmin = false, livePrices = {}, marketMoves = {} }) {
   const myO  = runner.myOdds;
   const mktO = runner.rawOdds;
   // Admin-only: odds_snapshot live price for the currently-picked bookmaker,
@@ -1974,19 +2003,7 @@ function RunnerRow({ runner, rank, rc, trackCond, onLogBet, onShowPopup, onHideP
   // which the bet-modal pre-fill and Results page still read directly.
   const liveP = isAdmin ? livePrices[stripCountry(runner.name).toUpperCase()] : undefined;
   const displayPrice = liveP ?? mktO;
-  const runnerSteamerFlags = isAdmin ? steamerFlags[steamerNameKey(runner.name)] : undefined;
-  // Temporary per-row debug aid, admin-only -- pinpoints exactly what key
-  // this row looks up and what it finds, vs. the top-level flags object
-  // already logged in RacesPageInner's effect (which the user confirmed
-  // matches OddsTable's exactly).
-  if (isAdmin) {
-    console.debug('[steamerFlags:RunnerRow per-row]', {
-      runnerName: runner.name,
-      lookupKey: steamerNameKey(runner.name),
-      found: runnerSteamerFlags,
-      allKeysInSteamerFlags: Object.keys(steamerFlags),
-    });
-  }
+  const runnerMove = isAdmin ? marketMoves[marketMoveNameKey(runner.name)]?.move : undefined;
   const isLivePrice = liveP != null;
   const pm   = calcPaceMap(runner, rc.venue, +rc.dist, trackCond);
   const crsLabel = (() => { const c = runner.courseStarts||0; return c===0?'NEW':c===1?'1x':c<=4?`${c}x`:'VET'; })();
@@ -2075,7 +2092,7 @@ function RunnerRow({ runner, rank, rc, trackCond, onLogBet, onShowPopup, onHideP
       <td className={`${td} text-right text-[11px] tabular-nums whitespace-nowrap`} style={{ color: '#111827' }}>
         {displayPrice ? `$${displayPrice.toFixed(2)}` : '—'}
         {isLivePrice && <span style={{ marginLeft: 3, fontSize: 7, fontWeight: 800, color: '#059669', background: '#d1fae5', padding: '1px 3px', borderRadius: 3, letterSpacing: '0.3px' }}>LIVE</span>}
-        <SteamerDrifterBadge flags={runnerSteamerFlags} />
+        <FirmingDriftingBadge move={runnerMove} />
       </td>
       {/* Value */}
       {colVis.value && (
@@ -2107,7 +2124,7 @@ function RunnerRow({ runner, rank, rc, trackCond, onLogBet, onShowPopup, onHideP
   );
 }
 
-function FieldView({ results, scratched, rc, trackCond, onLogBet, onShowPopup, onHidePopup, isResulted, betBlocked = false, isPro, onUpgrade, scratchingsSet = new Set(), colVis = DEFAULT_COL_VIS, todayBets = {}, isMobile, isAdmin = false, livePrices = {}, steamerFlags = {} }) {
+function FieldView({ results, scratched, rc, trackCond, onLogBet, onShowPopup, onHidePopup, isResulted, betBlocked = false, isPro, onUpgrade, scratchingsSet = new Set(), colVis = DEFAULT_COL_VIS, todayBets = {}, isMobile, isAdmin = false, livePrices = {}, marketMoves = {} }) {
   const tcLabel = { good:'Good', soft:'Soft', heavy:'Heavy', synthetic:'Synth' }[trackCond] || 'Good';
   const scrKey = h => `${normaliseVenue(rc.venue)}||${rc.num}||${stripCountry(h.name).toUpperCase()}`;
   const activeResults = results.filter(h => !scratchingsSet.has(scrKey(h)));
@@ -2143,10 +2160,10 @@ function FieldView({ results, scratched, rc, trackCond, onLogBet, onShowPopup, o
           </thead>
           <tbody>
             {activeResults.map((r, i) => (
-              <RunnerRow key={r.tab || r.name} runner={r} rank={i+1} rc={rc} trackCond={trackCond} onLogBet={onLogBet} onShowPopup={onShowPopup} onHidePopup={onHidePopup} isResulted={isResulted} betBlocked={betBlocked} isPro={isPro} onUpgrade={onUpgrade} colVis={colVis} todayBets={todayBets} isAdmin={isAdmin} livePrices={livePrices} steamerFlags={steamerFlags} />
+              <RunnerRow key={r.tab || r.name} runner={r} rank={i+1} rc={rc} trackCond={trackCond} onLogBet={onLogBet} onShowPopup={onShowPopup} onHidePopup={onHidePopup} isResulted={isResulted} betBlocked={betBlocked} isPro={isPro} onUpgrade={onUpgrade} colVis={colVis} todayBets={todayBets} isAdmin={isAdmin} livePrices={livePrices} marketMoves={marketMoves} />
             ))}
             {dbScratched.map(r => (
-              <RunnerRow key={r.tab || r.name} runner={r} rank={null} rc={rc} trackCond={trackCond} onLogBet={onLogBet} onShowPopup={onShowPopup} onHidePopup={onHidePopup} isResulted={true} betBlocked isPro={isPro} onUpgrade={onUpgrade} isDbScratched colVis={colVis} todayBets={todayBets} isAdmin={isAdmin} livePrices={livePrices} steamerFlags={steamerFlags} />
+              <RunnerRow key={r.tab || r.name} runner={r} rank={null} rc={rc} trackCond={trackCond} onLogBet={onLogBet} onShowPopup={onShowPopup} onHidePopup={onHidePopup} isResulted={true} betBlocked isPro={isPro} onUpgrade={onUpgrade} isDbScratched colVis={colVis} todayBets={todayBets} isAdmin={isAdmin} livePrices={livePrices} marketMoves={marketMoves} />
             ))}
           </tbody>
           {scratched.length > 0 && (
@@ -2211,11 +2228,11 @@ function FieldView({ results, scratched, rc, trackCond, onLogBet, onShowPopup, o
         <div className="mob-page" style={{ flex: 1, minHeight: 0, overflowY: 'auto', overflowX: 'hidden' }}>
           {mobDisplayResults.map(r => (
             <MobileRunnerCard key={r.tab || r.name} runner={r} rank={mobRankMap.get(r.tab || r.name)} rc={rc} trackCond={trackCond}
-              onLogBet={onLogBet} isResulted={isResulted} betBlocked={betBlocked} isPro={isPro} onUpgrade={onUpgrade} layers={layers} isAdmin={isAdmin} livePrices={livePrices} steamerFlags={steamerFlags} />
+              onLogBet={onLogBet} isResulted={isResulted} betBlocked={betBlocked} isPro={isPro} onUpgrade={onUpgrade} layers={layers} isAdmin={isAdmin} livePrices={livePrices} marketMoves={marketMoves} />
           ))}
           {dbScratched.map(r => (
             <MobileRunnerCard key={r.tab || r.name} runner={r} rank={null} rc={rc} trackCond={trackCond}
-              onLogBet={onLogBet} isResulted={true} betBlocked isPro={isPro} onUpgrade={onUpgrade} isDbScratched layers={layers} isAdmin={isAdmin} livePrices={livePrices} steamerFlags={steamerFlags} />
+              onLogBet={onLogBet} isResulted={true} betBlocked isPro={isPro} onUpgrade={onUpgrade} isDbScratched layers={layers} isAdmin={isAdmin} livePrices={livePrices} marketMoves={marketMoves} />
           ))}
           {scratched.length > 0 && (
             <div style={{ padding: '8px 12px', fontSize: 9, color: '#9ca3af', background: '#f9fafb', borderTop: '1px solid #f3f4f6' }}>
@@ -2471,7 +2488,7 @@ function FormView({ results, scratched, onLogBet, isResulted, betBlocked = false
 
 // ─── pace map view ────────────────────────────────────────────────────────────
 
-function PaceMapView({ results, scratched, rc, trackCond, isPro, onUpgrade, scratchingsSet = new Set(), isAdmin = false, livePrices = {}, steamerFlags = {} }) {
+function PaceMapView({ results, scratched, rc, trackCond, isPro, onUpgrade, scratchingsSet = new Set(), isAdmin = false, livePrices = {}, marketMoves = {} }) {
   const scrKey = h => `${normaliseVenue(rc.venue)}||${rc.num}||${stripCountry(h.name).toUpperCase()}`;
   const activeResults = results.filter(h => !scratchingsSet.has(scrKey(h)));
   const ranked = activeResults.map((r, i) => ({ ...r, systemRank: i + 1 }));
@@ -2573,7 +2590,7 @@ function PaceMapView({ results, scratched, rc, trackCond, isPro, onUpgrade, scra
                 <div className="text-[9px] text-gray-400">
                   SP {spO}
                   {isLivePrice && <span style={{ marginLeft: 2, fontSize: 6, fontWeight: 800, color: '#059669', background: '#d1fae5', padding: '1px 2px', borderRadius: 3, letterSpacing: '0.3px' }}>LIVE</span>}
-                  <SteamerDrifterBadge flags={isAdmin ? steamerFlags[steamerNameKey(h.name)] : undefined} />
+                  <FirmingDriftingBadge move={isAdmin ? marketMoves[marketMoveNameKey(h.name)]?.move : undefined} />
                 </div>
               </div>
             </div>
@@ -2612,6 +2629,122 @@ function PaceMapView({ results, scratched, rc, trackCond, isPro, onUpgrade, scra
             {rc.dist}m · {distType}
           </div>
         </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── market movers view ───────────────────────────────────────────────────────
+
+const MOVE_PCT_OPTIONS = [15, 20, 30, 50];
+
+function MoversView({ isPro, onUpgrade, isAdmin }) {
+  const [movers, setMovers]   = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [minPct, setMinPct]   = useState(15);
+  const [minPrice, setMinPrice] = useState(0);
+  const [sortBy, setSortBy]   = useState('move');
+
+  useEffect(() => {
+    // Not Pro (and not the admin live-price bypass) -- skip the fetch
+    // entirely rather than hitting the Pro-gated route just to get a 403;
+    // same blur-overlay UX as Pace Map, but there's no free data underneath
+    // to blur since Movers spans every race, not just the selected one.
+    if (!isPro && !isAdmin) { setLoading(false); return; }
+    let cancelled = false;
+    async function load() {
+      setLoading(true);
+      try {
+        const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Australia/Sydney' }).format(new Date());
+        const res = await fetch(`/api/market-movers?date=${today}`);
+        if (!res.ok) { if (!cancelled) { setMovers([]); setLoading(false); } return; }
+        const data = await res.json();
+        if (!cancelled) { setMovers(data.movers || []); setLoading(false); }
+      } catch {
+        if (!cancelled) { setMovers([]); setLoading(false); }
+      }
+    }
+    load();
+    const interval = setInterval(load, 60000);
+    return () => { cancelled = true; clearInterval(interval); };
+  }, [isPro, isAdmin]);
+
+  const filtered = useMemo(() => {
+    const rows = movers.filter(m => m.pct >= minPct && (!minPrice || m.currentPrice >= minPrice));
+    rows.sort((a, b) => sortBy === 'time'
+      ? (a.postTime || '').localeCompare(b.postTime || '')
+      : b.pct - a.pct);
+    return rows;
+  }, [movers, minPct, minPrice, sortBy]);
+
+  return (
+    <div className="flex flex-1 overflow-hidden" style={{ position: 'relative' }}>
+      {!isPro && !isAdmin && (
+        <div style={{ position: 'absolute', inset: 0, zIndex: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(255,255,255,0.85)' }}>
+          <div style={{ textAlign: 'center', padding: 24 }}>
+            <i className="ti ti-lock" style={{ fontSize: 36, color: '#9ca3af', display: 'block', marginBottom: 12 }} />
+            <div style={{ fontSize: 13, fontWeight: 700, color: '#111827', marginBottom: 6 }}>Market Movers is a Pro feature</div>
+            <div style={{ fontSize: 11, color: '#6b7280', marginBottom: 16 }}>Upgrade to see every firmer and drifter across today's races</div>
+            <button onClick={onUpgrade} style={{ padding: '9px 22px', background: '#00471b', color: '#fff', border: 'none', borderRadius: 7, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
+              Unlock with Pro
+            </button>
+          </div>
+        </div>
+      )}
+      <div className="flex-1 overflow-y-auto p-3" style={{ filter: (isPro || isAdmin) ? 'none' : 'blur(4px)', pointerEvents: (isPro || isAdmin) ? 'auto' : 'none' }}>
+        <div className="flex flex-wrap items-center gap-2 mb-3">
+          <label style={{ fontSize: 10, color: '#6b7280', fontWeight: 600 }}>Min move</label>
+          <select value={minPct} onChange={e => setMinPct(+e.target.value)} style={{ padding: '4px 8px', borderRadius: 6, border: '1px solid #d1d5db', fontSize: 11, background: '#fff' }}>
+            {MOVE_PCT_OPTIONS.map(p => <option key={p} value={p}>{p}%</option>)}
+          </select>
+          <label style={{ fontSize: 10, color: '#6b7280', fontWeight: 600, marginLeft: 8 }}>Min price</label>
+          <select value={minPrice} onChange={e => setMinPrice(+e.target.value)} style={{ padding: '4px 8px', borderRadius: 6, border: '1px solid #d1d5db', fontSize: 11, background: '#fff' }}>
+            <option value={0}>None</option>
+            <option value={2}>$2.00</option>
+            <option value={5}>$5.00</option>
+            <option value={10}>$10.00</option>
+          </select>
+          <label style={{ fontSize: 10, color: '#6b7280', fontWeight: 600, marginLeft: 8 }}>Sort</label>
+          <select value={sortBy} onChange={e => setSortBy(e.target.value)} style={{ padding: '4px 8px', borderRadius: 6, border: '1px solid #d1d5db', fontSize: 11, background: '#fff' }}>
+            <option value="move">Biggest move first</option>
+            <option value="time">Race time</option>
+          </select>
+        </div>
+
+        {loading ? (
+          <div style={{ color: '#6b7280', fontSize: 13 }}>Loading movers…</div>
+        ) : filtered.length === 0 ? (
+          <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 10, padding: 24, color: '#6b7280', fontSize: 13, textAlign: 'center' }}>
+            No runners currently match this filter.
+          </div>
+        ) : (
+          <div style={{ background: '#fff', borderRadius: 10, border: '1px solid #e5e7eb', overflowX: 'auto' }}>
+            <table style={{ width: '100%', fontSize: 11, borderCollapse: 'collapse' }}>
+              <thead>
+                <tr>
+                  <th style={{ padding: '5px 8px', fontSize: 9, fontWeight: 700, color: '#374151', background: '#f8fafc', textTransform: 'uppercase', letterSpacing: '0.5px', textAlign: 'left', borderBottom: '1px solid #e5e7eb' }}>Horse</th>
+                  <th style={{ padding: '5px 8px', fontSize: 9, fontWeight: 700, color: '#374151', background: '#f8fafc', textTransform: 'uppercase', letterSpacing: '0.5px', textAlign: 'left', borderBottom: '1px solid #e5e7eb' }}>Race</th>
+                  <th style={{ padding: '5px 8px', fontSize: 9, fontWeight: 700, color: '#374151', background: '#f8fafc', textTransform: 'uppercase', letterSpacing: '0.5px', textAlign: 'right', borderBottom: '1px solid #e5e7eb' }}>Open</th>
+                  <th style={{ padding: '5px 8px', fontSize: 9, fontWeight: 700, color: '#374151', background: '#f8fafc', textTransform: 'uppercase', letterSpacing: '0.5px', textAlign: 'right', borderBottom: '1px solid #e5e7eb' }}>Current</th>
+                  <th style={{ padding: '5px 8px', fontSize: 9, fontWeight: 700, color: '#374151', background: '#f8fafc', textTransform: 'uppercase', letterSpacing: '0.5px', textAlign: 'right', borderBottom: '1px solid #e5e7eb' }}>Move</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map((m, i) => (
+                  <tr key={`${m.venue}-${m.raceNum}-${m.horseKey}`} style={{ borderBottom: i === filtered.length - 1 ? 'none' : '1px solid #f3f4f6' }}>
+                    <td style={{ padding: '5px 8px', fontWeight: 600, color: '#111827' }}>{m.horseKey}</td>
+                    <td style={{ padding: '5px 8px', color: '#374151' }}>{m.venue} R{m.raceNum}</td>
+                    <td style={{ padding: '5px 8px', textAlign: 'right', fontFamily: 'monospace', color: '#111827' }}>{m.openPrice != null ? `$${Number(m.openPrice).toFixed(2)}` : '—'}</td>
+                    <td style={{ padding: '5px 8px', textAlign: 'right', fontFamily: 'monospace', color: '#111827' }}>{m.currentPrice != null ? `$${Number(m.currentPrice).toFixed(2)}` : '—'}</td>
+                    <td style={{ padding: '5px 8px', textAlign: 'right' }}>
+                      <FirmingDriftingBadge move={{ direction: m.direction, pct: m.pct }} />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -2793,7 +2926,7 @@ function RacesPageInner() {
     try { localStorage.setItem('ww_odds_bookmaker', slug); } catch {}
   };
   const [livePrices, setLivePrices] = useState({});
-  const [steamerFlags, setSteamerFlags] = useState({});
+  const [marketMoves, setMarketMoves] = useState({});
 
   const todayISO = new Date().toLocaleDateString('sv-SE', { timeZone: 'Australia/Brisbane' });
   // Only tomorrow's card is actually populated by the pipeline right now — cap
@@ -2927,30 +3060,26 @@ function RacesPageInner() {
     return () => { cancelled = true; clearInterval(interval); };
   }, [isSiteAdminUser, oddsBookmaker, currentRace?.venue, currentRace?.num]);
 
-  // Steamer/drifter flags for the current race -- best price across ALL
+  // Firming/drifting moves for the current race -- best price across ALL
   // bookmakers (not the single oddsBookmaker selection above), via the same
   // shared helper OddsTable uses, so the Field tab and Pace Map tab agree
-  // with the Odds tab/page on every move flagged.
+  // with the Odds tab/page on every move flagged. Also backs the race-header
+  // top-firmer/top-drifter summary pills -- no separate fetch for those.
   useEffect(() => {
     if (!isSiteAdminUser || !currentRace?.venue || !currentRace?.num) {
-      setSteamerFlags({});
+      setMarketMoves({});
       return;
     }
     let cancelled = false;
-    async function loadFlags() {
+    async function loadMoves() {
       const venue = normaliseVenue(currentRace.venue);
       const raceNum = String(currentRace.num);
       const date = new Intl.DateTimeFormat('en-CA', { timeZone: 'Australia/Sydney' }).format(new Date());
-      const flags = await fetchSteamerDrifterFlags({ venue, raceNum, date });
-      // Temporary debug aid -- admin-only, so this never reaches a real
-      // user's console. Compare this against OddsTable's own internal fetch
-      // (same helper, same args shape) for the same race/runner to confirm
-      // whether the two code paths genuinely diverge at runtime or agree.
-      console.debug('[steamerFlags:Field/PaceMap]', { venue, raceNum, date, rawCurrentRaceVenue: currentRace.venue, rawCurrentRaceNum: currentRace.num, flags });
-      if (!cancelled) setSteamerFlags(flags);
+      const moves = await fetchMarketMoveFlags({ venue, raceNum, date });
+      if (!cancelled) setMarketMoves(moves);
     }
-    loadFlags();
-    const interval = setInterval(loadFlags, 60000);
+    loadMoves();
+    const interval = setInterval(loadMoves, 60000);
     return () => { cancelled = true; clearInterval(interval); };
   }, [isSiteAdminUser, currentRace?.venue, currentRace?.num]);
 
@@ -3533,7 +3662,7 @@ function RacesPageInner() {
                   <RaceHeader rc={currentRace} trackCond={trackCond} trackCondConfirmed={trackCondConfirmed} setTrackCond={setTrackCond}
                     weights={weights} setWeights={setWeights} runnerCount={results.length}
                     onUpgrade={() => setUpgradeOpen(true)} isPro={isPro} isMobile={isNarrow}
-                    onOpenGeneralBet={handleOpenGeneralBet} />
+                    onOpenGeneralBet={handleOpenGeneralBet} isAdmin={isSiteAdminUser} marketMoves={marketMoves} />
                   {(() => {
                     const venueRaces = (allVenues[currentRace.venue] || [])
                       .slice()
@@ -3604,13 +3733,16 @@ function RacesPageInner() {
                       isResulted={!!currentRaceResult} betBlocked={betBlocked}
                       isPro={isPro} onUpgrade={() => setUpgradeOpen(true)}
                       scratchingsSet={scratchingsSet} colVis={colVis} todayBets={todayBets} isMobile={isNarrow}
-                      isAdmin={isSiteAdminUser} livePrices={livePrices} steamerFlags={steamerFlags} />
+                      isAdmin={isSiteAdminUser} livePrices={livePrices} marketMoves={marketMoves} />
                   )}
                   {view === 'form' && (
                     <FormView results={allHorsesForDisplay} scratched={scratched} onLogBet={handleLogBet} isResulted={!!currentRaceResult} betBlocked={betBlocked} rc={currentRace} isPro={isPro} onUpgrade={() => setUpgradeOpen(true)} scratchingsSet={scratchingsSet} />
                   )}
                   {view === 'pacemap' && (
-                    <PaceMapView results={allHorsesForDisplay} scratched={scratched} rc={currentRace} trackCond={trackCond} isPro={isPro} onUpgrade={() => setUpgradeOpen(true)} scratchingsSet={scratchingsSet} isAdmin={isSiteAdminUser} livePrices={livePrices} steamerFlags={steamerFlags} />
+                    <PaceMapView results={allHorsesForDisplay} scratched={scratched} rc={currentRace} trackCond={trackCond} isPro={isPro} onUpgrade={() => setUpgradeOpen(true)} scratchingsSet={scratchingsSet} isAdmin={isSiteAdminUser} livePrices={livePrices} marketMoves={marketMoves} />
+                  )}
+                  {view === 'movers' && (
+                    <MoversView isPro={isPro} onUpgrade={() => setUpgradeOpen(true)} isAdmin={isSiteAdminUser} />
                   )}
                   {view === 'odds' && isSiteAdminUser && (
                     <div style={{ padding: 12 }}>

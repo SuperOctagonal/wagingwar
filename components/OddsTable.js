@@ -2,8 +2,8 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import PuntersEdgeCredit from '@/components/PuntersEdgeCredit';
 import { PUNTERSEDGE_BOOKMAKER_COLUMNS, bookmakerNameForSlug } from '@/lib/puntersedgeBookmakers';
-import { fetchSteamerDrifterFlags, nameKey } from '@/lib/steamersDrifters';
-import SteamerDrifterBadge from '@/components/SteamerDrifterBadge';
+import { fetchMarketMoveFlags, nameKey } from '@/lib/marketMoves';
+import FirmingDriftingBadge from '@/components/FirmingDriftingBadge';
 
 const SURL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SKEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -34,7 +34,7 @@ export default function OddsTable({ venue, raceNum }) {
   const [cardInfo, setCardInfo] = useState({});
   const [capturedAt, setCapturedAt] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [steamerFlags, setSteamerFlags] = useState({});
+  const [marketMoves, setMarketMoves] = useState({});
   const [hasOverflow, setHasOverflow] = useState(false);
   const scrollRef = useRef(null);
 
@@ -79,24 +79,19 @@ export default function OddsTable({ venue, raceNum }) {
     return () => { cancelled = true; clearInterval(interval); };
   }, [venue, raceNum]);
 
-  // Steamer/drifter flags -- computed by the shared helper (open-vs-now and
-  // 30-60min-ago-vs-now best-price moves), not derived here. Separate poll
-  // from the price table above since it needs its own multi-batch query.
+  // Firming/drifting moves -- computed by the shared helper (current best
+  // price vs. today's open price), not derived here. Separate poll from the
+  // price table above since it needs its own multi-batch query.
   useEffect(() => {
-    if (!venue || !raceNum) { setSteamerFlags({}); return; }
+    if (!venue || !raceNum) { setMarketMoves({}); return; }
     let cancelled = false;
-    async function loadFlags() {
+    async function loadMoves() {
       const date = sydneyToday();
-      const flags = await fetchSteamerDrifterFlags({ venue, raceNum, date });
-      // Temporary debug aid, paired with the equivalent log in
-      // app/races/page.js's steamerFlags effect -- compare the two for the
-      // same race to confirm whether Field/PaceMap and OddsTable genuinely
-      // diverge at runtime.
-      console.debug('[steamerFlags:OddsTable]', { venue, raceNum, date, flags });
-      if (!cancelled) setSteamerFlags(flags);
+      const moves = await fetchMarketMoveFlags({ venue, raceNum, date });
+      if (!cancelled) setMarketMoves(moves);
     }
-    loadFlags();
-    const interval = setInterval(loadFlags, 60000);
+    loadMoves();
+    const interval = setInterval(loadMoves, 60000);
     return () => { cancelled = true; clearInterval(interval); };
   }, [venue, raceNum]);
 
@@ -206,7 +201,7 @@ export default function OddsTable({ venue, raceNum }) {
                   </td>
                   <td style={{ padding: '3px 4px', textAlign: 'right', fontFamily: 'monospace', fontWeight: 700, color: '#059669', whiteSpace: 'nowrap' }}>
                     {best != null ? best.toFixed(2) : '—'}
-                    <SteamerDrifterBadge flags={steamerFlags[nameKey(horse)]} />
+                    <FirmingDriftingBadge move={marketMoves[nameKey(horse)]?.move} />
                   </td>
                   {columns.map(c => {
                     const price = tableData.byHorseBookie[`${horse}||${c.slug}`];
