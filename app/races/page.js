@@ -3883,7 +3883,7 @@ function RacesPageInner() {
                   )}
                   {view === 'odds' && isSiteAdminUser && (
                     <div style={{ padding: 12 }}>
-                      <OddsTable venue={normaliseVenue(currentRace.venue)} raceNum={String(currentRace.num)} />
+                      <OddsTable venue={normaliseVenue(currentRace.venue)} raceNum={String(currentRace.num)} selectedBookmaker={oddsBookmaker} />
                     </div>
                   )}
                 </div>

@@ -29,7 +29,17 @@ function sydneyToday() {
 // than discovered via its own picker -- used standalone by /odds (which picks
 // the race via its own venue/race selects) and by the Races page's Odds tab
 // (which already has a race selected via the sidebar/R1-R8 pills).
-export default function OddsTable({ venue, raceNum }) {
+//
+// selectedBookmaker (optional): the Races page's "Live price" bookmaker
+// picker slug, shared with the Field tab and Pace Map tab. Previously never
+// reached this component at all (the picker changed state in the parent but
+// nothing here read it), so choosing a different bookmaker had zero visible
+// effect on the Odds tab -- confirmed by reading the old call site, not
+// guessed. This table already shows every bookmaker side by side, so
+// re-sorting or filtering columns on selection would defeat the point of a
+// comparison view; instead the selected bookmaker's column is highlighted
+// so it's easy to pick out among the rest.
+export default function OddsTable({ venue, raceNum, selectedBookmaker = '' }) {
   const [rows, setRows] = useState([]);
   const [cardInfo, setCardInfo] = useState({});
   const [capturedAt, setCapturedAt] = useState(null);
@@ -182,11 +192,14 @@ export default function OddsTable({ venue, raceNum }) {
             <tr>
               <th style={{ padding: '3px 4px', fontSize: 9, fontWeight: 700, color: '#374151', background: '#f8fafc', textTransform: 'uppercase', letterSpacing: '0.5px', textAlign: 'left', position: 'sticky', left: 0 }}>Horse</th>
               <th style={{ padding: '3px 4px', fontSize: 9, fontWeight: 700, color: '#374151', background: '#f8fafc', textTransform: 'uppercase', letterSpacing: '0.5px', textAlign: 'right', whiteSpace: 'nowrap' }}>Best</th>
-              {columns.map(c => (
-                <th key={c.slug} style={{ padding: '3px 4px', fontSize: 9, fontWeight: 700, color: '#374151', background: '#f8fafc', textTransform: 'uppercase', letterSpacing: '0.5px', textAlign: 'right', whiteSpace: 'nowrap' }}>
-                  {bookmakerNameForSlug(c.slug)}
-                </th>
-              ))}
+              {columns.map(c => {
+                const isSelected = c.slug === selectedBookmaker;
+                return (
+                  <th key={c.slug} style={{ padding: '3px 4px', fontSize: 9, fontWeight: 700, color: isSelected ? '#00471b' : '#374151', background: isSelected ? '#dcfce7' : '#f8fafc', textTransform: 'uppercase', letterSpacing: '0.5px', textAlign: 'right', whiteSpace: 'nowrap', boxShadow: isSelected ? 'inset 0 0 0 1px #86efac' : 'none' }}>
+                    {bookmakerNameForSlug(c.slug)}
+                  </th>
+                );
+              })}
             </tr>
           </thead>
           <tbody>
@@ -206,6 +219,7 @@ export default function OddsTable({ venue, raceNum }) {
                   {columns.map(c => {
                     const price = tableData.byHorseBookie[`${horse}||${c.slug}`];
                     const isBest = price != null && price === best;
+                    const isSelected = c.slug === selectedBookmaker;
                     return (
                       <td
                         key={c.slug}
@@ -215,6 +229,7 @@ export default function OddsTable({ venue, raceNum }) {
                           fontFamily: 'monospace',
                           color: price == null ? '#d1d5db' : isBest ? '#059669' : '#111827',
                           fontWeight: isBest ? 700 : 400,
+                          background: isSelected ? '#f0fdf4' : undefined,
                         }}
                       >
                         {price != null ? price.toFixed(2) : '—'}
