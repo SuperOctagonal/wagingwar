@@ -2065,8 +2065,18 @@ function RunnerRow({ runner, rank, rc, trackCond, onLogBet, onShowPopup, onHideP
       <td className={`${td} text-right text-[11px] tabular-nums whitespace-nowrap`} style={{ color: '#111827' }}>
         {displayPrice ? `$${displayPrice.toFixed(2)}` : '—'}
         {isLivePrice && <span style={{ marginLeft: 3, fontSize: 7, fontWeight: 800, color: '#059669', background: '#d1fae5', padding: '1px 3px', borderRadius: 3, letterSpacing: '0.3px' }}>LIVE</span>}
-        <FirmingDriftingBadge move={runnerMove} />
       </td>
+      {/* Move -- own column, Field tab (RunnerRow) only. Odds tab/page and
+          Pace Map keep the badge stacked under the price as before; this is
+          a Field-tab-specific layout choice, not a shared component change.
+          Gated on isAdmin to match the MOVE <th> below exactly -- both
+          present or both absent together, so column counts always agree
+          between thead and tbody regardless of admin status. */}
+      {isAdmin && (
+        <td className={`${td} text-right whitespace-nowrap`}>
+          <FirmingDriftingBadge move={runnerMove} />
+        </td>
+      )}
       {/* Value */}
       {colVis.value && (
         <td className={`${td} text-right text-[10px] font-semibold tabular-nums whitespace-nowrap`} style={{ color: valColor }}>
@@ -2126,6 +2136,7 @@ function FieldView({ results, scratched, rc, trackCond, onLogBet, onShowPopup, o
               {colVis.score && <th style={{ ...th, textAlign:'right', width:'5%' }}>Score</th>}
               {colVis.edge && <th style={{ ...th, textAlign:'right', width:'6%' }}>WW $</th>}
               <th style={{ ...th, textAlign:'right', width:'6%' }}>Price $</th>
+              {isAdmin && <th style={{ ...th, textAlign:'right', width:'4%', padding: '3px 3px' }}>Move</th>}
               {colVis.value && <th style={{ ...th, textAlign:'right', width:'5%' }}>Value</th>}
               <th style={{ ...th, width:'8%' }} />
               <th style={{ ...th, textAlign:'left', width:'16%' }}>Pace / Crs</th>
