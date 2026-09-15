@@ -48,6 +48,7 @@ function useIsNarrowWidth() {
 import {
   scoreHorse, scoreGroup, calculateMatrixOdds, calcPaceMap, pointsForPlace,
   formatRacingOdds, getDefaultWeights, FACTORS, FACTOR_GROUPS_DEF, GRP_KEYS, GRP_LABELS,
+  computeValueEdge,
 } from '@/lib/scoring';
 
 // ─── small helpers ────────────────────────────────────────────────────────────
@@ -621,6 +622,7 @@ const VIEW_TABS = [
   { id: 'form',       label: 'Form',     icon: 'ti-horse-toy' },
   { id: 'pacemap',    label: 'Pace Map', icon: 'ti-map', premium: true },
   { id: 'movers',     label: 'Movers',   icon: 'ti-arrows-vertical', premium: true },
+  { id: 'value',      label: 'Value',    icon: 'ti-target-arrow', premium: true },
   { id: 'sectionals', label: 'Sectionals', icon: 'ti-chart-line', locked: true },
 ];
 
@@ -1981,13 +1983,14 @@ function RunnerRow({ runner, rank, rc, trackCond, onLogBet, onShowPopup, onHideP
   const pm   = calcPaceMap(runner, rc.venue, +rc.dist, trackCond);
   const crsLabel = (() => { const c = runner.courseStarts||0; return c===0?'NEW':c===1?'1x':c<=4?`${c}x`:'VET'; })();
 
-  let valStr = '—', valColor = '#374151';
-  if (displayPrice && myO) {
-    const p = (displayPrice - myO) / myO * 100;
-    const arrow = p >= 30 ? '▲' : p <= -30 ? '▼' : '';
-    valStr  = `${arrow}${p >= 0 ? '+' : ''}${p.toFixed(0)}%`;
-    valColor = p >= 20 ? '#059669' : p <= -20 ? '#dc2626' : '#374151';
-  }
+  // Shared with the Value Bets tab (lib/scoring.js's computeValueEdge) so
+  // both always agree on the exact same formula -- see that function's
+  // comment for the known small discrepancies (matrix-odds jitter, default
+  // vs. session-customised weights) that mean the two can differ slightly
+  // in practice despite using identical logic.
+  const valueEdge = displayPrice && myO ? computeValueEdge(displayPrice, myO) : null;
+  const valStr = valueEdge ? valueEdge.str : '—';
+  const valColor = valueEdge ? valueEdge.color : '#374151';
 
   const pips = (runner.lastFin || []).slice(0, 4).filter(v => v !== null && v !== undefined && v !== '').reverse();
   const bp   = runner['BP'] || runner.BP || '';
@@ -2843,6 +2846,220 @@ function MoversView({ isPro, onUpgrade, isAdmin }) {
                       <td style={{ padding: '5px 8px', textAlign: 'right', fontFamily: 'monospace', color: '#111827', whiteSpace: 'nowrap' }}>{m.currentPrice != null ? `$${Number(m.currentPrice).toFixed(2)}` : '—'}</td>
                       <td style={{ padding: '5px 8px', textAlign: 'right', whiteSpace: 'nowrap' }}>
                         <FirmingDriftingBadge move={{ direction: m.direction, pct: m.pct }} />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── value bets view ──────────────────────────────────────────────────────────
+
+const EDGE_PCT_OPTIONS = [30, 50, 75, 100, 150, 200];
+
+// Small inline pill matching FirmingDriftingBadge's visual convention (green
+// filled pill, arrow, since every row here already passed the positive-edge
+// filter -- there's no "negative value bet" to distinguish, unlike
+// firming/drifting which genuinely has two directions).
+function ValueEdgeBadge({ pct }) {
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 2, color: '#059669', background: '#d1fae5', fontSize: 10, fontWeight: 800, padding: '1px 5px', borderRadius: 3, letterSpacing: '0.2px', whiteSpace: 'nowrap' }}>
+      ▲ +{pct}%
+    </span>
+  );
+}
+
+// Same shell/filter pattern as MoversView -- reused deliberately rather than
+// a parallel implementation. Reuses TIME_WINDOW_OPTIONS/parsePostTime (both
+// module-level above, defined for Movers) since the Time-window filter is
+// identical in meaning here.
+function ValueBetsView({ isPro, onUpgrade, isAdmin }) {
+  const [bets, setBets]       = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [minEdge, setMinEdge] = useState(30);
+  const [minPrice, setMinPrice] = useState(3);
+  const [sortBy, setSortBy]   = useState('edge');
+  const [venue, setVenue]     = useState('all');
+  const [raceNum, setRaceNum] = useState('all');
+  const [timeWindow, setTimeWindow] = useState('all');
+  const [moreOpen, setMoreOpen] = useState(false);
+  const [hasOverflow, setHasOverflow] = useState(false);
+  const scrollRef = useRef(null);
+  const dateRef = useRef(new Intl.DateTimeFormat('en-CA', { timeZone: 'Australia/Sydney' }).format(new Date()));
+
+  useEffect(() => {
+    // Not Pro (and not the admin bypass, for consistency with Movers) --
+    // skip the fetch entirely rather than hitting the Pro-gated route just
+    // to get a 403.
+    if (!isPro && !isAdmin) { setLoading(false); return; }
+    let cancelled = false;
+    async function load() {
+      setLoading(true);
+      try {
+        const res = await fetch(`/api/value-bets?date=${dateRef.current}`);
+        if (!res.ok) { if (!cancelled) { setBets([]); setLoading(false); } return; }
+        const data = await res.json();
+        if (!cancelled) { setBets(data.bets || []); setLoading(false); }
+      } catch {
+        if (!cancelled) { setBets([]); setLoading(false); }
+      }
+    }
+    load();
+    const interval = setInterval(load, 60000);
+    return () => { cancelled = true; clearInterval(interval); };
+  }, [isPro, isAdmin]);
+
+  const venues = useMemo(() => [...new Set(bets.map(b => b.venue))].sort(), [bets]);
+  const raceNums = useMemo(() => [...new Set(bets.map(b => b.raceNum))].sort((a, b) => +a - +b), [bets]);
+
+  const filtered = useMemo(() => {
+    const windowHours = TIME_WINDOW_OPTIONS.find(w => w.key === timeWindow)?.hours;
+    const now = Date.now();
+    const rows = bets.filter(b => {
+      if (b.pct < minEdge) return false;
+      if (minPrice && !(b.marketPrice >= minPrice)) return false;
+      if (venue !== 'all' && b.venue !== venue) return false;
+      if (raceNum !== 'all' && b.raceNum !== raceNum) return false;
+      if (windowHours != null) {
+        const post = parsePostTime(b.postTime, dateRef.current);
+        if (!post) return false;
+        const diffMs = post.getTime() - now;
+        if (diffMs < 0 || diffMs > windowHours * 60 * 60 * 1000) return false;
+      }
+      return true;
+    });
+    rows.sort((a, b) => sortBy === 'time'
+      ? (parsePostTime(a.postTime, dateRef.current)?.getTime() ?? Infinity) - (parsePostTime(b.postTime, dateRef.current)?.getTime() ?? Infinity)
+      : b.pct - a.pct);
+    return rows;
+  }, [bets, minEdge, minPrice, sortBy, venue, raceNum, timeWindow]);
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const check = () => setHasOverflow(el.scrollWidth > el.clientWidth + 1);
+    check();
+    const ro = new ResizeObserver(check);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [filtered]);
+
+  const selectStyle = { padding: '4px 8px', borderRadius: 6, border: '1px solid #d1d5db', fontSize: 11, background: '#fff' };
+  const labelStyle = { fontSize: 10, color: '#6b7280', fontWeight: 600 };
+
+  return (
+    <div className="flex flex-1 overflow-hidden" style={{ position: 'relative' }}>
+      {!isPro && !isAdmin && (
+        <div style={{ position: 'absolute', inset: 0, zIndex: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(255,255,255,0.85)' }}>
+          <div style={{ textAlign: 'center', padding: 24 }}>
+            <i className="ti ti-lock" style={{ fontSize: 36, color: '#9ca3af', display: 'block', marginBottom: 12 }} />
+            <div style={{ fontSize: 13, fontWeight: 700, color: '#111827', marginBottom: 6 }}>Value Bets is a Pro feature</div>
+            <div style={{ fontSize: 11, color: '#6b7280', marginBottom: 16 }}>Upgrade to see every value opportunity across today&apos;s races</div>
+            <button onClick={onUpgrade} style={{ padding: '9px 22px', background: '#00471b', color: '#fff', border: 'none', borderRadius: 7, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
+              Unlock with Pro
+            </button>
+          </div>
+        </div>
+      )}
+      <div className="flex-1 overflow-y-auto p-3" style={{ filter: (isPro || isAdmin) ? 'none' : 'blur(4px)', pointerEvents: (isPro || isAdmin) ? 'auto' : 'none' }}>
+        <div className="flex flex-wrap items-center gap-2 mb-2">
+          <label style={labelStyle}>Venue</label>
+          <select value={venue} onChange={e => setVenue(e.target.value)} style={selectStyle}>
+            <option value="all">All venues</option>
+            {venues.map(v => <option key={v} value={v}>{v}</option>)}
+          </select>
+          <label style={{ ...labelStyle, marginLeft: 8 }}>Min edge</label>
+          <select value={minEdge} onChange={e => setMinEdge(+e.target.value)} style={selectStyle}>
+            {EDGE_PCT_OPTIONS.map(p => <option key={p} value={p}>{p}%</option>)}
+          </select>
+          <label style={{ ...labelStyle, marginLeft: 8 }}>Sort</label>
+          <select value={sortBy} onChange={e => setSortBy(e.target.value)} style={selectStyle}>
+            <option value="edge">Biggest edge first</option>
+            <option value="time">Race time</option>
+          </select>
+          <button
+            onClick={() => setMoreOpen(o => !o)}
+            style={{ marginLeft: 8, fontSize: 10, fontWeight: 700, color: '#00471b', background: 'none', border: 'none', cursor: 'pointer', padding: '4px 2px', display: 'flex', alignItems: 'center', gap: 2 }}
+          >
+            More filters <i className={`ti ${moreOpen ? 'ti-chevron-up' : 'ti-chevron-down'}`} style={{ fontSize: 11 }} />
+          </button>
+        </div>
+        {moreOpen && (
+          <div className="flex flex-wrap items-center gap-2 mb-3" style={{ padding: '6px 8px', background: '#f9fafb', borderRadius: 6, border: '1px solid #f3f4f6' }}>
+            <label style={labelStyle}>Min price</label>
+            <select value={minPrice} onChange={e => setMinPrice(+e.target.value)} style={selectStyle}>
+              <option value={0}>None</option>
+              <option value={3}>$3.00</option>
+              <option value={5}>$5.00</option>
+              <option value={10}>$10.00</option>
+            </select>
+            <label style={{ ...labelStyle, marginLeft: 8 }}>Race</label>
+            <select value={raceNum} onChange={e => setRaceNum(e.target.value)} style={selectStyle}>
+              <option value="all">All races</option>
+              {raceNums.map(n => <option key={n} value={n}>R{n}</option>)}
+            </select>
+            <label style={{ ...labelStyle, marginLeft: 8 }}>Time window</label>
+            <select value={timeWindow} onChange={e => setTimeWindow(e.target.value)} style={selectStyle}>
+              {TIME_WINDOW_OPTIONS.map(w => <option key={w.key} value={w.key}>{w.label}</option>)}
+            </select>
+          </div>
+        )}
+
+        {loading ? (
+          <div style={{ color: '#6b7280', fontSize: 13 }}>Loading value bets…</div>
+        ) : filtered.length === 0 ? (
+          <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 10, padding: 24, color: '#6b7280', fontSize: 13, textAlign: 'center' }}>
+            No runners currently match this filter.
+          </div>
+        ) : (
+          <>
+            {hasOverflow && (
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 4 }}>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 10, fontWeight: 700, color: '#6b7280', background: '#f3f4f6', padding: '2px 7px', borderRadius: 10 }}>
+                  Scroll for more <i className="ti ti-arrow-right" style={{ fontSize: 11 }} />
+                </span>
+              </div>
+            )}
+            {/* Same scroll-overflow pattern as OddsTable/Movers -- reused,
+                not rebuilt. In practice this table has fewer columns than
+                Movers and is unlikely to overflow, but the same measured
+                check means it still shows the hint correctly if it ever
+                does (e.g. a very narrow viewport). */}
+            <style>{`
+              .ww-vb-scroll { scrollbar-width: auto; scrollbar-color: #9ca3af #f3f4f6; }
+              .ww-vb-scroll::-webkit-scrollbar { height: 10px; }
+              .ww-vb-scroll::-webkit-scrollbar-track { background: #f3f4f6; border-radius: 10px; }
+              .ww-vb-scroll::-webkit-scrollbar-thumb { background: #9ca3af; border-radius: 10px; }
+              .ww-vb-scroll::-webkit-scrollbar-thumb:hover { background: #6b7280; }
+            `}</style>
+            <div ref={scrollRef} className="ww-vb-scroll" style={{ background: '#fff', borderRadius: 10, border: '1px solid #e5e7eb', overflowX: 'auto' }}>
+              <table style={{ width: '100%', fontSize: 11, borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr>
+                    <th style={{ padding: '5px 8px', fontSize: 9, fontWeight: 700, color: '#374151', background: '#f8fafc', textTransform: 'uppercase', letterSpacing: '0.5px', textAlign: 'left', borderBottom: '1px solid #e5e7eb', whiteSpace: 'nowrap' }}>Horse</th>
+                    <th style={{ padding: '5px 8px', fontSize: 9, fontWeight: 700, color: '#374151', background: '#f8fafc', textTransform: 'uppercase', letterSpacing: '0.5px', textAlign: 'left', borderBottom: '1px solid #e5e7eb', whiteSpace: 'nowrap' }}>Race</th>
+                    <th style={{ padding: '5px 8px', fontSize: 9, fontWeight: 700, color: '#374151', background: '#f8fafc', textTransform: 'uppercase', letterSpacing: '0.5px', textAlign: 'left', borderBottom: '1px solid #e5e7eb', whiteSpace: 'nowrap' }}>Time</th>
+                    <th style={{ padding: '5px 8px', fontSize: 9, fontWeight: 700, color: '#374151', background: '#f8fafc', textTransform: 'uppercase', letterSpacing: '0.5px', textAlign: 'right', borderBottom: '1px solid #e5e7eb', whiteSpace: 'nowrap' }}>WW $</th>
+                    <th style={{ padding: '5px 8px', fontSize: 9, fontWeight: 700, color: '#374151', background: '#f8fafc', textTransform: 'uppercase', letterSpacing: '0.5px', textAlign: 'right', borderBottom: '1px solid #e5e7eb', whiteSpace: 'nowrap' }}>Price $</th>
+                    <th style={{ padding: '5px 8px', fontSize: 9, fontWeight: 700, color: '#374151', background: '#f8fafc', textTransform: 'uppercase', letterSpacing: '0.5px', textAlign: 'right', borderBottom: '1px solid #e5e7eb', whiteSpace: 'nowrap' }}>Edge</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filtered.map((b, i) => (
+                    <tr key={`${b.venue}-${b.raceNum}-${b.horseKey}`} style={{ borderBottom: i === filtered.length - 1 ? 'none' : '1px solid #f3f4f6' }}>
+                      <td style={{ padding: '5px 8px', fontWeight: 600, color: '#111827', whiteSpace: 'nowrap' }}>{b.horseKey}</td>
+                      <td style={{ padding: '5px 8px', color: '#374151', whiteSpace: 'nowrap' }}>{b.venue} R{b.raceNum}</td>
+                      <td style={{ padding: '5px 8px', color: '#374151', whiteSpace: 'nowrap' }}>{b.postTime || '—'}</td>
+                      <td style={{ padding: '5px 8px', textAlign: 'right', fontFamily: 'monospace', color: '#059669', fontWeight: 600, whiteSpace: 'nowrap' }}>{b.wwPrice != null ? `$${Number(b.wwPrice).toFixed(2)}` : '—'}</td>
+                      <td style={{ padding: '5px 8px', textAlign: 'right', fontFamily: 'monospace', color: '#111827', whiteSpace: 'nowrap' }}>{b.marketPrice != null ? `$${Number(b.marketPrice).toFixed(2)}` : '—'}</td>
+                      <td style={{ padding: '5px 8px', textAlign: 'right', whiteSpace: 'nowrap' }}>
+                        <ValueEdgeBadge pct={b.pct} />
                       </td>
                     </tr>
                   ))}
@@ -3880,6 +4097,9 @@ function RacesPageInner() {
                   )}
                   {view === 'movers' && (
                     <MoversView isPro={isPro} onUpgrade={() => setUpgradeOpen(true)} isAdmin={isSiteAdminUser} />
+                  )}
+                  {view === 'value' && (
+                    <ValueBetsView isPro={isPro} onUpgrade={() => setUpgradeOpen(true)} isAdmin={isSiteAdminUser} />
                   )}
                   {view === 'odds' && isSiteAdminUser && (
                     <div style={{ padding: 12 }}>
