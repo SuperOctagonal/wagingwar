@@ -17,7 +17,13 @@ import { FIRMING_COLOR, DRIFTING_COLOR } from '@/lib/marketMoves';
 // the neighbouring column instead of the cell growing to fit. Stacking it
 // on its own line keeps the cell's width exactly what it was without a
 // badge at all.
-export default function FirmingDriftingBadge({ move }) {
+// compact: true drops the "Firming"/"Drifting" word, showing just the arrow
+// + percentage. Only used where the badge already has its own dedicated
+// column (Field tab's MOVE column) -- the label exists specifically to
+// disambiguate from the neighbouring Value column when the two shared space
+// (see above), so it's still shown everywhere the badge remains stacked
+// under a price (Odds tab/page, Pace Map, mobile Field tab).
+export default function FirmingDriftingBadge({ move, compact = false }) {
   if (!move) return null;
   const color = move.direction === 'firming' ? FIRMING_COLOR : DRIFTING_COLOR;
   const bg = move.direction === 'firming' ? '#d1fae5' : '#fee2e2';
@@ -29,7 +35,7 @@ export default function FirmingDriftingBadge({ move }) {
         title={`${label} ${move.pct}% since open`}
         style={{ display: 'inline-flex', alignItems: 'center', gap: 2, color, background: bg, fontSize: 10, fontWeight: 800, marginLeft: 2, padding: '1px 5px', borderRadius: 3, letterSpacing: '0.2px', whiteSpace: 'nowrap' }}
       >
-        {arrow} {label} {move.pct}%
+        {compact ? `${arrow} ${move.pct}%` : `${arrow} ${label} ${move.pct}%`}
       </span>
     </div>
   );

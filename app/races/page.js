@@ -2074,7 +2074,7 @@ function RunnerRow({ runner, rank, rc, trackCond, onLogBet, onShowPopup, onHideP
           between thead and tbody regardless of admin status. */}
       {isAdmin && (
         <td className={`${td} text-right whitespace-nowrap`}>
-          <FirmingDriftingBadge move={runnerMove} />
+          <FirmingDriftingBadge move={runnerMove} compact />
         </td>
       )}
       {/* Value */}
@@ -2136,7 +2136,7 @@ function FieldView({ results, scratched, rc, trackCond, onLogBet, onShowPopup, o
               {colVis.score && <th style={{ ...th, textAlign:'right', width:'5%' }}>Score</th>}
               {colVis.edge && <th style={{ ...th, textAlign:'right', width:'6%' }}>WW $</th>}
               <th style={{ ...th, textAlign:'right', width:'6%' }}>Price $</th>
-              {isAdmin && <th style={{ ...th, textAlign:'right', width:'4%', padding: '3px 3px' }}>Move</th>}
+              {isAdmin && <th style={{ ...th, textAlign:'right', width:'3%', padding: '3px 3px' }}>Move</th>}
               {colVis.value && <th style={{ ...th, textAlign:'right', width:'5%' }}>Value</th>}
               <th style={{ ...th, width:'8%' }} />
               <th style={{ ...th, textAlign:'left', width:'16%' }}>Pace / Crs</th>
