@@ -713,18 +713,8 @@ function RaceCountdown({ rc }) {
 
 // ─── race header ──────────────────────────────────────────────────────────────
 
-function RaceHeader({ rc, trackCond, trackCondConfirmed, setTrackCond, weights, setWeights, runnerCount, onUpgrade, isPro, isMobile, onOpenGeneralBet, isAdmin = false, marketMoves = {} }) {
+function RaceHeader({ rc, trackCond, trackCondConfirmed, setTrackCond, weights, setWeights, runnerCount, onUpgrade, isPro, isMobile, onOpenGeneralBet }) {
   const [tcOpen, setTcOpen] = useState(false);
-  // Top firmer/top drifter for this race -- reads the SAME marketMoves
-  // object already fetched for the Field/Pace Map/Odds tabs, no separate
-  // fetch. Hidden entirely (not "Top firmer: none") when nothing in this
-  // race currently qualifies at the >=15% threshold.
-  const topFirmer = isAdmin
-    ? Object.entries(marketMoves).filter(([, v]) => v.move?.direction === 'firming').sort((a, b) => b[1].move.pct - a[1].move.pct)[0]
-    : null;
-  const topDrifter = isAdmin
-    ? Object.entries(marketMoves).filter(([, v]) => v.move?.direction === 'drifting').sort((a, b) => b[1].move.pct - a[1].move.pct)[0]
-    : null;
   return (
     <div id="rh-outer" className="px-2.5 md:px-4 py-1.5 md:py-2.5 bg-white flex flex-nowrap items-center justify-between gap-3 flex-shrink-0 overflow-x-auto" style={{ borderBottom: '4px solid #00471B' }}>
       <div id="rh-left-block">
@@ -739,24 +729,6 @@ function RaceHeader({ rc, trackCond, trackCondConfirmed, setTrackCond, weights, 
           {rc.cls  && <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-gray-100 text-gray-600">{rc.cls}</span>}
           {rc.prize && <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-gray-100 text-gray-500">${rc.prize}</span>}
           <RaceCountdown rc={rc} />
-          {topFirmer && (
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '2px 8px', borderRadius: 6, background: '#d1fae5' }}>
-              <i className="ti ti-trending-up" style={{ fontSize: 13, color: '#059669' }} />
-              <span style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.15 }}>
-                <span style={{ fontSize: 7, fontWeight: 700, color: '#059669', textTransform: 'uppercase', letterSpacing: '0.3px' }}>Top firmer</span>
-                <span style={{ fontSize: 10, fontWeight: 700, color: '#065f46' }}>{topFirmer[0]} ▲{topFirmer[1].move.pct}%</span>
-              </span>
-            </span>
-          )}
-          {topDrifter && (
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '2px 8px', borderRadius: 6, background: '#fee2e2' }}>
-              <i className="ti ti-trending-down" style={{ fontSize: 13, color: '#dc2626' }} />
-              <span style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.15 }}>
-                <span style={{ fontSize: 7, fontWeight: 700, color: '#dc2626', textTransform: 'uppercase', letterSpacing: '0.3px' }}>Top drifter</span>
-                <span style={{ fontSize: 10, fontWeight: 700, color: '#991b1b' }}>{topDrifter[0]} ▼{topDrifter[1].move.pct}%</span>
-              </span>
-            </span>
-          )}
         </div>
       </div>
       <div id="rh-right-block" className="flex items-center gap-2 flex-wrap relative">
@@ -2636,7 +2608,29 @@ function PaceMapView({ results, scratched, rc, trackCond, isPro, onUpgrade, scra
 
 // ─── market movers view ───────────────────────────────────────────────────────
 
-const MOVE_PCT_OPTIONS = [15, 20, 30, 50];
+const MOVE_PCT_OPTIONS = [15, 25, 50, 75, 100, 150];
+const TIME_WINDOW_OPTIONS = [
+  { key: 'all', label: 'All day', hours: null },
+  { key: '1h',  label: 'Next 1 hour', hours: 1 },
+  { key: '3h',  label: 'Next 3 hours', hours: 3 },
+];
+
+// odds_snapshot/race_schedule post_time strings look like "01.33 pm" -- parses
+// to a real Date on the given (Sydney) race date for the time-window filter.
+// Assumes AEST (+10:00); good enough for a same-day filter, same approximation
+// the rest of this page already makes for Sydney/Brisbane-local race times.
+function parsePostTime(postTime, dateISO) {
+  if (!postTime) return null;
+  const m = postTime.match(/(\d{1,2})[.:](\d{2})\s*(am|pm)/i);
+  if (!m) return null;
+  let h = parseInt(m[1], 10);
+  const min = parseInt(m[2], 10);
+  const ampm = m[3].toLowerCase();
+  if (ampm === 'pm' && h !== 12) h += 12;
+  if (ampm === 'am' && h === 12) h = 0;
+  const d = new Date(`${dateISO}T${String(h).padStart(2, '0')}:${String(min).padStart(2, '0')}:00+10:00`);
+  return isNaN(d.getTime()) ? null : d;
+}
 
 function MoversView({ isPro, onUpgrade, isAdmin }) {
   const [movers, setMovers]   = useState([]);
@@ -2644,6 +2638,14 @@ function MoversView({ isPro, onUpgrade, isAdmin }) {
   const [minPct, setMinPct]   = useState(15);
   const [minPrice, setMinPrice] = useState(0);
   const [sortBy, setSortBy]   = useState('move');
+  const [venue, setVenue]     = useState('all');
+  const [direction, setDirection] = useState('all');
+  const [raceNum, setRaceNum] = useState('all');
+  const [timeWindow, setTimeWindow] = useState('all');
+  const [moreOpen, setMoreOpen] = useState(false);
+  const [hasOverflow, setHasOverflow] = useState(false);
+  const scrollRef = useRef(null);
+  const dateRef = useRef(new Intl.DateTimeFormat('en-CA', { timeZone: 'Australia/Sydney' }).format(new Date()));
 
   useEffect(() => {
     // Not Pro (and not the admin live-price bypass) -- skip the fetch
@@ -2655,8 +2657,7 @@ function MoversView({ isPro, onUpgrade, isAdmin }) {
     async function load() {
       setLoading(true);
       try {
-        const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Australia/Sydney' }).format(new Date());
-        const res = await fetch(`/api/market-movers?date=${today}`);
+        const res = await fetch(`/api/market-movers?date=${dateRef.current}`);
         if (!res.ok) { if (!cancelled) { setMovers([]); setLoading(false); } return; }
         const data = await res.json();
         if (!cancelled) { setMovers(data.movers || []); setLoading(false); }
@@ -2669,13 +2670,44 @@ function MoversView({ isPro, onUpgrade, isAdmin }) {
     return () => { cancelled = true; clearInterval(interval); };
   }, [isPro, isAdmin]);
 
+  const venues = useMemo(() => [...new Set(movers.map(m => m.venue))].sort(), [movers]);
+  const raceNums = useMemo(() => [...new Set(movers.map(m => m.raceNum))].sort((a, b) => +a - +b), [movers]);
+
   const filtered = useMemo(() => {
-    const rows = movers.filter(m => m.pct >= minPct && (!minPrice || m.currentPrice >= minPrice));
+    const windowHours = TIME_WINDOW_OPTIONS.find(w => w.key === timeWindow)?.hours;
+    const now = Date.now();
+    const rows = movers.filter(m => {
+      if (m.pct < minPct) return false;
+      if (minPrice && !(m.currentPrice >= minPrice)) return false;
+      if (venue !== 'all' && m.venue !== venue) return false;
+      if (direction !== 'all' && m.direction !== direction) return false;
+      if (raceNum !== 'all' && m.raceNum !== raceNum) return false;
+      if (windowHours != null) {
+        const post = parsePostTime(m.postTime, dateRef.current);
+        if (!post) return false;
+        const diffMs = post.getTime() - now;
+        if (diffMs < 0 || diffMs > windowHours * 60 * 60 * 1000) return false;
+      }
+      return true;
+    });
     rows.sort((a, b) => sortBy === 'time'
-      ? (a.postTime || '').localeCompare(b.postTime || '')
+      ? (parsePostTime(a.postTime, dateRef.current)?.getTime() ?? Infinity) - (parsePostTime(b.postTime, dateRef.current)?.getTime() ?? Infinity)
       : b.pct - a.pct);
     return rows;
-  }, [movers, minPct, minPrice, sortBy]);
+  }, [movers, minPct, minPrice, sortBy, venue, direction, raceNum, timeWindow]);
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const check = () => setHasOverflow(el.scrollWidth > el.clientWidth + 1);
+    check();
+    const ro = new ResizeObserver(check);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [filtered]);
+
+  const selectStyle = { padding: '4px 8px', borderRadius: 6, border: '1px solid #d1d5db', fontSize: 11, background: '#fff' };
+  const labelStyle = { fontSize: 10, color: '#6b7280', fontWeight: 600 };
 
   return (
     <div className="flex flex-1 overflow-hidden" style={{ position: 'relative' }}>
@@ -2692,24 +2724,58 @@ function MoversView({ isPro, onUpgrade, isAdmin }) {
         </div>
       )}
       <div className="flex-1 overflow-y-auto p-3" style={{ filter: (isPro || isAdmin) ? 'none' : 'blur(4px)', pointerEvents: (isPro || isAdmin) ? 'auto' : 'none' }}>
-        <div className="flex flex-wrap items-center gap-2 mb-3">
-          <label style={{ fontSize: 10, color: '#6b7280', fontWeight: 600 }}>Min move</label>
-          <select value={minPct} onChange={e => setMinPct(+e.target.value)} style={{ padding: '4px 8px', borderRadius: 6, border: '1px solid #d1d5db', fontSize: 11, background: '#fff' }}>
+        {/* Primary filters always visible; the rest (min price, race number,
+            time window) collapse behind "More filters" so this row doesn't
+            grow to 7 pickers wide on narrower viewports -- the ones kept
+            inline are the ones expected to be used most often. */}
+        <div className="flex flex-wrap items-center gap-2 mb-2">
+          <label style={labelStyle}>Venue</label>
+          <select value={venue} onChange={e => setVenue(e.target.value)} style={selectStyle}>
+            <option value="all">All venues</option>
+            {venues.map(v => <option key={v} value={v}>{v}</option>)}
+          </select>
+          <label style={{ ...labelStyle, marginLeft: 8 }}>Direction</label>
+          <select value={direction} onChange={e => setDirection(e.target.value)} style={selectStyle}>
+            <option value="all">All</option>
+            <option value="firming">Firmers only</option>
+            <option value="drifting">Drifters only</option>
+          </select>
+          <label style={{ ...labelStyle, marginLeft: 8 }}>Min move</label>
+          <select value={minPct} onChange={e => setMinPct(+e.target.value)} style={selectStyle}>
             {MOVE_PCT_OPTIONS.map(p => <option key={p} value={p}>{p}%</option>)}
           </select>
-          <label style={{ fontSize: 10, color: '#6b7280', fontWeight: 600, marginLeft: 8 }}>Min price</label>
-          <select value={minPrice} onChange={e => setMinPrice(+e.target.value)} style={{ padding: '4px 8px', borderRadius: 6, border: '1px solid #d1d5db', fontSize: 11, background: '#fff' }}>
-            <option value={0}>None</option>
-            <option value={2}>$2.00</option>
-            <option value={5}>$5.00</option>
-            <option value={10}>$10.00</option>
-          </select>
-          <label style={{ fontSize: 10, color: '#6b7280', fontWeight: 600, marginLeft: 8 }}>Sort</label>
-          <select value={sortBy} onChange={e => setSortBy(e.target.value)} style={{ padding: '4px 8px', borderRadius: 6, border: '1px solid #d1d5db', fontSize: 11, background: '#fff' }}>
+          <label style={{ ...labelStyle, marginLeft: 8 }}>Sort</label>
+          <select value={sortBy} onChange={e => setSortBy(e.target.value)} style={selectStyle}>
             <option value="move">Biggest move first</option>
             <option value="time">Race time</option>
           </select>
+          <button
+            onClick={() => setMoreOpen(o => !o)}
+            style={{ marginLeft: 8, fontSize: 10, fontWeight: 700, color: '#00471b', background: 'none', border: 'none', cursor: 'pointer', padding: '4px 2px', display: 'flex', alignItems: 'center', gap: 2 }}
+          >
+            More filters <i className={`ti ${moreOpen ? 'ti-chevron-up' : 'ti-chevron-down'}`} style={{ fontSize: 11 }} />
+          </button>
         </div>
+        {moreOpen && (
+          <div className="flex flex-wrap items-center gap-2 mb-3" style={{ padding: '6px 8px', background: '#f9fafb', borderRadius: 6, border: '1px solid #f3f4f6' }}>
+            <label style={labelStyle}>Min price</label>
+            <select value={minPrice} onChange={e => setMinPrice(+e.target.value)} style={selectStyle}>
+              <option value={0}>None</option>
+              <option value={2}>$2.00</option>
+              <option value={5}>$5.00</option>
+              <option value={10}>$10.00</option>
+            </select>
+            <label style={{ ...labelStyle, marginLeft: 8 }}>Race</label>
+            <select value={raceNum} onChange={e => setRaceNum(e.target.value)} style={selectStyle}>
+              <option value="all">All races</option>
+              {raceNums.map(n => <option key={n} value={n}>R{n}</option>)}
+            </select>
+            <label style={{ ...labelStyle, marginLeft: 8 }}>Time window</label>
+            <select value={timeWindow} onChange={e => setTimeWindow(e.target.value)} style={selectStyle}>
+              {TIME_WINDOW_OPTIONS.map(w => <option key={w.key} value={w.key}>{w.label}</option>)}
+            </select>
+          </div>
+        )}
 
         {loading ? (
           <div style={{ color: '#6b7280', fontSize: 13 }}>Loading movers…</div>
@@ -2718,32 +2784,53 @@ function MoversView({ isPro, onUpgrade, isAdmin }) {
             No runners currently match this filter.
           </div>
         ) : (
-          <div style={{ background: '#fff', borderRadius: 10, border: '1px solid #e5e7eb', overflowX: 'auto' }}>
-            <table style={{ width: '100%', fontSize: 11, borderCollapse: 'collapse' }}>
-              <thead>
-                <tr>
-                  <th style={{ padding: '5px 8px', fontSize: 9, fontWeight: 700, color: '#374151', background: '#f8fafc', textTransform: 'uppercase', letterSpacing: '0.5px', textAlign: 'left', borderBottom: '1px solid #e5e7eb' }}>Horse</th>
-                  <th style={{ padding: '5px 8px', fontSize: 9, fontWeight: 700, color: '#374151', background: '#f8fafc', textTransform: 'uppercase', letterSpacing: '0.5px', textAlign: 'left', borderBottom: '1px solid #e5e7eb' }}>Race</th>
-                  <th style={{ padding: '5px 8px', fontSize: 9, fontWeight: 700, color: '#374151', background: '#f8fafc', textTransform: 'uppercase', letterSpacing: '0.5px', textAlign: 'right', borderBottom: '1px solid #e5e7eb' }}>Open</th>
-                  <th style={{ padding: '5px 8px', fontSize: 9, fontWeight: 700, color: '#374151', background: '#f8fafc', textTransform: 'uppercase', letterSpacing: '0.5px', textAlign: 'right', borderBottom: '1px solid #e5e7eb' }}>Current</th>
-                  <th style={{ padding: '5px 8px', fontSize: 9, fontWeight: 700, color: '#374151', background: '#f8fafc', textTransform: 'uppercase', letterSpacing: '0.5px', textAlign: 'right', borderBottom: '1px solid #e5e7eb' }}>Move</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.map((m, i) => (
-                  <tr key={`${m.venue}-${m.raceNum}-${m.horseKey}`} style={{ borderBottom: i === filtered.length - 1 ? 'none' : '1px solid #f3f4f6' }}>
-                    <td style={{ padding: '5px 8px', fontWeight: 600, color: '#111827' }}>{m.horseKey}</td>
-                    <td style={{ padding: '5px 8px', color: '#374151' }}>{m.venue} R{m.raceNum}</td>
-                    <td style={{ padding: '5px 8px', textAlign: 'right', fontFamily: 'monospace', color: '#111827' }}>{m.openPrice != null ? `$${Number(m.openPrice).toFixed(2)}` : '—'}</td>
-                    <td style={{ padding: '5px 8px', textAlign: 'right', fontFamily: 'monospace', color: '#111827' }}>{m.currentPrice != null ? `$${Number(m.currentPrice).toFixed(2)}` : '—'}</td>
-                    <td style={{ padding: '5px 8px', textAlign: 'right' }}>
-                      <FirmingDriftingBadge move={{ direction: m.direction, pct: m.pct }} />
-                    </td>
+          <>
+            {hasOverflow && (
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 4 }}>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 10, fontWeight: 700, color: '#6b7280', background: '#f3f4f6', padding: '2px 7px', borderRadius: 10 }}>
+                  Scroll for more <i className="ti ti-arrow-right" style={{ fontSize: 11 }} />
+                </span>
+              </div>
+            )}
+            {/* Same scroll-overflow pattern as OddsTable (components/OddsTable.js)
+                -- explicit always-visible scrollbar + ResizeObserver-driven
+                hint, reused rather than a new solution. */}
+            <style>{`
+              .ww-movers-scroll { scrollbar-width: auto; scrollbar-color: #9ca3af #f3f4f6; }
+              .ww-movers-scroll::-webkit-scrollbar { height: 10px; }
+              .ww-movers-scroll::-webkit-scrollbar-track { background: #f3f4f6; border-radius: 10px; }
+              .ww-movers-scroll::-webkit-scrollbar-thumb { background: #9ca3af; border-radius: 10px; }
+              .ww-movers-scroll::-webkit-scrollbar-thumb:hover { background: #6b7280; }
+            `}</style>
+            <div ref={scrollRef} className="ww-movers-scroll" style={{ background: '#fff', borderRadius: 10, border: '1px solid #e5e7eb', overflowX: 'auto' }}>
+              <table style={{ width: '100%', fontSize: 11, borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr>
+                    <th style={{ padding: '5px 8px', fontSize: 9, fontWeight: 700, color: '#374151', background: '#f8fafc', textTransform: 'uppercase', letterSpacing: '0.5px', textAlign: 'left', borderBottom: '1px solid #e5e7eb', whiteSpace: 'nowrap' }}>Horse</th>
+                    <th style={{ padding: '5px 8px', fontSize: 9, fontWeight: 700, color: '#374151', background: '#f8fafc', textTransform: 'uppercase', letterSpacing: '0.5px', textAlign: 'left', borderBottom: '1px solid #e5e7eb', whiteSpace: 'nowrap' }}>Race</th>
+                    <th style={{ padding: '5px 8px', fontSize: 9, fontWeight: 700, color: '#374151', background: '#f8fafc', textTransform: 'uppercase', letterSpacing: '0.5px', textAlign: 'left', borderBottom: '1px solid #e5e7eb', whiteSpace: 'nowrap' }}>Time</th>
+                    <th style={{ padding: '5px 8px', fontSize: 9, fontWeight: 700, color: '#374151', background: '#f8fafc', textTransform: 'uppercase', letterSpacing: '0.5px', textAlign: 'right', borderBottom: '1px solid #e5e7eb', whiteSpace: 'nowrap' }}>Open</th>
+                    <th style={{ padding: '5px 8px', fontSize: 9, fontWeight: 700, color: '#374151', background: '#f8fafc', textTransform: 'uppercase', letterSpacing: '0.5px', textAlign: 'right', borderBottom: '1px solid #e5e7eb', whiteSpace: 'nowrap' }}>Current</th>
+                    <th style={{ padding: '5px 8px', fontSize: 9, fontWeight: 700, color: '#374151', background: '#f8fafc', textTransform: 'uppercase', letterSpacing: '0.5px', textAlign: 'right', borderBottom: '1px solid #e5e7eb', whiteSpace: 'nowrap' }}>Move</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {filtered.map((m, i) => (
+                    <tr key={`${m.venue}-${m.raceNum}-${m.horseKey}`} style={{ borderBottom: i === filtered.length - 1 ? 'none' : '1px solid #f3f4f6' }}>
+                      <td style={{ padding: '5px 8px', fontWeight: 600, color: '#111827', whiteSpace: 'nowrap' }}>{m.horseKey}</td>
+                      <td style={{ padding: '5px 8px', color: '#374151', whiteSpace: 'nowrap' }}>{m.venue} R{m.raceNum}</td>
+                      <td style={{ padding: '5px 8px', color: '#374151', whiteSpace: 'nowrap' }}>{m.postTime || '—'}</td>
+                      <td style={{ padding: '5px 8px', textAlign: 'right', fontFamily: 'monospace', color: '#111827', whiteSpace: 'nowrap' }}>{m.openPrice != null ? `$${Number(m.openPrice).toFixed(2)}` : '—'}</td>
+                      <td style={{ padding: '5px 8px', textAlign: 'right', fontFamily: 'monospace', color: '#111827', whiteSpace: 'nowrap' }}>{m.currentPrice != null ? `$${Number(m.currentPrice).toFixed(2)}` : '—'}</td>
+                      <td style={{ padding: '5px 8px', textAlign: 'right', whiteSpace: 'nowrap' }}>
+                        <FirmingDriftingBadge move={{ direction: m.direction, pct: m.pct }} />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
       </div>
     </div>
@@ -3662,7 +3749,7 @@ function RacesPageInner() {
                   <RaceHeader rc={currentRace} trackCond={trackCond} trackCondConfirmed={trackCondConfirmed} setTrackCond={setTrackCond}
                     weights={weights} setWeights={setWeights} runnerCount={results.length}
                     onUpgrade={() => setUpgradeOpen(true)} isPro={isPro} isMobile={isNarrow}
-                    onOpenGeneralBet={handleOpenGeneralBet} isAdmin={isSiteAdminUser} marketMoves={marketMoves} />
+                    onOpenGeneralBet={handleOpenGeneralBet} />
                   {(() => {
                     const venueRaces = (allVenues[currentRace.venue] || [])
                       .slice()
@@ -3696,8 +3783,20 @@ function RacesPageInner() {
                     );
                   })()}
                   {!isNarrow && <ViewTabBar view={view} setView={setView} runnerCount={results.length} isPast={isPast} tabs={isSiteAdminUser ? [VIEW_TABS[0], ODDS_TAB, ...VIEW_TABS.slice(1)] : VIEW_TABS} />}
-                  {isSiteAdminUser && (view === 'field' || view === 'pacemap') && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 10px', borderBottom: '1px solid #e5e7eb', background: '#fafafa' }}>
+                  {isSiteAdminUser && (view === 'field' || view === 'pacemap' || view === 'odds') && (() => {
+                    // Top firmer/top drifter for this race -- reads the SAME
+                    // marketMoves state already fetched for Field/Pace Map
+                    // (and read directly here, no prop drilling needed since
+                    // this row lives inside RacesPageInner itself). Hidden
+                    // entirely (not "Top firmer: none") when nothing in this
+                    // race currently qualifies at the >=15% threshold. Moved
+                    // here (2026-09-15) from next to the race title -- same
+                    // row as the bookmaker picker on all three tabs that show
+                    // live prices, not just Field/Pace Map.
+                    const topFirmer = Object.entries(marketMoves).filter(([, v]) => v.move?.direction === 'firming').sort((a, b) => b[1].move.pct - a[1].move.pct)[0];
+                    const topDrifter = Object.entries(marketMoves).filter(([, v]) => v.move?.direction === 'drifting').sort((a, b) => b[1].move.pct - a[1].move.pct)[0];
+                    return (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 10px', borderBottom: '1px solid #e5e7eb', background: '#fafafa', flexWrap: 'wrap' }}>
                       <span style={{ fontSize: 9, fontWeight: 700, color: '#059669', background: '#d1fae5', padding: '2px 5px', borderRadius: 3 }}>ADMIN</span>
                       <span style={{ fontSize: 10, color: '#6b7280' }}>Live price:</span>
                       <select
@@ -3709,8 +3808,28 @@ function RacesPageInner() {
                           <option key={c.slug} value={c.slug}>{bookmakerNameForSlug(c.slug)}</option>
                         ))}
                       </select>
+                      {topFirmer && (
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '2px 8px', borderRadius: 6, background: '#d1fae5' }}>
+                          <i className="ti ti-trending-up" style={{ fontSize: 13, color: '#059669' }} />
+                          <span style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.15 }}>
+                            <span style={{ fontSize: 7, fontWeight: 700, color: '#059669', textTransform: 'uppercase', letterSpacing: '0.3px' }}>Top firmer</span>
+                            <span style={{ fontSize: 10, fontWeight: 700, color: '#065f46' }}>{topFirmer[0]} ▲{topFirmer[1].move.pct}%</span>
+                          </span>
+                        </span>
+                      )}
+                      {topDrifter && (
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '2px 8px', borderRadius: 6, background: '#fee2e2' }}>
+                          <i className="ti ti-trending-down" style={{ fontSize: 13, color: '#dc2626' }} />
+                          <span style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.15 }}>
+                            <span style={{ fontSize: 7, fontWeight: 700, color: '#dc2626', textTransform: 'uppercase', letterSpacing: '0.3px' }}>Top drifter</span>
+                            <span style={{ fontSize: 10, fontWeight: 700, color: '#991b1b' }}>{topDrifter[0]} ▼{topDrifter[1].move.pct}%</span>
+                          </span>
+                        </span>
+                      )}
                       <PuntersEdgeCredit style={{ marginLeft: 'auto' }} />
                     </div>
+                    );
+                  })()}
                   )}
                   {currentRaceResult && (
                     <div style={{ background:'#f0fdf4', borderBottom:'1px solid #86efac', padding:'5px 12px', display:'flex', alignItems:'center', gap:8 }}>
