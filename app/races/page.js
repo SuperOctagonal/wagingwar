@@ -21,6 +21,7 @@ import { BOOKMAKERS as BOOKIES } from '@/lib/bookmakers';
 import { PUNTERSEDGE_BOOKMAKER_COLUMNS, bookmakerNameForSlug, getPuntersEdgeSlug } from '@/lib/puntersedgeBookmakers';
 import { fetchMarketMoveFlags, nameKey as marketMoveNameKey } from '@/lib/marketMoves';
 import FirmingDriftingBadge from '@/components/FirmingDriftingBadge';
+import { generatePaceAnalysis } from '@/lib/paceAnalysis';
 
 const SURL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SKEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -2460,7 +2461,7 @@ function FormView({ results, scratched, onLogBet, isResulted, betBlocked = false
 
 // ─── pace map view ────────────────────────────────────────────────────────────
 
-function PaceMapView({ results, scratched, rc, trackCond, isPro, onUpgrade, scratchingsSet = new Set(), isAdmin = false, livePrices = {}, marketMoves = {} }) {
+function PaceMapView({ results, scratched, rc, trackCond, isPro, onUpgrade, scratchingsSet = new Set(), isAdmin = false, livePrices = {}, marketMoves = {}, paceBiasPoints = null }) {
   const scrKey = h => `${normaliseVenue(rc.venue)}||${rc.num}||${stripCountry(h.name).toUpperCase()}`;
   const activeResults = results.filter(h => !scratchingsSet.has(scrKey(h)));
   const ranked = activeResults.map((r, i) => ({ ...r, systemRank: i + 1 }));
@@ -2478,11 +2479,18 @@ function PaceMapView({ results, scratched, rc, trackCond, isPro, onUpgrade, scra
     : 'No leader identified — slow pace expected';
   const tempoColor = leaderCount >= 4 ? '#dc2626' : leaderCount >= 2 ? '#d97706' : '#059669';
   const distType = +rc.dist <= 1200 ? 'Sprint' : +rc.dist <= 1600 ? 'Mile' : +rc.dist <= 2000 ? 'Middle dist' : 'Staying';
-  const aiText = (leaderCount >= 3
-    ? `Hot pace — ${leaderCount} leaders. Horses that can settle off the speed hold a significant advantage.`
-    : leaderCount >= 1 ? 'Manageable pace. The leader should set a sustainable tempo.'
-    : 'No clear leader identified — race may be run at a slow tempo.')
-    + ` ${+rc.dist<=1200?' Sprint distance favours on-pace runners.':+rc.dist<=1600?' Mile trip — balanced chance for all runners.':" Staying trip — closers with stamina should thrive."}`;
+  // Combinatorial phrase-bank analysis (lib/paceAnalysis.js) -- pace shape +
+  // distance framing + today's track bias, each an independently-seeded
+  // pick from several real-terminology variants, rather than one generic
+  // template. Seeded by venue+race so the same race shows the same text
+  // across re-renders (this view re-renders on every 60s livePrices/
+  // marketMoves poll) instead of visibly changing underneath the reader.
+  const aiText = generatePaceAnalysis({
+    byBarrier,
+    dist: rc.dist,
+    paceBiasPoints,
+    seedBase: `${normaliseVenue(rc.venue)}||${rc.num}`,
+  });
 
   return (
     <div className="flex flex-1 overflow-hidden" style={{ position: 'relative' }}>
@@ -3857,7 +3865,7 @@ function RacesPageInner() {
                     <FormView results={allHorsesForDisplay} scratched={scratched} onLogBet={handleLogBet} isResulted={!!currentRaceResult} betBlocked={betBlocked} rc={currentRace} isPro={isPro} onUpgrade={() => setUpgradeOpen(true)} scratchingsSet={scratchingsSet} />
                   )}
                   {view === 'pacemap' && (
-                    <PaceMapView results={allHorsesForDisplay} scratched={scratched} rc={currentRace} trackCond={trackCond} isPro={isPro} onUpgrade={() => setUpgradeOpen(true)} scratchingsSet={scratchingsSet} isAdmin={isSiteAdminUser} livePrices={livePrices} marketMoves={marketMoves} />
+                    <PaceMapView results={allHorsesForDisplay} scratched={scratched} rc={currentRace} trackCond={trackCond} isPro={isPro} onUpgrade={() => setUpgradeOpen(true)} scratchingsSet={scratchingsSet} isAdmin={isSiteAdminUser} livePrices={livePrices} marketMoves={marketMoves} paceBiasPoints={paceBiasPoints} />
                   )}
                   {view === 'movers' && (
                     <MoversView isPro={isPro} onUpgrade={() => setUpgradeOpen(true)} isAdmin={isSiteAdminUser} />
