@@ -22,6 +22,8 @@ import { PUNTERSEDGE_BOOKMAKER_COLUMNS, bookmakerNameForSlug, getPuntersEdgeSlug
 import { fetchMarketMoveFlags, nameKey as marketMoveNameKey } from '@/lib/marketMoves';
 import FirmingDriftingBadge from '@/components/FirmingDriftingBadge';
 import { generatePaceAnalysis } from '@/lib/paceAnalysis';
+import ScrollHint from '@/components/ScrollHint';
+import { useScrollOverflow } from '@/hooks/useScrollOverflow';
 
 const SURL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SKEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -2121,10 +2123,23 @@ function FieldView({ results, scratched, rc, trackCond, onLogBet, onShowPopup, o
     ? [...activeResults].sort((a, b) => (+a['BP'] || +a.tab || 99) - (+b['BP'] || +b.tab || 99))
     : activeResults;
   const th = { background: '#f8fafc', color: '#374151', letterSpacing: '0.5px', position: 'sticky', top: 0, zIndex: 1, padding: '3px 4px', fontSize: 9, fontWeight: 700, textTransform: 'uppercase', lineHeight: '1.3', borderBottom: '1px solid #e5e7eb' };
+  // Table has grown several columns (Move, Value, etc.) and now overflows
+  // its container on narrower layouts -- same shared scroll-overflow
+  // wrapper as OddsTable/Movers/Value Bets (.ww-scroll-x, useScrollOverflow,
+  // ScrollHint) rather than a new solution. Was previously overflow-x-hidden,
+  // which clipped the rightmost columns (e.g. Pace/Crs) with no way to
+  // reach them at all.
+  const { scrollRef: fieldScrollRef, hasOverflow: fieldHasOverflow } = useScrollOverflow([activeResults, dbScratched, colVis, isAdmin]);
   return (
     <>
       {/* Desktop table */}
-      <div className={!isMobile ? 'overflow-x-hidden' : 'hidden'}>
+      <div className={!isMobile ? '' : 'hidden'}>
+        {fieldHasOverflow && (
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 4 }}>
+            <ScrollHint />
+          </div>
+        )}
+        <div ref={fieldScrollRef} className="ww-scroll-x" style={{ overflowX: 'auto' }}>
         <table className="ww-race-table w-full border-collapse" style={{ tableLayout: 'auto' }}>
           <thead>
             <tr className="border-b border-gray-200">
@@ -2163,6 +2178,7 @@ function FieldView({ results, scratched, rc, trackCond, onLogBet, onShowPopup, o
             </tfoot>
           )}
         </table>
+        </div>
       </div>
 
       {/* Mobile section */}
@@ -2665,8 +2681,6 @@ function MoversView({ isPro, onUpgrade, isAdmin }) {
   const [raceNum, setRaceNum] = useState('all');
   const [timeWindow, setTimeWindow] = useState('all');
   const [moreOpen, setMoreOpen] = useState(false);
-  const [hasOverflow, setHasOverflow] = useState(false);
-  const scrollRef = useRef(null);
   const dateRef = useRef(new Intl.DateTimeFormat('en-CA', { timeZone: 'Australia/Sydney' }).format(new Date()));
 
   useEffect(() => {
@@ -2718,15 +2732,7 @@ function MoversView({ isPro, onUpgrade, isAdmin }) {
     return rows;
   }, [movers, minPct, minPrice, sortBy, venue, direction, raceNum, timeWindow]);
 
-  useEffect(() => {
-    const el = scrollRef.current;
-    if (!el) return;
-    const check = () => setHasOverflow(el.scrollWidth > el.clientWidth + 1);
-    check();
-    const ro = new ResizeObserver(check);
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, [filtered]);
+  const { scrollRef, hasOverflow } = useScrollOverflow([filtered]);
 
   const selectStyle = { padding: '4px 8px', borderRadius: 6, border: '1px solid #d1d5db', fontSize: 11, background: '#fff' };
   const labelStyle = { fontSize: 10, color: '#6b7280', fontWeight: 600 };
@@ -2809,22 +2815,13 @@ function MoversView({ isPro, onUpgrade, isAdmin }) {
           <>
             {hasOverflow && (
               <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 4 }}>
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 10, fontWeight: 700, color: '#6b7280', background: '#f3f4f6', padding: '2px 7px', borderRadius: 10 }}>
-                  Scroll for more <i className="ti ti-arrow-right" style={{ fontSize: 11 }} />
-                </span>
+                <ScrollHint />
               </div>
             )}
-            {/* Same scroll-overflow pattern as OddsTable (components/OddsTable.js)
-                -- explicit always-visible scrollbar + ResizeObserver-driven
-                hint, reused rather than a new solution. */}
-            <style>{`
-              .ww-movers-scroll { scrollbar-width: auto; scrollbar-color: #9ca3af #f3f4f6; }
-              .ww-movers-scroll::-webkit-scrollbar { height: 10px; }
-              .ww-movers-scroll::-webkit-scrollbar-track { background: #f3f4f6; border-radius: 10px; }
-              .ww-movers-scroll::-webkit-scrollbar-thumb { background: #9ca3af; border-radius: 10px; }
-              .ww-movers-scroll::-webkit-scrollbar-thumb:hover { background: #6b7280; }
-            `}</style>
-            <div ref={scrollRef} className="ww-movers-scroll" style={{ background: '#fff', borderRadius: 10, border: '1px solid #e5e7eb', overflowX: 'auto' }}>
+            {/* Shared scroll-overflow wrapper (.ww-scroll-x, app/globals.css)
+                + useScrollOverflow/ScrollHint -- same pattern as every other
+                horizontally-scrollable table in the app, not reimplemented. */}
+            <div ref={scrollRef} className="ww-scroll-x" style={{ background: '#fff', borderRadius: 10, border: '1px solid #e5e7eb', overflowX: 'auto' }}>
               <table style={{ width: '100%', fontSize: 11, borderCollapse: 'collapse' }}>
                 <thead>
                   <tr>
@@ -2889,8 +2886,6 @@ function ValueBetsView({ isPro, onUpgrade, isAdmin }) {
   const [raceNum, setRaceNum] = useState('all');
   const [timeWindow, setTimeWindow] = useState('all');
   const [moreOpen, setMoreOpen] = useState(false);
-  const [hasOverflow, setHasOverflow] = useState(false);
-  const scrollRef = useRef(null);
   const dateRef = useRef(new Intl.DateTimeFormat('en-CA', { timeZone: 'Australia/Sydney' }).format(new Date()));
 
   useEffect(() => {
@@ -2940,15 +2935,7 @@ function ValueBetsView({ isPro, onUpgrade, isAdmin }) {
     return rows;
   }, [bets, minEdge, minPrice, sortBy, venue, raceNum, timeWindow]);
 
-  useEffect(() => {
-    const el = scrollRef.current;
-    if (!el) return;
-    const check = () => setHasOverflow(el.scrollWidth > el.clientWidth + 1);
-    check();
-    const ro = new ResizeObserver(check);
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, [filtered]);
+  const { scrollRef, hasOverflow } = useScrollOverflow([filtered]);
 
   const selectStyle = { padding: '4px 8px', borderRadius: 6, border: '1px solid #d1d5db', fontSize: 11, background: '#fff' };
   const labelStyle = { fontSize: 10, color: '#6b7280', fontWeight: 600 };
@@ -3021,24 +3008,16 @@ function ValueBetsView({ isPro, onUpgrade, isAdmin }) {
           <>
             {hasOverflow && (
               <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 4 }}>
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 10, fontWeight: 700, color: '#6b7280', background: '#f3f4f6', padding: '2px 7px', borderRadius: 10 }}>
-                  Scroll for more <i className="ti ti-arrow-right" style={{ fontSize: 11 }} />
-                </span>
+                <ScrollHint />
               </div>
             )}
-            {/* Same scroll-overflow pattern as OddsTable/Movers -- reused,
-                not rebuilt. In practice this table has fewer columns than
-                Movers and is unlikely to overflow, but the same measured
-                check means it still shows the hint correctly if it ever
-                does (e.g. a very narrow viewport). */}
-            <style>{`
-              .ww-vb-scroll { scrollbar-width: auto; scrollbar-color: #9ca3af #f3f4f6; }
-              .ww-vb-scroll::-webkit-scrollbar { height: 10px; }
-              .ww-vb-scroll::-webkit-scrollbar-track { background: #f3f4f6; border-radius: 10px; }
-              .ww-vb-scroll::-webkit-scrollbar-thumb { background: #9ca3af; border-radius: 10px; }
-              .ww-vb-scroll::-webkit-scrollbar-thumb:hover { background: #6b7280; }
-            `}</style>
-            <div ref={scrollRef} className="ww-vb-scroll" style={{ background: '#fff', borderRadius: 10, border: '1px solid #e5e7eb', overflowX: 'auto' }}>
+            {/* Shared scroll-overflow wrapper -- same pattern as every other
+                horizontally-scrollable table in the app, not rebuilt. In
+                practice this table has fewer columns than Movers and is
+                unlikely to overflow, but the same measured check means it
+                still shows the hint correctly if it ever does (e.g. a very
+                narrow viewport). */}
+            <div ref={scrollRef} className="ww-scroll-x" style={{ background: '#fff', borderRadius: 10, border: '1px solid #e5e7eb', overflowX: 'auto' }}>
               <table style={{ width: '100%', fontSize: 11, borderCollapse: 'collapse' }}>
                 <thead>
                   <tr>

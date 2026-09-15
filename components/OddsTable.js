@@ -1,9 +1,11 @@
 'use client';
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import PuntersEdgeCredit from '@/components/PuntersEdgeCredit';
 import { PUNTERSEDGE_BOOKMAKER_COLUMNS, bookmakerNameForSlug } from '@/lib/puntersedgeBookmakers';
 import { fetchMarketMoveFlags, nameKey } from '@/lib/marketMoves';
 import FirmingDriftingBadge from '@/components/FirmingDriftingBadge';
+import ScrollHint from '@/components/ScrollHint';
+import { useScrollOverflow } from '@/hooks/useScrollOverflow';
 
 const SURL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SKEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -45,8 +47,6 @@ export default function OddsTable({ venue, raceNum, selectedBookmaker = '' }) {
   const [capturedAt, setCapturedAt] = useState(null);
   const [loading, setLoading] = useState(true);
   const [marketMoves, setMarketMoves] = useState({});
-  const [hasOverflow, setHasOverflow] = useState(false);
-  const scrollRef = useRef(null);
 
   useEffect(() => {
     if (!venue || !raceNum) { setRows([]); setCardInfo({}); setCapturedAt(null); setLoading(false); return; }
@@ -132,15 +132,7 @@ export default function OddsTable({ venue, raceNum, selectedBookmaker = '' }) {
   // page's wider single-column layout usually doesn't). overflowX:auto alone
   // gives no visual cue that more columns exist off-screen, so this measures
   // actual overflow and shows an explicit "scroll for more" hint when true.
-  useEffect(() => {
-    const el = scrollRef.current;
-    if (!el) return;
-    const check = () => setHasOverflow(el.scrollWidth > el.clientWidth + 1);
-    check();
-    const ro = new ResizeObserver(check);
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, [columns, tableData]);
+  const { scrollRef, hasOverflow } = useScrollOverflow([columns, tableData]);
 
   if (loading) {
     return <div style={{ color: '#6b7280', fontSize: 13 }}>Loading odds…</div>;
@@ -164,8 +156,8 @@ export default function OddsTable({ venue, raceNum, selectedBookmaker = '' }) {
           </span>
         )}
         {hasOverflow && (
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 10, fontWeight: 700, color: '#6b7280', background: '#f3f4f6', padding: '2px 7px', borderRadius: 10, marginLeft: 'auto' }}>
-            Scroll for more bookmakers <i className="ti ti-arrow-right" style={{ fontSize: 11 }} />
+          <span style={{ marginLeft: 'auto' }}>
+            <ScrollHint label="Scroll for more bookmakers" />
           </span>
         )}
       </div>
@@ -173,20 +165,15 @@ export default function OddsTable({ venue, raceNum, selectedBookmaker = '' }) {
           1px solid #d1d5db gridlines on every cell, light-gray uppercase
           header -- same density/fonts as the Field table's default (Standard
           density, Medium font) styling, not a separately-styled table.
-          Explicit scrollbar styling -- the default OS overlay scrollbar is
-          easy to miss entirely (which is the whole bug), so this keeps a
-          visible, always-there track+thumb instead of relying on the user
-          noticing a thin overlay bar on hover. */}
+          Scroll wrapper (.ww-scroll-x, app/globals.css) is shared with every
+          other horizontally-scrollable table in the app -- explicit
+          always-visible scrollbar since the default OS overlay scrollbar is
+          easy to miss entirely (which is the whole bug this solves). */}
       <style>{`
         .ww-odds-table { border-collapse: collapse; }
         .ww-odds-table th, .ww-odds-table td { border: 1px solid #d1d5db; }
-        .ww-odds-scroll { scrollbar-width: auto; scrollbar-color: #9ca3af #f3f4f6; }
-        .ww-odds-scroll::-webkit-scrollbar { height: 10px; }
-        .ww-odds-scroll::-webkit-scrollbar-track { background: #f3f4f6; border-radius: 10px; }
-        .ww-odds-scroll::-webkit-scrollbar-thumb { background: #9ca3af; border-radius: 10px; }
-        .ww-odds-scroll::-webkit-scrollbar-thumb:hover { background: #6b7280; }
       `}</style>
-      <div ref={scrollRef} className="ww-odds-scroll" style={{ background: '#fff', borderRadius: 10, border: '1px solid #e5e7eb', overflowX: 'auto' }}>
+      <div ref={scrollRef} className="ww-scroll-x" style={{ background: '#fff', borderRadius: 10, border: '1px solid #e5e7eb', overflowX: 'auto' }}>
         <table className="ww-odds-table" style={{ width: '100%', fontSize: 11 }}>
           <thead>
             <tr>

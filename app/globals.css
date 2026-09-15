@@ -13,6 +13,19 @@ html, body { height: 100%; }
 @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.3} }
 .animate-blink { animation: blink 1.5s infinite; }
 
+/* ── Shared horizontal-scroll table wrapper ─────────────────────────────────
+   Used by every table wider than its container can get on some layout
+   (Odds tab, Movers, Value Bets, Field tab) -- explicit always-visible
+   scrollbar so the overflow is obvious even on OSes that hide overlay
+   scrollbars, paired with hooks/useScrollOverflow.js + components/ScrollHint.js
+   for the "Scroll for more" affordance. One shared class instead of a
+   near-identical <style> block reimplemented per table. */
+.ww-scroll-x { scrollbar-width: auto; scrollbar-color: #9ca3af #f3f4f6; }
+.ww-scroll-x::-webkit-scrollbar { height: 10px; }
+.ww-scroll-x::-webkit-scrollbar-track { background: #f3f4f6; border-radius: 10px; }
+.ww-scroll-x::-webkit-scrollbar-thumb { background: #9ca3af; border-radius: 10px; }
+.ww-scroll-x::-webkit-scrollbar-thumb:hover { background: #6b7280; }
+
 /* ── Weights panel sliders ──────────────────────────────────────────────────── */
 .ww-slider { height: 4px; border-radius: 2px; outline: none; }
 .ww-slider:focus { outline: none; }
