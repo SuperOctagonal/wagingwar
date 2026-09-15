@@ -3830,7 +3830,6 @@ function RacesPageInner() {
                     </div>
                     );
                   })()}
-                  )}
                   {currentRaceResult && (
                     <div style={{ background:'#f0fdf4', borderBottom:'1px solid #86efac', padding:'5px 12px', display:'flex', alignItems:'center', gap:8 }}>
                       <i className="ti ti-flag-check" style={{ color:'#16a34a', fontSize:13 }} />
