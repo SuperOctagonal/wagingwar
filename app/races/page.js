@@ -916,33 +916,43 @@ function PaceLegend() {
   );
 }
 
-// ─── group score cell (with tooltip) ─────────────────────────────────────────
+// ─── combined factors cell (with tooltip) ────────────────────────────────────
 
-function GrpCell({ grpKey, grpScore, isBest, isWorst }) {
+// Merged Form/Speed/Good(track)/Conn column -- default appearance is
+// deliberately quiet (a single small dot, same visual weight as any other
+// single-value column) rather than restating all 4 numbers inline, which
+// would just recreate the four-column width this replaces. Hover reveals
+// the same 4 labeled values the old separate columns showed, including
+// each one's existing best/worst-in-field color coding. Still respects
+// each factor's individual colVis toggle (a user can still hide e.g. just
+// Speed via settings) -- only the ones currently visible are listed.
+function CombinedFactorsCell({ runner, colVis, tcLabel }) {
   const [tip, setTip] = useState(false);
-  const info = GRP_LABELS[grpKey];
-  const numColor = isBest ? info.color : isWorst ? '#b91c1c' : '#1e293b';
+  const visibleKeys = GRP_KEYS.filter(gk => colVis[gk]);
+  if (!visibleKeys.length) return null;
   return (
     <td
-      className={['px-[3px] py-[5px] text-right text-[11px] font-semibold tabular-nums relative cursor-default select-none',
-        isBest ? 'bg-emerald-50' : '', isWorst ? 'bg-red-50' : ''].join(' ')}
+      className="px-[3px] py-[5px] text-center relative cursor-default select-none"
       onMouseEnter={() => setTip(true)}
       onMouseLeave={() => setTip(false)}
-      style={{ color: numColor }}
     >
-      {grpScore.total.toFixed(1)}
+      <span style={{ display: 'inline-block', width: 5, height: 5, borderRadius: '50%', background: '#cbd5e1' }} />
       {tip && (
-        <div className="absolute right-0 top-full mt-1 z-50 bg-gray-900 text-white rounded-lg shadow-xl p-2 min-w-[150px] text-left pointer-events-none">
-          {grpScore.details.map(d => (
-            <div key={d.label} className="flex justify-between gap-3 text-[10px] py-0.5">
-              <span className="text-white/60">{d.label}</span>
-              <span className="font-semibold">{d.score !== null ? d.score : '—'}</span>
-            </div>
-          ))}
-          <div className="border-t border-white/20 mt-1 pt-1 flex justify-between text-[10px]">
-            <span className="text-amber-400">Total</span>
-            <span className="text-amber-400 font-bold">{grpScore.total.toFixed(1)}</span>
-          </div>
+        <div className="absolute right-0 top-full mt-1 z-50 bg-gray-900 text-white rounded-lg shadow-xl p-2 min-w-[140px] text-left pointer-events-none">
+          {visibleKeys.map(gk => {
+            const info = GRP_LABELS[gk];
+            const label = gk === 'cond' ? tcLabel : info.label;
+            const grpScore = runner.grpScores[gk];
+            const isBest = runner._grpIsBest?.[gk];
+            const isWorst = runner._grpIsWorst?.[gk];
+            const valColor = isBest ? '#34d399' : isWorst ? '#f87171' : '#fff';
+            return (
+              <div key={gk} className="flex justify-between gap-3 text-[10px] py-0.5">
+                <span style={{ color: info.color }}>{label}</span>
+                <span style={{ color: valColor, fontWeight: 700 }}>{grpScore.total.toFixed(1)}</span>
+              </div>
+            );
+          })}
         </div>
       )}
     </td>
@@ -1984,6 +1994,10 @@ function RunnerRow({ runner, rank, rc, trackCond, onLogBet, onShowPopup, onHideP
   const isLivePrice = liveP != null;
   const pm   = calcPaceMap(runner, rc.venue, +rc.dist, trackCond);
   const crsLabel = (() => { const c = runner.courseStarts||0; return c===0?'NEW':c===1?'1x':c<=4?`${c}x`:'VET'; })();
+  // Same label the merged Factors column's th uses for the "cond" row --
+  // computed here too (rather than passed down) since RunnerRow already
+  // has trackCond as its own prop.
+  const tcLabel = { good:'Good', soft:'Soft', heavy:'Heavy', synthetic:'Synth' }[trackCond] || 'Good';
 
   // Shared with the Value Bets tab (lib/scoring.js's computeValueEdge) so
   // both always agree on the exact same formula -- see that function's
@@ -2050,17 +2064,16 @@ function RunnerRow({ runner, rank, rc, trackCond, onLogBet, onShowPopup, onHideP
       <td className={`${td} text-center font-mono whitespace-nowrap`} style={{ color: '#111827' }}>
         <span style={{ fontSize: 7 }}>{runner.starts}-{runner.wins}-{runner.seconds||0}-{runner.thirds||0}</span>
       </td>
-      {/* Group scores */}
-      {GRP_KEYS.map(gk => {
-        if (!colVis[gk]) return null;
-        return (
-          isDbScratched
-            ? <td key={gk} className="px-[3px] py-[5px] text-right" />
-            : !isPro
-              ? <td key={gk} className="px-[3px] py-[5px] text-right"><LockBtn onClick={onUpgrade} /></td>
-              : <GrpCell key={gk} grpKey={gk} grpScore={runner.grpScores[gk]} isBest={runner._grpIsBest?.[gk]} isWorst={runner._grpIsWorst?.[gk]} />
-        );
-      })}
+      {/* Form/Speed/Good/Conn -- merged into one quiet column (hover for
+          the breakdown) rather than 4 separate ones, to free up horizontal
+          space in the table. */}
+      {GRP_KEYS.some(gk => colVis[gk]) && (
+        isDbScratched
+          ? <td className="px-[3px] py-[5px] text-center" />
+          : !isPro
+            ? <td className="px-[3px] py-[5px] text-center"><LockBtn onClick={onUpgrade} /></td>
+            : <CombinedFactorsCell runner={runner} colVis={colVis} tcLabel={tcLabel} />
+      )}
       {/* Total */}
       {colVis.score && (
         <td className={`${td} text-right font-bold text-[12px] tabular-nums`} style={{ color: rankColor }}>
@@ -2120,7 +2133,6 @@ function RunnerRow({ runner, rank, rc, trackCond, onLogBet, onShowPopup, onHideP
 }
 
 function FieldView({ results, scratched, rc, trackCond, onLogBet, onShowPopup, onHidePopup, isResulted, betBlocked = false, isPro, onUpgrade, scratchingsSet = new Set(), colVis = DEFAULT_COL_VIS, todayBets = {}, isMobile, isAdmin = false, livePrices = {}, marketMoves = {} }) {
-  const tcLabel = { good:'Good', soft:'Soft', heavy:'Heavy', synthetic:'Synth' }[trackCond] || 'Good';
   const scrKey = h => `${normaliseVenue(rc.venue)}||${rc.num}||${stripCountry(h.name).toUpperCase()}`;
   const activeResults = results.filter(h => !scratchingsSet.has(scrKey(h)));
   const dbScratched   = results.filter(h =>  scratchingsSet.has(scrKey(h)));
@@ -2154,10 +2166,13 @@ function FieldView({ results, scratched, rc, trackCond, onLogBet, onShowPopup, o
               <th style={{ ...th, textAlign:'left', width:'18%' }}>Horse / Jockey / Trainer</th>
               <th style={{ ...th, textAlign:'center', width:'5%' }}>Last 4 →</th>
               <th style={{ ...th, textAlign:'center', width:'4%', paddingLeft: 4 }}>Record</th>
-              {colVis.form && <th style={{ ...th, textAlign:'right', width:'5%', color: GRP_LABELS.form.color }}>Form</th>}
-              {colVis.speed && <th style={{ ...th, textAlign:'right', width:'5%', color: GRP_LABELS.speed.color }}>Speed</th>}
-              {colVis.cond && <th style={{ ...th, textAlign:'right', width:'5%', color: GRP_LABELS.cond.color }}>{tcLabel}</th>}
-              {colVis.conn && <th style={{ ...th, textAlign:'right', width:'5%', color: GRP_LABELS.conn.color }}>Conn</th>}
+              {/* Form/Speed/Good/Conn merged into one column -- still gated
+                  on any of the 4 individual colVis toggles being on, so
+                  hiding all of them via settings still hides this column
+                  entirely, same as before. */}
+              {(colVis.form || colVis.speed || colVis.cond || colVis.conn) && (
+                <th style={{ ...th, textAlign:'center', width:'4%' }}>Factors</th>
+              )}
               {colVis.score && <th style={{ ...th, textAlign:'right', width:'5%' }}>Score</th>}
               {colVis.edge && <th style={{ ...th, textAlign:'right', width:'6%' }}>WW $</th>}
               <th style={{ ...th, textAlign:'right', width:'6%' }}>Price $</th>
