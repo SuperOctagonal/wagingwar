@@ -1,20 +1,26 @@
 import { NextResponse } from 'next/server';
-import { auth } from '@clerk/nextjs/server';
+import { auth, clerkClient } from '@clerk/nextjs/server';
 import { isSiteAdmin } from '@/lib/admin';
 
-// Admin-only, per the Phase 2 brief -- this is a preview of a price
-// adjustment that hasn't gone live for regular users yet. Returns the
-// currently-active calibration curve (lib/calibrationCurve.js) so the
-// Field tab's admin-only preview (app/races/page.js) can compute
-// old-vs-calibrated WW$ client-side via lib/calibrationApply.js. Never
-// used by any regular-user code path.
+// Phase 2 calibration is now the real WW $ for every Pro user (shipped --
+// was admin-only preview until now). Pro-gated with an admin bypass, same
+// convention as every other Pro gate in the codebase (e.g.
+// /api/market-movers). Returns the currently-active calibration curve
+// (lib/calibrationCurve.js) which lib/livePricing.js's calculateLiveOdds
+// applies -- the single shared point every WW$ consumer goes through.
 const SURL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SKEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
 export async function GET() {
   const { userId } = await auth();
-  if (!userId || !isSiteAdmin(userId)) {
-    return NextResponse.json({ error: 'Admin required' }, { status: 403 });
+  if (!userId) return NextResponse.json({ error: 'Unauthenticated' }, { status: 401 });
+
+  if (!isSiteAdmin(userId)) {
+    const client = await clerkClient();
+    const user = await client.users.getUser(userId);
+    if (user?.publicMetadata?.plan !== 'pro') {
+      return NextResponse.json({ error: 'Pro required' }, { status: 403 });
+    }
   }
   if (!SURL || !SKEY) {
     return NextResponse.json({ error: 'Supabase env vars not set' }, { status: 500 });

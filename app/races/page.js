@@ -48,11 +48,11 @@ function useIsNarrowWidth() {
   return isNarrow;
 }
 import {
-  scoreHorse, scoreGroup, calculateMatrixOdds, blendFirstStarterLivePrices, calcPaceMap, pointsForPlace,
+  scoreHorse, scoreGroup, blendFirstStarterLivePrices, calcPaceMap, pointsForPlace,
   formatRacingOdds, getDefaultWeights, FACTORS, FACTOR_GROUPS_DEF, GRP_KEYS, GRP_LABELS,
   computeValueEdge,
 } from '@/lib/scoring';
-import { applyCalibration } from '@/lib/calibrationApply';
+import { calculateLiveOdds, CALIBRATION_ENABLED } from '@/lib/livePricing';
 import { applyTrustBlend, pickTrustBucket } from '@/lib/trustApply';
 
 // ─── small helpers ────────────────────────────────────────────────────────────
@@ -2083,27 +2083,21 @@ function RunnerRow({ runner, rank, rc, trackCond, onLogBet, onShowPopup, onHideP
       {colVis.edge && (
         <td className={`${td} text-right text-[11px] font-semibold text-emerald-600 tabular-nums whitespace-nowrap`}>
           {!isPro ? <LockBtn onClick={onUpgrade} /> : (myO ? `$${formatRacingOdds(myO)}` : '—')}
-          {/* Phase 2 self-learning-scoring preview -- admin-only, not live
-              for regular users. Pure display-only remap via
-              lib/calibrationApply.js; myOdds itself (used for bet-modal
-              pre-fill, Value Bets edge, etc.) is completely untouched. */}
-          {isAdmin && isPro && myO && calibrationCurve?.curve_points && (
-            <div style={{ fontSize: 8, fontWeight: 700, color: '#7c3aed', marginTop: 1 }}>
-              Cal: ${formatRacingOdds(applyCalibration(myO, calibrationCurve.curve_points))}
-            </div>
-          )}
           {/* Phase 3 Trust Engine preview -- admin-only, preview-only, no
               new blend is live for regular users. Shown alongside (not
-              replacing) WW$/Cal$ -- see lib/trustApply.js. Only appears
-              for buckets with a currently-active learned ratio (first
+              replacing) WW$ -- see lib/trustApply.js. Only appears for
+              buckets with a currently-active learned ratio (first
               starters aren't viable yet, so they correctly show nothing
               extra here -- their existing 80/20 live blend is unaffected
-              either way, this preview is purely additive display). */}
-          {isAdmin && isPro && myO && calibrationCurve?.curve_points && runnerMarketPrice && trustBuckets?.length && (() => {
-            const calPrice = applyCalibration(myO, calibrationCurve.curve_points);
-            const bucket = pickTrustBucket(trustBuckets, { starts: Number(runner.starts), price: calPrice });
+              either way, this preview is purely additive display).
+              myO is already the calibrated price (Phase 2 shipped,
+              9e9c70c-era "Cal $" preview removed -- there's no separate
+              number to show alongside it anymore), so it's used directly
+              here rather than re-applying calibration a second time. */}
+          {isAdmin && isPro && myO && runnerMarketPrice && trustBuckets?.length && (() => {
+            const bucket = pickTrustBucket(trustBuckets, { starts: Number(runner.starts), price: myO });
             if (!bucket) return null;
-            const trustPrice = applyTrustBlend(calPrice, runnerMarketPrice, bucket.learned_live_weight);
+            const trustPrice = applyTrustBlend(myO, runnerMarketPrice, bucket.learned_live_weight);
             return (
               <div style={{ fontSize: 8, fontWeight: 700, color: '#0891b2', marginTop: 1 }}>
                 Trust: ${formatRacingOdds(trustPrice)}
@@ -3351,20 +3345,22 @@ function RacesPageInner() {
   const [livePrices, setLivePrices] = useState({});
   const [marketMoves, setMarketMoves] = useState({});
 
-  // Phase 2 self-learning-scoring preview (admin-only, per the brief --
-  // not live for regular users yet). Fetched once on admin load, not
+  // Phase 2 calibration is now the real WW $ for every Pro user (shipped
+  // -- was admin-only preview until now). Fetched once on Pro load, not
   // per-race, since the active curve changes at most weekly (Part C's
-  // recalibration cadence), not per page view.
+  // recalibration cadence), not per page view. isSiteAdminUser kept as a
+  // bypass so admin can still see it without a Pro flag, same convention
+  // as this page's other Pro-gated fetches.
   const [calibrationCurve, setCalibrationCurve] = useState(null);
   useEffect(() => {
-    if (!isSiteAdminUser) { setCalibrationCurve(null); return; }
+    if (!isPro && !isSiteAdminUser) { setCalibrationCurve(null); return; }
     let cancelled = false;
     fetch('/api/calibration-curve')
       .then(r => r.ok ? r.json() : null)
       .then(data => { if (!cancelled) setCalibrationCurve(data?.curve || null); })
       .catch(() => {});
     return () => { cancelled = true; };
-  }, [isSiteAdminUser]);
+  }, [isPro, isSiteAdminUser]);
 
   // Phase 3 Trust Engine preview (admin-only, preview-only -- no new
   // blend is live for regular users). Same once-on-admin-load fetch
@@ -3922,13 +3918,21 @@ function RacesPageInner() {
     }).sort((a, b) => b.totalFromGroups - a.totalFromGroups);
 
     if (isPro) {
-      // Blends any starts=0 runner's score with its live market price when
-      // one exists (falls back to the score above unchanged otherwise) --
-      // must happen before calculateMatrixOdds so rank stays consistent
-      // with price for every runner, including whichever runners a
-      // promoted/demoted first starter displaces.
-      res = blendFirstStarterLivePrices(res, firstStarterLiveFlags, marketMoveNameKey);
-      const oddsArr = calculateMatrixOdds(res);
+      // Calibration (Phase 2) is now the real WW $ for everyone -- the
+      // SAME shared function (lib/livePricing.js) lib/valueBets.js's
+      // server-side pricing uses, fed by the same active-curve source,
+      // so Field tab/Pace Map and Value Bets can never disagree. Blends
+      // any starts=0 runner's score with its live market price when one
+      // exists (falls back to the score above unchanged otherwise) --
+      // must happen before the final pricing step so rank stays
+      // consistent with price for every runner, including whichever
+      // runners a promoted/demoted first starter displaces -- and the
+      // blend itself now weighs the live price against the CALIBRATED
+      // model price (curvePoints passed through), not the pre-
+      // calibration one.
+      const curvePoints = CALIBRATION_ENABLED ? calibrationCurve?.curve_points : null;
+      res = blendFirstStarterLivePrices(res, firstStarterLiveFlags, marketMoveNameKey, curvePoints);
+      const oddsArr = calculateLiveOdds(res, curvePoints);
       res.forEach((r, i) => { r.myOdds = oddsArr[i]; });
     }
 
@@ -3949,7 +3953,7 @@ function RacesPageInner() {
     const allHorsesForDisplay = [...res, ...dbScratchedOnly];
 
     return { results: res, scratched: scr, scratchingsSet: s, allHorsesForDisplay };
-  }, [currentRace, trackCond, weights, scratchedRows, isPro, firstStarterLiveFlags]);
+  }, [currentRace, trackCond, weights, scratchedRows, isPro, firstStarterLiveFlags, calibrationCurve]);
 
   const handleSelectRace = useCallback(key => {
     setSelectedKey(key);
