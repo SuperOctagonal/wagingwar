@@ -2099,7 +2099,13 @@ function RunnerRow({ runner, rank, rc, trackCond, onLogBet, onShowPopup, onHideP
             if (!bucket) return null;
             const trustPrice = applyTrustBlend(myO, runnerMarketPrice, bucket.learned_live_weight);
             return (
-              <div style={{ fontSize: 8, fontWeight: 700, color: '#0891b2', marginTop: 1 }}>
+              // Overrides the WW $ <td>'s inherited whitespace-nowrap --
+              // without this, "Trust: $X.XX" (wider than the "$X.XX" line
+              // above it) doesn't wrap and visually bleeds rightward past
+              // the WW $ column's edge, painting over the adjacent Price $
+              // cell even though it's correctly nested in the WW $ <td>'s
+              // DOM position.
+              <div style={{ fontSize: 8, fontWeight: 700, color: '#0891b2', marginTop: 1, whiteSpace: 'normal', wordBreak: 'break-word' }}>
                 Trust: ${formatRacingOdds(trustPrice)}
               </div>
             );
