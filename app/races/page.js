@@ -2670,6 +2670,33 @@ function parsePostTime(postTime, dateISO) {
   return isNaN(d.getTime()) ? null : d;
 }
 
+// Shared "Hide resulted" + win-rate stat behavior for Movers and Value
+// Bets (both annotate their rows with finishPos/margin/sp from the same
+// race_results join, lib/raceResults.js). `filteredBase` is every active
+// filter EXCEPT Hide Resulted -- the stat is always computed from that,
+// never from the Hide-Resulted-narrowed `filtered`, so toggling it never
+// hides the stat about the very rows it's hiding.
+function useResultedFilter(filteredBase) {
+  const [hideResulted, setHideResulted] = useState(false);
+  const filtered = useMemo(
+    () => hideResulted ? filteredBase.filter(r => r.finishPos == null) : filteredBase,
+    [filteredBase, hideResulted]
+  );
+  const resultedStat = useMemo(() => {
+    const resulted = filteredBase.filter(r => r.finishPos != null);
+    const wins = resulted.filter(r => r.finishPos === 1).length;
+    return { wins, total: resulted.length };
+  }, [filteredBase]);
+  return { hideResulted, setHideResulted, filtered, resultedStat };
+}
+
+// "1st"/"2nd"/"3rd"/"4th"... for the Result column (Movers, Value Bets).
+function ordinal(n) {
+  const s = ['th', 'st', 'nd', 'rd'];
+  const v = n % 100;
+  return `${n}${s[(v - 20) % 10] || s[v] || s[0]}`;
+}
+
 function MoversView({ isPro, onUpgrade, isAdmin }) {
   const [movers, setMovers]   = useState([]);
   const [loading, setLoading] = useState(true);
@@ -2709,7 +2736,7 @@ function MoversView({ isPro, onUpgrade, isAdmin }) {
   const venues = useMemo(() => [...new Set(movers.map(m => m.venue))].sort(), [movers]);
   const raceNums = useMemo(() => [...new Set(movers.map(m => m.raceNum))].sort((a, b) => +a - +b), [movers]);
 
-  const filtered = useMemo(() => {
+  const filteredBase = useMemo(() => {
     const windowHours = TIME_WINDOW_OPTIONS.find(w => w.key === timeWindow)?.hours;
     const now = Date.now();
     const rows = movers.filter(m => {
@@ -2731,6 +2758,8 @@ function MoversView({ isPro, onUpgrade, isAdmin }) {
       : b.pct - a.pct);
     return rows;
   }, [movers, minPct, minPrice, sortBy, venue, direction, raceNum, timeWindow]);
+
+  const { hideResulted, setHideResulted, filtered, resultedStat } = useResultedFilter(filteredBase);
 
   const { scrollRef, hasOverflow } = useScrollOverflow([filtered]);
 
@@ -2777,6 +2806,10 @@ function MoversView({ isPro, onUpgrade, isAdmin }) {
             <option value="move">Biggest move first</option>
             <option value="time">Race time</option>
           </select>
+          <label style={{ ...labelStyle, marginLeft: 8, display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' }}>
+            <input type="checkbox" checked={hideResulted} onChange={e => setHideResulted(e.target.checked)} style={{ cursor: 'pointer' }} />
+            Hide resulted
+          </label>
           <button
             onClick={() => setMoreOpen(o => !o)}
             style={{ marginLeft: 8, fontSize: 10, fontWeight: 700, color: '#00471b', background: 'none', border: 'none', cursor: 'pointer', padding: '4px 2px', display: 'flex', alignItems: 'center', gap: 2 }}
@@ -2805,6 +2838,15 @@ function MoversView({ isPro, onUpgrade, isAdmin }) {
           </div>
         )}
 
+        {/* Win-rate summary -- always reflects filteredBase (every active
+            filter except Hide Resulted), so toggling that display-only
+            filter never hides the stat about the picks it's hiding. */}
+        <div style={{ fontSize: 11, color: '#6b7280', marginBottom: 8 }}>
+          {resultedStat.total === 0
+            ? 'No results yet today'
+            : <>{resultedStat.wins} of {resultedStat.total} resulted picks won today</>}
+        </div>
+
         {loading ? (
           <div style={{ color: '#6b7280', fontSize: 13 }}>Loading movers…</div>
         ) : filtered.length === 0 ? (
@@ -2831,6 +2873,9 @@ function MoversView({ isPro, onUpgrade, isAdmin }) {
                     <th style={{ padding: '5px 8px', fontSize: 9, fontWeight: 700, color: '#374151', background: '#f8fafc', textTransform: 'uppercase', letterSpacing: '0.5px', textAlign: 'right', borderBottom: '1px solid #e5e7eb', whiteSpace: 'nowrap' }}>Open</th>
                     <th style={{ padding: '5px 8px', fontSize: 9, fontWeight: 700, color: '#374151', background: '#f8fafc', textTransform: 'uppercase', letterSpacing: '0.5px', textAlign: 'right', borderBottom: '1px solid #e5e7eb', whiteSpace: 'nowrap' }}>Current</th>
                     <th style={{ padding: '5px 8px', fontSize: 9, fontWeight: 700, color: '#374151', background: '#f8fafc', textTransform: 'uppercase', letterSpacing: '0.5px', textAlign: 'right', borderBottom: '1px solid #e5e7eb', whiteSpace: 'nowrap' }}>Move</th>
+                    <th style={{ padding: '5px 8px', fontSize: 9, fontWeight: 700, color: '#374151', background: '#f8fafc', textTransform: 'uppercase', letterSpacing: '0.5px', textAlign: 'left', borderBottom: '1px solid #e5e7eb', whiteSpace: 'nowrap' }}>Result</th>
+                    <th style={{ padding: '5px 8px', fontSize: 9, fontWeight: 700, color: '#374151', background: '#f8fafc', textTransform: 'uppercase', letterSpacing: '0.5px', textAlign: 'left', borderBottom: '1px solid #e5e7eb', whiteSpace: 'nowrap' }}>Margin</th>
+                    <th style={{ padding: '5px 8px', fontSize: 9, fontWeight: 700, color: '#374151', background: '#f8fafc', textTransform: 'uppercase', letterSpacing: '0.5px', textAlign: 'right', borderBottom: '1px solid #e5e7eb', whiteSpace: 'nowrap' }}>SP</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -2844,6 +2889,9 @@ function MoversView({ isPro, onUpgrade, isAdmin }) {
                       <td style={{ padding: '5px 8px', textAlign: 'right', whiteSpace: 'nowrap' }}>
                         <FirmingDriftingBadge move={{ direction: m.direction, pct: m.pct }} />
                       </td>
+                      <td style={{ padding: '5px 8px', color: m.finishPos === 1 ? '#059669' : '#374151', fontWeight: m.finishPos === 1 ? 700 : 400, whiteSpace: 'nowrap' }}>{m.finishPos != null ? ordinal(m.finishPos) : '—'}</td>
+                      <td style={{ padding: '5px 8px', color: '#374151', whiteSpace: 'nowrap' }}>{m.margin || '—'}</td>
+                      <td style={{ padding: '5px 8px', textAlign: 'right', fontFamily: 'monospace', color: '#111827', whiteSpace: 'nowrap' }}>{m.sp != null ? `$${Number(m.sp).toFixed(2)}` : '—'}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -2876,13 +2924,6 @@ function ValueEdgeBadge({ pct }) {
 // a parallel implementation. Reuses TIME_WINDOW_OPTIONS/parsePostTime (both
 // module-level above, defined for Movers) since the Time-window filter is
 // identical in meaning here.
-// "1st"/"2nd"/"3rd"/"4th"... for Value Bets' Result column.
-function ordinal(n) {
-  const s = ['th', 'st', 'nd', 'rd'];
-  const v = n % 100;
-  return `${n}${s[(v - 20) % 10] || s[v] || s[0]}`;
-}
-
 function ValueBetsView({ isPro, onUpgrade, isAdmin }) {
   const [bets, setBets]       = useState([]);
   const [loading, setLoading] = useState(true);
@@ -2893,7 +2934,6 @@ function ValueBetsView({ isPro, onUpgrade, isAdmin }) {
   const [raceNum, setRaceNum] = useState('all');
   const [timeWindow, setTimeWindow] = useState('all');
   const [moreOpen, setMoreOpen] = useState(false);
-  const [hideResulted, setHideResulted] = useState(false);
   const dateRef = useRef(new Intl.DateTimeFormat('en-CA', { timeZone: 'Australia/Sydney' }).format(new Date()));
 
   useEffect(() => {
@@ -2947,16 +2987,7 @@ function ValueBetsView({ isPro, onUpgrade, isAdmin }) {
     return rows;
   }, [bets, minEdge, minPrice, sortBy, venue, raceNum, timeWindow]);
 
-  const filtered = useMemo(
-    () => hideResulted ? filteredBase.filter(b => b.finishPos == null) : filteredBase,
-    [filteredBase, hideResulted]
-  );
-
-  const resultedStat = useMemo(() => {
-    const resulted = filteredBase.filter(b => b.finishPos != null);
-    const wins = resulted.filter(b => b.finishPos === 1).length;
-    return { wins, total: resulted.length };
-  }, [filteredBase]);
+  const { hideResulted, setHideResulted, filtered, resultedStat } = useResultedFilter(filteredBase);
 
   const { scrollRef, hasOverflow } = useScrollOverflow([filtered]);
 
