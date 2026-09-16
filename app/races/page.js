@@ -2893,6 +2893,7 @@ function ValueBetsView({ isPro, onUpgrade, isAdmin }) {
   const [raceNum, setRaceNum] = useState('all');
   const [timeWindow, setTimeWindow] = useState('all');
   const [moreOpen, setMoreOpen] = useState(false);
+  const [hideResulted, setHideResulted] = useState(false);
   const dateRef = useRef(new Intl.DateTimeFormat('en-CA', { timeZone: 'Australia/Sydney' }).format(new Date()));
 
   useEffect(() => {
@@ -2920,7 +2921,11 @@ function ValueBetsView({ isPro, onUpgrade, isAdmin }) {
   const venues = useMemo(() => [...new Set(bets.map(b => b.venue))].sort(), [bets]);
   const raceNums = useMemo(() => [...new Set(bets.map(b => b.raceNum))].sort((a, b) => +a - +b), [bets]);
 
-  const filtered = useMemo(() => {
+  // Every filter EXCEPT Hide Resulted -- this is what the win-rate stat
+  // below is computed from, so toggling Hide Resulted (a display-only
+  // filter on the table) never hides the stat about the very picks it's
+  // hiding.
+  const filteredBase = useMemo(() => {
     const windowHours = TIME_WINDOW_OPTIONS.find(w => w.key === timeWindow)?.hours;
     const now = Date.now();
     const rows = bets.filter(b => {
@@ -2941,6 +2946,17 @@ function ValueBetsView({ isPro, onUpgrade, isAdmin }) {
       : b.pct - a.pct);
     return rows;
   }, [bets, minEdge, minPrice, sortBy, venue, raceNum, timeWindow]);
+
+  const filtered = useMemo(
+    () => hideResulted ? filteredBase.filter(b => b.finishPos == null) : filteredBase,
+    [filteredBase, hideResulted]
+  );
+
+  const resultedStat = useMemo(() => {
+    const resulted = filteredBase.filter(b => b.finishPos != null);
+    const wins = resulted.filter(b => b.finishPos === 1).length;
+    return { wins, total: resulted.length };
+  }, [filteredBase]);
 
   const { scrollRef, hasOverflow } = useScrollOverflow([filtered]);
 
@@ -2977,6 +2993,10 @@ function ValueBetsView({ isPro, onUpgrade, isAdmin }) {
             <option value="edge">Biggest edge first</option>
             <option value="time">Race time</option>
           </select>
+          <label style={{ ...labelStyle, marginLeft: 8, display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' }}>
+            <input type="checkbox" checked={hideResulted} onChange={e => setHideResulted(e.target.checked)} style={{ cursor: 'pointer' }} />
+            Hide resulted
+          </label>
           <button
             onClick={() => setMoreOpen(o => !o)}
             style={{ marginLeft: 8, fontSize: 10, fontWeight: 700, color: '#00471b', background: 'none', border: 'none', cursor: 'pointer', padding: '4px 2px', display: 'flex', alignItems: 'center', gap: 2 }}
@@ -3004,6 +3024,15 @@ function ValueBetsView({ isPro, onUpgrade, isAdmin }) {
             </select>
           </div>
         )}
+
+        {/* Win-rate summary -- always reflects filteredBase (every active
+            filter except Hide Resulted), so toggling that display-only
+            filter never hides the stat about the picks it's hiding. */}
+        <div style={{ fontSize: 11, color: '#6b7280', marginBottom: 8 }}>
+          {resultedStat.total === 0
+            ? 'No results yet today'
+            : <>{resultedStat.wins} of {resultedStat.total} resulted picks won today</>}
+        </div>
 
         {loading ? (
           <div style={{ color: '#6b7280', fontSize: 13 }}>Loading value bets…</div>
