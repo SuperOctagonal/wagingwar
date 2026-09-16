@@ -2876,6 +2876,13 @@ function ValueEdgeBadge({ pct }) {
 // a parallel implementation. Reuses TIME_WINDOW_OPTIONS/parsePostTime (both
 // module-level above, defined for Movers) since the Time-window filter is
 // identical in meaning here.
+// "1st"/"2nd"/"3rd"/"4th"... for Value Bets' Result column.
+function ordinal(n) {
+  const s = ['th', 'st', 'nd', 'rd'];
+  const v = n % 100;
+  return `${n}${s[(v - 20) % 10] || s[v] || s[0]}`;
+}
+
 function ValueBetsView({ isPro, onUpgrade, isAdmin }) {
   const [bets, setBets]       = useState([]);
   const [loading, setLoading] = useState(true);
@@ -3027,6 +3034,9 @@ function ValueBetsView({ isPro, onUpgrade, isAdmin }) {
                     <th style={{ padding: '5px 8px', fontSize: 9, fontWeight: 700, color: '#374151', background: '#f8fafc', textTransform: 'uppercase', letterSpacing: '0.5px', textAlign: 'right', borderBottom: '1px solid #e5e7eb', whiteSpace: 'nowrap' }}>WW $</th>
                     <th style={{ padding: '5px 8px', fontSize: 9, fontWeight: 700, color: '#374151', background: '#f8fafc', textTransform: 'uppercase', letterSpacing: '0.5px', textAlign: 'right', borderBottom: '1px solid #e5e7eb', whiteSpace: 'nowrap' }}>Price $</th>
                     <th style={{ padding: '5px 8px', fontSize: 9, fontWeight: 700, color: '#374151', background: '#f8fafc', textTransform: 'uppercase', letterSpacing: '0.5px', textAlign: 'right', borderBottom: '1px solid #e5e7eb', whiteSpace: 'nowrap' }}>Edge</th>
+                    <th style={{ padding: '5px 8px', fontSize: 9, fontWeight: 700, color: '#374151', background: '#f8fafc', textTransform: 'uppercase', letterSpacing: '0.5px', textAlign: 'left', borderBottom: '1px solid #e5e7eb', whiteSpace: 'nowrap' }}>Result</th>
+                    <th style={{ padding: '5px 8px', fontSize: 9, fontWeight: 700, color: '#374151', background: '#f8fafc', textTransform: 'uppercase', letterSpacing: '0.5px', textAlign: 'left', borderBottom: '1px solid #e5e7eb', whiteSpace: 'nowrap' }}>Margin</th>
+                    <th style={{ padding: '5px 8px', fontSize: 9, fontWeight: 700, color: '#374151', background: '#f8fafc', textTransform: 'uppercase', letterSpacing: '0.5px', textAlign: 'right', borderBottom: '1px solid #e5e7eb', whiteSpace: 'nowrap' }}>SP</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -3040,6 +3050,9 @@ function ValueBetsView({ isPro, onUpgrade, isAdmin }) {
                       <td style={{ padding: '5px 8px', textAlign: 'right', whiteSpace: 'nowrap' }}>
                         <ValueEdgeBadge pct={b.pct} />
                       </td>
+                      <td style={{ padding: '5px 8px', color: b.finishPos === 1 ? '#059669' : '#374151', fontWeight: b.finishPos === 1 ? 700 : 400, whiteSpace: 'nowrap' }}>{b.finishPos != null ? ordinal(b.finishPos) : '—'}</td>
+                      <td style={{ padding: '5px 8px', color: '#374151', whiteSpace: 'nowrap' }}>{b.margin || '—'}</td>
+                      <td style={{ padding: '5px 8px', textAlign: 'right', fontFamily: 'monospace', color: '#111827', whiteSpace: 'nowrap' }}>{b.sp != null ? `$${Number(b.sp).toFixed(2)}` : '—'}</td>
                     </tr>
                   ))}
                 </tbody>
