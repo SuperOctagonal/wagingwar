@@ -52,6 +52,7 @@ import {
   formatRacingOdds, getDefaultWeights, FACTORS, FACTOR_GROUPS_DEF, GRP_KEYS, GRP_LABELS,
   computeValueEdge,
 } from '@/lib/scoring';
+import { applyCalibration } from '@/lib/calibrationApply';
 
 // ─── small helpers ────────────────────────────────────────────────────────────
 
@@ -1982,7 +1983,7 @@ function LockBtn({ onClick }) {
 
 const DEFAULT_COL_VIS = { form: true, speed: true, cond: true, conn: true, score: true, edge: true, value: true };
 
-function RunnerRow({ runner, rank, rc, trackCond, onLogBet, onShowPopup, onHidePopup, isResulted, betBlocked = false, isPro, onUpgrade, isDbScratched, colVis = DEFAULT_COL_VIS, todayBets = {}, isAdmin = false, livePrices = {}, marketMoves = {} }) {
+function RunnerRow({ runner, rank, rc, trackCond, onLogBet, onShowPopup, onHidePopup, isResulted, betBlocked = false, isPro, onUpgrade, isDbScratched, colVis = DEFAULT_COL_VIS, todayBets = {}, isAdmin = false, livePrices = {}, marketMoves = {}, calibrationCurve = null }) {
   const myO  = runner.myOdds;
   const mktO = runner.rawOdds;
   // Admin-only: odds_snapshot live price for the currently-picked bookmaker,
@@ -2077,6 +2078,15 @@ function RunnerRow({ runner, rank, rc, trackCond, onLogBet, onShowPopup, onHideP
       {colVis.edge && (
         <td className={`${td} text-right text-[11px] font-semibold text-emerald-600 tabular-nums whitespace-nowrap`}>
           {!isPro ? <LockBtn onClick={onUpgrade} /> : (myO ? `$${formatRacingOdds(myO)}` : '—')}
+          {/* Phase 2 self-learning-scoring preview -- admin-only, not live
+              for regular users. Pure display-only remap via
+              lib/calibrationApply.js; myOdds itself (used for bet-modal
+              pre-fill, Value Bets edge, etc.) is completely untouched. */}
+          {isAdmin && isPro && myO && calibrationCurve?.curve_points && (
+            <div style={{ fontSize: 8, fontWeight: 700, color: '#7c3aed', marginTop: 1 }}>
+              Cal: ${formatRacingOdds(applyCalibration(myO, calibrationCurve.curve_points))}
+            </div>
+          )}
         </td>
       )}
       {/* Price $ */}
@@ -2125,7 +2135,7 @@ function RunnerRow({ runner, rank, rc, trackCond, onLogBet, onShowPopup, onHideP
   );
 }
 
-function FieldView({ results, scratched, rc, trackCond, onLogBet, onShowPopup, onHidePopup, isResulted, betBlocked = false, isPro, onUpgrade, scratchingsSet = new Set(), colVis = DEFAULT_COL_VIS, todayBets = {}, isMobile, isAdmin = false, livePrices = {}, marketMoves = {} }) {
+function FieldView({ results, scratched, rc, trackCond, onLogBet, onShowPopup, onHidePopup, isResulted, betBlocked = false, isPro, onUpgrade, scratchingsSet = new Set(), colVis = DEFAULT_COL_VIS, todayBets = {}, isMobile, isAdmin = false, livePrices = {}, marketMoves = {}, calibrationCurve = null }) {
   const scrKey = h => `${normaliseVenue(rc.venue)}||${rc.num}||${stripCountry(h.name).toUpperCase()}`;
   const activeResults = results.filter(h => !scratchingsSet.has(scrKey(h)));
   const dbScratched   = results.filter(h =>  scratchingsSet.has(scrKey(h)));
@@ -2177,7 +2187,7 @@ function FieldView({ results, scratched, rc, trackCond, onLogBet, onShowPopup, o
           </thead>
           <tbody>
             {activeResults.map((r, i) => (
-              <RunnerRow key={r.tab || r.name} runner={r} rank={i+1} rc={rc} trackCond={trackCond} onLogBet={onLogBet} onShowPopup={onShowPopup} onHidePopup={onHidePopup} isResulted={isResulted} betBlocked={betBlocked} isPro={isPro} onUpgrade={onUpgrade} colVis={colVis} todayBets={todayBets} isAdmin={isAdmin} livePrices={livePrices} marketMoves={marketMoves} />
+              <RunnerRow key={r.tab || r.name} runner={r} rank={i+1} rc={rc} trackCond={trackCond} onLogBet={onLogBet} onShowPopup={onShowPopup} onHidePopup={onHidePopup} isResulted={isResulted} betBlocked={betBlocked} isPro={isPro} onUpgrade={onUpgrade} colVis={colVis} todayBets={todayBets} isAdmin={isAdmin} livePrices={livePrices} marketMoves={marketMoves} calibrationCurve={calibrationCurve} />
             ))}
             {dbScratched.map(r => (
               <RunnerRow key={r.tab || r.name} runner={r} rank={null} rc={rc} trackCond={trackCond} onLogBet={onLogBet} onShowPopup={onShowPopup} onHidePopup={onHidePopup} isResulted={true} betBlocked isPro={isPro} onUpgrade={onUpgrade} isDbScratched colVis={colVis} todayBets={todayBets} isAdmin={isAdmin} livePrices={livePrices} marketMoves={marketMoves} />
@@ -3318,6 +3328,21 @@ function RacesPageInner() {
   const [livePrices, setLivePrices] = useState({});
   const [marketMoves, setMarketMoves] = useState({});
 
+  // Phase 2 self-learning-scoring preview (admin-only, per the brief --
+  // not live for regular users yet). Fetched once on admin load, not
+  // per-race, since the active curve changes at most weekly (Part C's
+  // recalibration cadence), not per page view.
+  const [calibrationCurve, setCalibrationCurve] = useState(null);
+  useEffect(() => {
+    if (!isSiteAdminUser) { setCalibrationCurve(null); return; }
+    let cancelled = false;
+    fetch('/api/calibration-curve')
+      .then(r => r.ok ? r.json() : null)
+      .then(data => { if (!cancelled) setCalibrationCurve(data?.curve || null); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [isSiteAdminUser]);
+
   const todayISO = new Date().toLocaleDateString('sv-SE', { timeZone: 'Australia/Brisbane' });
   // Only tomorrow's card is actually populated by the pipeline right now — cap
   // the picker there rather than leaving it unbounded. Bump this once further-
@@ -4188,7 +4213,7 @@ function RacesPageInner() {
                       isResulted={!!currentRaceResult} betBlocked={betBlocked}
                       isPro={isPro} onUpgrade={() => setUpgradeOpen(true)}
                       scratchingsSet={scratchingsSet} colVis={colVis} todayBets={todayBets} isMobile={isNarrow}
-                      isAdmin={isSiteAdminUser} livePrices={livePrices} marketMoves={marketMoves} />
+                      isAdmin={isSiteAdminUser} livePrices={livePrices} marketMoves={marketMoves} calibrationCurve={calibrationCurve} />
                   )}
                   {view === 'form' && (
                     <FormView results={allHorsesForDisplay} scratched={scratched} onLogBet={handleLogBet} isResulted={!!currentRaceResult} betBlocked={betBlocked} rc={currentRace} isPro={isPro} onUpgrade={() => setUpgradeOpen(true)} scratchingsSet={scratchingsSet} />
