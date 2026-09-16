@@ -48,7 +48,7 @@ function useIsNarrowWidth() {
   return isNarrow;
 }
 import {
-  scoreHorse, scoreGroup, calculateMatrixOdds, calcPaceMap, pointsForPlace,
+  scoreHorse, scoreGroup, calculateMatrixOdds, blendFirstStarterLivePrices, calcPaceMap, pointsForPlace,
   formatRacingOdds, getDefaultWeights, FACTORS, FACTOR_GROUPS_DEF, GRP_KEYS, GRP_LABELS,
   computeValueEdge,
 } from '@/lib/scoring';
@@ -3385,6 +3385,34 @@ function RacesPageInner() {
     return () => { cancelled = true; clearInterval(interval); };
   }, [isSiteAdminUser, currentRace?.venue, currentRace?.num]);
 
+  // Live best-price data for the first-starter score blend below --
+  // separate from the admin-only marketMoves fetch above (that one also
+  // feeds the admin Firming/Drifting display, which stays admin-gated).
+  // This one affects the actual WW$/rank every Pro user sees for a
+  // starts=0 runner, so it can't be limited to admins the way that
+  // display-only fetch is -- gated on isPro instead, matching the
+  // scoring block below it (myOdds is never computed for non-Pro users
+  // at all). Same fetchMarketMoveFlags() helper Movers/OddsTable/Value
+  // Bets already use, not a new fetch path.
+  const [firstStarterLiveFlags, setFirstStarterLiveFlags] = useState({});
+  useEffect(() => {
+    if (!isPro || !currentRace?.venue || !currentRace?.num) {
+      setFirstStarterLiveFlags({});
+      return;
+    }
+    let cancelled = false;
+    async function loadFlags() {
+      const venue = normaliseVenue(currentRace.venue);
+      const raceNum = String(currentRace.num);
+      const date = new Intl.DateTimeFormat('en-CA', { timeZone: 'Australia/Sydney' }).format(new Date());
+      const flags = await fetchMarketMoveFlags({ venue, raceNum, date });
+      if (!cancelled) setFirstStarterLiveFlags(flags);
+    }
+    loadFlags();
+    const interval = setInterval(loadFlags, 60000);
+    return () => { cancelled = true; clearInterval(interval); };
+  }, [isPro, currentRace?.venue, currentRace?.num]);
+
   const trackCond = (currentRace && trackConds[currentRace.venue]) || 'good';
   // Distinct from trackCond itself: whether that value is real (DB-confirmed via
   // today_meetings, or the user manually picked one) vs just the unset 'good'
@@ -3733,7 +3761,7 @@ function RacesPageInner() {
     const byOrigBP = [...active].sort((a, b) => (+a['BP'] || 99) - (+b['BP'] || 99));
     const barrierMap = new Map(byOrigBP.map((h, i) => [h.name, i + 1]));
 
-    const res = active.map(h => {
+    let res = active.map(h => {
       const liveBarrier = barrierMap.get(h.name) ?? +h['BP'] ?? 99;
       const hScored = { ...h, 'BP': liveBarrier };
       if (!isPro) return { ...hScored, grpScores: {}, totalFromGroups: 0, myOdds: null };
@@ -3744,6 +3772,12 @@ function RacesPageInner() {
     }).sort((a, b) => b.totalFromGroups - a.totalFromGroups);
 
     if (isPro) {
+      // Blends any starts=0 runner's score with its live market price when
+      // one exists (falls back to the score above unchanged otherwise) --
+      // must happen before calculateMatrixOdds so rank stays consistent
+      // with price for every runner, including whichever runners a
+      // promoted/demoted first starter displaces.
+      res = blendFirstStarterLivePrices(res, firstStarterLiveFlags, marketMoveNameKey);
       const oddsArr = calculateMatrixOdds(res);
       res.forEach((r, i) => { r.myOdds = oddsArr[i]; });
     }
@@ -3765,7 +3799,7 @@ function RacesPageInner() {
     const allHorsesForDisplay = [...res, ...dbScratchedOnly];
 
     return { results: res, scratched: scr, scratchingsSet: s, allHorsesForDisplay };
-  }, [currentRace, trackCond, weights, scratchedRows, isPro]);
+  }, [currentRace, trackCond, weights, scratchedRows, isPro, firstStarterLiveFlags]);
 
   const handleSelectRace = useCallback(key => {
     setSelectedKey(key);
