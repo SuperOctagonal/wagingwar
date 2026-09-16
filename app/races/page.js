@@ -53,6 +53,7 @@ import {
   computeValueEdge,
 } from '@/lib/scoring';
 import { applyCalibration } from '@/lib/calibrationApply';
+import { applyTrustBlend, pickTrustBucket } from '@/lib/trustApply';
 
 // ─── small helpers ────────────────────────────────────────────────────────────
 
@@ -1983,7 +1984,7 @@ function LockBtn({ onClick }) {
 
 const DEFAULT_COL_VIS = { form: true, speed: true, cond: true, conn: true, score: true, edge: true, value: true };
 
-function RunnerRow({ runner, rank, rc, trackCond, onLogBet, onShowPopup, onHidePopup, isResulted, betBlocked = false, isPro, onUpgrade, isDbScratched, colVis = DEFAULT_COL_VIS, todayBets = {}, isAdmin = false, livePrices = {}, marketMoves = {}, calibrationCurve = null }) {
+function RunnerRow({ runner, rank, rc, trackCond, onLogBet, onShowPopup, onHidePopup, isResulted, betBlocked = false, isPro, onUpgrade, isDbScratched, colVis = DEFAULT_COL_VIS, todayBets = {}, isAdmin = false, livePrices = {}, marketMoves = {}, calibrationCurve = null, trustBuckets = null }) {
   const myO  = runner.myOdds;
   const mktO = runner.rawOdds;
   // Admin-only: odds_snapshot live price for the currently-picked bookmaker,
@@ -1992,6 +1993,10 @@ function RunnerRow({ runner, rank, rc, trackCond, onLogBet, onShowPopup, onHideP
   const liveP = isAdmin ? livePrices[stripCountry(runner.name).toUpperCase()] : undefined;
   const displayPrice = liveP ?? mktO;
   const runnerMove = isAdmin ? marketMoves[marketMoveNameKey(runner.name)]?.move : undefined;
+  // Phase 3 Trust Engine preview only -- the current best live price for
+  // this runner, same source (marketMoves, already fetched admin-only)
+  // every other live-price display on this page already reads from.
+  const runnerMarketPrice = isAdmin ? marketMoves[marketMoveNameKey(runner.name)]?.current : undefined;
   const isLivePrice = liveP != null;
   const pm   = calcPaceMap(runner, rc.venue, +rc.dist, trackCond);
   const crsLabel = (() => { const c = runner.courseStarts||0; return c===0?'NEW':c===1?'1x':c<=4?`${c}x`:'VET'; })();
@@ -2087,6 +2092,24 @@ function RunnerRow({ runner, rank, rc, trackCond, onLogBet, onShowPopup, onHideP
               Cal: ${formatRacingOdds(applyCalibration(myO, calibrationCurve.curve_points))}
             </div>
           )}
+          {/* Phase 3 Trust Engine preview -- admin-only, preview-only, no
+              new blend is live for regular users. Shown alongside (not
+              replacing) WW$/Cal$ -- see lib/trustApply.js. Only appears
+              for buckets with a currently-active learned ratio (first
+              starters aren't viable yet, so they correctly show nothing
+              extra here -- their existing 80/20 live blend is unaffected
+              either way, this preview is purely additive display). */}
+          {isAdmin && isPro && myO && calibrationCurve?.curve_points && runnerMarketPrice && trustBuckets?.length && (() => {
+            const calPrice = applyCalibration(myO, calibrationCurve.curve_points);
+            const bucket = pickTrustBucket(trustBuckets, { starts: Number(runner.starts), price: calPrice });
+            if (!bucket) return null;
+            const trustPrice = applyTrustBlend(calPrice, runnerMarketPrice, bucket.learned_live_weight);
+            return (
+              <div style={{ fontSize: 8, fontWeight: 700, color: '#0891b2', marginTop: 1 }}>
+                Trust: ${formatRacingOdds(trustPrice)}
+              </div>
+            );
+          })()}
         </td>
       )}
       {/* Price $ */}
@@ -2135,7 +2158,7 @@ function RunnerRow({ runner, rank, rc, trackCond, onLogBet, onShowPopup, onHideP
   );
 }
 
-function FieldView({ results, scratched, rc, trackCond, onLogBet, onShowPopup, onHidePopup, isResulted, betBlocked = false, isPro, onUpgrade, scratchingsSet = new Set(), colVis = DEFAULT_COL_VIS, todayBets = {}, isMobile, isAdmin = false, livePrices = {}, marketMoves = {}, calibrationCurve = null }) {
+function FieldView({ results, scratched, rc, trackCond, onLogBet, onShowPopup, onHidePopup, isResulted, betBlocked = false, isPro, onUpgrade, scratchingsSet = new Set(), colVis = DEFAULT_COL_VIS, todayBets = {}, isMobile, isAdmin = false, livePrices = {}, marketMoves = {}, calibrationCurve = null, trustBuckets = null }) {
   const scrKey = h => `${normaliseVenue(rc.venue)}||${rc.num}||${stripCountry(h.name).toUpperCase()}`;
   const activeResults = results.filter(h => !scratchingsSet.has(scrKey(h)));
   const dbScratched   = results.filter(h =>  scratchingsSet.has(scrKey(h)));
@@ -2187,7 +2210,7 @@ function FieldView({ results, scratched, rc, trackCond, onLogBet, onShowPopup, o
           </thead>
           <tbody>
             {activeResults.map((r, i) => (
-              <RunnerRow key={r.tab || r.name} runner={r} rank={i+1} rc={rc} trackCond={trackCond} onLogBet={onLogBet} onShowPopup={onShowPopup} onHidePopup={onHidePopup} isResulted={isResulted} betBlocked={betBlocked} isPro={isPro} onUpgrade={onUpgrade} colVis={colVis} todayBets={todayBets} isAdmin={isAdmin} livePrices={livePrices} marketMoves={marketMoves} calibrationCurve={calibrationCurve} />
+              <RunnerRow key={r.tab || r.name} runner={r} rank={i+1} rc={rc} trackCond={trackCond} onLogBet={onLogBet} onShowPopup={onShowPopup} onHidePopup={onHidePopup} isResulted={isResulted} betBlocked={betBlocked} isPro={isPro} onUpgrade={onUpgrade} colVis={colVis} todayBets={todayBets} isAdmin={isAdmin} livePrices={livePrices} marketMoves={marketMoves} calibrationCurve={calibrationCurve} trustBuckets={trustBuckets} />
             ))}
             {dbScratched.map(r => (
               <RunnerRow key={r.tab || r.name} runner={r} rank={null} rc={rc} trackCond={trackCond} onLogBet={onLogBet} onShowPopup={onShowPopup} onHidePopup={onHidePopup} isResulted={true} betBlocked isPro={isPro} onUpgrade={onUpgrade} isDbScratched colVis={colVis} todayBets={todayBets} isAdmin={isAdmin} livePrices={livePrices} marketMoves={marketMoves} />
@@ -3343,6 +3366,20 @@ function RacesPageInner() {
     return () => { cancelled = true; };
   }, [isSiteAdminUser]);
 
+  // Phase 3 Trust Engine preview (admin-only, preview-only -- no new
+  // blend is live for regular users). Same once-on-admin-load fetch
+  // pattern as the calibration curve above.
+  const [trustBuckets, setTrustBuckets] = useState(null);
+  useEffect(() => {
+    if (!isSiteAdminUser) { setTrustBuckets(null); return; }
+    let cancelled = false;
+    fetch('/api/trust-blend-ratios')
+      .then(r => r.ok ? r.json() : null)
+      .then(data => { if (!cancelled) setTrustBuckets(data?.buckets || null); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [isSiteAdminUser]);
+
   const todayISO = new Date().toLocaleDateString('sv-SE', { timeZone: 'Australia/Brisbane' });
   // Only tomorrow's card is actually populated by the pipeline right now — cap
   // the picker there rather than leaving it unbounded. Bump this once further-
@@ -4213,7 +4250,7 @@ function RacesPageInner() {
                       isResulted={!!currentRaceResult} betBlocked={betBlocked}
                       isPro={isPro} onUpgrade={() => setUpgradeOpen(true)}
                       scratchingsSet={scratchingsSet} colVis={colVis} todayBets={todayBets} isMobile={isNarrow}
-                      isAdmin={isSiteAdminUser} livePrices={livePrices} marketMoves={marketMoves} calibrationCurve={calibrationCurve} />
+                      isAdmin={isSiteAdminUser} livePrices={livePrices} marketMoves={marketMoves} calibrationCurve={calibrationCurve} trustBuckets={trustBuckets} />
                   )}
                   {view === 'form' && (
                     <FormView results={allHorsesForDisplay} scratched={scratched} onLogBet={handleLogBet} isResulted={!!currentRaceResult} betBlocked={betBlocked} rc={currentRace} isPro={isPro} onUpgrade={() => setUpgradeOpen(true)} scratchingsSet={scratchingsSet} />
