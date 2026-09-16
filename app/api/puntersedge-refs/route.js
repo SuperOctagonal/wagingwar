@@ -228,5 +228,17 @@ export async function POST(request) {
     });
   }
 
+  // Phase 1 of the self-learning scoring project (race_feature_snapshots)
+  // -- piggybacked on this route since it's the only already-scheduled
+  // periodic trigger in the codebase. Wrapped defensively: a snapshot-
+  // capture failure must never affect this route's actual job (odds
+  // ingestion) or its response status.
+  try {
+    const { captureRaceFeatureSnapshots } = await import('@/lib/raceFeatureSnapshots');
+    result.feature_snapshots = await captureRaceFeatureSnapshots(dateISO);
+  } catch (err) {
+    result.feature_snapshots = { errors: [`capture threw: ${err.message}`] };
+  }
+
   return NextResponse.json(result, { status: result.errors.length ? 207 : 200 });
 }
