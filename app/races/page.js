@@ -2040,29 +2040,22 @@ function RunnerRow({ runner, rank, rc, trackCond, onLogBet, onShowPopup, onHideP
           {[wt, jShort(runner.jname), runner.trainer].filter(Boolean).join(' · ')}
         </div>
       </td>
-      {/* Last 4 -- badges shrunk to the minimum still-legible size so the
-          table fits without horizontal scroll at typical desktop widths;
-          color-coding (win/place tiers) kept, footprint reduced. */}
+      {/* Last 4 */}
       <td className={`${td} text-center`}>
-        <div className="flex items-center justify-center gap-0">
+        <div className="flex items-center justify-center gap-[2px]">
           {pips.length > 0
             ? pips.map((v, i) => (
-                <span key={i} style={{ width:12, height:12, borderRadius:'50%', display:'inline-flex', alignItems:'center', justifyContent:'center', fontSize:7, fontWeight:700, flexShrink:0, ...pipStyle(+v) }}>
+                <span key={i} style={{ width:16, height:16, borderRadius:'50%', display:'inline-flex', alignItems:'center', justifyContent:'center', fontSize:9, fontWeight:700, flexShrink:0, ...pipStyle(+v) }}>
                   {+v>9?'0':v}
                 </span>
               ))
-            : <span style={{ fontSize: 8 }} className="text-gray-600">FS</span>
+            : <span className="text-[9px] text-gray-600">FS</span>
           }
         </div>
       </td>
-      {/* Career record -- same "starts-wins-seconds-thirds" format, just a
-          tighter font so the column takes less width. Font-size set on an
-          inner span rather than the td itself: this table's own
-          .ww-race-table td rule sets font-size with !important (driven by
-          the user's density/font-size settings), which would otherwise
-          silently override a font-size class applied directly on the td. */}
-      <td className={`${td} text-center font-mono whitespace-nowrap`} style={{ color: '#111827' }}>
-        <span style={{ fontSize: 7 }}>{runner.starts}-{runner.wins}-{runner.seconds||0}-{runner.thirds||0}</span>
+      {/* Career record */}
+      <td className={`${td} text-center text-[9px] font-mono whitespace-nowrap`} style={{ color: '#111827', paddingLeft: 4 }}>
+        {runner.starts}-{runner.wins}-{runner.seconds||0}-{runner.thirds||0}
       </td>
       {/* Form/Speed/Good/Conn -- merged into one quiet column (hover for
           the breakdown) rather than 4 separate ones, to free up horizontal
@@ -2164,8 +2157,8 @@ function FieldView({ results, scratched, rc, trackCond, onLogBet, onShowPopup, o
             <tr className="border-b border-gray-200">
               <th style={{ ...th, textAlign:'center', width:'3%' }}>RANK</th>
               <th style={{ ...th, textAlign:'left', width:'18%' }}>Horse / Jockey / Trainer</th>
-              <th style={{ ...th, textAlign:'center', width:'5%' }}>Last 4 →</th>
-              <th style={{ ...th, textAlign:'center', width:'4%', paddingLeft: 4 }}>Record</th>
+              <th style={{ ...th, textAlign:'center', width:'7%' }}>Last 4 →</th>
+              <th style={{ ...th, textAlign:'center', width:'6%', paddingLeft: 14 }}>Record</th>
               {/* Form/Speed/Good/Conn merged into one column -- still gated
                   on any of the 4 individual colVis toggles being on, so
                   hiding all of them via settings still hides this column
