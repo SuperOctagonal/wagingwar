@@ -1,14 +1,11 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { parseCSV, buildRaces } from '@/lib/csvParser';
 import { normaliseVenue } from '@/lib/venues';
-import { scoreGroup, calculateMatrixOdds, formatRacingOdds, getDefaultWeights, GRP_KEYS } from '@/lib/scoring';
 import ProfileRail from '@/components/ProfileRail';
-import UpgradeModal from '@/components/UpgradeModal';
 import useIsMobile from '@/hooks/useIsMobile';
-import useIsPro from '@/hooks/useIsPro';
 
 const SURL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SKEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -49,53 +46,6 @@ const TC_COLORS = {
 const TC_LABELS = { good: 'Good', soft: 'Soft', heavy: 'Heavy', synthetic: 'Synth' };
 
 function normName(n) { return (n || '').toUpperCase().replace(/[^A-Z0-9]/g, ''); }
-
-function ordinal(n) {
-  const s = ['th', 'st', 'nd', 'rd'];
-  const v = n % 100;
-  return `${n}${s[(v - 20) % 10] || s[v] || s[0]}`;
-}
-
-// Same bucketing as the Races page and /api/results-ranks — 'heavy'/'soft'/
-// 'synthetic'/'good', matched from today_meetings' free-text condition string.
-function bucketTrackCond(raw) {
-  const tcl = (raw || '').toLowerCase();
-  return tcl.includes('heavy') ? 'heavy'
-    : tcl.includes('soft') || tcl.includes('slow') ? 'soft'
-    : tcl.includes('synth') ? 'synthetic'
-    : 'good';
-}
-
-function getTopPicks(allRaces, allVenues, weights, dbScratchings = new Set(), venueTrackConds = {}) {
-  const picks = [];
-  Object.values(allVenues).forEach(keys => {
-    keys.forEach(k => {
-      const rc = allRaces[k];
-      if (!rc || !rc.horses) return;
-      const rcVN = normaliseVenue(rc.venue || '');
-      const trackCond = venueTrackConds[rcVN] || 'good';
-      const active = rc.horses.filter(h => !h.scratched && !dbScratchings.has(`${rcVN}||${rc.num}||${normName(h.name||'')}`) );
-      if (!active.length) return;
-      const scored = active.map(h => {
-        const grpScores = {};
-        GRP_KEYS.forEach(gk => { grpScores[gk] = scoreGroup(h, gk, weights, trackCond); });
-        const total = GRP_KEYS.reduce((a, gk) => a + grpScores[gk].total, 0);
-        return { ...h, grpScores, total };
-      }).sort((a, b) => b.total - a.total);
-      const best = scored[0];
-      if (best && best.rawOdds >= 5 && best.rawOdds <= 15) {
-        const allOdds = calculateMatrixOdds(scored);
-        picks.push({ ...best, myOdds: allOdds[0], venue: rc.venue, num: rc.num });
-      }
-    });
-  });
-  picks.sort((a, b) => {
-    const va = a.rawOdds && a.myOdds ? (a.rawOdds - a.myOdds) / a.myOdds : 0;
-    const vb = b.rawOdds && b.myOdds ? (b.rawOdds - b.myOdds) / b.myOdds : 0;
-    return vb - va;
-  });
-  return picks.slice(0, 3);
-}
 
 function ResultPopup({ result, onClose }) {
   const placeStyle = p => {
@@ -197,18 +147,11 @@ function PillCountdown({ time, date }) {
 export default function TodayPage() {
   const router = useRouter();
   const isMobile = useIsMobile();
-  const isPro = useIsPro();
   const [allRaces, setAllRaces] = useState({});
   const [allVenues, setAllVenues] = useState({});
   const [raceKeys, setRaceKeys] = useState([]);
   const [results, setResults] = useState({});
-  const [picksOpen, setPicksOpen] = useState(false);
   const [popup, setPopup] = useState(null);
-  const [dbScratchings, setDbScratchings] = useState(new Set());
-  const [venueTrackConds, setVenueTrackConds] = useState({});
-  const [upgradeOpen, setUpgradeOpen] = useState(false);
-
-  const weights = useMemo(() => getDefaultWeights(), []);
 
   const today = new Date();
   const todayISO = today.toLocaleDateString('sv-SE', { timeZone: 'Australia/Brisbane' });
@@ -258,31 +201,10 @@ export default function TodayPage() {
     }
 
     fetchTodayResults(todayISO).then(setResults);
-    if (SURL && SKEY) {
-      fetch(`${SURL}/rest/v1/scratchings?date=eq.${todayISO}&select=venue,race_num,horse_name`, {
-        headers: { apikey: SKEY, Authorization: `Bearer ${SKEY}` }
-      }).then(r => r.ok ? r.json() : []).then(rows => {
-        const s = new Set();
-        (rows || []).forEach(row => { s.add(`${normaliseVenue(row.venue||'')}||${row.race_num}||${normName(row.horse_name||'')}`); });
-        setDbScratchings(s);
-      }).catch(() => {});
-
-      fetch(`${SURL}/rest/v1/today_meetings?date=eq.${todayISO}&select=venue,track_condition,condition_override`, {
-        headers: { apikey: SKEY, Authorization: `Bearer ${SKEY}` }
-      }).then(r => r.ok ? r.json() : []).then(rows => {
-        const tc = {};
-        (rows || []).forEach(r => {
-          const effectiveCond = r.condition_override || r.track_condition;
-          if (effectiveCond) tc[normaliseVenue(r.venue)] = bucketTrackCond(effectiveCond);
-        });
-        setVenueTrackConds(tc);
-      }).catch(() => {});
-    }
   }, [todayISO]);
 
   const venues = Object.keys(allVenues);
   const hasCSV = raceKeys.length > 0;
-  const picks = useMemo(() => hasCSV ? getTopPicks(allRaces, allVenues, weights, dbScratchings, venueTrackConds) : [], [allRaces, allVenues, weights, hasCSV, dbScratchings, venueTrackConds]);
 
   return (
     <div style={{ display:'flex', flex:1, overflow:'hidden' }}>
@@ -303,77 +225,6 @@ export default function TodayPage() {
           </div>
         ) : (
           <>
-            {/* Top Picks */}
-            {picks.length > 0 && (
-              <div style={{ position:'relative', display: isMobile ? 'flex' : 'inline-flex', flexDirection:'column', marginBottom:16, border:'0.5px solid #e5e7eb', borderRadius:10, overflow:'hidden', background:'#fff', minWidth:260, maxWidth:'100%', width: isMobile ? '100%' : undefined }}>
-                <div
-                  onClick={() => { if (isPro !== true) { setUpgradeOpen(true); } else { setPicksOpen(v => !v); } }}
-                  style={{ display:'flex', alignItems:'center', gap:7, padding:'7px 12px', cursor:'pointer', userSelect:'none' }}
-                >
-                  <span style={{ fontSize:11 }}>🏆</span>
-                  <span style={{ fontSize:13, fontWeight:600, color:'#111827' }}>Today&apos;s top picks</span>
-                  <span style={{ background:'#fbbf24', color:'#78350f', fontSize:9, fontWeight:700, padding:'1px 6px', borderRadius:8 }}>{picks.length}</span>
-                  <i className={`ti ti-chevron-${picksOpen ? 'up' : 'down'}`} style={{ fontSize:13, color:'#9ca3af', transition:'transform .2s', marginLeft:4 }} />
-                </div>
-                {picksOpen && (
-                  <div style={{ borderTop:'0.5px solid #f3f4f6', padding:'10px 14px' }}>
-                    <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(200px, 1fr))', gap:8, filter: isPro === false ? 'blur(4px)' : undefined, pointerEvents: isPro === false ? 'none' : undefined }}>
-                      {picks.map((p, i) => {
-                        const rkBg  = i===0?'#fbbf24':i===1?'#e5e7eb':'#fed7aa';
-                        const rkTxt = i===0?'#78350f':i===1?'#374151':'#92400e';
-                        const resKey = `${normaliseVenue(p.venue)}||${p.num}`;
-                        const res = results[resKey];
-                        const runner = res?.runners.find(r => normName(r.name) === normName(p.name));
-                        return (
-                          <div key={p.name} style={{ background:'#fff', border:'0.5px solid #e5e7eb', borderRadius:8, padding:'8px 10px', display:'flex', alignItems:'center', gap:8 }}>
-                            <span style={{ width:22, height:22, borderRadius:'50%', display:'inline-flex', alignItems:'center', justifyContent:'center', fontSize:10, fontWeight:700, flexShrink:0, background:rkBg, color:rkTxt }}>{i+1}</span>
-                            <div style={{ flex:1, minWidth:0 }}>
-                              <div style={{ fontSize:13, fontWeight:600, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis', color:'#111827' }}>{p.name}</div>
-                              <div style={{ fontSize:10, color:'#9ca3af' }}>{p.venue} R{p.num}</div>
-                            </div>
-                            <div style={{ textAlign:'right', flexShrink:0 }}>
-                              {runner ? (
-                                runner.place === 1 ? (
-                                  <>
-                                    <div style={{ fontSize:9, fontWeight:700, padding:'2px 6px', borderRadius:5, background:'#d1fae5', color:'#065f46', display:'inline-block', textTransform:'uppercase', letterSpacing:'.3px' }}>Won</div>
-                                    {runner.sp > 0 && <div style={{ fontSize:10, color:'#111827', fontFamily:'JetBrains Mono, monospace', marginTop:2 }}>${Number(runner.sp).toFixed(2)}</div>}
-                                  </>
-                                ) : (runner.place === 2 || runner.place === 3) ? (
-                                  <>
-                                    <div style={{ fontSize:9, fontWeight:700, padding:'2px 6px', borderRadius:5, background:'#fef3c7', color:'#92400e', display:'inline-block', textTransform:'uppercase', letterSpacing:'.3px' }}>Placed</div>
-                                    <div style={{ fontSize:10, color:'#9ca3af', marginTop:2 }}>{ordinal(runner.place)}</div>
-                                  </>
-                                ) : (
-                                  <>
-                                    <div style={{ fontSize:9, fontWeight:700, padding:'2px 6px', borderRadius:5, background:'#f3f4f6', color:'#9ca3af', display:'inline-block', textTransform:'uppercase', letterSpacing:'.3px' }}>Lost</div>
-                                    <div style={{ fontSize:10, color:'#9ca3af', marginTop:2 }}>{ordinal(runner.place)}</div>
-                                  </>
-                                )
-                              ) : (
-                                <>
-                                  <div style={{ fontSize:11, fontWeight:600, color:'#059669', fontFamily:'JetBrains Mono, monospace' }}>{p.myOdds ? `$${formatRacingOdds(p.myOdds)}` : '—'}</div>
-                                  <div style={{ fontSize:10, color:'#111827', fontFamily:'JetBrains Mono, monospace' }}>{p.rawOdds ? `$${p.rawOdds.toFixed(2)}` : '—'}</div>
-                                </>
-                              )}
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                    {isPro === false && (
-                      <div style={{ position:'absolute', inset:0, display:'flex', alignItems:'center', justifyContent:'center', background:'rgba(255,255,255,0.6)', backdropFilter:'blur(2px)' }}>
-                        <div style={{ textAlign:'center' }}>
-                          <i className="ti ti-lock" style={{ fontSize:20, color:'#374151', display:'block', marginBottom:6 }} />
-                          <div style={{ fontSize:11, fontWeight:600, color:'#111827', marginBottom:8 }}>Pro feature</div>
-                          <button onClick={() => setUpgradeOpen(true)} style={{ fontSize:10, padding:'5px 14px', background:'#00471b', color:'#fff', border:'none', borderRadius:6, cursor:'pointer', fontWeight:600 }}>Upgrade</button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            )}
-
             {/* Meetings label */}
             <div style={{ fontSize:10, fontWeight:600, color:'#9ca3af', textTransform:'uppercase', letterSpacing:'.5px', marginBottom:8 }}>
               {venues.length} meetings today
@@ -420,7 +271,6 @@ export default function TodayPage() {
       </div>
 
       {popup && <ResultPopup result={popup} onClose={() => setPopup(null)} />}
-      {upgradeOpen && <UpgradeModal onClose={() => setUpgradeOpen(false)} />}
       </main>
     </div>
   );
