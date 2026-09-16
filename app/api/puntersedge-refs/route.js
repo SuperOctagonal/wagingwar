@@ -81,7 +81,19 @@ export async function POST(request) {
     return { key: `${resolvedVenue}||${raceNum}`, venue: resolvedVenue };
   }
 
-  const result = { date: dateISO, races: peRaces.length, matched: 0, unmatched: [], races_no_cards: [], errors: [] };
+  const result = {
+    date: dateISO, races: peRaces.length, matched: 0, unmatched: [], races_no_cards: [],
+    // Mirrors unmatched/races_no_cards above, but for the next-to-go loop
+    // below (the one that actually builds odds_snapshot) -- that loop
+    // previously had a bare `if (!cards) continue` with zero tracking,
+    // which is exactly how the Caulfield Heath venue-mismatch gap (6 of
+    // 8 races silently getting no odds_snapshot rows all day) went
+    // unnoticed. Kept as separate fields rather than merged into the
+    // best-odds arrays above since a race/runner can legitimately show up
+    // in one feed's response and not the other.
+    snapshot_races_no_cards: [], snapshot_unmatched: [],
+    errors: [],
+  };
   const updateRows = [];
 
   for (const race of peRaces) {
@@ -158,11 +170,17 @@ export async function POST(request) {
     if (race.country !== 'AU') continue;
     const { key, venue: resolvedVenue } = resolveRaceKey(normaliseVenue(race.venue), race.race_number);
     const cards = byRace.get(key);
-    if (!cards) continue;
+    if (!cards) {
+      result.snapshot_races_no_cards.push(`${race.venue} R${race.race_number}`);
+      continue;
+    }
     const ourNames = cards.map(c => c.horse_name);
     for (const runner of (race.runners || [])) {
       const matchedName = matchRunnerName(runner.name, ourNames);
-      if (!matchedName) continue;
+      if (!matchedName) {
+        result.snapshot_unmatched.push(`${race.venue} R${race.race_number}: "${runner.name}"`);
+        continue;
+      }
       for (const bm of (runner.bookmakers || [])) {
         if (bm.win_price == null) continue;
         snapshotRows.push({
@@ -194,6 +212,20 @@ export async function POST(request) {
     } catch (err) {
       result.errors.push(`odds_snapshot insert network error: ${err.message}`);
     }
+  }
+
+  // console.warn (not just the JSON response body) so a coverage gap like
+  // the Caulfield Heath venue mismatch shows up in Render logs immediately
+  // -- this route is polled by an external cron, and nothing in this repo
+  // was inspecting result.races_no_cards/unmatched/snapshot_* on a normal
+  // day, which is exactly why that gap ran unnoticed all day.
+  if (result.races_no_cards.length || result.snapshot_races_no_cards.length || result.unmatched.length || result.snapshot_unmatched.length) {
+    console.warn('[puntersedge-refs] dropped races/runners this run:', {
+      races_no_cards: result.races_no_cards,
+      snapshot_races_no_cards: result.snapshot_races_no_cards,
+      unmatched: result.unmatched,
+      snapshot_unmatched: result.snapshot_unmatched,
+    });
   }
 
   return NextResponse.json(result, { status: result.errors.length ? 207 : 200 });
