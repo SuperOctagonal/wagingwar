@@ -2110,6 +2110,21 @@ function RunnerRow({ runner, rank, rc, trackCond, onLogBet, onShowPopup, onHideP
               </div>
             );
           })()}
+          {/* Joc/Trn Combo preview -- admin-only, preview-only, per the
+              same discipline as Cal $/Trust $ above. NOT live for any
+              regular Pro user: the 'jtrat' factor is scoreZero in
+              lib/scoring.js and absent from FACTOR_GROUPS_DEF's 'conn'
+              list, so totalFromGroups/myOdds are completely unaffected --
+              this reads a separate jtPreviewOdds/jtPreviewScore field
+              computed in a parallel pass (app/races/page.js's results
+              useMemo) that never touches res/myOdds itself. Only appears
+              when the runner has enough combined jockey+trainer starts
+              (JOC_TRN_MIN_STARTS) for the factor to score at all. */}
+          {isAdmin && isPro && runner.jtPreviewOdds != null && (
+            <div style={{ fontSize: 8, fontWeight: 700, color: '#b45309', marginTop: 1, whiteSpace: 'normal', wordBreak: 'break-word' }}>
+              J/T: ${formatRacingOdds(runner.jtPreviewOdds)} ({runner.jtPreviewScore > 0 ? '+' : ''}{runner.jtPreviewScore.toFixed(1)})
+            </div>
+          )}
         </td>
       )}
       {/* Price $ */}
@@ -3940,6 +3955,32 @@ function RacesPageInner() {
       res = blendFirstStarterLivePrices(res, firstStarterLiveFlags, marketMoveNameKey, curvePoints);
       const oddsArr = calculateLiveOdds(res, curvePoints);
       res.forEach((r, i) => { r.myOdds = oddsArr[i]; });
+
+      // Admin-only preview: what would this runner's score/price be if the
+      // 'jtrat' (Joc/Trn Combo) factor -- currently scoreZero, so it never
+      // touches totalFromGroups/myOdds above -- were actually scored in?
+      // Computed as a SEPARATE parallel field/rank/price pass, never
+      // mutating res/myOdds itself, so regular Pro users see no change at
+      // all. scoreHorse (not scoreGroup) is used purely to read out
+      // jtrat's own {raw,score} via its scores map -- scoreHorse's own
+      // aggregate `total` is discarded, not reused, since it scores every
+      // FACTORS entry regardless of FACTOR_GROUPS_DEF group membership and
+      // would double-count every other already-included factor.
+      if (isSiteAdminUser) {
+        const previewRes = res.map(r => {
+          const jt = scoreHorse(r, trackCond, weights).scores.jtrat;
+          const jtScore = jt?.score ?? null;
+          return { ...r, totalFromGroups: r.totalFromGroups + (jtScore ?? 0), _jtScore: jtScore };
+        }).sort((a, b) => b.totalFromGroups - a.totalFromGroups);
+        const previewOddsArr = calculateLiveOdds(previewRes, curvePoints);
+        const previewByName = {};
+        previewRes.forEach((r, i) => { previewByName[r.name] = { odds: previewOddsArr[i], jtScore: r._jtScore }; });
+        res.forEach(r => {
+          const p = previewByName[r.name];
+          r.jtPreviewOdds = p?.jtScore != null ? p.odds : null;
+          r.jtPreviewScore = p?.jtScore ?? null;
+        });
+      }
     }
 
     // Best/worst per group for cell highlighting
@@ -3959,7 +4000,7 @@ function RacesPageInner() {
     const allHorsesForDisplay = [...res, ...dbScratchedOnly];
 
     return { results: res, scratched: scr, scratchingsSet: s, allHorsesForDisplay };
-  }, [currentRace, trackCond, weights, scratchedRows, isPro, firstStarterLiveFlags, calibrationCurve]);
+  }, [currentRace, trackCond, weights, scratchedRows, isPro, firstStarterLiveFlags, calibrationCurve, isSiteAdminUser]);
 
   const handleSelectRace = useCallback(key => {
     setSelectedKey(key);
