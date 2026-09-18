@@ -48,11 +48,12 @@ function useIsNarrowWidth() {
   return isNarrow;
 }
 import {
-  scoreHorse, scoreGroup, blendFirstStarterLivePrices, calcPaceMap, pointsForPlace,
+  scoreGroup, blendFirstStarterLivePrices, calcPaceMap, pointsForPlace,
   formatRacingOdds, getDefaultWeights, FACTORS, FACTOR_GROUPS_DEF, GRP_KEYS, GRP_LABELS,
   computeValueEdge,
 } from '@/lib/scoring';
 import { calculateLiveOdds, CALIBRATION_ENABLED } from '@/lib/livePricing';
+import { getConfidenceTier } from '@/lib/confidence';
 import { applyTrustBlend, pickTrustBucket } from '@/lib/trustApply';
 
 // ─── small helpers ────────────────────────────────────────────────────────────
@@ -2083,6 +2084,18 @@ function RunnerRow({ runner, rank, rc, trackCond, onLogBet, onShowPopup, onHideP
       {colVis.edge && (
         <td className={`${td} text-right text-[11px] font-semibold text-emerald-600 tabular-nums whitespace-nowrap`}>
           {!isPro ? <LockBtn onClick={onUpgrade} /> : (myO ? `$${formatRacingOdds(myO)}` : '—')}
+          {/* Confidence label -- real, live for all Pro users (not a preview).
+              Only rendered for the 'limited' tier: a well-tested runner shows
+              nothing extra, keeping the already-dense Field tab uncluttered,
+              and putting the signal only where it changes how much to trust
+              the number. See lib/confidence.js for the criteria (first
+              starter, first-starter-in-a-sprint, or a calibration-curve price
+              bucket too thin to trust). */}
+          {isPro && myO && getConfidenceTier({ starts: runner.starts, dist: rc?.dist, calPrice: myO, oosMetrics: calibrationCurve?.oos_metrics }) === 'limited' && (
+            <div style={{ fontSize: 8, fontWeight: 700, color: '#b91c1c', marginTop: 1, whiteSpace: 'normal', wordBreak: 'break-word' }}>
+              ⚠ Limited data
+            </div>
+          )}
           {/* Phase 3 Trust Engine preview -- admin-only, preview-only, no
               new blend is live for regular users. Shown alongside (not
               replacing) WW$ -- see lib/trustApply.js. Only appears for
@@ -2110,21 +2123,11 @@ function RunnerRow({ runner, rank, rc, trackCond, onLogBet, onShowPopup, onHideP
               </div>
             );
           })()}
-          {/* Joc/Trn Combo preview -- admin-only, preview-only, per the
-              same discipline as Cal $/Trust $ above. NOT live for any
-              regular Pro user: the 'jtrat' factor is scoreZero in
-              lib/scoring.js and absent from FACTOR_GROUPS_DEF's 'conn'
-              list, so totalFromGroups/myOdds are completely unaffected --
-              this reads a separate jtPreviewOdds/jtPreviewScore field
-              computed in a parallel pass (app/races/page.js's results
-              useMemo) that never touches res/myOdds itself. Only appears
-              when the runner has enough combined jockey+trainer starts
-              (JOC_TRN_MIN_STARTS) for the factor to score at all. */}
-          {isAdmin && isPro && runner.jtPreviewOdds != null && (
-            <div style={{ fontSize: 8, fontWeight: 700, color: '#b45309', marginTop: 1, whiteSpace: 'normal', wordBreak: 'break-word' }}>
-              J/T: ${formatRacingOdds(runner.jtPreviewOdds)} ({runner.jtPreviewScore > 0 ? '+' : ''}{runner.jtPreviewScore.toFixed(1)})
-            </div>
-          )}
+          {/* Joc/Trn Combo ('jtrat') shipped live 2026-09-18 -- it's just
+              part of totalFromGroups/myOdds above now, like every other
+              Connections factor, so the separate "J/T: $X.XX" preview line
+              this used to be (admin-only, 2809622) is retired: there's no
+              second number to show alongside WW $ any more. */}
         </td>
       )}
       {/* Price $ */}
@@ -2983,6 +2986,19 @@ function ValueEdgeBadge({ pct }) {
   );
 }
 
+// Only rendered for the 'limited' tier -- a well-tested bet shows nothing
+// extra next to its Edge badge, same "only flag what changes how much to
+// trust the number" principle as the Field tab's version of this label.
+// See lib/confidence.js for what 'limited' means.
+function ConfidenceBadge({ tier }) {
+  if (tier !== 'limited') return null;
+  return (
+    <span title="First starter, a first-starter-in-a-sprint, or this price range has too little validation history yet -- treat this edge with extra caution." style={{ display: 'inline-flex', alignItems: 'center', gap: 2, color: '#b91c1c', background: '#fee2e2', fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 3, letterSpacing: '0.2px', whiteSpace: 'nowrap', marginTop: 2 }}>
+      ⚠ Limited data
+    </span>
+  );
+}
+
 // Same shell/filter pattern as MoversView -- reused deliberately rather than
 // a parallel implementation. Reuses TIME_WINDOW_OPTIONS/parsePostTime (both
 // module-level above, defined for Movers) since the Time-window filter is
@@ -3171,7 +3187,10 @@ function ValueBetsView({ isPro, onUpgrade, isAdmin }) {
                       <td style={{ padding: '5px 8px', textAlign: 'right', fontFamily: 'monospace', color: '#059669', fontWeight: 600, whiteSpace: 'nowrap' }}>{b.wwPrice != null ? `$${Number(b.wwPrice).toFixed(2)}` : '—'}</td>
                       <td style={{ padding: '5px 8px', textAlign: 'right', fontFamily: 'monospace', color: '#111827', whiteSpace: 'nowrap' }}>{b.marketPrice != null ? `$${Number(b.marketPrice).toFixed(2)}` : '—'}</td>
                       <td style={{ padding: '5px 8px', textAlign: 'right', whiteSpace: 'nowrap' }}>
-                        <ValueEdgeBadge pct={b.pct} />
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 1 }}>
+                          <ValueEdgeBadge pct={b.pct} />
+                          <ConfidenceBadge tier={b.confidence} />
+                        </div>
                       </td>
                       <td style={{ padding: '5px 8px', color: b.finishPos === 1 ? '#059669' : '#374151', fontWeight: b.finishPos === 1 ? 700 : 400, whiteSpace: 'nowrap' }}>{b.finishPos != null ? ordinal(b.finishPos) : '—'}</td>
                       <td style={{ padding: '5px 8px', color: '#374151', whiteSpace: 'nowrap' }}>{b.margin || '—'}</td>
@@ -3951,36 +3970,16 @@ function RacesPageInner() {
       // blend itself now weighs the live price against the CALIBRATED
       // model price (curvePoints passed through), not the pre-
       // calibration one.
+      // 'jtrat' (Joc/Trn Combo) is shipped live as of 2026-09-18 -- it's
+      // just another Connections-group factor scoreGroup already includes
+      // in totalFromGroups above, same as jocrat/trnrat. No separate preview
+      // pass needed any more (was admin-only via a parallel computation,
+      // 2809622, until validated for shipping) -- same retirement pattern
+      // as Phase 2's Cal $ preview once calibration itself went live.
       const curvePoints = CALIBRATION_ENABLED ? calibrationCurve?.curve_points : null;
       res = blendFirstStarterLivePrices(res, firstStarterLiveFlags, marketMoveNameKey, curvePoints);
       const oddsArr = calculateLiveOdds(res, curvePoints);
       res.forEach((r, i) => { r.myOdds = oddsArr[i]; });
-
-      // Admin-only preview: what would this runner's score/price be if the
-      // 'jtrat' (Joc/Trn Combo) factor -- currently scoreZero, so it never
-      // touches totalFromGroups/myOdds above -- were actually scored in?
-      // Computed as a SEPARATE parallel field/rank/price pass, never
-      // mutating res/myOdds itself, so regular Pro users see no change at
-      // all. scoreHorse (not scoreGroup) is used purely to read out
-      // jtrat's own {raw,score} via its scores map -- scoreHorse's own
-      // aggregate `total` is discarded, not reused, since it scores every
-      // FACTORS entry regardless of FACTOR_GROUPS_DEF group membership and
-      // would double-count every other already-included factor.
-      if (isSiteAdminUser) {
-        const previewRes = res.map(r => {
-          const jt = scoreHorse(r, trackCond, weights).scores.jtrat;
-          const jtScore = jt?.score ?? null;
-          return { ...r, totalFromGroups: r.totalFromGroups + (jtScore ?? 0), _jtScore: jtScore };
-        }).sort((a, b) => b.totalFromGroups - a.totalFromGroups);
-        const previewOddsArr = calculateLiveOdds(previewRes, curvePoints);
-        const previewByName = {};
-        previewRes.forEach((r, i) => { previewByName[r.name] = { odds: previewOddsArr[i], jtScore: r._jtScore }; });
-        res.forEach(r => {
-          const p = previewByName[r.name];
-          r.jtPreviewOdds = p?.jtScore != null ? p.odds : null;
-          r.jtPreviewScore = p?.jtScore ?? null;
-        });
-      }
     }
 
     // Best/worst per group for cell highlighting
