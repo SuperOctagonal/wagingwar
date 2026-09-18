@@ -1795,7 +1795,7 @@ function MobileRacePicker({ allVenues, allRaces, selectedRaceKey, onSelect }) {
 
 // ─── mobile runner card ───────────────────────────────────────────────────────
 
-function MobileRunnerCard({ runner, rank, rc, trackCond, onLogBet, isResulted, betBlocked = false, isPro, onUpgrade, isDbScratched, layers, isAdmin = false, livePrices = {}, marketMoves = {} }) {
+function MobileRunnerCard({ runner, rank, rc, trackCond, onLogBet, isResulted, betBlocked = false, isPro, onUpgrade, isDbScratched, layers, isAdmin = false, livePrices = {}, marketMoves = {}, calibrationCurve = null }) {
   const mktO = runner.rawOdds;
   const myO  = runner.myOdds;
   const wt   = runner['Weight'] ? `${runner['Weight']}kg` : '';
@@ -1807,6 +1807,16 @@ function MobileRunnerCard({ runner, rank, rc, trackCond, onLogBet, isResulted, b
   const displayPrice = liveP ?? mktO;
   const isLivePrice = liveP != null;
   const runnerMove = isAdmin ? marketMoves[marketMoveNameKey(runner.name)]?.move : undefined;
+  // Confidence label -- had never been wired into the mobile/narrow card at
+  // all (only the desktop RunnerRow table got it originally). Found while
+  // investigating the DRAGON PORT report (2026-09-18): unrelated to that
+  // specific bug (BABY CAN CAN's badge working there confirms the desktop
+  // path/calibrationCurve wiring was fine -- the deployed build was simply
+  // behind the extreme-edge-trigger commit), but a genuine separate gap
+  // fixed here for parity with the desktop view.
+  const confidenceTier = isPro && myO
+    ? getConfidenceTier({ starts: runner.starts, dist: rc?.dist, calPrice: myO, oosMetrics: calibrationCurve?.oos_metrics, marketPrice: displayPrice })
+    : null;
 
   let valStr = '—', valColor = '#374151';
   if (displayPrice && myO) {
@@ -1849,6 +1859,9 @@ function MobileRunnerCard({ runner, rank, rc, trackCond, onLogBet, isResulted, b
         </div>
         <div style={{ flexShrink: 0, width: 34, textAlign: 'right', fontSize: 11, fontWeight: 600, color: '#059669' }}>
           {isDbScratched ? '—' : !isPro ? <LockBtn onClick={onUpgrade} /> : (myO ? `$${formatRacingOdds(myO)}` : '—')}
+          {confidenceTier === 'limited' && (
+            <div style={{ fontSize: 6, fontWeight: 700, color: '#b91c1c', letterSpacing: '0.2px' }}>⚠ LTD</div>
+          )}
         </div>
         <div style={{ flexShrink: 0, width: 42, textAlign: 'right', fontSize: 12, fontWeight: 600, color: '#111827' }}>
           {displayPrice ? `$${displayPrice.toFixed(2)}` : '—'}
@@ -2300,7 +2313,7 @@ function FieldView({ results, scratched, rc, trackCond, onLogBet, onShowPopup, o
         <div className="mob-page" style={{ flex: 1, minHeight: 0, overflowY: 'auto', overflowX: 'hidden' }}>
           {mobDisplayResults.map(r => (
             <MobileRunnerCard key={r.tab || r.name} runner={r} rank={mobRankMap.get(r.tab || r.name)} rc={rc} trackCond={trackCond}
-              onLogBet={onLogBet} isResulted={isResulted} betBlocked={betBlocked} isPro={isPro} onUpgrade={onUpgrade} layers={layers} isAdmin={isAdmin} livePrices={livePrices} marketMoves={marketMoves} />
+              onLogBet={onLogBet} isResulted={isResulted} betBlocked={betBlocked} isPro={isPro} onUpgrade={onUpgrade} layers={layers} isAdmin={isAdmin} livePrices={livePrices} marketMoves={marketMoves} calibrationCurve={calibrationCurve} />
           ))}
           {dbScratched.map(r => (
             <MobileRunnerCard key={r.tab || r.name} runner={r} rank={null} rc={rc} trackCond={trackCond}
