@@ -2089,9 +2089,12 @@ function RunnerRow({ runner, rank, rc, trackCond, onLogBet, onShowPopup, onHideP
               nothing extra, keeping the already-dense Field tab uncluttered,
               and putting the signal only where it changes how much to trust
               the number. See lib/confidence.js for the criteria (first
-              starter, first-starter-in-a-sprint, or a calibration-curve price
-              bucket too thin to trust). */}
-          {isPro && myO && getConfidenceTier({ starts: runner.starts, dist: rc?.dist, calPrice: myO, oosMetrics: calibrationCurve?.oos_metrics }) === 'limited' && (
+              starter, first-starter-in-a-sprint, a calibration-curve price
+              bucket too thin to trust, or an extreme market-vs-model
+              disagreement -- the last one added after DRAGON PORT, an
+              experienced-enough runner in a well-sampled price bucket that
+              still landed nearly 6x off the market). */}
+          {isPro && myO && getConfidenceTier({ starts: runner.starts, dist: rc?.dist, calPrice: myO, oosMetrics: calibrationCurve?.oos_metrics, marketPrice: displayPrice }) === 'limited' && (
             <div style={{ fontSize: 8, fontWeight: 700, color: '#b91c1c', marginTop: 1, whiteSpace: 'normal', wordBreak: 'break-word' }}>
               ⚠ Limited data
             </div>
