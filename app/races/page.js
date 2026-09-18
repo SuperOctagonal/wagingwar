@@ -53,7 +53,7 @@ import {
   computeValueEdge,
 } from '@/lib/scoring';
 import { calculateLiveOdds, CALIBRATION_ENABLED } from '@/lib/livePricing';
-import { getConfidenceTier } from '@/lib/confidence';
+import { getConfidenceFlags } from '@/lib/confidence';
 import { applyTrustBlend, pickTrustBucket } from '@/lib/trustApply';
 
 // ─── small helpers ────────────────────────────────────────────────────────────
@@ -1814,8 +1814,8 @@ function MobileRunnerCard({ runner, rank, rc, trackCond, onLogBet, isResulted, b
   // path/calibrationCurve wiring was fine -- the deployed build was simply
   // behind the extreme-edge-trigger commit), but a genuine separate gap
   // fixed here for parity with the desktop view.
-  const confidenceTier = isPro && myO
-    ? getConfidenceTier({ starts: runner.starts, dist: rc?.dist, calPrice: myO, oosMetrics: calibrationCurve?.oos_metrics, marketPrice: displayPrice })
+  const confidenceFlags = isPro && myO
+    ? getConfidenceFlags({ starts: runner.starts, dist: rc?.dist, calPrice: myO, oosMetrics: calibrationCurve?.oos_metrics, marketPrice: displayPrice })
     : null;
 
   let valStr = '—', valColor = '#374151';
@@ -1859,8 +1859,14 @@ function MobileRunnerCard({ runner, rank, rc, trackCond, onLogBet, isResulted, b
         </div>
         <div style={{ flexShrink: 0, width: 34, textAlign: 'right', fontSize: 11, fontWeight: 600, color: '#059669' }}>
           {isDbScratched ? '—' : !isPro ? <LockBtn onClick={onUpgrade} /> : (myO ? `$${formatRacingOdds(myO)}` : '—')}
-          {confidenceTier === 'limited' && (
+          {/* Two independent, distinctly-labelled flags -- NOT the same
+              "Limited data" text for both, since they mean different things
+              (see lib/confidence.js). Both shown, stacked, if both trip. */}
+          {confidenceFlags?.thinData && (
             <div style={{ fontSize: 6, fontWeight: 700, color: '#b91c1c', letterSpacing: '0.2px' }}>⚠ LTD</div>
+          )}
+          {confidenceFlags?.disagreement && (
+            <div style={{ fontSize: 6, fontWeight: 700, color: '#9a3412', letterSpacing: '0.2px' }}>⚠ GAP</div>
           )}
         </div>
         <div style={{ flexShrink: 0, width: 42, textAlign: 'right', fontSize: 12, fontWeight: 600, color: '#111827' }}>
@@ -2097,21 +2103,36 @@ function RunnerRow({ runner, rank, rc, trackCond, onLogBet, onShowPopup, onHideP
       {colVis.edge && (
         <td className={`${td} text-right text-[11px] font-semibold text-emerald-600 tabular-nums whitespace-nowrap`}>
           {!isPro ? <LockBtn onClick={onUpgrade} /> : (myO ? `$${formatRacingOdds(myO)}` : '—')}
-          {/* Confidence label -- real, live for all Pro users (not a preview).
-              Only rendered for the 'limited' tier: a well-tested runner shows
-              nothing extra, keeping the already-dense Field tab uncluttered,
-              and putting the signal only where it changes how much to trust
-              the number. See lib/confidence.js for the criteria (first
-              starter, first-starter-in-a-sprint, a calibration-curve price
-              bucket too thin to trust, or an extreme market-vs-model
-              disagreement -- the last one added after DRAGON PORT, an
-              experienced-enough runner in a well-sampled price bucket that
-              still landed nearly 6x off the market). */}
-          {isPro && myO && getConfidenceTier({ starts: runner.starts, dist: rc?.dist, calPrice: myO, oosMetrics: calibrationCurve?.oos_metrics, marketPrice: displayPrice }) === 'limited' && (
-            <div style={{ fontSize: 8, fontWeight: 700, color: '#b91c1c', marginTop: 1, whiteSpace: 'normal', wordBreak: 'break-word' }}>
-              ⚠ Limited data
-            </div>
-          )}
+          {/* Confidence labels -- real, live for all Pro users (not a
+              preview). A well-tested runner shows nothing extra, keeping
+              the already-dense Field tab uncluttered. Two INDEPENDENT,
+              distinctly-worded flags (see lib/confidence.js): "Limited
+              data" for genuine thin-data cases (first starter, first-
+              starter-in-a-sprint, a calibration-curve price bucket too
+              thin to trust) vs. "Large disagreement" for an extreme
+              market-vs-model gap on an otherwise well-tested runner --
+              these mean different things (DAWN ON ME/FINE VINTAGE, both
+              40+ starts, previously got mislabelled "Limited data" for
+              tripping only the disagreement trigger) and are never merged
+              into one label. Both render, stacked, if a runner trips both
+              at once -- never silently drop one in favour of the other. */}
+          {isPro && myO && (() => {
+            const flags = getConfidenceFlags({ starts: runner.starts, dist: rc?.dist, calPrice: myO, oosMetrics: calibrationCurve?.oos_metrics, marketPrice: displayPrice });
+            return (
+              <>
+                {flags.thinData && (
+                  <div style={{ fontSize: 8, fontWeight: 700, color: '#b91c1c', marginTop: 1, whiteSpace: 'normal', wordBreak: 'break-word' }}>
+                    ⚠ Limited data
+                  </div>
+                )}
+                {flags.disagreement && (
+                  <div style={{ fontSize: 8, fontWeight: 700, color: '#9a3412', marginTop: 1, whiteSpace: 'normal', wordBreak: 'break-word' }}>
+                    ⚠ Large disagreement
+                  </div>
+                )}
+              </>
+            );
+          })()}
           {/* Phase 3 Trust Engine preview -- admin-only, preview-only, no
               new blend is live for regular users. Shown alongside (not
               replacing) WW$ -- see lib/trustApply.js. Only appears for
@@ -3002,16 +3023,29 @@ function ValueEdgeBadge({ pct }) {
   );
 }
 
-// Only rendered for the 'limited' tier -- a well-tested bet shows nothing
-// extra next to its Edge badge, same "only flag what changes how much to
-// trust the number" principle as the Field tab's version of this label.
-// See lib/confidence.js for what 'limited' means.
-function ConfidenceBadge({ tier }) {
-  if (tier !== 'limited') return null;
+// Two independent flags (see lib/confidence.js), each rendered only when
+// true -- a well-tested, low-disagreement bet shows nothing extra next to
+// its Edge badge. "Limited data" (genuine thin-data cases) and "Large
+// disagreement" (an extreme model-vs-market gap on an otherwise well-
+// tested runner) mean different things and are never merged into one
+// label -- a 40+-start horse tripping only the disagreement flag must
+// never read as "we don't know much about this horse." Both render if a
+// bet trips both flags at once.
+function ConfidenceBadge({ flags }) {
+  if (!flags?.thinData && !flags?.disagreement) return null;
   return (
-    <span title="First starter, a first-starter-in-a-sprint, or this price range has too little validation history yet -- treat this edge with extra caution." style={{ display: 'inline-flex', alignItems: 'center', gap: 2, color: '#b91c1c', background: '#fee2e2', fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 3, letterSpacing: '0.2px', whiteSpace: 'nowrap', marginTop: 2 }}>
-      ⚠ Limited data
-    </span>
+    <>
+      {flags.thinData && (
+        <span title="First starter, a first-starter-in-a-sprint, or this price range has too little validation history yet -- treat this edge with extra caution." style={{ display: 'inline-flex', alignItems: 'center', gap: 2, color: '#b91c1c', background: '#fee2e2', fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 3, letterSpacing: '0.2px', whiteSpace: 'nowrap', marginTop: 2 }}>
+          ⚠ Limited data
+        </span>
+      )}
+      {flags.disagreement && (
+        <span title="The model and market strongly disagree on this runner's price -- this isn't about thin data, it's a large gap worth extra scrutiny either way." style={{ display: 'inline-flex', alignItems: 'center', gap: 2, color: '#9a3412', background: '#ffedd5', fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 3, letterSpacing: '0.2px', whiteSpace: 'nowrap', marginTop: 2 }}>
+          ⚠ Large disagreement
+        </span>
+      )}
+    </>
   );
 }
 
@@ -3205,7 +3239,7 @@ function ValueBetsView({ isPro, onUpgrade, isAdmin }) {
                       <td style={{ padding: '5px 8px', textAlign: 'right', whiteSpace: 'nowrap' }}>
                         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 1 }}>
                           <ValueEdgeBadge pct={b.pct} />
-                          <ConfidenceBadge tier={b.confidence} />
+                          <ConfidenceBadge flags={b.confidence} />
                         </div>
                       </td>
                       <td style={{ padding: '5px 8px', color: b.finishPos === 1 ? '#059669' : '#374151', fontWeight: b.finishPos === 1 ? 700 : 400, whiteSpace: 'nowrap' }}>{b.finishPos != null ? ordinal(b.finishPos) : '—'}</td>
