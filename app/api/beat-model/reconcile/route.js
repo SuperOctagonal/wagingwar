@@ -53,11 +53,17 @@ async function backfillChallenge(compDate) {
 // today's date) with a real job a scheduler can call for any date, not
 // just the one the browser happens to be open on.
 export async function POST(request) {
-  if (SECRET) {
-    const incoming = request.headers.get('x-import-secret');
-    if (incoming !== SECRET) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+  // Auth -- fails closed, same fix as import-csv/route.js (0dfeadf): an
+  // unset/empty IMPORT_CSV_SECRET is a server misconfiguration, not an
+  // excuse to skip the check. The previous `if (SECRET)` silently
+  // accepted every unauthenticated request whenever the env var was
+  // missing, since the whole auth block was skipped.
+  if (!SECRET) {
+    return NextResponse.json({ error: 'Server misconfigured: IMPORT_CSV_SECRET not set' }, { status: 500 });
+  }
+  const incoming = request.headers.get('x-import-secret');
+  if (incoming !== SECRET) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
   if (!SURL || !SKEY) {
     return NextResponse.json({ error: 'Supabase env vars not set' }, { status: 500 });
