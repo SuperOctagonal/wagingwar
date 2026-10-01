@@ -54,7 +54,6 @@ import {
 } from '@/lib/scoring';
 import { calculateLiveOdds, CALIBRATION_ENABLED } from '@/lib/livePricing';
 import { getConfidenceFlags } from '@/lib/confidence';
-import { applyTrustBlend, pickTrustBucket } from '@/lib/trustApply';
 
 // ─── small helpers ────────────────────────────────────────────────────────────
 
@@ -2014,10 +2013,6 @@ function RunnerRow({ runner, rank, rc, trackCond, onLogBet, onShowPopup, onHideP
   const liveP = isAdmin ? livePrices[stripCountry(runner.name).toUpperCase()] : undefined;
   const displayPrice = liveP ?? mktO;
   const runnerMove = isAdmin ? marketMoves[marketMoveNameKey(runner.name)]?.move : undefined;
-  // Phase 3 Trust Engine preview only -- the current best live price for
-  // this runner, same source (marketMoves, already fetched admin-only)
-  // every other live-price display on this page already reads from.
-  const runnerMarketPrice = isAdmin ? marketMoves[marketMoveNameKey(runner.name)]?.current : undefined;
   const isLivePrice = liveP != null;
   const pm   = calcPaceMap(runner, rc.venue, +rc.dist, trackCond);
   const crsLabel = (() => { const c = runner.courseStarts||0; return c===0?'NEW':c===1?'1x':c<=4?`${c}x`:'VET'; })();
@@ -2106,61 +2101,41 @@ function RunnerRow({ runner, rank, rc, trackCond, onLogBet, onShowPopup, onHideP
           {!isPro ? <LockBtn onClick={onUpgrade} /> : (myO ? `$${formatRacingOdds(myO)}` : '—')}
           {/* Confidence labels -- real, live for all Pro users (not a
               preview). A well-tested runner shows nothing extra, keeping
-              the already-dense Field tab uncluttered. Two INDEPENDENT,
-              distinctly-worded flags (see lib/confidence.js): "Limited
-              data" for genuine thin-data cases (first starter, first-
-              starter-in-a-sprint, a calibration-curve price bucket too
-              thin to trust) vs. "Large disagreement" for an extreme
-              market-vs-model gap on an otherwise well-tested runner --
-              these mean different things (DAWN ON ME/FINE VINTAGE, both
-              40+ starts, previously got mislabelled "Limited data" for
-              tripping only the disagreement trigger) and are never merged
+              the already-dense Field tab uncluttered. Two INDEPENDENT
+              flags (see lib/confidence.js): thinData (genuine thin-data
+              cases -- first starter, first-starter-in-a-sprint, a
+              calibration-curve price bucket too thin to trust) vs.
+              disagreement (an extreme market-vs-model gap on an otherwise
+              well-tested runner, e.g. DAWN ON ME/FINE VINTAGE, both 40+
+              starts) -- these mean different things and are never merged
               into one label. Both render, stacked, if a runner trips both
-              at once -- never silently drop one in favour of the other. */}
+              at once -- never silently drop one in favour of the other.
+              Compact "LTD"/"GAP" badge style swapped in 2026-10-01 (was
+              full "Limited data"/"Large disagreement" sentences) --
+              now that this column is public-facing, the verbose text was
+              making the WW $ cell too tall and misshaping the table row.
+              Reuses MobileRunnerCard's exact compact-badge markup so the
+              two surfaces stay visually consistent; only the label/style
+              changed here, not the underlying flags or thresholds. */}
           {isPro && myO && (() => {
             const flags = getConfidenceFlags({ starts: runner.starts, dist: rc?.dist, calPrice: myO, oosMetrics: calibrationCurve?.oos_metrics, marketPrice: displayPrice });
             return (
               <>
                 {flags.thinData && (
-                  <div style={{ fontSize: 8, fontWeight: 700, color: '#b91c1c', marginTop: 1, whiteSpace: 'normal', wordBreak: 'break-word' }}>
-                    ⚠ Limited data
-                  </div>
+                  <div style={{ fontSize: 6, fontWeight: 700, color: '#b91c1c', letterSpacing: '0.2px' }}>⚠ LTD</div>
                 )}
                 {flags.disagreement && (
-                  <div style={{ fontSize: 8, fontWeight: 700, color: '#9a3412', marginTop: 1, whiteSpace: 'normal', wordBreak: 'break-word' }}>
-                    ⚠ Large disagreement
-                  </div>
+                  <div style={{ fontSize: 6, fontWeight: 700, color: '#9a3412', letterSpacing: '0.2px' }}>⚠ GAP</div>
                 )}
               </>
             );
           })()}
-          {/* Phase 3 Trust Engine preview -- admin-only, preview-only, no
-              new blend is live for regular users. Shown alongside (not
-              replacing) WW$ -- see lib/trustApply.js. Only appears for
-              buckets with a currently-active learned ratio (first
-              starters aren't viable yet, so they correctly show nothing
-              extra here -- their existing 80/20 live blend is unaffected
-              either way, this preview is purely additive display).
-              myO is already the calibrated price (Phase 2 shipped,
-              9e9c70c-era "Cal $" preview removed -- there's no separate
-              number to show alongside it anymore), so it's used directly
-              here rather than re-applying calibration a second time. */}
-          {isAdmin && isPro && myO && runnerMarketPrice && trustBuckets?.length && (() => {
-            const bucket = pickTrustBucket(trustBuckets, { starts: Number(runner.starts), price: myO });
-            if (!bucket) return null;
-            const trustPrice = applyTrustBlend(myO, runnerMarketPrice, bucket.learned_live_weight);
-            return (
-              // Overrides the WW $ <td>'s inherited whitespace-nowrap --
-              // without this, "Trust: $X.XX" (wider than the "$X.XX" line
-              // above it) doesn't wrap and visually bleeds rightward past
-              // the WW $ column's edge, painting over the adjacent Price $
-              // cell even though it's correctly nested in the WW $ <td>'s
-              // DOM position.
-              <div style={{ fontSize: 8, fontWeight: 700, color: '#0891b2', marginTop: 1, whiteSpace: 'normal', wordBreak: 'break-word' }}>
-                Trust: ${formatRacingOdds(trustPrice)}
-              </div>
-            );
-          })()}
+          {/* Phase 3 Trust Engine preview removed from display 2026-10-01 --
+              Adam decided it's never shipping as a real feature. The
+              underlying trustBuckets fetch (admin-only gate untouched,
+              see RacesPageInner), lib/trustApply.js, and lib/trustBlend.js
+              are all left completely alone -- this is a display-only
+              removal, not a teardown of the Trust Engine's data layer. */}
           {/* Joc/Trn Combo ('jtrat') shipped live 2026-09-18 -- it's just
               part of totalFromGroups/myOdds above now, like every other
               Connections factor, so the separate "J/T: $X.XX" preview line
