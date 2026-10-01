@@ -5,6 +5,7 @@ import TopNav from '@/components/TopNav';
 import FooterChrome from '@/components/FooterChrome';
 import CookieBanner from '@/components/CookieBanner';
 import MobileChromeVars from '@/components/MobileChromeVars';
+import RadioPlayer from '@/components/RadioPlayer';
 import './globals.css';
 
 const spaceGrotesk = Space_Grotesk({ subsets:['latin'], variable:'--font-space-grotesk', weight:['400','500','600','700'], display:'swap' });
@@ -72,6 +73,9 @@ export default function RootLayout({ children }) {
           {/* Responsible gambling banner + footer — desktop/mobile variant chosen by useIsMobile */}
           <FooterChrome />
           <CookieBanner />
+          {/* Live racing radio (RSN 927) — global, collapsible, visible to
+              everyone (not Pro-gated). See components/RadioPlayer.js. */}
+          <RadioPlayer />
           <Script
             src="https://www.googletagmanager.com/gtag/js?id=G-65VN0H3ECY"
             strategy="afterInteractive"
