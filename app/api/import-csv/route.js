@@ -15,12 +15,16 @@ function toISO(d) {
 }
 
 export async function POST(request) {
-  // Auth
-  if (SECRET) {
-    const incoming = request.headers.get('x-import-secret');
-    if (incoming !== SECRET) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+  // Auth -- fails closed: an unset/empty IMPORT_CSV_SECRET is a server
+  // misconfiguration, not an excuse to skip the check. Previously `if
+  // (SECRET)` silently accepted every unauthenticated request whenever
+  // the env var was missing, since the whole auth block was skipped.
+  if (!SECRET) {
+    return NextResponse.json({ error: 'Server misconfigured: IMPORT_CSV_SECRET not set' }, { status: 500 });
+  }
+  const incoming = request.headers.get('x-import-secret');
+  if (incoming !== SECRET) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
   if (!SURL || !SKEY) {

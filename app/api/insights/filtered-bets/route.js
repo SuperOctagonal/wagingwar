@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 import { normaliseVenue } from '@/lib/venues';
 import { ODDS_BANDS as ODDS_BANDS_LIST } from '@/lib/oddsBucket';
+import { fetchAllRows } from '@/lib/fetchAllRows';
 
 const SURL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SKEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -76,17 +77,23 @@ export async function GET(req) {
     const rrParams = ['select=date,venue,race_num'];
     if (distance)  rrParams.push(`dist=eq.${encodeURIComponent(distance)}`);
     if (raceClass) rrParams.push(`class=eq.${encodeURIComponent(raceClass)}`);
-    const rrRes = await fetch(`${SURL}/rest/v1/race_results?${rrParams.join('&')}&limit=10000`, { headers });
-    const rrRows = rrRes.ok ? await rrRes.json() : [];
+    // fetchAllRows, not a hardcoded limit=10000 -- PostgREST silently clamps
+    // to its own row cap regardless of a larger requested limit, so a fixed
+    // limit here is no real protection once race_results grows past it.
+    const rrRes = await fetchAllRows(`${SURL}/rest/v1/race_results?${rrParams.join('&')}`, headers);
+    const rrRows = rrRes.ok ? rrRes.rows : [];
     allowedRaceKeys = new Set(rrRows.map(r => `${r.date}||${normaliseVenue(r.venue || '')}||${r.race_num}`));
   }
 
-  const r = await fetch(`${SURL}/rest/v1/bet_log?${params.join('&')}&order=date.asc,created_at.asc`, { headers });
+  // fetchAllRows, not a plain fetch() -- scoped per-user (clerk_id=eq.) so
+  // lower risk than the race_results lookup above, but same truncation
+  // class once a single user's bet_log exceeds the row cap.
+  const r = await fetchAllRows(`${SURL}/rest/v1/bet_log?${params.join('&')}&order=date.asc,created_at.asc`, headers);
   if (!r.ok) {
-    console.error('[insights/filtered-bets] Supabase error:', r.status, await r.text());
+    console.error('[insights/filtered-bets] Supabase error:', r.status, r.text);
     return NextResponse.json({ error: `Supabase ${r.status}` }, { status: 502 });
   }
-  let rows = await r.json();
+  let rows = r.rows;
 
   if (venue) {
     rows = rows.filter(b => normaliseVenue(b.venue || b.track || '') === venue);

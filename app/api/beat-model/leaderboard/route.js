@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { auth, clerkClient } from '@clerk/nextjs/server';
 import { computeBtmStreak } from '@/lib/beatModel';
+import { fetchAllRows } from '@/lib/fetchAllRows';
 
 const SURL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SKEY = process.env.SUPABASE_SERVICE_KEY;
@@ -27,12 +28,17 @@ export async function GET() {
   }
 
   try {
-    const r = await fetch(
+    // fetchAllRows, not a plain fetch() -- this is a global, all-time
+    // leaderboard over every resolved pick, which PostgREST's default
+    // row cap (commonly 1000) would otherwise silently truncate, dropping
+    // picks and miscalculating streaks/hit rates for affected users once
+    // btm_picks grows past that ceiling.
+    const r = await fetchAllRows(
       `${SURL}/rest/v1/btm_picks?resolved=eq.true&select=clerk_id,comp_date,resolved,won&order=comp_date.desc`,
-      { headers: { apikey: SKEY, Authorization: `Bearer ${SKEY}` } },
+      { apikey: SKEY, Authorization: `Bearer ${SKEY}` },
     );
-    if (!r.ok) throw new Error(`Supabase ${r.status}: ${await r.text().catch(() => '')}`);
-    const rows = await r.json();
+    if (!r.ok) throw new Error(`Supabase ${r.status}: ${r.text || ''}`);
+    const rows = r.rows;
 
     const byUser = new Map();
     for (const row of rows) {
