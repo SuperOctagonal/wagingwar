@@ -631,9 +631,10 @@ const VIEW_TABS = [
   { id: 'sectionals', label: 'Sectionals', icon: 'ti-chart-line', locked: true },
 ];
 
-// Admin-only (PuntersEdge licensing, see the /odds lockdown) -- appended to
-// VIEW_TABS only when isSiteAdminUser is true, never shown locked/greyed-out
-// to non-admins.
+// Open to everyone as of 2026-10-01 (PuntersEdge moved to a Plus plan,
+// 140k credits/month, 200 req/min -- licensing no longer requires gating
+// this behind admin). Always appended to VIEW_TABS now; see the git
+// history for the admin-only version this replaced.
 const ODDS_TAB = { id: 'odds', label: 'Odds', icon: 'ti-coin' };
 
 function ViewTabBar({ view, setView, runnerCount, isPast, tabs = VIEW_TABS }) {
@@ -2950,6 +2951,12 @@ function MoversView({ isPro, onUpgrade, isAdmin }) {
             : <>{resultedStat.wins} of {resultedStat.total} resulted picks won today</>}
         </div>
 
+        {/* Required attribution -- this tab is entirely PuntersEdge-sourced
+            market-price data, same as the Field/Pace Map live-price row.
+            Rendered unconditionally (loading/empty/populated), not tucked
+            behind the Pro blur overlay above. */}
+        <PuntersEdgeCredit style={{ marginBottom: 10 }} />
+
         {loading ? (
           <div style={{ color: '#6b7280', fontSize: 13 }}>Loading movers…</div>
         ) : filtered.length === 0 ? (
@@ -3194,6 +3201,12 @@ function ValueBetsView({ isPro, onUpgrade, isAdmin }) {
             : <>{resultedStat.wins} of {resultedStat.total} resulted picks won today</>}
         </div>
 
+        {/* Required attribution -- this tab is entirely PuntersEdge-sourced
+            market-price data, same as the Field/Pace Map live-price row.
+            Rendered unconditionally (loading/empty/populated), not tucked
+            behind the Pro blur overlay above. */}
+        <PuntersEdgeCredit style={{ marginBottom: 10 }} />
+
         {loading ? (
           <div style={{ color: '#6b7280', fontSize: 13 }}>Loading value bets…</div>
         ) : filtered.length === 0 ? (
@@ -3421,9 +3434,11 @@ function RacesPageInner() {
   const preferredViewRef = useRef('field');
   console.log('[Tier] isPro:', isPro, 'plan:', user?.publicMetadata?.plan);
 
-  // Temporary admin-only live-odds feature (PuntersEdge licensing not yet
-  // cleared for real subscribers -- see /odds lockdown, commit 905d605).
-  // Non-admins get the unchanged CSV-only PRICE $/VALUE behavior.
+  // Live odds (PuntersEdge) opened to everyone 2026-10-01 -- PuntersEdge
+  // moved to a Plus plan (140k credits/month, 200 req/min), so the earlier
+  // admin-only gate (commit 905d605) no longer applies. isSiteAdminUser is
+  // still used below for the things that stay admin-only forever
+  // (calibration curve bypass, Trust $ preview) -- not for live odds.
   const isSiteAdminUser = isSiteAdmin(user?.id);
   const [oddsBookmaker, setOddsBookmakerState] = useState(() => {
     try { return localStorage.getItem('ww_odds_bookmaker') || PUNTERSEDGE_BOOKMAKER_COLUMNS[0]?.slug || ''; } catch { return PUNTERSEDGE_BOOKMAKER_COLUMNS[0]?.slug || ''; }
@@ -3568,7 +3583,7 @@ function RacesPageInner() {
   const currentRace = selectedKey ? allRaces[selectedKey] : null;
 
   useEffect(() => {
-    if (!isSiteAdminUser || !oddsBookmaker || !currentRace?.venue || !currentRace?.num) {
+    if (!oddsBookmaker || !currentRace?.venue || !currentRace?.num) {
       setLivePrices({});
       return;
     }
@@ -3596,7 +3611,7 @@ function RacesPageInner() {
     load();
     const interval = setInterval(load, 60000);
     return () => { cancelled = true; clearInterval(interval); };
-  }, [isSiteAdminUser, oddsBookmaker, currentRace?.venue, currentRace?.num]);
+  }, [oddsBookmaker, currentRace?.venue, currentRace?.num]);
 
   // Firming/drifting moves for the current race -- best price across ALL
   // bookmakers (not the single oddsBookmaker selection above), via the same
@@ -3604,7 +3619,7 @@ function RacesPageInner() {
   // with the Odds tab/page on every move flagged. Also backs the race-header
   // top-firmer/top-drifter summary pills -- no separate fetch for those.
   useEffect(() => {
-    if (!isSiteAdminUser || !currentRace?.venue || !currentRace?.num) {
+    if (!currentRace?.venue || !currentRace?.num) {
       setMarketMoves({});
       return;
     }
@@ -3619,7 +3634,7 @@ function RacesPageInner() {
     loadMoves();
     const interval = setInterval(loadMoves, 60000);
     return () => { cancelled = true; clearInterval(interval); };
-  }, [isSiteAdminUser, currentRace?.venue, currentRace?.num]);
+  }, [currentRace?.venue, currentRace?.num]);
 
   // Live best-price data for the first-starter score blend below --
   // separate from the admin-only marketMoves fetch above (that one also
@@ -4281,8 +4296,8 @@ function RacesPageInner() {
                       </div>
                     );
                   })()}
-                  {!isNarrow && <ViewTabBar view={view} setView={setView} runnerCount={results.length} isPast={isPast} tabs={isSiteAdminUser ? [VIEW_TABS[0], ODDS_TAB, ...VIEW_TABS.slice(1)] : VIEW_TABS} />}
-                  {isSiteAdminUser && (view === 'field' || view === 'pacemap' || view === 'odds') && (() => {
+                  {!isNarrow && <ViewTabBar view={view} setView={setView} runnerCount={results.length} isPast={isPast} tabs={[VIEW_TABS[0], ODDS_TAB, ...VIEW_TABS.slice(1)]} />}
+                  {(view === 'field' || view === 'pacemap' || view === 'odds') && (() => {
                     // Top firmer/top drifter for this race -- reads the SAME
                     // marketMoves state already fetched for Field/Pace Map
                     // (and read directly here, no prop drilling needed since
@@ -4296,7 +4311,6 @@ function RacesPageInner() {
                     const topDrifter = Object.entries(marketMoves).filter(([, v]) => v.move?.direction === 'drifting').sort((a, b) => b[1].move.pct - a[1].move.pct)[0];
                     return (
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 10px', borderBottom: '1px solid #e5e7eb', background: '#fafafa', flexWrap: 'wrap' }}>
-                      <span style={{ fontSize: 9, fontWeight: 700, color: '#059669', background: '#d1fae5', padding: '2px 5px', borderRadius: 3 }}>ADMIN</span>
                       <span style={{ fontSize: 10, color: '#6b7280' }}>Live price:</span>
                       <select
                         value={oddsBookmaker}
@@ -4350,13 +4364,13 @@ function RacesPageInner() {
                       isResulted={!!currentRaceResult} betBlocked={betBlocked}
                       isPro={isPro} onUpgrade={() => setUpgradeOpen(true)}
                       scratchingsSet={scratchingsSet} colVis={colVis} todayBets={todayBets} isMobile={isNarrow}
-                      isAdmin={isSiteAdminUser} livePrices={livePrices} marketMoves={marketMoves} calibrationCurve={calibrationCurve} trustBuckets={trustBuckets} />
+                      isAdmin={true} livePrices={livePrices} marketMoves={marketMoves} calibrationCurve={calibrationCurve} trustBuckets={trustBuckets} />
                   )}
                   {view === 'form' && (
                     <FormView results={allHorsesForDisplay} scratched={scratched} onLogBet={handleLogBet} isResulted={!!currentRaceResult} betBlocked={betBlocked} rc={currentRace} isPro={isPro} onUpgrade={() => setUpgradeOpen(true)} scratchingsSet={scratchingsSet} />
                   )}
                   {view === 'pacemap' && (
-                    <PaceMapView results={allHorsesForDisplay} scratched={scratched} rc={currentRace} trackCond={trackCond} isPro={isPro} onUpgrade={() => setUpgradeOpen(true)} scratchingsSet={scratchingsSet} isAdmin={isSiteAdminUser} livePrices={livePrices} marketMoves={marketMoves} paceBiasPoints={paceBiasPoints} />
+                    <PaceMapView results={allHorsesForDisplay} scratched={scratched} rc={currentRace} trackCond={trackCond} isPro={isPro} onUpgrade={() => setUpgradeOpen(true)} scratchingsSet={scratchingsSet} isAdmin={true} livePrices={livePrices} marketMoves={marketMoves} paceBiasPoints={paceBiasPoints} />
                   )}
                   {view === 'movers' && (
                     <MoversView isPro={isPro} onUpgrade={() => setUpgradeOpen(true)} isAdmin={isSiteAdminUser} />
@@ -4364,7 +4378,7 @@ function RacesPageInner() {
                   {view === 'value' && (
                     <ValueBetsView isPro={isPro} onUpgrade={() => setUpgradeOpen(true)} isAdmin={isSiteAdminUser} />
                   )}
-                  {view === 'odds' && isSiteAdminUser && (
+                  {view === 'odds' && (
                     <div style={{ padding: 12 }}>
                       <OddsTable venue={normaliseVenue(currentRace.venue)} raceNum={String(currentRace.num)} selectedBookmaker={oddsBookmaker} />
                     </div>
@@ -4403,7 +4417,7 @@ function RacesPageInner() {
       {upgradeOpen && <UpgradeModal onClose={() => setUpgradeOpen(false)} />}
 
       {/* Log Bet modal */}
-      {betTarget && <BetModal horse={betTarget} onClose={() => setBetTarget(null)} isAdmin={isSiteAdminUser} oddsBookmaker={oddsBookmaker} />}
+      {betTarget && <BetModal horse={betTarget} onClose={() => setBetTarget(null)} isAdmin={true} oddsBookmaker={oddsBookmaker} />}
       {/* General Log Bet modal — meeting/race/horse picker, hands off to BetModal */}
       {generalBetOpen && (
         <GeneralLogBetModal
