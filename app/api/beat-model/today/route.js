@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { auth, clerkClient } from '@clerk/nextjs/server';
 import { parseCSV, buildRaces } from '@/lib/csvParser';
 import { selectBeatModelRace } from '@/lib/beatModel';
+import { getWizardCsv } from '@/lib/wizardCsvCache';
 
 const SURL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SKEY = process.env.SUPABASE_SERVICE_KEY;
@@ -18,11 +19,8 @@ function todayISO() {
 // pending-pick check it's attached to.
 async function hasChallengeToday(compDate) {
   try {
-    const res = await fetch(`${SURL}/storage/v1/object/wizard-csv/${compDate}.csv`, {
-      headers: { apikey: SKEY, Authorization: `Bearer ${SKEY}` },
-    });
-    if (!res.ok) return false;
-    const text = await res.text();
+    const text = await getWizardCsv(SURL, { apikey: SKEY, Authorization: `Bearer ${SKEY}` }, compDate);
+    if (text == null) return false;
     const built = buildRaces(parseCSV(text));
     return !!selectBeatModelRace(built.allRaces);
   } catch {

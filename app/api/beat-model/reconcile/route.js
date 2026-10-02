@@ -3,6 +3,7 @@ import { parseCSV, buildRaces } from '@/lib/csvParser';
 import { selectBeatModelRace } from '@/lib/beatModel';
 import { normaliseVenue } from '@/lib/venues';
 import { awardPoints } from '@/lib/points';
+import { getWizardCsv } from '@/lib/wizardCsvCache';
 
 const SURL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SKEY = process.env.SUPABASE_SERVICE_KEY;
@@ -21,9 +22,8 @@ async function sb(path) {
 // retained in Storage. Returns the challenge row, or null if either the
 // CSV is gone or no valid challenge race existed that day.
 async function backfillChallenge(compDate) {
-  const res = await fetch(`${SURL}/storage/v1/object/wizard-csv/${compDate}.csv`, { headers: sbHeaders });
-  if (!res.ok) return null; // CSV no longer retained -- permanently unrecoverable for this date
-  const text = await res.text();
+  const text = await getWizardCsv(SURL, sbHeaders, compDate);
+  if (text == null) return null; // CSV no longer retained -- permanently unrecoverable for this date
   const built = buildRaces(parseCSV(text));
   const challenge = selectBeatModelRace(built.allRaces);
   if (!challenge) return null;

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { auth, clerkClient } from '@clerk/nextjs/server';
 import { parseRow, detectHeaders } from '@/lib/csvParser';
 import { FREE_RACE_LEVEL_HEADER_KEYS, FREE_HORSE_HEADER_KEYS } from '@/lib/freeTierFields';
+import { getWizardCsv } from '@/lib/wizardCsvCache';
 
 const SURL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SKEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -47,16 +48,12 @@ export async function GET() {
   const isPro = user?.publicMetadata?.plan === 'pro';
 
   const todayAEST = new Date().toLocaleDateString('sv-SE', { timeZone: 'Australia/Brisbane' });
-  const path = `${todayAEST}.csv`;
 
   try {
-    const res = await fetch(`${SURL}/storage/v1/object/wizard-csv/${path}`, {
-      headers: { apikey: SKEY, Authorization: `Bearer ${SKEY}` },
-    });
-    if (!res.ok) {
+    let text = await getWizardCsv(SURL, { apikey: SKEY, Authorization: `Bearer ${SKEY}` }, todayAEST);
+    if (text == null) {
       return new NextResponse('CSV not available', { status: 404 });
     }
-    let text = await res.text();
     if (!isPro) text = stripCsvForFreeTier(text);
     return new NextResponse(text, {
       status: 200,
