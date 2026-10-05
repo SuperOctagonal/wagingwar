@@ -9,6 +9,58 @@ const SECRET = process.env.IMPORT_CSV_SECRET;
 const PE_KEY = process.env.PUNTERSEDGE_API_KEY;
 const PE_BASE = process.env.PUNTERSEDGE_BASE_URL;
 
+// odds_snapshot write-rate throttle -- this route was writing a full batch
+// (every bookmaker x runner) for EVERY race on the card on every poll
+// (~every 2.6min, around the clock), including races hours from jumping
+// that don't need that density. ~1.4M rows/day, ~37k rows per race per
+// day. Throttles whole races, never individual rows -- every batch that
+// does get written still has every bookmaker/runner for that race and one
+// shared captured_at, since lib/marketMoves.js, OddsTable.js and the
+// value-bets code all treat one captured_at as one complete batch.
+const ODDS_SNAPSHOT_FAR_MIN = Number(process.env.ODDS_SNAPSHOT_FAR_MIN || 60);
+const ODDS_SNAPSHOT_THROTTLE_INTERVAL_MIN = Number(process.env.ODDS_SNAPSHOT_THROTTLE_INTERVAL_MIN || 15);
+const ODDS_SNAPSHOT_POST_JUMP_GRACE_MIN = Number(process.env.ODDS_SNAPSHOT_POST_JUMP_GRACE_MIN || 2);
+
+// Render runs this route in a persistent process (not per-request
+// serverless), so a plain module-level Map genuinely persists across polls
+// -- same convention as lib/wizardCsvCache.js. A process restart just means
+// one extra batch gets written for every still-throttled race on the next
+// poll after restart, which is harmless.
+const _lastSnapshotWriteMs = new Map(); // `${resolvedVenue}||${raceNum}` -> ms
+
+// An ISO/epoch timestamp carries its own zone (Z or an explicit +/-HH:MM
+// offset) -- unambiguous regardless of which state the race is in. A bare
+// "2026-10-05T00:20:00" with no zone designator is NOT unambiguous (new
+// Date() would silently treat it as the server's own local time), so that's
+// rejected here rather than trusted.
+function isUnambiguousTimestamp(value) {
+  if (typeof value === 'number') return true;
+  if (typeof value !== 'string') return false;
+  return /Z$|[+-]\d{2}:?\d{2}$/.test(value.trim());
+}
+
+// PuntersEdge's next-to-go races carry their own start_time (confirmed
+// live: ISO UTC with a "Z" suffix, e.g. "2026-10-05T00:20:00Z") -- trusted
+// only when isUnambiguousTimestamp() passes.
+//
+// No race_schedule.post_time fallback -- tried that, but live data
+// contradicted the "post_time is venue-local" assumption it would have
+// relied on: Doomben R1 (QLD) had PE start_time 1:46pm Sydney vs
+// race_schedule post_time "01.46 pm" (would compute 2:46pm, an hour
+// wrong), and Gawler R1 (SA) had PE start_time 1:55pm Sydney vs post_time
+// "02.25 pm" (fits no timezone reading at all). Can't safely resolve a
+// start time from post_time, so this returns null instead -- callers
+// already treat null as "unknown": write every poll, no far-throttle, no
+// post-jump skip, same as before this change for any race whose
+// start_time isn't usable.
+function resolveRaceStartMs(race) {
+  if (isUnambiguousTimestamp(race.start_time)) {
+    const d = new Date(race.start_time);
+    if (!isNaN(d.getTime())) return d.getTime();
+  }
+  return null;
+}
+
 // Sydney "today" -- PuntersEdge's best-odds feed is next-to-go/current races
 // only, so every race in one response belongs to the current AU racing day.
 function sydneyToday() {
@@ -163,8 +215,13 @@ export async function POST(request) {
   }
 
   const capturedAt = new Date().toISOString();
+  const nowMs = Date.now();
   const snapshotRows = [];
   result.snapshot_rows = 0;
+  result.snapshot_races_written = 0;
+  result.snapshot_races_throttled = 0;
+  result.snapshot_races_post_jump = 0;
+  const raceKeysWithRows = new Set();
 
   for (const race of ntgRaces) {
     if (race.country !== 'AU') continue;
@@ -174,7 +231,29 @@ export async function POST(request) {
       result.snapshot_races_no_cards.push(`${race.venue} R${race.race_number}`);
       continue;
     }
+
+    // Throttle decision, per race (never per row) -- see the constants/
+    // helpers above. startMs == null (start_time missing/unparseable/
+    // ambiguous) fails open: write every poll, same as current behaviour,
+    // rather than silently going dark on a race this can't place in time.
+    const startMs = resolveRaceStartMs(race);
+    if (startMs != null) {
+      const minsToStart = (startMs - nowMs) / 60000;
+      if (minsToStart < -ODDS_SNAPSHOT_POST_JUMP_GRACE_MIN) {
+        result.snapshot_races_post_jump++;
+        continue;
+      }
+      if (minsToStart > ODDS_SNAPSHOT_FAR_MIN) {
+        const lastWrite = _lastSnapshotWriteMs.get(key);
+        if (lastWrite != null && nowMs - lastWrite < ODDS_SNAPSHOT_THROTTLE_INTERVAL_MIN * 60000) {
+          result.snapshot_races_throttled++;
+          continue;
+        }
+      }
+    }
+
     const ourNames = cards.map(c => c.horse_name);
+    let rowsForThisRace = 0;
     for (const runner of (race.runners || [])) {
       const matchedName = matchRunnerName(runner.name, ourNames);
       if (!matchedName) {
@@ -193,7 +272,12 @@ export async function POST(request) {
           price: bm.win_price,
           captured_at: capturedAt,
         });
+        rowsForThisRace++;
       }
+    }
+    if (rowsForThisRace > 0) {
+      raceKeysWithRows.add(key);
+      result.snapshot_races_written++;
     }
   }
 
@@ -208,6 +292,11 @@ export async function POST(request) {
         result.errors.push(`odds_snapshot insert ${r.status}: ${await r.text()}`);
       } else {
         result.snapshot_rows = snapshotRows.length;
+        // Only mark races as "written" (for the throttle Map) once the
+        // insert has actually succeeded -- a failed insert must not make a
+        // throttled race wait another full interval for a batch that never
+        // landed.
+        for (const k of raceKeysWithRows) _lastSnapshotWriteMs.set(k, nowMs);
       }
     } catch (err) {
       result.errors.push(`odds_snapshot insert network error: ${err.message}`);
