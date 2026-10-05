@@ -1190,12 +1190,12 @@ function BetModal({ horse, onClose, isAdmin = false, oddsBookmaker = '' }) {
   // pre-fill below and the bookmaker grid's onClick, so both stay backed by
   // the exact same lookup.
   const fetchLivePriceForBookmaker = useCallback(async (slug) => {
-    if (!slug || !horse?._venue || !horse?._raceNum || !horse?.name || !SURL || !SKEY) return null;
+    if (!slug || !horse?._venue || !horse?._raceNum || !horse?._meetingDate || !horse?.name || !SURL || !SKEY) return null;
     try {
       const venue = normaliseVenue(horse._venue);
       const raceNum = String(horse._raceNum);
       const res = await fetch(
-        `${SURL}/rest/v1/odds_snapshot?race_venue=eq.${encodeURIComponent(venue)}&race_num=eq.${encodeURIComponent(raceNum)}&bookmaker=eq.${encodeURIComponent(slug)}&select=horse_name,price,captured_at&order=captured_at.desc&limit=200`,
+        `${SURL}/rest/v1/odds_snapshot?race_date=eq.${horse._meetingDate}&race_venue=eq.${encodeURIComponent(venue)}&race_num=eq.${encodeURIComponent(raceNum)}&bookmaker=eq.${encodeURIComponent(slug)}&select=horse_name,price,captured_at&order=captured_at.desc&limit=200`,
         { headers: { apikey: SKEY, Authorization: `Bearer ${SKEY}` } },
       );
       if (!res.ok) return null;
@@ -3569,7 +3569,7 @@ function RacesPageInner() {
         const venue = normaliseVenue(currentRace.venue);
         const raceNum = String(currentRace.num);
         const res = await fetch(
-          `${SURL}/rest/v1/odds_snapshot?race_venue=eq.${encodeURIComponent(venue)}&race_num=eq.${encodeURIComponent(raceNum)}&bookmaker=eq.${encodeURIComponent(oddsBookmaker)}&select=horse_name,price,captured_at&order=captured_at.desc&limit=200`,
+          `${SURL}/rest/v1/odds_snapshot?race_date=eq.${selectedDate}&race_venue=eq.${encodeURIComponent(venue)}&race_num=eq.${encodeURIComponent(raceNum)}&bookmaker=eq.${encodeURIComponent(oddsBookmaker)}&select=horse_name,price,captured_at&order=captured_at.desc&limit=200`,
           { headers: { apikey: SKEY, Authorization: `Bearer ${SKEY}` } },
         );
         if (!res.ok || cancelled) return;

@@ -2,7 +2,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import PuntersEdgeCredit from '@/components/PuntersEdgeCredit';
 import { PUNTERSEDGE_BOOKMAKER_COLUMNS, bookmakerNameForSlug } from '@/lib/puntersedgeBookmakers';
-import { fetchMarketMoveFlags, nameKey } from '@/lib/marketMoves';
+import { fetchMarketMoveFlags, nameKey, MIN_OPEN_BOOKMAKERS } from '@/lib/marketMoves';
 import FirmingDriftingBadge from '@/components/FirmingDriftingBadge';
 import ScrollHint from '@/components/ScrollHint';
 import { useScrollOverflow } from '@/hooks/useScrollOverflow';
@@ -10,16 +10,37 @@ import { useScrollOverflow } from '@/hooks/useScrollOverflow';
 const SURL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SKEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
+function sbHeaders() {
+  return { apikey: SKEY, Authorization: `Bearer ${SKEY}` };
+}
+
 async function sb(path) {
   if (!SURL || !SKEY) return [];
   try {
-    const res = await fetch(`${SURL}/rest/v1/${path}`, {
-      headers: { apikey: SKEY, Authorization: `Bearer ${SKEY}` },
-    });
+    const res = await fetch(`${SURL}/rest/v1/${path}`, { headers: sbHeaders() });
     if (!res.ok) return [];
     return await res.json();
   } catch {
     return [];
+  }
+}
+
+// Latest captured_at via the same race_odds_open_latest RPC fetchMarketMoveFlags
+// uses, instead of order=captured_at.desc&limit=1 -- that query still sorts
+// every row for the race's full day before taking the top one.
+async function fetchLatestTs(date, venue, raceNum) {
+  if (!SURL || !SKEY) return null;
+  try {
+    const res = await fetch(`${SURL}/rest/v1/rpc/race_odds_open_latest`, {
+      method: 'POST',
+      headers: { ...sbHeaders(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ p_date: date, p_venue: venue, p_race: String(raceNum), p_min_books: MIN_OPEN_BOOKMAKERS }),
+    });
+    if (!res.ok) return null;
+    const rows = await res.json();
+    return rows[0]?.latest_ts ?? null;
+  } catch {
+    return null;
   }
 }
 
@@ -56,10 +77,7 @@ export default function OddsTable({ venue, raceNum, selectedBookmaker = '' }) {
       const today = sydneyToday();
       // odds_snapshot is append-only (one batch per ~15min poll) -- read only
       // the most recent batch's captured_at, not the whole day's history.
-      const latest = await sb(
-        `odds_snapshot?race_date=eq.${today}&race_venue=eq.${encodeURIComponent(venue)}&race_num=eq.${encodeURIComponent(raceNum)}&select=captured_at&order=captured_at.desc&limit=1`,
-      );
-      const ts = latest[0]?.captured_at;
+      const ts = await fetchLatestTs(today, venue, raceNum);
       if (!ts) {
         if (!cancelled) { setRows([]); setCardInfo({}); setCapturedAt(null); setLoading(false); }
         return;
