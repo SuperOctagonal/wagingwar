@@ -24,6 +24,7 @@ import { sydneyDateTimeToInstant } from '@/lib/raceTime';
 import FirmingDriftingBadge from '@/components/FirmingDriftingBadge';
 import { generatePaceAnalysis } from '@/lib/paceAnalysis';
 import ScrollHint from '@/components/ScrollHint';
+import RaceTimeLocal from '@/components/RaceTimeLocal';
 import { useScrollOverflow } from '@/hooks/useScrollOverflow';
 
 const SURL = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -584,7 +585,7 @@ function RightRail({ allRaces, allVenues, selectedRaceKey, onSelect, isPro, user
                   {' '}<span style={{ fontWeight: 600 }}>R{rc.num}</span>
                   {rc.dist && <span style={{ color: '#111827', fontSize: 9, marginLeft: 3 }}>{rc.dist}m</span>}
                 </td>
-                <td style={{ ...tdBase, textAlign: 'right', fontSize: 9, color: '#111827', whiteSpace: 'nowrap' }}>{rc.time}</td>
+                <td style={{ ...tdBase, textAlign: 'right', fontSize: 9, color: '#111827', whiteSpace: 'nowrap' }}><RaceTimeLocal dateISO={toISO(rc.date)} time={rc.time} /></td>
                 <td style={{ ...tdBase, textAlign: 'right', fontWeight: (urgent || neg) ? 700 : 400, color: cdColor, fontSize: 10, whiteSpace: 'nowrap', paddingRight: 10 }}>
                   {label}
                 </td>
@@ -678,10 +679,12 @@ function RaceCountdown({ rc }) {
     return () => clearInterval(id);
   }, [rc.time, rc.date, rc.venue, rc.num]);
 
+  const rcDateISO = toISO(rc.date);
+
   if (secsLeft === null) {
     return (
       <>
-        {rc.time && <span style={{ fontSize: 10, color: '#111827' }}>{rc.time}</span>}
+        {rc.time && <RaceTimeLocal dateISO={rcDateISO} time={rc.time} style={{ fontSize: 10, color: '#111827' }} />}
         {rc.date && <span style={{ fontSize: 10, color: '#111827' }}>{rc.date}</span>}
       </>
     );
@@ -690,7 +693,7 @@ function RaceCountdown({ rc }) {
   if (secsLeft <= 0) {
     return (
       <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 10, color: '#9ca3af' }}>
-        {rc.time && <span>{rc.time}</span>}
+        {rc.time && <RaceTimeLocal dateISO={rcDateISO} time={rc.time} />}
         <span style={{ fontWeight: 700, color: '#A32D2D' }}>· Passed</span>
       </span>
     );
@@ -704,7 +707,7 @@ function RaceCountdown({ rc }) {
   return (
     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 10, fontWeight: 600, color: '#00471b' }}>
       <i className="ti ti-clock" style={{ fontSize: 9 }} />
-      {rc.time && <span style={{ fontWeight: 400, color: '#374151' }}>{rc.time}</span>}
+      {rc.time && <RaceTimeLocal dateISO={rcDateISO} time={rc.time} style={{ fontWeight: 400, color: '#374151' }} />}
       <span>({label})</span>
     </span>
   );
@@ -2951,7 +2954,7 @@ function MoversView({ isPro, onUpgrade, isAdmin }) {
                     <tr key={`${m.venue}-${m.raceNum}-${m.horseKey}`} style={{ borderBottom: i === filtered.length - 1 ? 'none' : '1px solid #f3f4f6' }}>
                       <td style={{ padding: '5px 8px', fontWeight: 600, color: '#111827', whiteSpace: 'nowrap' }}>{m.horseKey}</td>
                       <td style={{ padding: '5px 8px', color: '#374151', whiteSpace: 'nowrap' }}>{m.venue} R{m.raceNum}</td>
-                      <td style={{ padding: '5px 8px', color: '#374151', whiteSpace: 'nowrap' }}>{m.postTime || '—'}</td>
+                      <td style={{ padding: '5px 8px', color: '#374151', whiteSpace: 'nowrap' }}>{m.postTime ? <RaceTimeLocal dateISO={dateRef.current} time={m.postTime} fallback="—" /> : '—'}</td>
                       <td style={{ padding: '5px 8px', textAlign: 'right', fontFamily: 'monospace', color: '#111827', whiteSpace: 'nowrap' }}>{m.openPrice != null ? `$${Number(m.openPrice).toFixed(2)}` : '—'}</td>
                       <td style={{ padding: '5px 8px', textAlign: 'right', fontFamily: 'monospace', color: '#111827', whiteSpace: 'nowrap' }}>{m.currentPrice != null ? `$${Number(m.currentPrice).toFixed(2)}` : '—'}</td>
                       <td style={{ padding: '5px 8px', textAlign: 'right', whiteSpace: 'nowrap' }}>
@@ -3204,7 +3207,7 @@ function ValueBetsView({ isPro, onUpgrade, isAdmin }) {
                     <tr key={`${b.venue}-${b.raceNum}-${b.horseKey}`} style={{ borderBottom: i === filtered.length - 1 ? 'none' : '1px solid #f3f4f6' }}>
                       <td style={{ padding: '5px 8px', fontWeight: 600, color: '#111827', whiteSpace: 'nowrap' }}>{b.horseKey}</td>
                       <td style={{ padding: '5px 8px', color: '#374151', whiteSpace: 'nowrap' }}>{b.venue} R{b.raceNum}</td>
-                      <td style={{ padding: '5px 8px', color: '#374151', whiteSpace: 'nowrap' }}>{b.postTime || '—'}</td>
+                      <td style={{ padding: '5px 8px', color: '#374151', whiteSpace: 'nowrap' }}>{b.postTime ? <RaceTimeLocal dateISO={dateRef.current} time={b.postTime} fallback="—" /> : '—'}</td>
                       <td style={{ padding: '5px 8px', textAlign: 'right', fontFamily: 'monospace', color: '#059669', fontWeight: 600, whiteSpace: 'nowrap' }}>{b.wwPrice != null ? `$${Number(b.wwPrice).toFixed(2)}` : '—'}</td>
                       <td style={{ padding: '5px 8px', textAlign: 'right', fontFamily: 'monospace', color: '#111827', whiteSpace: 'nowrap' }}>{b.marketPrice != null ? `$${Number(b.marketPrice).toFixed(2)}` : '—'}</td>
                       <td style={{ padding: '5px 8px', textAlign: 'right', whiteSpace: 'nowrap' }}>

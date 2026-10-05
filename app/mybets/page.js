@@ -15,6 +15,7 @@ import ShareMenu from '@/components/ShareMenu';
 import { parseCSV, buildRaces } from '@/lib/csvParser';
 import { normaliseVenue } from '@/lib/venues';
 import { sydneyDateTimeToInstant } from '@/lib/raceTime';
+import RaceTimeLocal from '@/components/RaceTimeLocal';
 import {
   LineChart, Line, AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine,
@@ -1392,7 +1393,7 @@ export default function MybetsPage() {
                             </td>
                             <td style={{ ...cs, color: '#fff', whiteSpace: 'nowrap' }}>{venue}</td>
                             <td style={{ ...cs, color: '#fff', textAlign: 'right', whiteSpace: 'nowrap' }}>{raceNum ? `R${raceNum}` : '—'}</td>
-                            <td style={{ ...cs, color: '#fff', textAlign: 'right', whiteSpace: 'nowrap', fontFamily: 'monospace' }}>{(() => { const t = raceTimeMap[b.id] || b.race_time; if (!t) return '—'; if (isPending && b.date === todayISO) { const inst = sydneyDateTimeToInstant(b.date, t); const remMins = inst ? Math.round((inst.getTime() - now) / 60000) : null; if (remMins != null && remMins > 0) { const h = Math.floor(remMins / 60); const m = remMins % 60; const cd = h > 0 ? `${h}h${m > 0 ? m + 'm' : ''}` : `${m}m`; return <>{t} <span style={{ color: remMins < 10 ? '#4ade80' : '#9ca3af', fontWeight: 700, fontSize: 9 }}>({cd})</span></>; } } return t; })()}</td>
+                            <td style={{ ...cs, color: '#fff', textAlign: 'right', whiteSpace: 'nowrap', fontFamily: 'monospace' }}>{(() => { const t = raceTimeMap[b.id] || b.race_time; if (!t) return '—'; if (isPending && b.date === todayISO) { const inst = sydneyDateTimeToInstant(b.date, t); const remMins = inst ? Math.round((inst.getTime() - now) / 60000) : null; if (remMins != null && remMins > 0) { const h = Math.floor(remMins / 60); const m = remMins % 60; const cd = h > 0 ? `${h}h${m > 0 ? m + 'm' : ''}` : `${m}m`; return <><RaceTimeLocal dateISO={b.date} time={t} /> <span style={{ color: remMins < 10 ? '#4ade80' : '#9ca3af', fontWeight: 700, fontSize: 9 }}>({cd})</span></>; } } return <RaceTimeLocal dateISO={b.date} time={t} />; })()}</td>
                             <td style={{ ...cs, color: '#fff', textAlign: 'right', whiteSpace: 'nowrap' }}>{b.tab_no || b.horse_number || '—'}</td>
                             <td style={{ ...cs, color: '#fff', textAlign: 'right', fontFamily: 'monospace', whiteSpace: 'nowrap' }}>${(+(b.stake || 0)).toFixed(0)}</td>
                             <td style={{ ...cs, color: '#fff', textAlign: 'right', fontFamily: 'monospace', whiteSpace: 'nowrap' }}>${Number(b.odds || 0).toFixed(2)}</td>
@@ -1529,11 +1530,11 @@ export default function MybetsPage() {
                                       if (secsToRace > 0) {
                                         const remMins = Math.ceil(secsToRace / 60);
                                         const cdStr = remMins >= 60 ? `${Math.floor(remMins/60)}h${remMins%60?remMins%60+'m':''}` : `${remMins}m`;
-                                        return <>{raceT} <span style={{ color: secsToRace < 900 ? '#4ade80' : '#9ca3af', fontWeight: 700, fontSize: 9 }}>({cdStr})</span></>;
+                                        return <><RaceTimeLocal dateISO={b.date} time={raceT} /> <span style={{ color: secsToRace < 900 ? '#4ade80' : '#9ca3af', fontWeight: 700, fontSize: 9 }}>({cdStr})</span></>;
                                       }
-                                      return <>{raceT} <span style={{ color: '#f87171', fontWeight: 700, fontSize: 9 }}>(-{Math.floor(Math.abs(secsToRace)/60)}m)</span></>;
+                                      return <><RaceTimeLocal dateISO={b.date} time={raceT} /> <span style={{ color: '#f87171', fontWeight: 700, fontSize: 9 }}>(-{Math.floor(Math.abs(secsToRace)/60)}m)</span></>;
                                     }
-                                    return raceT;
+                                    return <RaceTimeLocal dateISO={b.date} time={raceT} />;
                                   })()}
                                 </td>
                                 <td style={{ ...cs, color: '#fff', textAlign: 'right' }}>{b.tab_no || b.horse_number || '—'}</td>
