@@ -14,7 +14,7 @@ import HealthPanel from '@/components/HealthPanel';
 import ShareMenu from '@/components/ShareMenu';
 import { parseCSV, buildRaces } from '@/lib/csvParser';
 import { normaliseVenue } from '@/lib/venues';
-import { brisbaneDateTimeToInstant } from '@/lib/raceTime';
+import { sydneyDateTimeToInstant } from '@/lib/raceTime';
 import {
   LineChart, Line, AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine,
@@ -129,7 +129,7 @@ function venuesMatch(a, b) {
 function isLoggedLate(bet, raceTimeMap) {
   const raceT = raceTimeMap[bet.id] || bet.race_time;
   if (!raceT || !bet.created_at || !bet.date) return false;
-  const raceInstant = brisbaneDateTimeToInstant(bet.date, raceT);
+  const raceInstant = sydneyDateTimeToInstant(bet.date, raceT);
   if (!raceInstant) return false;
   return new Date(bet.created_at).getTime() > raceInstant.getTime();
 }
@@ -447,17 +447,20 @@ function BetCountdown({ bet, isFirst = false }) {
   const [secsLeft, setSecsLeft] = useState(null);
 
   useEffect(() => {
-    const minsFromMidnight = parseRaceTimeStr(bet.race_time || null);
-    if (minsFromMidnight === null) return;
-    const getRaceDate = () => {
-      const now = new Date();
-      return new Date(now.getFullYear(), now.getMonth(), now.getDate(), Math.floor(minsFromMidnight / 60), minsFromMidnight % 60, 0);
-    };
-    const update = () => setSecsLeft(Math.floor((getRaceDate() - Date.now()) / 1000));
+    // bet.race_time is a Sydney-clock string (see lib/raceTime.js) -- was
+    // previously applied to the VIEWER's own local year/month/day/hour/min
+    // (new Date(now.getFullYear(), ..., h, m)), which is only correct for a
+    // viewer in Sydney/Melbourne's exact current UTC offset. Uses
+    // sydneyDateTimeToInstant instead, falling back to today's Sydney date
+    // when bet.date isn't set.
+    const dateISO = bet.date || new Date().toLocaleDateString('en-CA', { timeZone: 'Australia/Sydney' });
+    const raceInstant = sydneyDateTimeToInstant(dateISO, bet.race_time || null);
+    if (!raceInstant) return;
+    const update = () => setSecsLeft(Math.floor((raceInstant.getTime() - Date.now()) / 1000));
     update();
     const id = setInterval(update, 30000);
     return () => clearInterval(id);
-  }, [bet.id, bet.race_time]);
+  }, [bet.id, bet.date, bet.race_time]);
 
   if (secsLeft === null) return <span style={{ color: '#9ca3af' }}>—</span>;
 
@@ -1389,7 +1392,7 @@ export default function MybetsPage() {
                             </td>
                             <td style={{ ...cs, color: '#fff', whiteSpace: 'nowrap' }}>{venue}</td>
                             <td style={{ ...cs, color: '#fff', textAlign: 'right', whiteSpace: 'nowrap' }}>{raceNum ? `R${raceNum}` : '—'}</td>
-                            <td style={{ ...cs, color: '#fff', textAlign: 'right', whiteSpace: 'nowrap', fontFamily: 'monospace' }}>{(() => { const t = raceTimeMap[b.id] || b.race_time; if (!t) return '—'; if (isPending && b.date === todayISO) { const d = new Date(now); const rem = parseRaceTime(t) - (d.getHours() * 60 + d.getMinutes()); if (rem > 0 && isFinite(rem)) { const h = Math.floor(rem / 60); const m = rem % 60; const cd = h > 0 ? `${h}h${m > 0 ? m + 'm' : ''}` : `${m}m`; return <>{t} <span style={{ color: rem < 10 ? '#4ade80' : '#9ca3af', fontWeight: 700, fontSize: 9 }}>({cd})</span></>; } } return t; })()}</td>
+                            <td style={{ ...cs, color: '#fff', textAlign: 'right', whiteSpace: 'nowrap', fontFamily: 'monospace' }}>{(() => { const t = raceTimeMap[b.id] || b.race_time; if (!t) return '—'; if (isPending && b.date === todayISO) { const inst = sydneyDateTimeToInstant(b.date, t); const remMins = inst ? Math.round((inst.getTime() - now) / 60000) : null; if (remMins != null && remMins > 0) { const h = Math.floor(remMins / 60); const m = remMins % 60; const cd = h > 0 ? `${h}h${m > 0 ? m + 'm' : ''}` : `${m}m`; return <>{t} <span style={{ color: remMins < 10 ? '#4ade80' : '#9ca3af', fontWeight: 700, fontSize: 9 }}>({cd})</span></>; } } return t; })()}</td>
                             <td style={{ ...cs, color: '#fff', textAlign: 'right', whiteSpace: 'nowrap' }}>{b.tab_no || b.horse_number || '—'}</td>
                             <td style={{ ...cs, color: '#fff', textAlign: 'right', fontFamily: 'monospace', whiteSpace: 'nowrap' }}>${(+(b.stake || 0)).toFixed(0)}</td>
                             <td style={{ ...cs, color: '#fff', textAlign: 'right', fontFamily: 'monospace', whiteSpace: 'nowrap' }}>${Number(b.odds || 0).toFixed(2)}</td>
@@ -1493,10 +1496,13 @@ export default function MybetsPage() {
                             const venue = b.track || b.venue || '—';
                             const cs = { border: '1px solid #1a3a25', padding: '4px 6px', whiteSpace: 'nowrap' };
                             const raceT = raceTimeMap[b.id] || b.race_time;
-                            const raceMinsCD = parseRaceTime(raceT);
-                            const nowD = new Date(now);
-                            const nowMinsCD = nowD.getHours() * 60 + nowD.getMinutes();
-                            const secsToRace = isFinite(raceMinsCD) ? (raceMinsCD - nowMinsCD) * 60 - nowD.getSeconds() : null;
+                            // (sydney instant - now), not minute-of-day arithmetic -- raceT is
+                            // a Sydney-clock string (see lib/raceTime.js), and comparing it
+                            // against the VIEWER's own local hours/minutes (what this used to
+                            // do) is wrong for any viewer not in Sydney/Melbourne's exact
+                            // current UTC offset.
+                            const raceInst = raceT && b.date ? sydneyDateTimeToInstant(b.date, raceT) : null;
+                            const secsToRace = raceInst ? Math.round((raceInst.getTime() - now) / 1000) : null;
                             const isImminent = isPending && b.date === todayISO && secsToRace !== null && secsToRace < 900 && secsToRace > -240;
                             const isEditing = editingId === b.id;
                             const isHovered = hoveredId === b.id;

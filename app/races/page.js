@@ -20,6 +20,7 @@ import { estimatePlacePrice, paidPlacesForFieldSize } from '@/lib/placePrice';
 import { BOOKMAKERS as BOOKIES } from '@/lib/bookmakers';
 import { PUNTERSEDGE_BOOKMAKER_COLUMNS, bookmakerNameForSlug, getPuntersEdgeSlug } from '@/lib/puntersedgeBookmakers';
 import { fetchMarketMoveFlags, nameKey as marketMoveNameKey } from '@/lib/marketMoves';
+import { sydneyDateTimeToInstant } from '@/lib/raceTime';
 import FirmingDriftingBadge from '@/components/FirmingDriftingBadge';
 import { generatePaceAnalysis } from '@/lib/paceAnalysis';
 import ScrollHint from '@/components/ScrollHint';
@@ -2732,21 +2733,13 @@ const TIME_WINDOW_OPTIONS = [
   { key: '3h',  label: 'Next 3 hours', hours: 3 },
 ];
 
-// odds_snapshot/race_schedule post_time strings look like "01.33 pm" -- parses
-// to a real Date on the given (Sydney) race date for the time-window filter.
-// Assumes AEST (+10:00); good enough for a same-day filter, same approximation
-// the rest of this page already makes for Sydney/Brisbane-local race times.
+// odds_snapshot/race_schedule post_time strings look like "01.33 pm" --
+// Sydney-clock (Australia/Sydney, AEST/AEDT) time for every venue including
+// QLD/SA (confirmed live 2026-10-05) -- parses to a real Date for the
+// time-window filter via the shared DST-aware helper, not a fixed +10:00
+// (which was wrong by an hour for every race while Sydney is on AEDT).
 function parsePostTime(postTime, dateISO) {
-  if (!postTime) return null;
-  const m = postTime.match(/(\d{1,2})[.:](\d{2})\s*(am|pm)/i);
-  if (!m) return null;
-  let h = parseInt(m[1], 10);
-  const min = parseInt(m[2], 10);
-  const ampm = m[3].toLowerCase();
-  if (ampm === 'pm' && h !== 12) h += 12;
-  if (ampm === 'am' && h === 12) h = 0;
-  const d = new Date(`${dateISO}T${String(h).padStart(2, '0')}:${String(min).padStart(2, '0')}:00+10:00`);
-  return isNaN(d.getTime()) ? null : d;
+  return sydneyDateTimeToInstant(dateISO, postTime);
 }
 
 // Shared "Hide resulted" + win-rate stat behavior for Movers and Value

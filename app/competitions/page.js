@@ -14,6 +14,7 @@ import { normaliseVenue } from '@/lib/venues';
 import { punterFallback } from '@/lib/punterFallback';
 import { fetchDisplayNames } from '@/lib/displayNames';
 import { selectBeatModelRace } from '@/lib/beatModel';
+import { sydneyDateTimeToInstant } from '@/lib/raceTime';
 import { fetchEquippedCosmetics } from '@/lib/cosmetics';
 import Avatar from '@/components/Avatar';
 import NameFlair from '@/components/NameFlair';
@@ -128,25 +129,18 @@ async function sbFetch(path, opts = {}) {
   }
 }
 
+// race.time is a Sydney-clock post_time string (confirmed 2026-10-05, see
+// lib/raceTime.js) -- was previously parsed with a fixed +10:00, which was
+// wrong by an hour for every race while Sydney is on AEDT and left
+// isLocked() below reporting picks as still-open for up to an hour after
+// the race had actually jumped.
 function jumpDate(timeStr, dateStr) {
   if (!timeStr) return null;
-  const t = timeStr.trim().replace(/\./g, ':');
-  let h, m;
-  const ap = t.match(/^(\d{1,2}):(\d{2})\s*(am|pm)$/i);
-  if (ap) {
-    h = parseInt(ap[1]); m = parseInt(ap[2]);
-    if (/pm/i.test(ap[3]) && h !== 12) h += 12;
-    if (/am/i.test(ap[3]) && h === 12) h = 0;
-  } else {
-    const pl = t.match(/^(\d{1,2}):(\d{2})/);
-    if (!pl) return null;
-    h = parseInt(pl[1]); m = parseInt(pl[2]);
-  }
   const parts = (dateStr || '').split('/');
   const iso = parts.length === 3 && parts[2].length === 4
     ? `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`
     : /^\d{4}-\d{2}-\d{2}$/.test(dateStr || '') ? dateStr : aestISO();
-  return new Date(`${iso}T${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:00+10:00`);
+  return sydneyDateTimeToInstant(iso, timeStr);
 }
 
 function fmtMs(ms) {

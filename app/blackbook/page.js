@@ -6,6 +6,7 @@ import useIsPro from '@/hooks/useIsPro';
 import useIsMobile from '@/hooks/useIsMobile';
 import UpgradeModal from '@/components/UpgradeModal';
 import { awardPoints } from '@/lib/points';
+import { sydneyDateTimeToInstant } from '@/lib/raceTime';
 
 const SURL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SKEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -100,21 +101,14 @@ function fmtDate(iso) {
   catch { return ''; }
 }
 
+// timeStr is a race_schedule-style post_time string -- Sydney-clock
+// (confirmed 2026-10-05, see lib/raceTime.js), not the naive/local-runtime
+// time this used to build (new Date(`${dateStr}T...`) with no zone suffix
+// is whatever timezone the JS engine itself is running in -- wrong
+// basically everywhere this isn't Sydney/Melbourne).
 function parsePostTimeMs(dateStr, timeStr) {
-  const t = (timeStr || '').trim().replace(/\./g, ':');
-  let h, m;
-  const ampm = t.match(/^(\d{1,2}):(\d{2})\s*(am|pm)/i);
-  if (ampm) {
-    h = parseInt(ampm[1], 10); m = parseInt(ampm[2], 10);
-    if (/pm/i.test(ampm[3]) && h !== 12) h += 12;
-    if (/am/i.test(ampm[3]) && h === 12) h = 0;
-  } else {
-    const plain = t.match(/^(\d{1,2}):(\d{2})/);
-    if (!plain) return null;
-    h = parseInt(plain[1], 10); m = parseInt(plain[2], 10);
-  }
-  const d = new Date(`${dateStr}T${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:00`);
-  return isNaN(d.getTime()) ? null : d.getTime();
+  const d = sydneyDateTimeToInstant(dateStr, timeStr);
+  return d ? d.getTime() : null;
 }
 
 function findPostTime(schedList, date, venue, raceNum) {
