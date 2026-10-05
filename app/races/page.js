@@ -83,27 +83,17 @@ function toISO(d) {
   return null;
 }
 
-// Parses HH:MM or HH.MM (24hr) or H:MM/H.MM AM/PM (12hr) + DD/MM/YYYY date into a Date
+// Parses HH:MM or HH.MM (24hr) or H:MM/H.MM AM/PM (12hr) + DD/MM/YYYY date
+// into a real instant. timeStr is a race_schedule-style post_time string --
+// Sydney-clock (confirmed 2026-10-05, see lib/raceTime.js), not the naive
+// runtime-local time this used to build (new Date(`${dateISO}T...`) with no
+// zone suffix takes on whatever timezone the server/browser itself runs
+// in) -- wrong basically everywhere this isn't Sydney/Melbourne, and this
+// function drives the actual race-countdown timers shown to every user.
 function parseRaceTime(timeStr, dateStr) {
   if (!timeStr) return null;
-  // Normalise: "01.58 pm" → "01:58 pm", "13.30" → "13:30"
-  const t = timeStr.trim().replace(/\./g, ':');
-  let h, m;
-  const ampm = t.match(/^(\d{1,2}):(\d{2})\s*(am|pm)/i);
-  if (ampm) {
-    h = parseInt(ampm[1], 10);
-    m = parseInt(ampm[2], 10);
-    if (/pm/i.test(ampm[3]) && h !== 12) h += 12;
-    if (/am/i.test(ampm[3]) && h === 12) h = 0;
-  } else {
-    const plain = t.match(/^(\d{1,2}):(\d{2})/);
-    if (!plain) return null;
-    h = parseInt(plain[1], 10);
-    m = parseInt(plain[2], 10);
-  }
   const dateISO = toISO(dateStr) || new Date().toISOString().slice(0, 10);
-  const raceAt = new Date(`${dateISO}T${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:00`);
-  return isNaN(raceAt.getTime()) ? null : raceAt;
+  return sydneyDateTimeToInstant(dateISO, timeStr);
 }
 
 // Strip trailing country-of-origin suffix before scratchings key comparison
