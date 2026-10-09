@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server';
 import { auth, clerkClient } from '@clerk/nextjs/server';
 import { fetchAllTodayMarketMoves } from '@/lib/marketMoves';
+import { hasFeature } from '@/lib/planFeatures';
 
-// Pro-gated (same server-side pattern as every other Pro gate in the
+// Lite+ gated (same server-side pattern as every other plan gate in the
 // codebase, e.g. /api/insights/summary) -- Market Movers spans every
 // runner across all of today's races, not just the currently-selected one,
 // so it needs its own route rather than riding on the Races page's existing
@@ -13,8 +14,8 @@ export async function GET(req) {
 
   const client = await clerkClient();
   const user = await client.users.getUser(userId);
-  if (user?.publicMetadata?.plan !== 'pro') {
-    return NextResponse.json({ error: 'Pro required' }, { status: 403 });
+  if (!hasFeature(user?.publicMetadata?.plan, 'movers')) {
+    return NextResponse.json({ error: 'Lite or Pro required' }, { status: 403 });
   }
 
   const { searchParams } = new URL(req.url);

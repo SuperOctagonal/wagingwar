@@ -3,6 +3,7 @@ import { auth, clerkClient } from '@clerk/nextjs/server';
 import { parseRow, detectHeaders } from '@/lib/csvParser';
 import { FREE_RACE_LEVEL_HEADER_KEYS, FREE_HORSE_HEADER_KEYS } from '@/lib/freeTierFields';
 import { getWizardCsv } from '@/lib/wizardCsvCache';
+import { hasFeature } from '@/lib/planFeatures';
 
 const SURL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SKEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -45,7 +46,7 @@ export async function GET() {
 
   const client = await clerkClient();
   const user = await client.users.getUser(userId);
-  const isPro = user?.publicMetadata?.plan === 'pro';
+  const hasFullScores = hasFeature(user?.publicMetadata?.plan, 'full_scores');
 
   const todayAEST = new Date().toLocaleDateString('sv-SE', { timeZone: 'Australia/Brisbane' });
 
@@ -54,7 +55,7 @@ export async function GET() {
     if (text == null) {
       return new NextResponse('CSV not available', { status: 404 });
     }
-    if (!isPro) text = stripCsvForFreeTier(text);
+    if (!hasFullScores) text = stripCsvForFreeTier(text);
     return new NextResponse(text, {
       status: 200,
       headers: { 'Content-Type': 'text/plain; charset=utf-8' },

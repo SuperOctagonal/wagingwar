@@ -3,6 +3,7 @@ import { auth, clerkClient } from '@clerk/nextjs/server';
 import { stripHorseFields } from '@/lib/freeTierFields';
 import { fetchAllRows } from '@/lib/fetchAllRows';
 import { isKnownAuVenue } from '@/lib/venues';
+import { hasFeature } from '@/lib/planFeatures';
 
 const SURL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SKEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -21,9 +22,14 @@ export async function GET(req) {
 
   const client = await clerkClient();
   const user = await client.users.getUser(userId);
-  const isPro = user?.publicMetadata?.plan === 'pro';
+  const plan = user?.publicMetadata?.plan;
+  const hasFullScores = hasFeature(plan, 'full_scores');
 
-  if (date !== todayAEST && !isPro) {
+  // Historical race cards are a separate, undocumented Pro perk -- not one
+  // of the named Lite features, so this stays literally pro-only rather
+  // than going through hasFeature('full_scores'), which Lite now also
+  // satisfies. Unchanged by the Lite rollout.
+  if (date !== todayAEST && plan !== 'pro') {
     return NextResponse.json({ error: 'Pro required for historical race cards' }, { status: 403 });
   }
 
@@ -41,7 +47,7 @@ export async function GET(req) {
   // Real server-side gate — free tier never receives scoring-input fields in
   // form_data, not just a hidden UI column. See lib/freeTierFields.js for the
   // allowlist and how it was determined.
-  if (!isPro) {
+  if (!hasFullScores) {
     data = data.map(row => ({ ...row, form_data: stripHorseFields(row.form_data) }));
   }
 

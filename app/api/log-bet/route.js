@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { auth, clerkClient } from '@clerk/nextjs/server';
 import { ALL_KNOWN_BOOKMAKERS } from '@/lib/bookmakers';
+import { hasFeature } from '@/lib/planFeatures';
 
 const SURL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SKEY = process.env.SUPABASE_SERVICE_KEY;
@@ -11,7 +12,7 @@ export async function POST(req) {
 
   const client = await clerkClient();
   const user = await client.users.getUser(userId);
-  if (user?.publicMetadata?.plan !== 'pro') {
+  if (!hasFeature(user?.publicMetadata?.plan, 'bet_tracker')) {
     return NextResponse.json({ error: 'Pro required' }, { status: 403 });
   }
 
