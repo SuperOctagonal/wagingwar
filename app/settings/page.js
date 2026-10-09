@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useUser, useClerk, useReverification } from '@clerk/nextjs';
 import { isReverificationCancelledError } from '@clerk/nextjs/errors';
 import useIsPro from '@/hooks/useIsPro';
+import usePlan from '@/hooks/usePlan';
 import { punterFallback } from '@/lib/punterFallback';
 import { BOOKMAKERS } from '@/lib/bookmakers';
 
@@ -219,6 +220,7 @@ export default function SettingsPage() {
   const { user, isLoaded } = useUser();
   const { signOut } = useClerk();
   const isPro = useIsPro();
+  const plan = usePlan();
   const [active, setActive] = useState('profile');
   const [s, setS] = useState(DEFAULTS);
   const [saving, setSaving] = useState(false);
@@ -737,28 +739,42 @@ export default function SettingsPage() {
         </>
       );
 
-      case 'subscription': return (
+      case 'subscription': {
+        const hasSub = plan === 'lite' || plan === 'pro';
+        const planLabel = plan === 'pro' ? 'Pro plan' : plan === 'lite' ? 'Lite plan' : 'Free plan';
+        const badgeLabel = plan === 'pro' ? 'PRO' : plan === 'lite' ? 'LITE' : 'FREE';
+        const isTrialing = user?.publicMetadata?.subscriptionStatus === 'trialing' && user?.publicMetadata?.trialEnd;
+        const trialEndDate = isTrialing ? new Date(user.publicMetadata.trialEnd * 1000) : null;
+        return (
         <>
           <SecTitle>Subscription</SecTitle>
           <div style={{
-            background: isPro ? '#f0fdf4' : '#f9fafb',
-            border: `1px solid ${isPro ? '#86efac' : '#e5e7eb'}`,
-            borderRadius: 10, padding: '16px 20px', marginBottom: 28,
+            background: hasSub ? '#f0fdf4' : '#f9fafb',
+            border: `1px solid ${hasSub ? '#86efac' : '#e5e7eb'}`,
+            borderRadius: 10, padding: '16px 20px', marginBottom: isTrialing ? 10 : 28,
             display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           }}>
             <div>
-              <div style={{ fontSize: 14, fontWeight: 700, color: isPro ? G : '#374151' }}>
-                {isPro ? 'Pro plan' : 'Free plan'}
+              <div style={{ fontSize: 14, fontWeight: 700, color: hasSub ? G : '#374151' }}>
+                {planLabel}
               </div>
               <div style={{ fontSize: 12, color: '#6b7280', marginTop: 2 }}>
-                {isPro ? 'Full access to all Pro features' : 'Upgrade for full access'}
+                {plan === 'pro' ? 'Full access to all Pro features'
+                  : plan === 'lite' ? 'Full scores, live odds, Movers & Value bets'
+                  : 'Upgrade for full access'}
               </div>
             </div>
             <span style={{
-              background: isPro ? G : '#e5e7eb', color: isPro ? '#fff' : '#374151',
+              background: hasSub ? G : '#e5e7eb', color: hasSub ? '#fff' : '#374151',
               borderRadius: 20, padding: '4px 12px', fontSize: 12, fontWeight: 700,
-            }}>{isPro ? 'PRO' : 'FREE'}</span>
+            }}>{badgeLabel}</span>
           </div>
+
+          {isTrialing && (
+            <div style={{ fontSize: 12, color: '#92400e', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8, padding: '8px 14px', marginBottom: 28 }}>
+              Your free trial ends {trialEndDate.toLocaleDateString('en-AU', { day: 'numeric', month: 'long', year: 'numeric' })} — your card will then be charged automatically unless you cancel first.
+            </div>
+          )}
 
           <div style={{ marginBottom: 28 }}>
             <div style={{ fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 12 }}>
@@ -780,7 +796,7 @@ export default function SettingsPage() {
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'flex-start' }}>
-            {isPro ? (
+            {hasSub ? (
               <>
                 <button
                   type="button"
@@ -788,7 +804,7 @@ export default function SettingsPage() {
                   disabled={portalState === 'loading'}
                   style={{ background: '#f9fafb', color: portalState === 'error' ? '#dc2626' : '#374151', border: `1px solid ${portalState === 'error' ? '#fca5a5' : '#d1d5db'}`, borderRadius: 8, padding: '10px 24px', fontSize: 13, fontWeight: 600, cursor: portalState === 'loading' ? 'default' : 'pointer', opacity: portalState === 'loading' ? 0.7 : 1 }}
                 >
-                  {portalState === 'loading' ? 'Opening…' : portalState === 'error' ? 'Couldn\'t open portal — try again' : 'Manage billing'}
+                  {portalState === 'loading' ? 'Opening…' : portalState === 'error' ? 'Couldn\'t open portal — try again' : 'Manage subscription'}
                 </button>
                 <button
                   type="button"
@@ -796,18 +812,19 @@ export default function SettingsPage() {
                   disabled={portalState === 'loading'}
                   style={{ background: 'transparent', border: 'none', color: '#9ca3af', fontSize: 12, cursor: portalState === 'loading' ? 'default' : 'pointer', padding: 0 }}
                 >
-                  Cancel via billing portal
+                  {plan === 'lite' ? 'Upgrade to Pro, switch plans, or cancel via billing portal' : 'Cancel via billing portal'}
                 </button>
               </>
             ) : (
               <a href="/account" style={{
                 display: 'inline-block', background: G, color: '#fff',
                 borderRadius: 8, padding: '10px 24px', fontSize: 13, fontWeight: 600, textDecoration: 'none',
-              }}>Upgrade to Pro</a>
+              }}>Upgrade</a>
             )}
           </div>
         </>
-      );
+        );
+      }
 
       default: return null;
     }

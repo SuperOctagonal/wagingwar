@@ -5,6 +5,8 @@ import { createPortal } from 'react-dom';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useUser } from '@clerk/nextjs';
 import useIsPro from '@/hooks/useIsPro';
+import usePlan from '@/hooks/usePlan';
+import { hasFeature } from '@/lib/planFeatures';
 import useIsMobile from '@/hooks/useIsMobile';
 import useUserSettings from '@/hooks/useUserSettings';
 import UpgradeModal from '@/components/UpgradeModal';
@@ -2564,7 +2566,7 @@ function FormView({ results, scratched, onLogBet, isResulted, betBlocked = false
 
 // ─── pace map view ────────────────────────────────────────────────────────────
 
-function PaceMapView({ results, scratched, rc, trackCond, isPro, onUpgrade, scratchingsSet = new Set(), isAdmin = false, livePrices = {}, marketMoves = {}, paceBiasPoints = null }) {
+function PaceMapView({ results, scratched, rc, trackCond, canAccess, onUpgrade, scratchingsSet = new Set(), isAdmin = false, livePrices = {}, marketMoves = {}, paceBiasPoints = null }) {
   const scrKey = h => `${normaliseVenue(rc.venue)}||${rc.num}||${stripCountry(h.name).toUpperCase()}`;
   const activeResults = results.filter(h => !scratchingsSet.has(scrKey(h)));
   const ranked = activeResults.map((r, i) => ({ ...r, systemRank: i + 1 }));
@@ -2597,7 +2599,7 @@ function PaceMapView({ results, scratched, rc, trackCond, isPro, onUpgrade, scra
 
   return (
     <div className="flex flex-1 overflow-hidden" style={{ position: 'relative' }}>
-      {!isPro && (
+      {!canAccess && (
         <div style={{ position: 'absolute', inset: 0, zIndex: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(4px)', background: 'rgba(255,255,255,0.4)' }}>
           <div style={{ textAlign: 'center', padding: 24 }}>
             <i className="ti ti-lock" style={{ fontSize: 36, color: '#9ca3af', display: 'block', marginBottom: 12 }} />
@@ -2610,7 +2612,7 @@ function PaceMapView({ results, scratched, rc, trackCond, isPro, onUpgrade, scra
         </div>
       )}
       {/* Main bars column */}
-      <div className="flex-1 overflow-y-auto p-3" style={{ filter: isPro ? 'none' : 'blur(4px)', pointerEvents: isPro ? 'auto' : 'none' }}>
+      <div className="flex-1 overflow-y-auto p-3" style={{ filter: canAccess ? 'none' : 'blur(4px)', pointerEvents: canAccess ? 'auto' : 'none' }}>
         {/* Legend */}
         <div className="flex flex-wrap items-center gap-3 mb-3">
           {PACE_ROLES.map(r => (
@@ -2650,7 +2652,7 @@ function PaceMapView({ results, scratched, rc, trackCond, isPro, onUpgrade, scra
                 <span style={{ fontSize:9, color:'#6b7280', fontWeight:600 }}>{h.tab||'—'}</span>
               </div>
               <div className="w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-bold flex-shrink-0"
-                style={{ background: rkBg, color: rkColor2 }}>{isPro ? h.systemRank : '—'}</div>
+                style={{ background: rkBg, color: rkColor2 }}>{canAccess ? h.systemRank : '—'}</div>
               <div className="w-8 flex-shrink-0 text-center">
                 <span className="bg-blue-800 text-white text-[9px] font-bold px-1.5 py-[2px] rounded">{bp}</span>
               </div>
@@ -2682,7 +2684,7 @@ function PaceMapView({ results, scratched, rc, trackCond, isPro, onUpgrade, scra
       </div>
 
       {/* Right summary panel */}
-      <div className="w-48 flex-shrink-0 bg-gray-50 border-l border-gray-200 overflow-y-auto p-3 space-y-3" style={{ filter: isPro ? 'none' : 'blur(4px)', pointerEvents: isPro ? 'auto' : 'none' }}>
+      <div className="w-48 flex-shrink-0 bg-gray-50 border-l border-gray-200 overflow-y-auto p-3 space-y-3" style={{ filter: canAccess ? 'none' : 'blur(4px)', pointerEvents: canAccess ? 'auto' : 'none' }}>
         <div>
           <div className="text-[10px] font-bold text-gray-500 uppercase tracking-[0.5px] mb-2">Tempo rating</div>
           <div className="bg-white rounded-lg p-3 border border-gray-200 text-center">
@@ -2762,7 +2764,7 @@ function ordinal(n) {
   return `${n}${s[(v - 20) % 10] || s[v] || s[0]}`;
 }
 
-function MoversView({ isPro, onUpgrade, isAdmin }) {
+function MoversView({ canAccess, onUpgrade, isAdmin }) {
   const [movers, setMovers]   = useState([]);
   const [loading, setLoading] = useState(true);
   const [minPct, setMinPct]   = useState(15);
@@ -2776,11 +2778,11 @@ function MoversView({ isPro, onUpgrade, isAdmin }) {
   const dateRef = useRef(new Intl.DateTimeFormat('en-CA', { timeZone: 'Australia/Sydney' }).format(new Date()));
 
   useEffect(() => {
-    // Not Pro (and not the admin live-price bypass) -- skip the fetch
-    // entirely rather than hitting the Pro-gated route just to get a 403;
+    // Not Lite/Pro (and not the admin live-price bypass) -- skip the fetch
+    // entirely rather than hitting the plan-gated route just to get a 403;
     // same blur-overlay UX as Pace Map, but there's no free data underneath
     // to blur since Movers spans every race, not just the selected one.
-    if (!isPro && !isAdmin) { setLoading(false); return; }
+    if (!canAccess && !isAdmin) { setLoading(false); return; }
     let cancelled = false;
     async function load() {
       setLoading(true);
@@ -2796,7 +2798,7 @@ function MoversView({ isPro, onUpgrade, isAdmin }) {
     load();
     const interval = setInterval(load, 60000);
     return () => { cancelled = true; clearInterval(interval); };
-  }, [isPro, isAdmin]);
+  }, [canAccess, isAdmin]);
 
   const venues = useMemo(() => [...new Set(movers.map(m => m.venue))].sort(), [movers]);
   const raceNums = useMemo(() => [...new Set(movers.map(m => m.raceNum))].sort((a, b) => +a - +b), [movers]);
@@ -2833,19 +2835,19 @@ function MoversView({ isPro, onUpgrade, isAdmin }) {
 
   return (
     <div className="flex flex-1 overflow-hidden" style={{ position: 'relative' }}>
-      {!isPro && !isAdmin && (
+      {!canAccess && !isAdmin && (
         <div style={{ position: 'absolute', inset: 0, zIndex: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(255,255,255,0.85)' }}>
           <div style={{ textAlign: 'center', padding: 24 }}>
             <i className="ti ti-lock" style={{ fontSize: 36, color: '#9ca3af', display: 'block', marginBottom: 12 }} />
-            <div style={{ fontSize: 13, fontWeight: 700, color: '#111827', marginBottom: 6 }}>Market Movers is a Pro feature</div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: '#111827', marginBottom: 6 }}>Market Movers is a Lite feature</div>
             <div style={{ fontSize: 11, color: '#6b7280', marginBottom: 16 }}>Upgrade to see every firmer and drifter across today&apos;s races</div>
             <button onClick={onUpgrade} style={{ padding: '9px 22px', background: '#00471b', color: '#fff', border: 'none', borderRadius: 7, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
-              Unlock with Pro
+              Unlock with Lite
             </button>
           </div>
         </div>
       )}
-      <div className="flex-1 overflow-y-auto p-3" style={{ filter: (isPro || isAdmin) ? 'none' : 'blur(4px)', pointerEvents: (isPro || isAdmin) ? 'auto' : 'none' }}>
+      <div className="flex-1 overflow-y-auto p-3" style={{ filter: (canAccess || isAdmin) ? 'none' : 'blur(4px)', pointerEvents: (canAccess || isAdmin) ? 'auto' : 'none' }}>
         {/* Primary filters always visible; the rest (min price, race number,
             time window) collapse behind "More filters" so this row doesn't
             grow to 7 pickers wide on narrower viewports -- the ones kept
@@ -3021,7 +3023,7 @@ function ConfidenceBadge({ flags }) {
 // a parallel implementation. Reuses TIME_WINDOW_OPTIONS/parsePostTime (both
 // module-level above, defined for Movers) since the Time-window filter is
 // identical in meaning here.
-function ValueBetsView({ isPro, onUpgrade, isAdmin }) {
+function ValueBetsView({ canAccess, onUpgrade, isAdmin }) {
   const [bets, setBets]       = useState([]);
   const [loading, setLoading] = useState(true);
   const [minEdge, setMinEdge] = useState(30);
@@ -3034,10 +3036,10 @@ function ValueBetsView({ isPro, onUpgrade, isAdmin }) {
   const dateRef = useRef(new Intl.DateTimeFormat('en-CA', { timeZone: 'Australia/Sydney' }).format(new Date()));
 
   useEffect(() => {
-    // Not Pro (and not the admin bypass, for consistency with Movers) --
-    // skip the fetch entirely rather than hitting the Pro-gated route just
+    // Not Lite/Pro (and not the admin bypass, for consistency with Movers) --
+    // skip the fetch entirely rather than hitting the plan-gated route just
     // to get a 403.
-    if (!isPro && !isAdmin) { setLoading(false); return; }
+    if (!canAccess && !isAdmin) { setLoading(false); return; }
     let cancelled = false;
     async function load() {
       setLoading(true);
@@ -3053,7 +3055,7 @@ function ValueBetsView({ isPro, onUpgrade, isAdmin }) {
     load();
     const interval = setInterval(load, 60000);
     return () => { cancelled = true; clearInterval(interval); };
-  }, [isPro, isAdmin]);
+  }, [canAccess, isAdmin]);
 
   const venues = useMemo(() => [...new Set(bets.map(b => b.venue))].sort(), [bets]);
   const raceNums = useMemo(() => [...new Set(bets.map(b => b.raceNum))].sort((a, b) => +a - +b), [bets]);
@@ -3093,19 +3095,19 @@ function ValueBetsView({ isPro, onUpgrade, isAdmin }) {
 
   return (
     <div className="flex flex-1 overflow-hidden" style={{ position: 'relative' }}>
-      {!isPro && !isAdmin && (
+      {!canAccess && !isAdmin && (
         <div style={{ position: 'absolute', inset: 0, zIndex: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(255,255,255,0.85)' }}>
           <div style={{ textAlign: 'center', padding: 24 }}>
             <i className="ti ti-lock" style={{ fontSize: 36, color: '#9ca3af', display: 'block', marginBottom: 12 }} />
-            <div style={{ fontSize: 13, fontWeight: 700, color: '#111827', marginBottom: 6 }}>Value Bets is a Pro feature</div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: '#111827', marginBottom: 6 }}>Value Bets is a Lite feature</div>
             <div style={{ fontSize: 11, color: '#6b7280', marginBottom: 16 }}>Upgrade to see every value opportunity across today&apos;s races</div>
             <button onClick={onUpgrade} style={{ padding: '9px 22px', background: '#00471b', color: '#fff', border: 'none', borderRadius: 7, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
-              Unlock with Pro
+              Unlock with Lite
             </button>
           </div>
         </div>
       )}
-      <div className="flex-1 overflow-y-auto p-3" style={{ filter: (isPro || isAdmin) ? 'none' : 'blur(4px)', pointerEvents: (isPro || isAdmin) ? 'auto' : 'none' }}>
+      <div className="flex-1 overflow-y-auto p-3" style={{ filter: (canAccess || isAdmin) ? 'none' : 'blur(4px)', pointerEvents: (canAccess || isAdmin) ? 'auto' : 'none' }}>
         <div className="flex flex-wrap items-center gap-2 mb-2">
           <label style={labelStyle}>Venue</label>
           <select value={venue} onChange={e => setVenue(e.target.value)} style={selectStyle}>
@@ -3244,7 +3246,7 @@ const BB_TAG_STYLES = {
 
 const BB_STAR_COLORS = { 1:'#ef4444', 2:'#f97316', 3:'#eab308', 4:'#22c55e', 5:'#f59e0b' };
 
-function BlackbookModal({ target, onClose, userId, isPro }) {
+function BlackbookModal({ target, onClose, userId, canAccess }) {
   const horseName   = typeof target === 'string' ? target : (target?.name || '');
   const venue       = typeof target === 'object' ? (target?.venue || '') : '';
   const raceNumber  = typeof target === 'object' ? (target?.raceNumber || '') : '';
@@ -3265,7 +3267,7 @@ function BlackbookModal({ target, onClose, userId, isPro }) {
   const starColor = BB_STAR_COLORS[priority] || '#d1d5db';
 
   const handleSave = async () => {
-    if (!SURL || !SKEY || !userId || !isPro) return;
+    if (!SURL || !SKEY || !userId || !canAccess) return;
     setSaving(true);
     const payload = {
       clerk_id: userId,
@@ -3389,6 +3391,11 @@ function RacesPageInner() {
   const router       = useRouter();
   const { user }     = useUser();
   const isPro        = useIsPro();
+  const plan         = usePlan();
+  const canMovers    = hasFeature(plan, 'movers');
+  const canValueBets = hasFeature(plan, 'value_bets');
+  const canLiveOdds  = hasFeature(plan, 'live_odds');
+  const canPaceMap   = hasFeature(plan, 'pace_map');
   const isMobile     = useIsMobile();
   const isNarrow     = useIsNarrowWidth();
   const { settings: userSettings, loading: settingsLoading } = useUserSettings();
@@ -4331,17 +4338,31 @@ function RacesPageInner() {
                     <FormView results={allHorsesForDisplay} scratched={scratched} onLogBet={handleLogBet} isResulted={!!currentRaceResult} betBlocked={betBlocked} rc={currentRace} isPro={isPro} onUpgrade={() => setUpgradeOpen(true)} scratchingsSet={scratchingsSet} />
                   )}
                   {view === 'pacemap' && (
-                    <PaceMapView results={allHorsesForDisplay} scratched={scratched} rc={currentRace} trackCond={trackCond} isPro={isPro} onUpgrade={() => setUpgradeOpen(true)} scratchingsSet={scratchingsSet} isAdmin={true} livePrices={livePrices} marketMoves={marketMoves} paceBiasPoints={paceBiasPoints} />
+                    <PaceMapView results={allHorsesForDisplay} scratched={scratched} rc={currentRace} trackCond={trackCond} canAccess={canPaceMap} onUpgrade={() => setUpgradeOpen(true)} scratchingsSet={scratchingsSet} isAdmin={true} livePrices={livePrices} marketMoves={marketMoves} paceBiasPoints={paceBiasPoints} />
                   )}
                   {view === 'movers' && (
-                    <MoversView isPro={isPro} onUpgrade={() => setUpgradeOpen(true)} isAdmin={isSiteAdminUser} />
+                    <MoversView canAccess={canMovers} onUpgrade={() => setUpgradeOpen(true)} isAdmin={isSiteAdminUser} />
                   )}
                   {view === 'value' && (
-                    <ValueBetsView isPro={isPro} onUpgrade={() => setUpgradeOpen(true)} isAdmin={isSiteAdminUser} />
+                    <ValueBetsView canAccess={canValueBets} onUpgrade={() => setUpgradeOpen(true)} isAdmin={isSiteAdminUser} />
                   )}
                   {view === 'odds' && (
-                    <div style={{ padding: 12 }}>
-                      <OddsTable venue={normaliseVenue(currentRace.venue)} raceNum={String(currentRace.num)} selectedBookmaker={oddsBookmaker} />
+                    <div style={{ padding: 12, position: 'relative' }}>
+                      {!canLiveOdds && !isSiteAdminUser && (
+                        <div style={{ position: 'absolute', inset: 0, zIndex: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(255,255,255,0.85)' }}>
+                          <div style={{ textAlign: 'center', padding: 24 }}>
+                            <i className="ti ti-lock" style={{ fontSize: 36, color: '#9ca3af', display: 'block', marginBottom: 12 }} />
+                            <div style={{ fontSize: 13, fontWeight: 700, color: '#111827', marginBottom: 6 }}>Live Odds is a Lite feature</div>
+                            <div style={{ fontSize: 11, color: '#6b7280', marginBottom: 16 }}>Upgrade to compare every bookmaker&apos;s live price</div>
+                            <button onClick={() => setUpgradeOpen(true)} style={{ padding: '9px 22px', background: '#00471b', color: '#fff', border: 'none', borderRadius: 7, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
+                              Unlock with Lite
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                      <div style={{ filter: (canLiveOdds || isSiteAdminUser) ? 'none' : 'blur(4px)', pointerEvents: (canLiveOdds || isSiteAdminUser) ? 'auto' : 'none' }}>
+                        <OddsTable venue={normaliseVenue(currentRace.venue)} raceNum={String(currentRace.num)} selectedBookmaker={oddsBookmaker} />
+                      </div>
                     </div>
                   )}
                 </div>
@@ -4392,7 +4413,7 @@ function RacesPageInner() {
       {/* Race result modal */}
       {resultPopup && <RaceResultModal result={resultPopup} results={results} onClose={() => setResultPopup(null)} />}
       {/* Blackbook modal */}
-      {bbTarget && <BlackbookModal target={bbTarget} onClose={() => { setBbTarget(null); const popup = document.getElementById('horse-popup'); if (popup) popup.style.display = ''; }} userId={user?.id} isPro={isPro} />}
+      {bbTarget && <BlackbookModal target={bbTarget} onClose={() => { setBbTarget(null); const popup = document.getElementById('horse-popup'); if (popup) popup.style.display = ''; }} userId={user?.id} canAccess={hasFeature(plan, 'blackbook')} />}
     </div>
     </>
   );

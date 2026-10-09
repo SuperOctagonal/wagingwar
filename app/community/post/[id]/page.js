@@ -3,7 +3,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useUser } from '@clerk/nextjs';
-import useIsPro from '@/hooks/useIsPro';
+import usePlan from '@/hooks/usePlan';
+import { hasFeature } from '@/lib/planFeatures';
 import UpgradeModal from '@/components/UpgradeModal';
 import { awardPoints } from '@/lib/points';
 import { punterFallback } from '@/lib/punterFallback';
@@ -98,7 +99,11 @@ export default function PostDetailPage() {
   const router = useRouter();
   const { user } = useUser();
   const userId  = user?.id || null;
-  const isPro   = useIsPro();
+  // Community posting/upvoting is Pro-minimum (lib/planFeatures.js) --
+  // isPro keeps its name/boolean shape so every downstream isPro check
+  // below is unaffected by the Lite rollout.
+  const plan    = usePlan();
+  const isPro   = hasFeature(plan, 'community_post');
   const isAdmin = userId === ADMIN_ID;
   // What other users see too — never real name.
   const punterName = user ? (user.username || punterFallback(user.id)) : null;

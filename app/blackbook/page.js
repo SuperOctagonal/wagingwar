@@ -2,7 +2,8 @@
 import { useState, useEffect, useCallback, Fragment } from 'react';
 import { useUser } from '@clerk/nextjs';
 import ProfileRail from '@/components/ProfileRail';
-import useIsPro from '@/hooks/useIsPro';
+import usePlan from '@/hooks/usePlan';
+import { hasFeature } from '@/lib/planFeatures';
 import useIsMobile from '@/hooks/useIsMobile';
 import UpgradeModal from '@/components/UpgradeModal';
 import { awardPoints } from '@/lib/points';
@@ -244,7 +245,13 @@ function exportCSV(horses) {
 export default function BlackbookPage() {
   const { user, isLoaded } = useUser();
   const userId = user?.id || null;
-  const isPro = useIsPro();
+  // Blackbook is a Pro-minimum feature (lib/planFeatures.js) -- isPro keeps
+  // its name/boolean shape here (false while loading, false for Lite, same
+  // as hasFeature('pro'-minimum) always was) so every downstream `isPro`
+  // check below (including the isPro === false "loaded as free" convention)
+  // is unaffected by the Lite rollout.
+  const plan = usePlan();
+  const isPro = hasFeature(plan, 'blackbook');
   const isMobile = useIsMobile();
   const [upgradeOpen, setUpgradeOpen] = useState(false);
   const [lockVisible, setLockVisible] = useState(true);

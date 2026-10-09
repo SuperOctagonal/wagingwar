@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useUser } from '@clerk/nextjs';
-import useIsPro from '@/hooks/useIsPro';
+import usePlan from '@/hooks/usePlan';
+import { hasFeature } from '@/lib/planFeatures';
 import useIsMobile from '@/hooks/useIsMobile';
 import useUserSettings from '@/hooks/useUserSettings';
 import UpgradeModal from '@/components/UpgradeModal';
@@ -495,7 +496,12 @@ function BetCountdown({ bet, isFirst = false }) {
 
 export default function MybetsPage() {
   const { user, isLoaded } = useUser();
-  const isPro    = useIsPro();
+  // Bet tracker is Pro-minimum (lib/planFeatures.js) -- isPro keeps its
+  // name/boolean shape (false while loading, false for Lite) so every
+  // downstream isPro check below, including the isPro === false "loaded as
+  // free" convention, is unaffected by the Lite rollout.
+  const plan     = usePlan();
+  const isPro    = hasFeature(plan, 'bet_tracker');
   const isMobile = useIsMobile();
   const { settings, loading: settingsLoading } = useUserSettings();
   const settingsApplied = useRef(false);

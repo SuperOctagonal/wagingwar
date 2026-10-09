@@ -4,7 +4,8 @@ import { useState, useEffect, useCallback, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useUser } from '@clerk/nextjs';
-import useIsPro from '@/hooks/useIsPro';
+import usePlan from '@/hooks/usePlan';
+import { hasFeature } from '@/lib/planFeatures';
 import useIsMobile from '@/hooks/useIsMobile';
 import UpgradeModal from '@/components/UpgradeModal';
 import { awardPoints } from '@/lib/points';
@@ -958,7 +959,11 @@ function CommunityPageInner() {
   const searchParams = useSearchParams();
   const isAdmin = userId === ADMIN_ID;
   const router    = useRouter();
-  const isPro     = useIsPro();
+  // Community posting is Pro-minimum (lib/planFeatures.js) -- isPro keeps
+  // its name/boolean shape so every downstream isPro check below is
+  // unaffected by the Lite rollout.
+  const plan      = usePlan();
+  const isPro     = hasFeature(plan, 'community_post');
   const isMobile  = useIsMobile();
   const [upgradeOpen, setUpgradeOpen] = useState(false);
 
