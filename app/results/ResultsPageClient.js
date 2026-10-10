@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useUser } from '@clerk/nextjs';
 import { scoreGroup, getDefaultWeights, GRP_KEYS, calcPaceMap, pointsForPlace } from '@/lib/scoring';
-import { normaliseVenue, isKnownAuVenue, AU_VENUE_STATE } from '@/lib/venues';
+import { normaliseVenue, AU_VENUE_STATE, filterAuMeetings } from '@/lib/venues';
 import { paidPlacesForFieldSize, estimatePlacePrice } from '@/lib/placePrice';
 import { fetchAllRows } from '@/lib/fetchAllRows';
 import { ODDS_BANDS } from '@/lib/oddsBucket';
@@ -1444,11 +1444,17 @@ export default function ResultsPage() {
     const rankFetch = fetch(`/api/results-ranks?date=${selectedDate}`).then(r => r.ok ? r.json() : {});
     Promise.all([resultsFetch, scrFetch, meetingsFetch, cardFetch, scheduleFetch, rankFetch]).then(([rows, scrRows, meetings, cards, schedule, ranks]) => {
       // Defense-in-depth: race_results and race_schedule are read straight
-      // from Supabase here, independent of the CSV-import path's
-      // isKnownAuVenue() exclusion -- filter again rather than trusting
-      // whatever's already in the table (a stale pre-fix write, a manual
-      // edit, a future import bug could otherwise still surface here).
-      setDbRows((rows || []).filter(r => isKnownAuVenue(r.venue)));
+      // from Supabase here, independent of the CSV-import path's own NZ
+      // exclusion -- filter again rather than trusting whatever's already
+      // in the table (a stale pre-fix write, a manual edit, a future
+      // import bug could otherwise still surface here). Switched from
+      // isKnownAuVenue() (an allowlist -- would hide a genuine AU venue
+      // that simply isn't on AU_VENUE_STATE yet, e.g. the Moe/Wellington
+      // problem lib/csvParser.js's own history already warned about) to
+      // filterAuMeetings/isNzVenue (a blocklist -- only hides a positively-
+      // identified NZ name; an unlisted real AU venue still shows, with
+      // the existing "Not on Calendar" badge, same as before).
+      setDbRows(filterAuMeetings(rows || []));
       setDbScratchings(scrRows || []);
       setVenueAbandoned(new Set((meetings || []).filter(r => r.is_abandoned).map(r => normaliseVenue(r.venue))));
       const tc = {};
@@ -1458,7 +1464,7 @@ export default function ResultsPage() {
       });
       setVenueTrackConds(tc);
       setCardRows(cards || []);
-      setScheduleRows((schedule || []).filter(r => isKnownAuVenue(r.venue)));
+      setScheduleRows(filterAuMeetings(schedule || []));
       setRankData(ranks || {});
       setLoading(false);
     });
@@ -1524,7 +1530,10 @@ export default function ResultsPage() {
   const cardRaceData = useMemo(() => {
     if (!cardRows.length) return { allRaces: {}, allVenues: {} };
     const ar = {}, av = {};
-    cardRows.forEach(row => {
+    // AU racing only -- cardRows comes straight from race_cards, a
+    // separate path from buildRaces()'s own CSV-level NZ exclusion (see
+    // lib/csvParser.js), so this needs the same filter applied directly.
+    filterAuMeetings(cardRows).forEach(row => {
       const key = `${row.venue}_R${row.race_num}`;
       if (!ar[key]) ar[key] = { venue: row.venue, num: row.race_num, horses: [] };
       if (row.form_data) ar[key].horses.push(row.form_data);
