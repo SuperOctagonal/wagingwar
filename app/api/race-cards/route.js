@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { auth, clerkClient } from '@clerk/nextjs/server';
 import { stripHorseFields } from '@/lib/freeTierFields';
 import { fetchAllRows } from '@/lib/fetchAllRows';
-import { isKnownAuVenue } from '@/lib/venues';
+import { filterAuMeetings } from '@/lib/venues';
 import { hasFeature } from '@/lib/planFeatures';
 
 const SURL = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -40,9 +40,11 @@ export async function GET(req) {
 
   if (!result.ok) return NextResponse.json({ error: `Supabase ${result.status}` }, { status: 502 });
   // Defense-in-depth: reads straight from race_cards, independent of the
-  // CSV-import path's isKnownAuVenue() exclusion -- see results-ranks/route.js
-  // for the same reasoning.
-  let data = result.rows.filter(row => isKnownAuVenue(row.venue));
+  // CSV-import path's own NZ exclusion -- see results-ranks/route.js for
+  // the same reasoning. filterAuMeetings (blocklist), not isKnownAuVenue
+  // (allowlist) -- an unlisted genuine AU venue must still show here
+  // (Tomorrow/historical dates), only a known NZ venue is excluded.
+  let data = filterAuMeetings(result.rows);
 
   // Real server-side gate — free tier never receives scoring-input fields in
   // form_data, not just a hidden UI column. See lib/freeTierFields.js for the
