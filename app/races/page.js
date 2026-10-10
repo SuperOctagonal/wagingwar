@@ -15,7 +15,7 @@ import ShareMenu from '@/components/ShareMenu';
 import PuntersEdgeCredit from '@/components/PuntersEdgeCredit';
 import OddsTable from '@/components/OddsTable';
 import { awardPoints } from '@/lib/points';
-import { normaliseVenue, stripSponsorPrefix, SPONSOR_PREFIXES, resolveCrseAbbrev } from '@/lib/venues';
+import { normaliseVenue, stripSponsorPrefix, SPONSOR_PREFIXES, resolveCrseAbbrev, isKnownAuVenue } from '@/lib/venues';
 import { isRacesAdmin, isSiteAdmin } from '@/lib/admin';
 import { validateBetForm } from '@/lib/betValidation';
 import { estimatePlacePrice, paidPlacesForFieldSize } from '@/lib/placePrice';
@@ -3931,7 +3931,14 @@ function RacesPageInner() {
           const effectiveCond = r.condition_override || r.track_condition;
           if (effectiveCond) tc[norm] = effectiveCond;
           if (r.is_abandoned) aband.add(norm);
-          if (r.calendar_mismatch) mismatch.add(norm);
+          // Never show "Not on Calendar" for a non-AU venue (e.g. an NZ
+          // meeting that leaked into today_meetings via the CSV import --
+          // see the TRENTHAM cross-contamination finding) -- the backend's
+          // own calendar_mismatch is computed against RA's live AU
+          // calendar, which by definition never lists an NZ venue, so an
+          // NZ row would always get flagged there even though it's not a
+          // real "missing from the AU calendar" case worth badging.
+          if (r.calendar_mismatch && isKnownAuVenue(r.venue)) mismatch.add(norm);
         });
         console.log('[today_meetings] track conds:', Object.keys(tc).length, 'abandoned:', [...aband], 'not on calendar:', [...mismatch]);
         setVenueTrackConds(tc);
