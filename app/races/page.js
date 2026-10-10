@@ -2014,7 +2014,13 @@ function RunnerRow({ runner, rank, rc, trackCond, onLogBet, onShowPopup, onHideP
   // which the bet-modal pre-fill and Results page still read directly.
   const liveP = isAdmin ? livePrices[stripCountry(runner.name).toUpperCase()] : undefined;
   const displayPrice = liveP ?? mktO;
-  const runnerMove = isAdmin ? marketMoves[marketMoveNameKey(runner.name)]?.move : undefined;
+  // Same marketMoves entry the % badge itself is computed from (open/current
+  // best-price-across-bookmakers -- lib/marketMoves.js), not livePrices'
+  // single-selected-bookmaker price, so the "$open -> $current" text shown
+  // under the pill is always arithmetically consistent with that pill's own
+  // percentage.
+  const runnerMoveEntry = isAdmin ? marketMoves[marketMoveNameKey(runner.name)] : undefined;
+  const runnerMove = runnerMoveEntry?.move;
   const isLivePrice = liveP != null;
   const pm   = calcPaceMap(runner, rc.venue, +rc.dist, trackCond);
   const crsLabel = (() => { const c = runner.courseStarts||0; return c===0?'NEW':c===1?'1x':c<=4?`${c}x`:'VET'; })();
@@ -2158,7 +2164,7 @@ function RunnerRow({ runner, rank, rc, trackCond, onLogBet, onShowPopup, onHideP
           between thead and tbody regardless of admin status. */}
       {isAdmin && (
         <td className={`${td} text-right whitespace-nowrap`}>
-          <FirmingDriftingBadge move={runnerMove} compact />
+          <FirmingDriftingBadge move={runnerMove} compact prices={runnerMoveEntry ? { open: runnerMoveEntry.open, current: runnerMoveEntry.current } : null} />
         </td>
       )}
       {/* Value */}
@@ -2235,7 +2241,11 @@ function FieldView({ results, scratched, rc, trackCond, onLogBet, onShowPopup, o
               {colVis.score && <th style={{ ...th, textAlign:'right', width:'5%' }}>Score</th>}
               {colVis.edge && <th style={{ ...th, textAlign:'right', width:'6%' }}>WW $</th>}
               <th style={{ ...th, textAlign:'right', width:'6%' }}>Price $</th>
-              {isAdmin && <th style={{ ...th, textAlign:'right', width:'3%', padding: '3px 3px' }}>Move</th>}
+              {/* Widened 3% -> 7% (table is tableLayout:auto, so this is a
+                  sizing hint, not a hard cap, but the old 3% badly
+                  under-stated the real content width once the open/current
+                  price line was added underneath the pill). */}
+              {isAdmin && <th style={{ ...th, textAlign:'right', width:'7%', padding: '3px 3px' }}>Move</th>}
               {colVis.value && <th style={{ ...th, textAlign:'right', width:'5%' }}>Value</th>}
               <th style={{ ...th, width:'8%' }} />
               <th style={{ ...th, textAlign:'left', width:'16%' }}>Pace / Crs</th>
@@ -4300,7 +4310,12 @@ function RacesPageInner() {
                           <i className="ti ti-trending-up" style={{ fontSize: 13, color: '#059669' }} />
                           <span style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.15 }}>
                             <span style={{ fontSize: 7, fontWeight: 700, color: '#059669', textTransform: 'uppercase', letterSpacing: '0.3px' }}>Top firmer</span>
-                            <span style={{ fontSize: 10, fontWeight: 700, color: '#065f46' }}>{topFirmer[0]} ▲{topFirmer[1].move.pct}%</span>
+                            <span style={{ fontSize: 10, fontWeight: 700, color: '#065f46' }} className="tabular-nums">
+                              {topFirmer[0]} ▲{topFirmer[1].move.pct}%
+                              {Number.isFinite(topFirmer[1].open) && Number.isFinite(topFirmer[1].current) && (
+                                <span style={{ fontWeight: 500, color: '#047857' }}> ${topFirmer[1].open.toFixed(2)} → ${topFirmer[1].current.toFixed(2)}</span>
+                              )}
+                            </span>
                           </span>
                         </span>
                       )}
@@ -4309,7 +4324,12 @@ function RacesPageInner() {
                           <i className="ti ti-trending-down" style={{ fontSize: 13, color: '#dc2626' }} />
                           <span style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.15 }}>
                             <span style={{ fontSize: 7, fontWeight: 700, color: '#dc2626', textTransform: 'uppercase', letterSpacing: '0.3px' }}>Top drifter</span>
-                            <span style={{ fontSize: 10, fontWeight: 700, color: '#991b1b' }}>{topDrifter[0]} ▼{topDrifter[1].move.pct}%</span>
+                            <span style={{ fontSize: 10, fontWeight: 700, color: '#991b1b' }} className="tabular-nums">
+                              {topDrifter[0]} ▼{topDrifter[1].move.pct}%
+                              {Number.isFinite(topDrifter[1].open) && Number.isFinite(topDrifter[1].current) && (
+                                <span style={{ fontWeight: 500, color: '#b91c1c' }}> ${topDrifter[1].open.toFixed(2)} → ${topDrifter[1].current.toFixed(2)}</span>
+                              )}
+                            </span>
                           </span>
                         </span>
                       )}

@@ -23,12 +23,20 @@ import { FIRMING_COLOR, DRIFTING_COLOR } from '@/lib/marketMoves';
 // disambiguate from the neighbouring Value column when the two shared space
 // (see above), so it's still shown everywhere the badge remains stacked
 // under a price (Odds tab/page, Pace Map, mobile Field tab).
-export default function FirmingDriftingBadge({ move, compact = false }) {
+//
+// prices: optional {open, current} -- when both are real numbers, shown as
+// a second line ("$5.10 → $2.80", same .toFixed(2) convention the Price $
+// column itself uses) below the pill. Opt-in and undefined everywhere else
+// that renders this badge (Odds tab/page, Pace Map, mobile Field tab,
+// Movers tab) -- only the Field table's MOVE column and the Top
+// firmer/drifter chips pass it, per the task that added it.
+export default function FirmingDriftingBadge({ move, compact = false, prices = null }) {
   if (!move) return null;
   const color = move.direction === 'firming' ? FIRMING_COLOR : DRIFTING_COLOR;
   const bg = move.direction === 'firming' ? '#d1fae5' : '#fee2e2';
   const arrow = move.direction === 'firming' ? '▲' : '▼';
   const label = move.direction === 'firming' ? 'Firming' : 'Drifting';
+  const hasPrices = prices && Number.isFinite(prices.open) && Number.isFinite(prices.current);
   return (
     <div style={{ lineHeight: 1.3 }}>
       <span
@@ -37,6 +45,13 @@ export default function FirmingDriftingBadge({ move, compact = false }) {
       >
         {compact ? `${arrow} ${move.pct}%` : `${arrow} ${label} ${move.pct}%`}
       </span>
+      {/* #6b7280 on white is ~4.6:1 -- passes WCAG AA (4.5:1) for this
+          10px/normal-weight text. */}
+      {hasPrices && (
+        <div className="tabular-nums" style={{ fontSize: 10, color: '#6b7280', marginLeft: 2, marginTop: 1, whiteSpace: 'nowrap', lineHeight: 1 }}>
+          ${prices.open.toFixed(2)} → ${prices.current.toFixed(2)}
+        </div>
+      )}
     </div>
   );
 }
