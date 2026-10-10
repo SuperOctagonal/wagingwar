@@ -1880,13 +1880,18 @@ function MobileRunnerCard({ runner, rank, rc, trackCond, onLogBet, isResulted, b
             ellipsis-truncated) is what actually absorbs the extra space. */}
         <div style={{ flexShrink: 0, width: 76, textAlign: 'right', fontSize: 12, fontWeight: 600, color: '#111827' }}>
           {displayPrice ? `$${displayPrice.toFixed(2)}` : '—'}
-          {/* showSignedPctInline=false: this box is a fixed-width (76px)
-              flex item with no horizontal-scroll fallback (unlike the
-              desktop Field table's ww-scroll-x-wrapped auto-layout table)
-              -- already needed widening once for the price line alone, so
-              the signed % goes into a tooltip here instead of risking
-              wrap/overflow by appending more text. */}
-          {canLivePrices && <FirmingDriftingBadge move={runnerMove} prices={runnerMoveEntry ? { open: runnerMoveEntry.open, current: runnerMoveEntry.current } : null} showSignedPctInline={false} />}
+          {/* pctLayout="stacked": the arrow+% goes on its own line below
+              the price range rather than appended inline -- phones have no
+              hover for a tooltip, so it has to be visible, but this box is
+              a fixed 76px flex item with no horizontal-scroll fallback
+              (unlike the desktop Field table). A short "▲14%"/"▼6%" fits
+              that width on its own line with room to spare (it's the price
+              range line, e.g. "$18.00 → $14.00", that's the wide one), so
+              this adds one extra ~10px line rather than widening further --
+              acceptable per-row height growth given other cells here
+              (confidence LTD/GAP flags, the name/jockey-trainer stack) are
+              already multi-line. */}
+          {canLivePrices && <FirmingDriftingBadge move={runnerMove} prices={runnerMoveEntry ? { open: runnerMoveEntry.open, current: runnerMoveEntry.current } : null} pctLayout="stacked" />}
           {isLivePrice
             ? <span title="Best price across bookmakers" style={{ display: 'block', fontSize: 6, fontWeight: 800, color: '#059669', letterSpacing: '0.3px' }}>LIVE</span>
             : !canLivePrices && <LockBtn onClick={onUpgrade} label="Lite" />}

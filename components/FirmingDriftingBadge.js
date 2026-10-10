@@ -39,16 +39,24 @@ import { FIRMING_COLOR, DRIFTING_COLOR } from '@/lib/marketMoves';
 // something, not just the ones that cleared the pill threshold. Only
 // genuinely nothing (no move AND no prices) returns null.
 //
-// showSignedPctInline: for the under-threshold price-only line, whether
-// the signed %" ("+9%"/"-9%", same (current-open)/open calc and sign
-// convention as the pill's own unsigned pct+direction, just not run
-// through computeMoveFlag's Math.abs/threshold) appends inline after the
-// price text (desktop Field table, which can grow/scroll horizontally --
-// see app/races/page.js's ww-scroll-x wrapper) or goes into a tooltip on
-// the price line instead (MobileRunnerCard, a fixed-width flex box with no
-// scroll fallback -- see that call site for why). Flat (rounded 0%) shows
-// neither, same as a genuinely-null move case visually.
-export default function FirmingDriftingBadge({ move, compact = false, prices = null, showSignedPctInline = true }) {
+// FIRMING_TEXT_COLOR: FIRMING_COLOR (#059669) on plain white is ~3.77:1,
+// under WCAG AA's 4.5:1 for this size of text -- it only passes as the
+// pill's text today because the pill has its own light-green background,
+// not white. Softened to #047857 (same dark green already used for the
+// Top firmer chip's price sub-text) for ~5.5:1, bare on white, below.
+// DRIFTING_COLOR (#dc2626) already clears ~4.8:1 on white as-is.
+const FIRMING_TEXT_COLOR = '#047857';
+// pctLayout: for the under-threshold price-only line's arrow+% (pill
+// colour/arrow convention, reusing FIRMING_COLOR/DRIFTING_COLOR so they
+// can't drift apart from the pill -- just not run through
+// computeMoveFlag's threshold gate), 'inline' appends it after the price
+// text on the same line (desktop Field table, which can grow/scroll
+// horizontally -- see app/races/page.js's ww-scroll-x wrapper), 'stacked'
+// puts it on its own second line instead (MobileRunnerCard, a fixed-width
+// flex box where appending more text to one line already-tight risked
+// overflow). Flat (rounded 0%) shows neither, same as a genuinely-null
+// move case visually.
+export default function FirmingDriftingBadge({ move, compact = false, prices = null, pctLayout = 'inline' }) {
   const hasPrices = prices && Number.isFinite(prices.open) && Number.isFinite(prices.current);
   if (!move && !hasPrices) return null;
   const color = move?.direction === 'firming' ? FIRMING_COLOR : DRIFTING_COLOR;
@@ -63,26 +71,31 @@ export default function FirmingDriftingBadge({ move, compact = false, prices = n
     </div>
   );
   if (!move) {
-    // Under threshold: no pill, just the price line (+ signed % per above),
+    // Under threshold: no pill, just the price line + the pill's own
+    // arrow/colour convention applied to the (unthresholded) magnitude,
     // vertically centred in the badge's own box so a row of under-
     // threshold runners doesn't end up shorter than one with a pill+price-
     // line stack next to it (the row's actual height is still set by
     // other, taller cells either way, e.g. the Horse/Jockey/Trainer column
-    // -- this just keeps the single line from sitting at the top of that
-    // extra space instead of centred).
-    const signedPct = hasPrices ? Math.round((prices.current - prices.open) / prices.open * 100) : 0;
-    const pctStr = signedPct > 0 ? `+${signedPct}%` : signedPct < 0 ? `${signedPct}%` : null;
+    // -- this just keeps the content from sitting at the top of that extra
+    // space instead of centred).
+    const underDirection = hasPrices ? (prices.current < prices.open ? 'firming' : 'drifting') : null;
+    const underPct = hasPrices ? Math.round(Math.abs(prices.current - prices.open) / prices.open * 100) : 0;
+    const underArrow = underDirection === 'firming' ? '▲' : '▼';
+    const underColor = underDirection === 'firming' ? FIRMING_TEXT_COLOR : DRIFTING_COLOR;
+    const pctEl = underPct > 0 ? (
+      <span className="tabular-nums" title={`${underDirection === 'firming' ? 'Firming' : 'Drifting'} ${underPct}% since open`} style={{ color: underColor, fontWeight: 700 }}>
+        {underArrow}{underPct}%
+      </span>
+    ) : null;
     return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', height: '100%', minHeight: 18 }}>
-        {hasPrices ? (
-          <div
-            className="tabular-nums"
-            title={!showSignedPctInline && pctStr ? `${pctStr} since open` : undefined}
-            style={{ fontSize: 10, color: '#6b7280', whiteSpace: 'nowrap', lineHeight: 1 }}
-          >
-            ${prices.open.toFixed(2)} → ${prices.current.toFixed(2)}{showSignedPctInline && pctStr ? ` ${pctStr}` : ''}
+      <div style={{ display: 'flex', flexDirection: pctLayout === 'stacked' ? 'column' : 'row', alignItems: pctLayout === 'stacked' ? 'flex-end' : 'center', justifyContent: 'center', height: '100%', minHeight: 18, gap: pctLayout === 'stacked' ? 0 : 4 }}>
+        {hasPrices && (
+          <div className="tabular-nums" style={{ fontSize: 10, color: '#6b7280', whiteSpace: 'nowrap', lineHeight: 1 }}>
+            ${prices.open.toFixed(2)} → ${prices.current.toFixed(2)}
           </div>
-        ) : null}
+        )}
+        {pctEl && <div style={{ fontSize: 10, whiteSpace: 'nowrap', lineHeight: 1, marginTop: pctLayout === 'stacked' ? 1 : 0 }}>{pctEl}</div>}
       </div>
     );
   }
