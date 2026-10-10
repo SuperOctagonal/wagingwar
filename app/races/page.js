@@ -1797,18 +1797,20 @@ function MobileRacePicker({ allVenues, allRaces, selectedRaceKey, onSelect }) {
 
 // ─── mobile runner card ───────────────────────────────────────────────────────
 
-function MobileRunnerCard({ runner, rank, rc, trackCond, onLogBet, isResulted, betBlocked = false, isPro, onUpgrade, isDbScratched, layers, isAdmin = false, livePrices = {}, marketMoves = {}, calibrationCurve = null }) {
+function MobileRunnerCard({ runner, rank, rc, trackCond, onLogBet, isResulted, betBlocked = false, isPro, onUpgrade, isDbScratched, layers, canLivePrices = false, livePrices = {}, marketMoves = {}, calibrationCurve = null }) {
   const mktO = runner.rawOdds;
   const myO  = runner.myOdds;
   const wt   = runner['Weight'] ? `${runner['Weight']}kg` : '';
 
-  // Admin-only: odds_snapshot live price for the currently-picked bookmaker,
-  // falling back to the CSV rawOdds value -- never touches rawOdds itself,
-  // which the bet-modal pre-fill and Results page still read directly.
-  const liveP = isAdmin ? livePrices[stripCountry(runner.name).toUpperCase()] : undefined;
+  // Lite+ (or site admin): odds_snapshot live price for the currently-
+  // picked bookmaker, falling back to the CSV rawOdds value -- never
+  // touches rawOdds itself, which the bet-modal pre-fill and Results page
+  // still read directly.
+  const liveP = canLivePrices ? livePrices[stripCountry(runner.name).toUpperCase()] : undefined;
   const displayPrice = liveP ?? mktO;
   const isLivePrice = liveP != null;
-  const runnerMove = isAdmin ? marketMoves[marketMoveNameKey(runner.name)]?.move : undefined;
+  const runnerMoveEntry = canLivePrices ? marketMoves[marketMoveNameKey(runner.name)] : undefined;
+  const runnerMove = runnerMoveEntry?.move;
   // Confidence label -- had never been wired into the mobile/narrow card at
   // all (only the desktop RunnerRow table got it originally). Found while
   // investigating the DRAGON PORT report (2026-09-18): unrelated to that
@@ -1871,10 +1873,17 @@ function MobileRunnerCard({ runner, rank, rc, trackCond, onLogBet, isResulted, b
             <div style={{ fontSize: 6, fontWeight: 700, color: '#9a3412', letterSpacing: '0.2px' }}>⚠ GAP</div>
           )}
         </div>
-        <div style={{ flexShrink: 0, width: 42, textAlign: 'right', fontSize: 12, fontWeight: 600, color: '#111827' }}>
+        {/* Widened 42 -> 76 to fit the open/current price line below the
+            pill without wrapping -- the row's other fixed-width columns
+            (Rank/Total/WW$/Value) leave enough slack at any real phone
+            width for this, since the horse-name column (flex:1, already
+            ellipsis-truncated) is what actually absorbs the extra space. */}
+        <div style={{ flexShrink: 0, width: 76, textAlign: 'right', fontSize: 12, fontWeight: 600, color: '#111827' }}>
           {displayPrice ? `$${displayPrice.toFixed(2)}` : '—'}
-          <FirmingDriftingBadge move={runnerMove} />
-          {isLivePrice && <span style={{ display: 'block', fontSize: 6, fontWeight: 800, color: '#059669', letterSpacing: '0.3px' }}>LIVE</span>}
+          {canLivePrices && <FirmingDriftingBadge move={runnerMove} prices={runnerMoveEntry ? { open: runnerMoveEntry.open, current: runnerMoveEntry.current } : null} />}
+          {isLivePrice
+            ? <span title="Best price across bookmakers" style={{ display: 'block', fontSize: 6, fontWeight: 800, color: '#059669', letterSpacing: '0.3px' }}>LIVE</span>
+            : !canLivePrices && <LockBtn onClick={onUpgrade} label="Lite" />}
         </div>
         <div style={{ flexShrink: 0, width: 32, textAlign: 'right', fontSize: 11, fontWeight: 500, color: valColor }}>
           {isPro ? valStr : <button onClick={onUpgrade} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '6px 4px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minHeight: 32, color: '#9ca3af' }}><i className="ti ti-lock" style={{ fontSize: 13 }} /></button>}
@@ -1996,30 +2005,32 @@ function MobileRunnerCard({ runner, rank, rc, trackCond, onLogBet, isResulted, b
 
 // ─── field view ───────────────────────────────────────────────────────────────
 
-function LockBtn({ onClick }) {
+// label: default 'Pro' (every existing call site), 'Lite' for the new
+// live-price/Move placeholders below -- same visual treatment either way.
+function LockBtn({ onClick, label = 'Pro' }) {
   return (
     <button onClick={onClick} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 9, fontWeight: 600, color: '#9ca3af', display: 'inline-flex', alignItems: 'center', gap: 2, padding: 0, whiteSpace: 'nowrap' }}>
-      <i className="ti ti-lock" style={{ fontSize: 10 }} /> Pro
+      <i className="ti ti-lock" style={{ fontSize: 10 }} /> {label}
     </button>
   );
 }
 
 const DEFAULT_COL_VIS = { form: true, speed: true, cond: true, conn: true, score: true, edge: true, value: true };
 
-function RunnerRow({ runner, rank, rc, trackCond, onLogBet, onShowPopup, onHidePopup, isResulted, betBlocked = false, isPro, onUpgrade, isDbScratched, colVis = DEFAULT_COL_VIS, todayBets = {}, isAdmin = false, livePrices = {}, marketMoves = {}, calibrationCurve = null, trustBuckets = null }) {
+function RunnerRow({ runner, rank, rc, trackCond, onLogBet, onShowPopup, onHidePopup, isResulted, betBlocked = false, isPro, onUpgrade, isDbScratched, colVis = DEFAULT_COL_VIS, todayBets = {}, canLivePrices = false, livePrices = {}, marketMoves = {}, calibrationCurve = null, trustBuckets = null }) {
   const myO  = runner.myOdds;
   const mktO = runner.rawOdds;
   // Admin-only: odds_snapshot live price for the currently-picked bookmaker,
   // falling back to the CSV rawOdds value -- never touches rawOdds itself,
   // which the bet-modal pre-fill and Results page still read directly.
-  const liveP = isAdmin ? livePrices[stripCountry(runner.name).toUpperCase()] : undefined;
+  const liveP = canLivePrices ? livePrices[stripCountry(runner.name).toUpperCase()] : undefined;
   const displayPrice = liveP ?? mktO;
   // Same marketMoves entry the % badge itself is computed from (open/current
   // best-price-across-bookmakers -- lib/marketMoves.js), not livePrices'
   // single-selected-bookmaker price, so the "$open -> $current" text shown
   // under the pill is always arithmetically consistent with that pill's own
   // percentage.
-  const runnerMoveEntry = isAdmin ? marketMoves[marketMoveNameKey(runner.name)] : undefined;
+  const runnerMoveEntry = canLivePrices ? marketMoves[marketMoveNameKey(runner.name)] : undefined;
   const runnerMove = runnerMoveEntry?.move;
   const isLivePrice = liveP != null;
   const pm   = calcPaceMap(runner, rc.venue, +rc.dist, trackCond);
@@ -2151,22 +2162,31 @@ function RunnerRow({ runner, rank, rc, trackCond, onLogBet, onShowPopup, onHideP
               second number to show alongside WW $ any more. */}
         </td>
       )}
-      {/* Price $ */}
+      {/* Price $ -- the static CSV-derived price (mktO) is free-tier
+          content regardless (lib/freeTierFields.js's FREE_HORSE_FIELDS
+          includes 'odds'/'rawOdds'), unaffected by canLivePrices: liveP is
+          already undefined for a free user (see above), so displayPrice
+          already falls back to mktO with no extra logic needed here. Only
+          the LIVE badge is gated -- replaced with a small Lite lock for a
+          free user instead of removing the (already-free) price itself. */}
       <td className={`${td} text-right text-[11px] tabular-nums whitespace-nowrap`} style={{ color: '#111827' }}>
         {displayPrice ? `$${displayPrice.toFixed(2)}` : '—'}
-        {isLivePrice && <span style={{ marginLeft: 3, fontSize: 7, fontWeight: 800, color: '#059669', background: '#d1fae5', padding: '1px 3px', borderRadius: 3, letterSpacing: '0.3px' }}>LIVE</span>}
+        {isLivePrice
+          ? <span title="Best price across bookmakers" style={{ marginLeft: 3, fontSize: 7, fontWeight: 800, color: '#059669', background: '#d1fae5', padding: '1px 3px', borderRadius: 3, letterSpacing: '0.3px' }}>LIVE</span>
+          : !canLivePrices && <span style={{ marginLeft: 3 }}><LockBtn onClick={onUpgrade} label="Lite" /></span>}
       </td>
       {/* Move -- own column, Field tab (RunnerRow) only. Odds tab/page and
           Pace Map keep the badge stacked under the price as before; this is
           a Field-tab-specific layout choice, not a shared component change.
-          Gated on isAdmin to match the MOVE <th> below exactly -- both
-          present or both absent together, so column counts always agree
-          between thead and tbody regardless of admin status. */}
-      {isAdmin && (
-        <td className={`${td} text-right whitespace-nowrap`}>
-          <FirmingDriftingBadge move={runnerMove} compact prices={runnerMoveEntry ? { open: runnerMoveEntry.open, current: runnerMoveEntry.current } : null} />
-        </td>
-      )}
+          Always rendered (not canLivePrices-gated) -- a free user gets a
+          locked placeholder, not a missing column, so column counts always
+          agree between thead and tbody and nothing shifts between a free
+          and a paying user. */}
+      <td className={`${td} text-right whitespace-nowrap`}>
+        {canLivePrices
+          ? <FirmingDriftingBadge move={runnerMove} compact prices={runnerMoveEntry ? { open: runnerMoveEntry.open, current: runnerMoveEntry.current } : null} />
+          : <LockBtn onClick={onUpgrade} label="Lite" />}
+      </td>
       {/* Value */}
       {colVis.value && (
         <td className={`${td} text-right text-[10px] font-semibold tabular-nums whitespace-nowrap`} style={{ color: valColor }}>
@@ -2197,7 +2217,7 @@ function RunnerRow({ runner, rank, rc, trackCond, onLogBet, onShowPopup, onHideP
   );
 }
 
-function FieldView({ results, scratched, rc, trackCond, onLogBet, onShowPopup, onHidePopup, isResulted, betBlocked = false, isPro, onUpgrade, scratchingsSet = new Set(), colVis = DEFAULT_COL_VIS, todayBets = {}, isMobile, isAdmin = false, livePrices = {}, marketMoves = {}, calibrationCurve = null, trustBuckets = null }) {
+function FieldView({ results, scratched, rc, trackCond, onLogBet, onShowPopup, onHidePopup, isResulted, betBlocked = false, isPro, onUpgrade, scratchingsSet = new Set(), colVis = DEFAULT_COL_VIS, todayBets = {}, isMobile, canLivePrices = false, livePrices = {}, marketMoves = {}, calibrationCurve = null, trustBuckets = null }) {
   const scrKey = h => `${normaliseVenue(rc.venue)}||${rc.num}||${stripCountry(h.name).toUpperCase()}`;
   const activeResults = results.filter(h => !scratchingsSet.has(scrKey(h)));
   const dbScratched   = results.filter(h =>  scratchingsSet.has(scrKey(h)));
@@ -2213,7 +2233,7 @@ function FieldView({ results, scratched, rc, trackCond, onLogBet, onShowPopup, o
   // ScrollHint) rather than a new solution. Was previously overflow-x-hidden,
   // which clipped the rightmost columns (e.g. Pace/Crs) with no way to
   // reach them at all.
-  const { scrollRef: fieldScrollRef, hasOverflow: fieldHasOverflow } = useScrollOverflow([activeResults, dbScratched, colVis, isAdmin]);
+  const { scrollRef: fieldScrollRef, hasOverflow: fieldHasOverflow } = useScrollOverflow([activeResults, dbScratched, colVis, canLivePrices]);
   return (
     <>
       {/* Desktop table */}
@@ -2245,7 +2265,11 @@ function FieldView({ results, scratched, rc, trackCond, onLogBet, onShowPopup, o
                   sizing hint, not a hard cap, but the old 3% badly
                   under-stated the real content width once the open/current
                   price line was added underneath the pill). */}
-              {isAdmin && <th style={{ ...th, textAlign:'right', width:'7%', padding: '3px 3px' }}>Move</th>}
+              {/* Always rendered (not canLivePrices-gated) -- a free user
+                  gets a locked placeholder in the body cell below, not a
+                  missing column, so the table layout never shifts between
+                  a free and a paying user. */}
+              <th style={{ ...th, textAlign:'right', width:'7%', padding: '3px 3px' }}>Move</th>
               {colVis.value && <th style={{ ...th, textAlign:'right', width:'5%' }}>Value</th>}
               <th style={{ ...th, width:'8%' }} />
               <th style={{ ...th, textAlign:'left', width:'16%' }}>Pace / Crs</th>
@@ -2253,10 +2277,10 @@ function FieldView({ results, scratched, rc, trackCond, onLogBet, onShowPopup, o
           </thead>
           <tbody>
             {activeResults.map((r, i) => (
-              <RunnerRow key={r.tab || r.name} runner={r} rank={i+1} rc={rc} trackCond={trackCond} onLogBet={onLogBet} onShowPopup={onShowPopup} onHidePopup={onHidePopup} isResulted={isResulted} betBlocked={betBlocked} isPro={isPro} onUpgrade={onUpgrade} colVis={colVis} todayBets={todayBets} isAdmin={isAdmin} livePrices={livePrices} marketMoves={marketMoves} calibrationCurve={calibrationCurve} trustBuckets={trustBuckets} />
+              <RunnerRow key={r.tab || r.name} runner={r} rank={i+1} rc={rc} trackCond={trackCond} onLogBet={onLogBet} onShowPopup={onShowPopup} onHidePopup={onHidePopup} isResulted={isResulted} betBlocked={betBlocked} isPro={isPro} onUpgrade={onUpgrade} colVis={colVis} todayBets={todayBets} canLivePrices={canLivePrices} livePrices={livePrices} marketMoves={marketMoves} calibrationCurve={calibrationCurve} trustBuckets={trustBuckets} />
             ))}
             {dbScratched.map(r => (
-              <RunnerRow key={r.tab || r.name} runner={r} rank={null} rc={rc} trackCond={trackCond} onLogBet={onLogBet} onShowPopup={onShowPopup} onHidePopup={onHidePopup} isResulted={true} betBlocked isPro={isPro} onUpgrade={onUpgrade} isDbScratched colVis={colVis} todayBets={todayBets} isAdmin={isAdmin} livePrices={livePrices} marketMoves={marketMoves} />
+              <RunnerRow key={r.tab || r.name} runner={r} rank={null} rc={rc} trackCond={trackCond} onLogBet={onLogBet} onShowPopup={onShowPopup} onHidePopup={onHidePopup} isResulted={true} betBlocked isPro={isPro} onUpgrade={onUpgrade} isDbScratched colVis={colVis} todayBets={todayBets} canLivePrices={canLivePrices} livePrices={livePrices} marketMoves={marketMoves} />
             ))}
           </tbody>
           {scratched.length > 0 && (
@@ -2322,11 +2346,11 @@ function FieldView({ results, scratched, rc, trackCond, onLogBet, onShowPopup, o
         <div className="mob-page" style={{ flex: 1, minHeight: 0, overflowY: 'auto', overflowX: 'hidden' }}>
           {mobDisplayResults.map(r => (
             <MobileRunnerCard key={r.tab || r.name} runner={r} rank={mobRankMap.get(r.tab || r.name)} rc={rc} trackCond={trackCond}
-              onLogBet={onLogBet} isResulted={isResulted} betBlocked={betBlocked} isPro={isPro} onUpgrade={onUpgrade} layers={layers} isAdmin={isAdmin} livePrices={livePrices} marketMoves={marketMoves} calibrationCurve={calibrationCurve} />
+              onLogBet={onLogBet} isResulted={isResulted} betBlocked={betBlocked} isPro={isPro} onUpgrade={onUpgrade} layers={layers} canLivePrices={canLivePrices} livePrices={livePrices} marketMoves={marketMoves} calibrationCurve={calibrationCurve} />
           ))}
           {dbScratched.map(r => (
             <MobileRunnerCard key={r.tab || r.name} runner={r} rank={null} rc={rc} trackCond={trackCond}
-              onLogBet={onLogBet} isResulted={true} betBlocked isPro={isPro} onUpgrade={onUpgrade} isDbScratched layers={layers} isAdmin={isAdmin} livePrices={livePrices} marketMoves={marketMoves} />
+              onLogBet={onLogBet} isResulted={true} betBlocked isPro={isPro} onUpgrade={onUpgrade} isDbScratched layers={layers} canLivePrices={canLivePrices} livePrices={livePrices} marketMoves={marketMoves} />
           ))}
           {scratched.length > 0 && (
             <div style={{ padding: '8px 12px', fontSize: 9, color: '#9ca3af', background: '#f9fafb', borderTop: '1px solid #f3f4f6' }}>
@@ -2582,7 +2606,7 @@ function FormView({ results, scratched, onLogBet, isResulted, betBlocked = false
 
 // ─── pace map view ────────────────────────────────────────────────────────────
 
-function PaceMapView({ results, scratched, rc, trackCond, canAccess, onUpgrade, scratchingsSet = new Set(), isAdmin = false, livePrices = {}, marketMoves = {}, paceBiasPoints = null }) {
+function PaceMapView({ results, scratched, rc, trackCond, canAccess, onUpgrade, scratchingsSet = new Set(), canLivePrices = false, livePrices = {}, marketMoves = {}, paceBiasPoints = null }) {
   const scrKey = h => `${normaliseVenue(rc.venue)}||${rc.num}||${stripCountry(h.name).toUpperCase()}`;
   const activeResults = results.filter(h => !scratchingsSet.has(scrKey(h)));
   const ranked = activeResults.map((r, i) => ({ ...r, systemRank: i + 1 }));
@@ -2653,10 +2677,14 @@ function PaceMapView({ results, scratched, rc, trackCond, canAccess, onUpgrade, 
           if (!h.pm) return null;
           const bp = h['BP'] ?? h.BP ?? '—';
           const myO = h.myOdds ? `$${formatRacingOdds(h.myOdds)}` : '—';
-          // Admin-only: odds_snapshot live price for the currently-picked
-          // bookmaker (same source/picker as the Field tab), falling back to
-          // the CSV rawOdds value -- same pattern as RunnerRow's Price $ column.
-          const liveP = isAdmin ? livePrices[stripCountry(h.name).toUpperCase()] : undefined;
+          // canLivePrices here is canPaceMap||isSiteAdminUser (set at the
+          // call site) -- Pace Map itself is already Pro-only at the view
+          // level (canAccess, blurred above otherwise), so this is always
+          // true for anyone who can actually see this far. odds_snapshot
+          // live price for the currently-picked bookmaker (same source/
+          // picker as the Field tab), falling back to the CSV rawOdds
+          // value -- same pattern as RunnerRow's Price $ column.
+          const liveP = canLivePrices ? livePrices[stripCountry(h.name).toUpperCase()] : undefined;
           const displayPrice = liveP ?? h.rawOdds;
           const isLivePrice = liveP != null;
           const spO = displayPrice ? `$${formatRacingOdds(displayPrice)}` : '—';
@@ -2691,7 +2719,7 @@ function PaceMapView({ results, scratched, rc, trackCond, canAccess, onUpgrade, 
                 <div className="text-[9px] text-gray-400">
                   SP {spO}
                   {isLivePrice && <span style={{ marginLeft: 2, fontSize: 6, fontWeight: 800, color: '#059669', background: '#d1fae5', padding: '1px 2px', borderRadius: 3, letterSpacing: '0.3px' }}>LIVE</span>}
-                  <FirmingDriftingBadge move={isAdmin ? marketMoves[marketMoveNameKey(h.name)]?.move : undefined} />
+                  <FirmingDriftingBadge move={canLivePrices ? marketMoves[marketMoveNameKey(h.name)]?.move : undefined} />
                 </div>
               </div>
             </div>
@@ -3418,12 +3446,20 @@ function RacesPageInner() {
   const preferredViewRef = useRef('field');
   console.log('[Tier] isPro:', isPro, 'plan:', user?.publicMetadata?.plan);
 
-  // Live odds (PuntersEdge) opened to everyone 2026-10-01 -- PuntersEdge
-  // moved to a Plus plan (140k credits/month, 200 req/min), so the earlier
-  // admin-only gate (commit 905d605) no longer applies. isSiteAdminUser is
-  // still used below for the things that stay admin-only forever
-  // (calibration curve bypass, Trust $ preview) -- not for live odds.
+  // Live odds (PuntersEdge) was opened to everyone 2026-10-01 when
+  // PuntersEdge moved to a Plus plan, removing the licensing reason for the
+  // earlier admin-only gate (905d605) -- but the isAdmin props threaded into
+  // FieldView/PaceMapView were left hardcoded `true` rather than actually
+  // removed, so every signed-in user (any plan) ended up seeing live
+  // prices/Move data regardless of isAdmin's real value. Re-gated to lite+
+  // below (canAccessLivePrices) now that Lite exists as a real tier to sell
+  // it on. isSiteAdminUser is still used for the things that stay
+  // admin-only forever (calibration curve bypass, Trust $ preview).
   const isSiteAdminUser = isSiteAdmin(user?.id);
+  // Real admin bypass, same convention as canMovers/canValueBets's isAdmin
+  // param -- gates both the /api/race-live-prices fetch below and every
+  // render site that used to receive a hardcoded isAdmin={true}.
+  const canAccessLivePrices = canLiveOdds || isSiteAdminUser;
   const [oddsBookmaker, setOddsBookmakerState] = useState(() => {
     try { return localStorage.getItem('ww_odds_bookmaker') || PUNTERSEDGE_BOOKMAKER_COLUMNS[0]?.slug || ''; } catch { return PUNTERSEDGE_BOOKMAKER_COLUMNS[0]?.slug || ''; }
   });
@@ -3566,59 +3602,43 @@ function RacesPageInner() {
 
   const currentRace = selectedKey ? allRaces[selectedKey] : null;
 
+  // livePrices (single selected bookmaker) + marketMoves (best price across
+  // all bookmakers, open vs current -- also backs the race-header top-
+  // firmer/top-drifter pills, no separate fetch for those) -- both now come
+  // from one server route, /api/race-live-prices, which actually enforces
+  // lite+ (or real site-admin) server-side. This used to be two direct
+  // client-side Supabase REST calls with the anon key and no auth check at
+  // all, displayed behind an `isAdmin` prop that was hardcoded true
+  // everywhere it reached a render site -- i.e. every signed-in user, any
+  // plan, already saw all of this. canAccessLivePrices (declared below,
+  // near the other hasFeature() flags) gates this fetch so a free user's
+  // browser doesn't even make the call.
   useEffect(() => {
-    if (!oddsBookmaker || !currentRace?.venue || !currentRace?.num) {
+    if (!canAccessLivePrices || !currentRace?.venue || !currentRace?.num) {
       setLivePrices({});
+      setMarketMoves({});
       return;
     }
-    if (!SURL || !SKEY) return;
     let cancelled = false;
     async function load() {
       try {
         const venue = normaliseVenue(currentRace.venue);
         const raceNum = String(currentRace.num);
-        const res = await fetch(
-          `${SURL}/rest/v1/odds_snapshot?race_date=eq.${selectedDate}&race_venue=eq.${encodeURIComponent(venue)}&race_num=eq.${encodeURIComponent(raceNum)}&bookmaker=eq.${encodeURIComponent(oddsBookmaker)}&select=horse_name,price,captured_at&order=captured_at.desc&limit=200`,
-          { headers: { apikey: SKEY, Authorization: `Bearer ${SKEY}` } },
-        );
+        const params = new URLSearchParams({ venue, raceNum, date: selectedDate });
+        if (oddsBookmaker) params.set('bookmaker', oddsBookmaker);
+        const res = await fetch(`/api/race-live-prices?${params}`);
         if (!res.ok || cancelled) return;
-        const rows = await res.json();
-        const map = {};
-        // Rows are ordered newest-first, so the first hit per horse is the latest price.
-        for (const r of rows) {
-          const key = stripCountry(r.horse_name).toUpperCase();
-          if (!(key in map)) map[key] = Number(r.price);
+        const data = await res.json();
+        if (!cancelled) {
+          setLivePrices(data.livePrices || {});
+          setMarketMoves(data.marketMoves || {});
         }
-        if (!cancelled) setLivePrices(map);
       } catch {}
     }
     load();
     const interval = setInterval(load, 60000);
     return () => { cancelled = true; clearInterval(interval); };
-  }, [oddsBookmaker, currentRace?.venue, currentRace?.num]);
-
-  // Firming/drifting moves for the current race -- best price across ALL
-  // bookmakers (not the single oddsBookmaker selection above), via the same
-  // shared helper OddsTable uses, so the Field tab and Pace Map tab agree
-  // with the Odds tab/page on every move flagged. Also backs the race-header
-  // top-firmer/top-drifter summary pills -- no separate fetch for those.
-  useEffect(() => {
-    if (!currentRace?.venue || !currentRace?.num) {
-      setMarketMoves({});
-      return;
-    }
-    let cancelled = false;
-    async function loadMoves() {
-      const venue = normaliseVenue(currentRace.venue);
-      const raceNum = String(currentRace.num);
-      const date = new Intl.DateTimeFormat('en-CA', { timeZone: 'Australia/Sydney' }).format(new Date());
-      const moves = await fetchMarketMoveFlags({ venue, raceNum, date });
-      if (!cancelled) setMarketMoves(moves);
-    }
-    loadMoves();
-    const interval = setInterval(loadMoves, 60000);
-    return () => { cancelled = true; clearInterval(interval); };
-  }, [currentRace?.venue, currentRace?.num]);
+  }, [canAccessLivePrices, oddsBookmaker, currentRace?.venue, currentRace?.num, selectedDate]);
 
   // Live best-price data for the first-starter score blend below --
   // separate from the admin-only marketMoves fetch above (that one also
@@ -4305,8 +4325,19 @@ function RacesPageInner() {
                           <option key={c.slug} value={c.slug}>{bookmakerNameForSlug(c.slug)}</option>
                         ))}
                       </select>
+                      {!canAccessLivePrices ? (
+                        <span
+                          onClick={() => setUpgradeOpen(true)}
+                          title="Best price across bookmakers"
+                          style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '2px 8px', borderRadius: 6, background: '#f3f4f6', cursor: 'pointer' }}
+                        >
+                          <i className="ti ti-lock" style={{ fontSize: 12, color: '#9ca3af' }} />
+                          <span style={{ fontSize: 10, fontWeight: 600, color: '#6b7280' }}>Firmers &amp; drifters -- Lite</span>
+                        </span>
+                      ) : (
+                      <>
                       {topFirmer && (
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '2px 8px', borderRadius: 6, background: '#d1fae5' }}>
+                        <span title="Best price across bookmakers" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '2px 8px', borderRadius: 6, background: '#d1fae5' }}>
                           <i className="ti ti-trending-up" style={{ fontSize: 13, color: '#059669' }} />
                           <span style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.15 }}>
                             <span style={{ fontSize: 7, fontWeight: 700, color: '#059669', textTransform: 'uppercase', letterSpacing: '0.3px' }}>Top firmer</span>
@@ -4320,7 +4351,7 @@ function RacesPageInner() {
                         </span>
                       )}
                       {topDrifter && (
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '2px 8px', borderRadius: 6, background: '#fee2e2' }}>
+                        <span title="Best price across bookmakers" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '2px 8px', borderRadius: 6, background: '#fee2e2' }}>
                           <i className="ti ti-trending-down" style={{ fontSize: 13, color: '#dc2626' }} />
                           <span style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.15 }}>
                             <span style={{ fontSize: 7, fontWeight: 700, color: '#dc2626', textTransform: 'uppercase', letterSpacing: '0.3px' }}>Top drifter</span>
@@ -4332,6 +4363,8 @@ function RacesPageInner() {
                             </span>
                           </span>
                         </span>
+                      )}
+                      </>
                       )}
                       <PuntersEdgeCredit style={{ marginLeft: 'auto' }} />
                     </div>
@@ -4358,13 +4391,13 @@ function RacesPageInner() {
                       isResulted={!!currentRaceResult} betBlocked={betBlocked}
                       isPro={isPro} onUpgrade={() => setUpgradeOpen(true)}
                       scratchingsSet={scratchingsSet} colVis={colVis} todayBets={todayBets} isMobile={isNarrow}
-                      isAdmin={true} livePrices={livePrices} marketMoves={marketMoves} calibrationCurve={calibrationCurve} trustBuckets={trustBuckets} />
+                      canLivePrices={canAccessLivePrices} livePrices={livePrices} marketMoves={marketMoves} calibrationCurve={calibrationCurve} trustBuckets={trustBuckets} />
                   )}
                   {view === 'form' && (
                     <FormView results={allHorsesForDisplay} scratched={scratched} onLogBet={handleLogBet} isResulted={!!currentRaceResult} betBlocked={betBlocked} rc={currentRace} isPro={isPro} onUpgrade={() => setUpgradeOpen(true)} scratchingsSet={scratchingsSet} />
                   )}
                   {view === 'pacemap' && (
-                    <PaceMapView results={allHorsesForDisplay} scratched={scratched} rc={currentRace} trackCond={trackCond} canAccess={canPaceMap} onUpgrade={() => setUpgradeOpen(true)} scratchingsSet={scratchingsSet} isAdmin={true} livePrices={livePrices} marketMoves={marketMoves} paceBiasPoints={paceBiasPoints} />
+                    <PaceMapView results={allHorsesForDisplay} scratched={scratched} rc={currentRace} trackCond={trackCond} canAccess={canPaceMap} onUpgrade={() => setUpgradeOpen(true)} scratchingsSet={scratchingsSet} canLivePrices={canPaceMap || isSiteAdminUser} livePrices={livePrices} marketMoves={marketMoves} paceBiasPoints={paceBiasPoints} />
                   )}
                   {view === 'movers' && (
                     <MoversView canAccess={canMovers} onUpgrade={() => setUpgradeOpen(true)} isAdmin={isSiteAdminUser} />

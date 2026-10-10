@@ -40,7 +40,7 @@ export default function FirmingDriftingBadge({ move, compact = false, prices = n
   return (
     <div style={{ lineHeight: 1.3 }}>
       <span
-        title={`${label} ${move.pct}% since open`}
+        title={`${label} ${move.pct}% since open -- best price across bookmakers`}
         style={{ display: 'inline-flex', alignItems: 'center', gap: 2, color, background: bg, fontSize: 10, fontWeight: 800, marginLeft: 2, padding: '1px 5px', borderRadius: 3, letterSpacing: '0.2px', whiteSpace: 'nowrap' }}
       >
         {compact ? `${arrow} ${move.pct}%` : `${arrow} ${label} ${move.pct}%`}
