@@ -38,7 +38,17 @@ import { FIRMING_COLOR, DRIFTING_COLOR } from '@/lib/marketMoves';
 // price line, so every runner with a real open+current price shows
 // something, not just the ones that cleared the pill threshold. Only
 // genuinely nothing (no move AND no prices) returns null.
-export default function FirmingDriftingBadge({ move, compact = false, prices = null }) {
+//
+// showSignedPctInline: for the under-threshold price-only line, whether
+// the signed %" ("+9%"/"-9%", same (current-open)/open calc and sign
+// convention as the pill's own unsigned pct+direction, just not run
+// through computeMoveFlag's Math.abs/threshold) appends inline after the
+// price text (desktop Field table, which can grow/scroll horizontally --
+// see app/races/page.js's ww-scroll-x wrapper) or goes into a tooltip on
+// the price line instead (MobileRunnerCard, a fixed-width flex box with no
+// scroll fallback -- see that call site for why). Flat (rounded 0%) shows
+// neither, same as a genuinely-null move case visually.
+export default function FirmingDriftingBadge({ move, compact = false, prices = null, showSignedPctInline = true }) {
   const hasPrices = prices && Number.isFinite(prices.open) && Number.isFinite(prices.current);
   if (!move && !hasPrices) return null;
   const color = move?.direction === 'firming' ? FIRMING_COLOR : DRIFTING_COLOR;
@@ -53,15 +63,26 @@ export default function FirmingDriftingBadge({ move, compact = false, prices = n
     </div>
   );
   if (!move) {
-    // Under threshold: no pill, just the price line, vertically centred in
-    // the badge's own box so a row of under-threshold runners doesn't end
-    // up shorter than one with a pill+price-line stack next to it (the
-    // row's actual height is still set by other, taller cells either way,
-    // e.g. the Horse/Jockey/Trainer column -- this just keeps the single
-    // line from sitting at the top of that extra space instead of centred).
+    // Under threshold: no pill, just the price line (+ signed % per above),
+    // vertically centred in the badge's own box so a row of under-
+    // threshold runners doesn't end up shorter than one with a pill+price-
+    // line stack next to it (the row's actual height is still set by
+    // other, taller cells either way, e.g. the Horse/Jockey/Trainer column
+    // -- this just keeps the single line from sitting at the top of that
+    // extra space instead of centred).
+    const signedPct = hasPrices ? Math.round((prices.current - prices.open) / prices.open * 100) : 0;
+    const pctStr = signedPct > 0 ? `+${signedPct}%` : signedPct < 0 ? `${signedPct}%` : null;
     return (
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', height: '100%', minHeight: 18 }}>
-        {priceLine}
+        {hasPrices ? (
+          <div
+            className="tabular-nums"
+            title={!showSignedPctInline && pctStr ? `${pctStr} since open` : undefined}
+            style={{ fontSize: 10, color: '#6b7280', whiteSpace: 'nowrap', lineHeight: 1 }}
+          >
+            ${prices.open.toFixed(2)} → ${prices.current.toFixed(2)}{showSignedPctInline && pctStr ? ` ${pctStr}` : ''}
+          </div>
+        ) : null}
       </div>
     );
   }

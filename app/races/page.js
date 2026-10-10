@@ -1880,7 +1880,13 @@ function MobileRunnerCard({ runner, rank, rc, trackCond, onLogBet, isResulted, b
             ellipsis-truncated) is what actually absorbs the extra space. */}
         <div style={{ flexShrink: 0, width: 76, textAlign: 'right', fontSize: 12, fontWeight: 600, color: '#111827' }}>
           {displayPrice ? `$${displayPrice.toFixed(2)}` : '—'}
-          {canLivePrices && <FirmingDriftingBadge move={runnerMove} prices={runnerMoveEntry ? { open: runnerMoveEntry.open, current: runnerMoveEntry.current } : null} />}
+          {/* showSignedPctInline=false: this box is a fixed-width (76px)
+              flex item with no horizontal-scroll fallback (unlike the
+              desktop Field table's ww-scroll-x-wrapped auto-layout table)
+              -- already needed widening once for the price line alone, so
+              the signed % goes into a tooltip here instead of risking
+              wrap/overflow by appending more text. */}
+          {canLivePrices && <FirmingDriftingBadge move={runnerMove} prices={runnerMoveEntry ? { open: runnerMoveEntry.open, current: runnerMoveEntry.current } : null} showSignedPctInline={false} />}
           {isLivePrice
             ? <span title="Best price across bookmakers" style={{ display: 'block', fontSize: 6, fontWeight: 800, color: '#059669', letterSpacing: '0.3px' }}>LIVE</span>
             : !canLivePrices && <LockBtn onClick={onUpgrade} label="Lite" />}
