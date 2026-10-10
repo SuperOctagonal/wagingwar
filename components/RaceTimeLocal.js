@@ -11,14 +11,18 @@ import { formatRaceTimeViewerLocal } from '@/lib/raceTime';
 // so no hydration mismatch) and swaps to the viewer-local formatted string
 // in a useEffect after mount -- Render's server timezone differs from the
 // browser's, so this conversion can only safely happen client-side.
-export default function RaceTimeLocal({ dateISO, time, style, fallback = null }) {
+// showZone: false omits the trailing zone abbreviation -- for a spot
+// where it's already shown once elsewhere (panel header/tooltip) and
+// repeating it per-row would collide with an adjacent column (e.g. the
+// Up Next panel's Time/countdown columns, both narrow).
+export default function RaceTimeLocal({ dateISO, time, style, fallback = null, showZone = true }) {
   const [display, setDisplay] = useState(time || fallback);
 
   useEffect(() => {
     if (!dateISO || !time) { setDisplay(time || fallback); return; }
-    const local = formatRaceTimeViewerLocal(dateISO, time);
+    const local = formatRaceTimeViewerLocal(dateISO, time, showZone);
     setDisplay(local || time);
-  }, [dateISO, time, fallback]);
+  }, [dateISO, time, fallback, showZone]);
 
   if (!time) return fallback;
   return <span style={style} suppressHydrationWarning>{display}</span>;

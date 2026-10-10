@@ -22,7 +22,7 @@ import { estimatePlacePrice, paidPlacesForFieldSize } from '@/lib/placePrice';
 import { BOOKMAKERS as BOOKIES } from '@/lib/bookmakers';
 import { PUNTERSEDGE_BOOKMAKER_COLUMNS, bookmakerNameForSlug, getPuntersEdgeSlug } from '@/lib/puntersedgeBookmakers';
 import { fetchMarketMoveFlags, nameKey as marketMoveNameKey } from '@/lib/marketMoves';
-import { sydneyDateTimeToInstant } from '@/lib/raceTime';
+import { sydneyDateTimeToInstant, viewerTimeZoneLabel } from '@/lib/raceTime';
 import FirmingDriftingBadge from '@/components/FirmingDriftingBadge';
 import { generatePaceAnalysis } from '@/lib/paceAnalysis';
 import ScrollHint from '@/components/ScrollHint';
@@ -520,11 +520,17 @@ function LeftRail({ allVenues, allRaces, selectedRaceKey, onSelect, trackConds, 
 
 function RightRail({ allRaces, allVenues, selectedRaceKey, onSelect, isPro, userId, todayBets = {} }) {
   const [now, setNow] = useState(() => Date.now());
+  // Client-only (same reasoning as RaceTimeLocal) -- shown once in the Time
+  // column header's tooltip/label, since every row's own "showZone={false}"
+  // time omits it to avoid colliding with the adjacent countdown column.
+  const [tzLabel, setTzLabel] = useState('');
 
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(id);
   }, []);
+
+  useEffect(() => { setTzLabel(viewerTimeZoneLabel()); }, []);
 
   // Sort all races by countdown, include up to -4 min past
   const keys = Object.values(allVenues).flat()
@@ -553,7 +559,7 @@ function RightRail({ allRaces, allVenues, selectedRaceKey, onSelect, isPro, user
         <thead>
           <tr style={{ background: '#1a2634' }}>
             <th style={{ ...thS, width: '52%' }}>Race</th>
-            <th style={{ ...thS, textAlign: 'right', width: '24%' }}>Time</th>
+            <th style={{ ...thS, textAlign: 'right', width: '24%' }} title={tzLabel ? `Times shown in your local time (${tzLabel})` : undefined}>Time</th>
             <th style={{ ...thS, textAlign: 'right', width: '24%', paddingRight: 10 }}>−</th>
           </tr>
         </thead>
@@ -587,7 +593,7 @@ function RightRail({ allRaces, allVenues, selectedRaceKey, onSelect, isPro, user
                   {' '}<span style={{ fontWeight: 600 }}>R{rc.num}</span>
                   {rc.dist && <span style={{ color: '#111827', fontSize: 9, marginLeft: 3 }}>{rc.dist}m</span>}
                 </td>
-                <td style={{ ...tdBase, textAlign: 'right', fontSize: 9, color: '#111827', whiteSpace: 'nowrap' }}><RaceTimeLocal dateISO={toISO(rc.date)} time={rc.time} /></td>
+                <td style={{ ...tdBase, textAlign: 'right', fontSize: 9, color: '#111827', whiteSpace: 'nowrap' }}><RaceTimeLocal dateISO={toISO(rc.date)} time={rc.time} showZone={false} /></td>
                 <td style={{ ...tdBase, textAlign: 'right', fontWeight: (urgent || neg) ? 700 : 400, color: cdColor, fontSize: 10, whiteSpace: 'nowrap', paddingRight: 10 }}>
                   {label}
                 </td>
