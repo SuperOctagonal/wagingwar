@@ -26,17 +26,45 @@ import { FIRMING_COLOR, DRIFTING_COLOR } from '@/lib/marketMoves';
 //
 // prices: optional {open, current} -- when both are real numbers, shown as
 // a second line ("$5.10 → $2.80", same .toFixed(2) convention the Price $
-// column itself uses) below the pill. Opt-in and undefined everywhere else
-// that renders this badge (Odds tab/page, Pace Map, mobile Field tab,
-// Movers tab) -- only the Field table's MOVE column and the Top
-// firmer/drifter chips pass it, per the task that added it.
+// column itself uses) below the pill (or alone, see below). Opt-in and
+// undefined everywhere else that renders this badge (Odds tab/page, Pace
+// Map, Movers tab) -- only the Field table's MOVE column, MobileRunnerCard
+// and the Top firmer/drifter chips pass it.
+//
+// move is null below MARKET_MOVE_THRESHOLD (lib/marketMoves.js's
+// computeMoveFlag returns null under 15%) -- that's not "nothing to show"
+// once prices exist: the price line renders on its own, no pill, no
+// colour, same small-grey/tabular-nums styling as the >=15% case's own
+// price line, so every runner with a real open+current price shows
+// something, not just the ones that cleared the pill threshold. Only
+// genuinely nothing (no move AND no prices) returns null.
 export default function FirmingDriftingBadge({ move, compact = false, prices = null }) {
-  if (!move) return null;
-  const color = move.direction === 'firming' ? FIRMING_COLOR : DRIFTING_COLOR;
-  const bg = move.direction === 'firming' ? '#d1fae5' : '#fee2e2';
-  const arrow = move.direction === 'firming' ? '▲' : '▼';
-  const label = move.direction === 'firming' ? 'Firming' : 'Drifting';
   const hasPrices = prices && Number.isFinite(prices.open) && Number.isFinite(prices.current);
+  if (!move && !hasPrices) return null;
+  const color = move?.direction === 'firming' ? FIRMING_COLOR : DRIFTING_COLOR;
+  const bg = move?.direction === 'firming' ? '#d1fae5' : '#fee2e2';
+  const arrow = move?.direction === 'firming' ? '▲' : '▼';
+  const label = move?.direction === 'firming' ? 'Firming' : 'Drifting';
+  const priceLine = hasPrices && (
+    // #6b7280 on white is ~4.6:1 -- passes WCAG AA (4.5:1) for this
+    // 10px/normal-weight text.
+    <div className="tabular-nums" style={{ fontSize: 10, color: '#6b7280', marginLeft: move ? 2 : 0, marginTop: move ? 1 : 0, whiteSpace: 'nowrap', lineHeight: 1 }}>
+      ${prices.open.toFixed(2)} → ${prices.current.toFixed(2)}
+    </div>
+  );
+  if (!move) {
+    // Under threshold: no pill, just the price line, vertically centred in
+    // the badge's own box so a row of under-threshold runners doesn't end
+    // up shorter than one with a pill+price-line stack next to it (the
+    // row's actual height is still set by other, taller cells either way,
+    // e.g. the Horse/Jockey/Trainer column -- this just keeps the single
+    // line from sitting at the top of that extra space instead of centred).
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', height: '100%', minHeight: 18 }}>
+        {priceLine}
+      </div>
+    );
+  }
   return (
     <div style={{ lineHeight: 1.3 }}>
       <span
@@ -45,13 +73,7 @@ export default function FirmingDriftingBadge({ move, compact = false, prices = n
       >
         {compact ? `${arrow} ${move.pct}%` : `${arrow} ${label} ${move.pct}%`}
       </span>
-      {/* #6b7280 on white is ~4.6:1 -- passes WCAG AA (4.5:1) for this
-          10px/normal-weight text. */}
-      {hasPrices && (
-        <div className="tabular-nums" style={{ fontSize: 10, color: '#6b7280', marginLeft: 2, marginTop: 1, whiteSpace: 'nowrap', lineHeight: 1 }}>
-          ${prices.open.toFixed(2)} → ${prices.current.toFixed(2)}
-        </div>
-      )}
+      {priceLine}
     </div>
   );
 }

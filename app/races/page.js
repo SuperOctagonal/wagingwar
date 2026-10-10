@@ -2182,7 +2182,7 @@ function RunnerRow({ runner, rank, rc, trackCond, onLogBet, onShowPopup, onHideP
           locked placeholder, not a missing column, so column counts always
           agree between thead and tbody and nothing shifts between a free
           and a paying user. */}
-      <td className={`${td} text-right whitespace-nowrap`}>
+      <td className={`${td} text-right whitespace-nowrap`} style={{ verticalAlign: 'middle' }}>
         {canLivePrices
           ? <FirmingDriftingBadge move={runnerMove} compact prices={runnerMoveEntry ? { open: runnerMoveEntry.open, current: runnerMoveEntry.current } : null} />
           : <LockBtn onClick={onUpgrade} label="Lite" />}
