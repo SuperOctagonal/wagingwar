@@ -189,8 +189,12 @@ function PaceBiasBar({ roles }) {
   const [showTip, setShowTip] = useState(false);
   const [tipPos, setTipPos] = useState(null);
   const triggerRef = useRef(null);
-  if (!roles) return null;
-  const total = PACE_ROLES.reduce((s, r) => s + (roles[r.label] || 0), 0);
+  const total = roles ? PACE_ROLES.reduce((s, r) => s + (roles[r.label] || 0), 0) : 0;
+  // No data yet (e.g. no race at this meeting has resulted) -- roles is
+  // always a non-null {Leader:0,...} object from RacesPageInner, never
+  // actually null, so this must check the real signal (zero total) rather
+  // than roles' own truthiness, or the bar/label never hide.
+  if (!roles || total === 0) return null;
 
   // The tooltip is portaled to document.body rather than rendered inline,
   // positioned via the trigger's live viewport coordinates. It has to be --
@@ -321,9 +325,19 @@ function chipCountdown(secs) {
   if (secs > 0) return secs <= 600
     ? { label: fmtCd(secs), color: '#92400e', bg: '#fef3c7' }
     : { label: fmtCd(secs), color: 'rgba(0,0,0,0.5)', bg: 'rgba(0,0,0,0.04)' };
+  // Only reached from the "every remaining race has jumped" fallback below
+  // (the normal next-race path never passes a jumped race's secs in here
+  // any more) -- "OFF -Nm" red for the first 5 minutes, then nothing
+  // alarming (the chip switches to "Awaiting results" text instead).
   const abs = Math.abs(secs), m = Math.floor(abs / 60);
   return { label: `OFF -${m}m`, color: '#fff', bg: '#dc2626' };
 }
+
+// Diagonal-hatch fill for a dot/segment representing a race that's jumped
+// but has no result yet -- distinct from both "resulted" (solid green) and
+// "upcoming" (solid light grey), so the strip doesn't claim a race is
+// still to come when it's actually just awaiting a result.
+const HATCH_BG = 'repeating-linear-gradient(45deg, #cbd5e1 0, #cbd5e1 2px, #eef1ec 2px, #eef1ec 4px)';
 
 function MeetingStrip({ allVenues, allRaces, selectedRaceKey, onSelect, trackConds, raceResults, abandonedVenues, calendarMismatchVenues, minRunners, dateToggle }) {
   const [now, setNow] = useState(() => Date.now());
@@ -380,19 +394,37 @@ function MeetingStrip({ allVenues, allRaces, selectedRaceKey, onSelect, trackCon
     const isActive = raceKeys.some(k => k === selectedRaceKey);
     const isPinned = pinned.includes(venue);
 
+    // "Next" must be the first race that hasn't jumped yet (s === null or
+    // s > 0) -- a race that's already jumped but has no result is shown as
+    // "awaiting result" (hatch), never picked as the chip's R#/countdown,
+    // even if it's the first non-resulted race in the list.
     let nextRc = null, nextSecs = null, foundNext = false;
+    let anyRemaining = false, allJumped = true;
+    let lastJumpedSecs = -Infinity, lastJumpedRc = null; // closest-to-zero (most recent) jump among remaining races
     const dots = raceKeys.map(k => {
       const resulted = !!(raceResults || {})[`${normV}||${String(allRaces[k]?.num)}`];
       if (resulted) return { c: '#22c55e' };
+      anyRemaining = true;
       const s = countdownSecs(allRaces[k], now);
-      if (!foundNext) {
+      const jumped = s !== null && s <= 0;
+      if (!jumped) allJumped = false;
+      else if (s > lastJumpedSecs) { lastJumpedSecs = s; lastJumpedRc = allRaces[k]; }
+      if (!foundNext && !jumped) {
         foundNext = true;
         nextRc = allRaces[k]; nextSecs = s;
         return { c: '#f59e0b' };
       }
+      if (jumped) return { bg: HATCH_BG };
       return { c: '#e2e8f0' };
     });
-    const cd = chipCountdown(nextSecs);
+
+    const allResulted = raceKeys.length > 0 && !anyRemaining;
+    // Every remaining race has jumped and none are upcoming: show "Awaiting
+    // results" once we're more than 5 minutes past the most recent jump,
+    // otherwise still show that race's "OFF -Nm" (red, not yet alarming-free).
+    const awaitingResults = anyRemaining && allJumped && lastJumpedSecs < -300;
+    if (anyRemaining && allJumped) { nextRc = lastJumpedRc; nextSecs = lastJumpedSecs; }
+    const cd = awaitingResults ? null : chipCountdown(nextSecs);
 
     return (
       <div
@@ -403,7 +435,7 @@ function MeetingStrip({ allVenues, allRaces, selectedRaceKey, onSelect, trackCon
           border: `1px solid ${isActive ? '#12834a' : '#dfe4dc'}`,
           background: isActive ? '#eefaf2' : '#fff',
           borderRadius: 8, padding: '7px 9px', display: 'flex', flexDirection: 'column', gap: 5,
-          cursor: 'pointer', flexShrink: 0,
+          cursor: 'pointer', flexShrink: 0, opacity: allResulted ? 0.55 : 1,
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'space-between' }}>
@@ -423,11 +455,19 @@ function MeetingStrip({ allVenues, allRaces, selectedRaceKey, onSelect, trackCon
           </span>
         </div>
         <div style={{ display: 'flex', gap: 2 }}>
-          {dots.map((d, i) => <div key={i} style={{ flex: 1, height: 5, borderRadius: 2, background: d.c }} />)}
+          {dots.map((d, i) => <div key={i} style={{ flex: 1, height: 5, borderRadius: 2, background: d.bg || d.c }} />)}
         </div>
         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, fontFamily: 'monospace' }}>
-          <span style={{ color: '#55645a' }}>{nextRc ? `R${nextRc.num}` : raceKeys.length ? `${raceKeys.length} races` : '—'}</span>
-          <span style={{ fontWeight: 600, color: cd.color, background: cd.bg, borderRadius: 3, padding: '0 4px' }}>{cd.label}</span>
+          {allResulted ? (
+            <span style={{ color: '#16a34a', fontWeight: 700 }}>✓ Resulted</span>
+          ) : awaitingResults ? (
+            <span style={{ color: '#9ca3af', fontStyle: 'italic' }}>Awaiting results</span>
+          ) : (
+            <>
+              <span style={{ color: '#55645a' }}>{nextRc ? `R${nextRc.num}` : raceKeys.length ? `${raceKeys.length} races` : '—'}</span>
+              <span style={{ fontWeight: 600, color: cd.color, background: cd.bg, borderRadius: 3, padding: '0 4px' }}>{cd.label}</span>
+            </>
+          )}
         </div>
       </div>
     );
@@ -462,10 +502,13 @@ function Ticker({ allRaces, allVenues, selectedRaceKey, onSelect, onOpenUpNext }
     return () => clearInterval(id);
   }, []);
 
+  // Only races that haven't jumped yet (s === null or s > 0) -- a race
+  // past its jump time belongs in the Field table's "awaiting result"
+  // state, not the ticker/NEXT RACE button, even briefly after it jumps.
   const keys = Object.values(allVenues).flat()
     .filter(k => {
       const s = countdownSecs(allRaces[k], now);
-      return s === null || s >= -240;
+      return s === null || s > 0;
     })
     .sort((a, b) => {
       const sa = countdownSecs(allRaces[a], now) ?? 99999;
@@ -4623,7 +4666,15 @@ function RacesPageInner() {
                     const showMoveChips = view === 'field' || view === 'pacemap' || view === 'odds';
                     return (
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 10px', borderBottom: '1px solid #e5e7eb', background: '#fafafa', flexWrap: 'wrap' }}>
-                        <PaceBiasBar roles={paceBiasPoints} />
+                        {/* headerVerdict first so Top Rated/Best Value/Pace
+                            sit at the left edge -- PaceBiasBar carries its
+                            own marginLeft:auto (it's also used standalone
+                            elsewhere), so placing it AFTER headerVerdict
+                            (rather than before) is what keeps the verdict
+                            text pinned left instead of being shoved right
+                            by that auto margin. PaceBiasBar itself returns
+                            null when there's no pace bias data yet, so
+                            nothing reserves space for it in that case. */}
                         {headerVerdict && (
                           <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', fontSize: 11 }}>
                             {headerVerdict.topRated && (
@@ -4637,6 +4688,7 @@ function RacesPageInner() {
                             )}
                           </div>
                         )}
+                        <PaceBiasBar roles={paceBiasPoints} />
                         {showMoveChips && (
                           <div style={{ display: 'flex', gap: 6, marginLeft: 'auto', alignItems: 'center', flexWrap: 'wrap' }}>
                             {!canAccessLivePrices ? (
