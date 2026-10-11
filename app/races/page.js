@@ -24,7 +24,7 @@ import { PUNTERSEDGE_BOOKMAKER_COLUMNS, bookmakerNameForSlug, getPuntersEdgeSlug
 import { fetchMarketMoveFlags, nameKey as marketMoveNameKey } from '@/lib/marketMoves';
 import { sydneyDateTimeToInstant, viewerTimeZoneLabel } from '@/lib/raceTime';
 import FirmingDriftingBadge from '@/components/FirmingDriftingBadge';
-import { generatePaceAnalysis } from '@/lib/paceAnalysis';
+import { generatePaceAnalysis, classifyPaceShape } from '@/lib/paceAnalysis';
 import ScrollHint from '@/components/ScrollHint';
 import RaceTimeLocal from '@/components/RaceTimeLocal';
 import { useScrollOverflow } from '@/hooks/useScrollOverflow';
@@ -34,9 +34,10 @@ const SKEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 import { parseCSV, buildRaces } from '@/lib/csvParser';
 import { fetchAllRows } from '@/lib/fetchAllRows';
 
-// Races-specific: the 3-column rail layout is a width decision, not a touch/coarse-pointer
-// one — a landscape phone (e.g. 844x390, coarse pointer) is plenty wide enough for
-// LeftRail + middle + RightRail, so this deliberately does NOT use useIsMobile.
+// Races-specific: the MeetingStrip/Ticker top-strip layout is a width
+// decision, not a touch/coarse-pointer one — a landscape phone (e.g.
+// 844x390, coarse pointer) is plenty wide enough for it, so this
+// deliberately does NOT use useIsMobile.
 function useIsNarrowWidth() {
   const [isNarrow, setIsNarrow] = useState(false);
   useEffect(() => {
@@ -313,12 +314,21 @@ const TC_PILL = {
   synthetic: { bg: '#6d28d9', label: 'Synth' },
 };
 
-// ─── left rail ────────────────────────────────────────────────────────────────
+// ─── meeting strip (replaces LeftRail) ─────────────────────────────────────────
 
-function LeftRail({ allVenues, allRaces, selectedRaceKey, onSelect, trackConds, raceResults, abandonedVenues, calendarMismatchVenues, minRunners }) {
-  const [now,     setNow]     = useState(() => Date.now());
+function chipCountdown(secs) {
+  if (secs === null) return { label: '—', color: 'rgba(0,0,0,0.35)', bg: 'transparent' };
+  if (secs > 0) return secs <= 600
+    ? { label: fmtCd(secs), color: '#92400e', bg: '#fef3c7' }
+    : { label: fmtCd(secs), color: 'rgba(0,0,0,0.5)', bg: 'rgba(0,0,0,0.04)' };
+  const abs = Math.abs(secs), m = Math.floor(abs / 60);
+  return { label: `OFF -${m}m`, color: '#fff', bg: '#dc2626' };
+}
+
+function MeetingStrip({ allVenues, allRaces, selectedRaceKey, onSelect, trackConds, raceResults, abandonedVenues, calendarMismatchVenues, minRunners }) {
+  const [now, setNow] = useState(() => Date.now());
   const [showAll, setShowAll] = useState(false);
-  const [pinned,  setPinned]  = useState(() => {
+  const [pinned, setPinned] = useState(() => {
     try { return JSON.parse(localStorage.getItem('ww_pinned_meetings') || '[]'); } catch { return []; }
   });
 
@@ -336,10 +346,8 @@ function LeftRail({ allVenues, allRaces, selectedRaceKey, onSelect, trackConds, 
     });
   }, []);
 
-  // Find the "best" race to select when a tile is clicked
   const bestRaceKey = useCallback((venue) => {
     const keys = allVenues[venue] || [];
-    // Prefer: racing now (-240..0s), then soonest upcoming, then first key
     let bestUpcoming = null, bestSecs = Infinity;
     for (const k of keys) {
       const s = countdownSecs(allRaces[k], now);
@@ -348,16 +356,6 @@ function LeftRail({ allVenues, allRaces, selectedRaceKey, onSelect, trackConds, 
     }
     return bestUpcoming || keys[0];
   }, [allVenues, allRaces, now]);
-
-  // Race segment status
-  const segStatus = (venue, rc) => {
-    const normV = normaliseVenue(venue);
-    if ((raceResults||{})[`${normV}||${String(rc.num)}`]) return 'resulted';
-    const s = countdownSecs(rc, now);
-    if (s !== null && s >= -240 && s <= 30) return 'now';
-    if (s !== null && s < -240) return 'passed';
-    return 'upcoming';
-  };
 
   const minCount = minRunners && minRunners !== 'None' ? +minRunners : 0;
   const venuePassesFilter = (venue) => {
@@ -370,153 +368,148 @@ function LeftRail({ allVenues, allRaces, selectedRaceKey, onSelect, trackConds, 
   const pinnedVenues   = venues.filter(v =>  pinned.includes(v) && venuePassesFilter(v));
   const unpinnedVenues = venues.filter(v => !pinned.includes(v) && venuePassesFilter(v));
   const hiddenCount    = venues.filter(v => !venuePassesFilter(v)).length;
+  const ordered = [...pinnedVenues, ...unpinnedVenues];
 
-  const renderTile = (venue) => {
-    const raceKeys   = allVenues[venue] || [];
-    const isAbandoned = (abandonedVenues || new Set()).has(normaliseVenue(venue));
-    const isCalendarMismatch = !isAbandoned && (calendarMismatchVenues || new Set()).has(normaliseVenue(venue));
-    const tc         = !isAbandoned && !isCalendarMismatch && trackConds[venue];
-    const pill       = TC_PILL[tc];
-    const isActive   = raceKeys.some(k => k === selectedRaceKey);
-    const isPinned  = pinned.includes(venue);
+  const renderChip = (venue) => {
+    const raceKeys = (allVenues[venue] || []).slice().sort((a, b) => (allRaces[a]?.num||0) - (allRaces[b]?.num||0));
+    const normV = normaliseVenue(venue);
+    const isAbandoned = (abandonedVenues || new Set()).has(normV);
+    const isCalendarMismatch = !isAbandoned && (calendarMismatchVenues || new Set()).has(normV);
+    const tc = !isAbandoned && !isCalendarMismatch && trackConds[venue];
+    const pill = TC_PILL[tc];
+    const isActive = raceKeys.some(k => k === selectedRaceKey);
+    const isPinned = pinned.includes(venue);
 
-
-    // Next race: first 'now', then first upcoming
-    let nextRc = null, nextSecs = null;
-    for (const k of raceKeys) {
-      const rc = allRaces[k];
-      const s  = countdownSecs(rc, now);
-      if (s !== null && s >= -240 && s <= 30) { nextRc = rc; nextSecs = s; break; }
-    }
-    if (!nextRc) {
-      let bestS = Infinity;
-      for (const k of raceKeys) {
-        const rc = allRaces[k];
-        const s  = countdownSecs(rc, now);
-        if (s !== null && s > 0 && s < bestS) { bestS = s; nextRc = rc; nextSecs = s; }
+    let nextRc = null, nextSecs = null, foundNext = false;
+    const dots = raceKeys.map(k => {
+      const resulted = !!(raceResults || {})[`${normV}||${String(allRaces[k]?.num)}`];
+      if (resulted) return { c: '#22c55e' };
+      const s = countdownSecs(allRaces[k], now);
+      if (!foundNext) {
+        foundNext = true;
+        nextRc = allRaces[k]; nextSecs = s;
+        return { c: '#f59e0b' };
       }
-    }
-    const nextLabel  = nextSecs !== null ? fmtCd(nextSecs) : null;
-    const nextUrgent = nextSecs !== null && nextSecs <= 600;
-    const nextColor  = nextSecs !== null && nextSecs < 0 ? '#f87171' : nextUrgent ? '#fbbf24' : 'rgba(255,255,255,0.55)';
+      return { c: '#e2e8f0' };
+    });
+    const cd = chipCountdown(nextSecs);
 
     return (
       <div
         key={venue}
         onClick={() => { const k = bestRaceKey(venue); if (k) onSelect(k); }}
         style={{
-          position: 'relative',
-          margin: '5px 8px',
-          padding: '8px 7px 7px',
-          borderRadius: 6,
-          background: isActive ? 'rgba(0,71,27,0.30)' : 'rgba(255,255,255,0.05)',
-          border: '1px solid rgba(255,255,255,0.10)',
-          borderLeft: `3px solid ${isActive ? '#00c853' : 'rgba(255,255,255,0.08)'}`,
-          cursor: 'pointer',
-          transition: 'background 0.15s',
+          flex: '1 1 0', minWidth: 148, maxWidth: 200, scrollSnapAlign: 'start',
+          border: `1px solid ${isActive ? '#12834a' : '#dfe4dc'}`,
+          background: isActive ? '#eefaf2' : '#fff',
+          borderRadius: 8, padding: '7px 9px', display: 'flex', flexDirection: 'column', gap: 5,
+          cursor: 'pointer', flexShrink: 0,
         }}
       >
-        {/* Pin star */}
-        <button
-          onClick={e => togglePin(venue, e)}
-          style={{ position: 'absolute', top: 6, right: 7, background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontSize: 12, lineHeight: 1, color: isPinned ? '#fbbf24' : '#fff', transition: 'color 0.15s' }}
-          title={isPinned ? 'Unpin' : 'Pin to top'}
-        >★</button>
-
-        {/* Venue name + TC badge */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginRight: 18, marginBottom: 2 }}>
-          <div style={{ fontSize: 10, fontWeight: 700, color: '#fff', textTransform: 'uppercase', letterSpacing: '0.7px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
-            {venue}
-          </div>
-          {isAbandoned ? (
-            <span style={{ fontSize: 8, fontWeight: 700, padding: '1px 4px', borderRadius: 3, background: '#6b7280', color: '#fff', flexShrink: 0 }}>
-              Abandoned
-            </span>
-          ) : isCalendarMismatch ? (
-            <span style={{ fontSize: 8, fontWeight: 700, padding: '1px 4px', borderRadius: 3, background: '#0891b2', color: '#fff', flexShrink: 0 }} title="No longer listed on Racing Australia's calendar for today — may have been rescheduled">
-              Not on Calendar
-            </span>
-          ) : pill && (
-            <span style={{ fontSize: 8, fontWeight: 700, padding: '1px 4px', borderRadius: 3, background: pill.bg, color: '#fff', flexShrink: 0 }}>
-              {pill.label}
-            </span>
-          )}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'space-between' }}>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 5, fontWeight: 700, fontSize: 11, letterSpacing: '0.3px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            <button onClick={e => togglePin(venue, e)} title={isPinned ? 'Unpin' : 'Pin to top'}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontSize: 12, lineHeight: 1, color: isPinned ? '#e0a800' : '#cdd5cb', flexShrink: 0 }}>★</button>
+            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{venue}</span>
+          </span>
+          <span style={{ display: 'flex', gap: 3, flexShrink: 0 }}>
+            {isAbandoned ? (
+              <span style={{ fontSize: 7, fontWeight: 700, padding: '1px 4px', borderRadius: 3, background: '#6b7280', color: '#fff' }}>Abandoned</span>
+            ) : isCalendarMismatch ? (
+              <span style={{ fontSize: 7, fontWeight: 700, padding: '1px 4px', borderRadius: 3, background: '#0891b2', color: '#fff' }} title="No longer listed on Racing Australia's calendar for today">Not on Calendar</span>
+            ) : pill && (
+              <span style={{ fontSize: 7, fontWeight: 700, padding: '1px 4px', borderRadius: 3, background: pill.bg, color: '#fff' }}>{pill.label}</span>
+            )}
+          </span>
         </div>
-
-        {/* Race count */}
-        <div style={{ fontSize: 9, color: '#fff', marginBottom: 4 }}>
-          {raceKeys.length} race{raceKeys.length !== 1 ? 's' : ''}
+        <div style={{ display: 'flex', gap: 2 }}>
+          {dots.map((d, i) => <div key={i} style={{ flex: 1, height: 5, borderRadius: 2, background: d.c }} />)}
         </div>
-
-        {/* Race buttons: label + bar merged for a larger tap target.
-            minWidth ensures the "R#" label stays legible instead of clipping
-            when a card has enough races (7+) that flex:1 would squeeze each
-            tab below readable width — wraps to a second row instead. */}
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 1, rowGap: 3, marginBottom: nextLabel && nextRc ? 5 : 0 }}>
-          {raceKeys.map((k, i) => {
-            const status = segStatus(venue, allRaces[k]);
-            return (
-              <div
-                key={i}
-                onClick={e => { e.stopPropagation(); onSelect(k); }}
-                title={`R${allRaces[k]?.num}`}
-                onMouseEnter={e => { e.currentTarget.lastElementChild.style.boxShadow = 'inset 0 0 0 1px #fff'; }}
-                onMouseLeave={e => { e.currentTarget.lastElementChild.style.boxShadow = 'none'; }}
-                style={{ flex: '1 1 0', minWidth: 18, cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}
-              >
-                <div style={{ fontSize: 8, color: '#fff', lineHeight: 1, textAlign: 'center', width: '100%', overflow: 'hidden' }}>
-                  R{allRaces[k]?.num}
-                </div>
-                <div style={{
-                  width: '100%', height: 10, borderRadius: 2,
-                  background: status === 'resulted' ? '#4ade80'
-                            : status === 'now'      ? '#fbbf24'
-                            : status === 'passed'   ? '#f97316'
-                            :                         'rgba(255,255,255,0.18)',
-                }} />
-              </div>
-            );
-          })}
+        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, fontFamily: 'monospace' }}>
+          <span style={{ color: '#55645a' }}>{nextRc ? `R${nextRc.num}` : raceKeys.length ? `${raceKeys.length} races` : '—'}</span>
+          <span style={{ fontWeight: 600, color: cd.color, background: cd.bg, borderRadius: 3, padding: '0 4px' }}>{cd.label}</span>
         </div>
-
-        {/* Next race countdown */}
-        {nextLabel && nextRc && (
-          <div style={{ fontSize: 9, fontWeight: nextUrgent ? 700 : 400, color: nextColor }}>
-            R{nextRc.num} next · {nextLabel}
-          </div>
-        )}
       </div>
     );
   };
 
   return (
-    <aside style={{ width: 202, flexShrink: 0, background: '#1a2634', height: '100%', overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
-      <div style={{ color: '#fff', fontSize: 10, fontWeight: 700, padding: '7px 12px', letterSpacing: '0.5px', textTransform: 'uppercase', borderBottom: '1px solid rgba(255,255,255,0.08)', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <span>Meetings</span>
-        {!showAll && hiddenCount > 0 && (
-          <button onClick={() => setShowAll(true)} style={{ fontSize: 9, fontWeight: 600, color: 'rgba(255,255,255,0.5)', background: 'none', border: 'none', cursor: 'pointer', padding: 0, textDecoration: 'underline' }}>
-            +{hiddenCount} hidden
-          </button>
-        )}
-        {showAll && minCount > 0 && (
-          <button onClick={() => setShowAll(false)} style={{ fontSize: 9, fontWeight: 600, color: 'rgba(255,255,255,0.5)', background: 'none', border: 'none', cursor: 'pointer', padding: 0, textDecoration: 'underline' }}>
-            Filter
-          </button>
-        )}
-      </div>
-
-      <div className="mob-page" style={{ flex: 1, overflowY: 'auto', paddingBottom: 8 }}>
-        {pinnedVenues.map(renderTile)}
-        {pinnedVenues.length > 0 && unpinnedVenues.length > 0 && (
-          <div style={{ margin: '4px 10px 2px', borderTop: '1px solid rgba(255,255,255,0.14)' }} />
-        )}
-        {unpinnedVenues.map(renderTile)}
-      </div>
-    </aside>
+    <div style={{ flexShrink: 0, background: '#fff', borderBottom: '1px solid #dfe4dc', padding: '8px 12px', display: 'flex', gap: 8, alignItems: 'stretch', overflowX: 'auto', scrollSnapType: 'x proximity' }}>
+      {ordered.map(renderChip)}
+      {!showAll && hiddenCount > 0 && (
+        <button onClick={() => setShowAll(true)} style={{ flexShrink: 0, alignSelf: 'center', fontSize: 10, fontWeight: 600, color: '#6b7a70', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline', whiteSpace: 'nowrap' }}>
+          +{hiddenCount} hidden
+        </button>
+      )}
+      {showAll && minCount > 0 && (
+        <button onClick={() => setShowAll(false)} style={{ flexShrink: 0, alignSelf: 'center', fontSize: 10, fontWeight: 600, color: '#6b7a70', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline', whiteSpace: 'nowrap' }}>
+          Filter
+        </button>
+      )}
+    </div>
   );
 }
 
-// ─── right rail ───────────────────────────────────────────────────────────────
+// ─── ticker (replaces RightRail) ───────────────────────────────────────────────
+
+function Ticker({ allRaces, allVenues, selectedRaceKey, onSelect, onOpenUpNext }) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  const keys = Object.values(allVenues).flat()
+    .filter(k => {
+      const s = countdownSecs(allRaces[k], now);
+      return s === null || s >= -240;
+    })
+    .sort((a, b) => {
+      const sa = countdownSecs(allRaces[a], now) ?? 99999;
+      const sb = countdownSecs(allRaces[b], now) ?? 99999;
+      return sa - sb;
+    });
+
+  const next = keys[0] ? allRaces[keys[0]] : null;
+  const pillKeys = keys.slice(0, 6);
+
+  return (
+    <div style={{ flexShrink: 0, background: '#0a2a18', color: '#cfe3d6', fontSize: 12, display: 'flex', alignItems: 'center', gap: 8, padding: '0 12px', height: 38, overflowX: 'auto', whiteSpace: 'nowrap' }}>
+      {next && (
+        <button
+          onClick={() => onSelect(keys[0])}
+          style={{ background: '#f5c542', color: '#2b2200', fontWeight: 700, border: 'none', borderRadius: 5, padding: '4px 10px', fontSize: 11, letterSpacing: '0.4px', cursor: 'pointer', flexShrink: 0, marginRight: 6 }}
+        >
+          ▶ NEXT RACE · {venueAbbr(next.venue)} R{next.num}
+        </button>
+      )}
+      {pillKeys.map(k => {
+        const rc = allRaces[k];
+        const secs = countdownSecs(rc, now);
+        const label = fmtCd(secs);
+        const urgent = secs !== null && secs >= 0 && secs <= 600;
+        return (
+          <button
+            key={k}
+            onClick={() => onSelect(k)}
+            style={{
+              display: 'flex', gap: 7, alignItems: 'center', border: `1px solid ${k === selectedRaceKey ? '#4ade80' : '#1f4d33'}`,
+              borderRadius: 5, padding: '3px 9px', background: 'transparent', cursor: 'pointer', flexShrink: 0,
+            }}
+          >
+            <span style={{ fontWeight: 600, color: '#fff' }}>{venueAbbr(rc.venue)} R{rc.num}</span>
+            <span style={{ fontFamily: 'monospace', color: urgent ? '#fcd34d' : '#cfe3d6' }}>{label}</span>
+          </button>
+        );
+      })}
+      <button onClick={onOpenUpNext} style={{ marginLeft: 'auto', fontSize: 11, color: '#8fb09b', background: 'none', border: 'none', cursor: 'pointer', flexShrink: 0, padding: '0 2px' }}>
+        All upcoming ›
+      </button>
+    </div>
+  );
+}
+
+// ─── right rail (kept — reused inside the Ticker's "All upcoming" drawer) ─────
 
 function RightRail({ allRaces, allVenues, selectedRaceKey, onSelect, isPro, userId, todayBets = {} }) {
   const [now, setNow] = useState(() => Date.now());
@@ -2028,7 +2021,7 @@ function LockBtn({ onClick, label = 'Pro' }) {
 
 const DEFAULT_COL_VIS = { form: true, speed: true, cond: true, conn: true, score: true, edge: true, value: true };
 
-function RunnerRow({ runner, rank, rc, trackCond, onLogBet, onShowPopup, onHidePopup, isResulted, betBlocked = false, isPro, onUpgrade, isDbScratched, colVis = DEFAULT_COL_VIS, todayBets = {}, canLivePrices = false, livePrices = {}, marketMoves = {}, calibrationCurve = null, trustBuckets = null }) {
+function RunnerRow({ runner, rank, rc, trackCond, onLogBet, onShowPopup, onHidePopup, isResulted, betBlocked = false, isPro, onUpgrade, isDbScratched, colVis = DEFAULT_COL_VIS, todayBets = {}, canLivePrices = false, livePrices = {}, marketMoves = {}, calibrationCurve = null, trustBuckets = null, compact = false, highlighted = false }) {
   const myO  = runner.myOdds;
   const mktO = runner.rawOdds;
   // Admin-only: odds_snapshot live price for the currently-picked bookmaker,
@@ -2066,8 +2059,9 @@ function RunnerRow({ runner, rank, rc, trackCond, onLogBet, onShowPopup, onHideP
   const rankColor = rank===1?'#d97706':rank===2?'#6b7280':rank===3?'#b45309':'#9ca3af';
 
   const td = 'px-[3px] py-[2px]';
+  const rowId = `runner-row-${stripCountry(runner.name).toUpperCase()}`;
   return (
-    <tr className="border-b border-gray-100 text-[11px]" style={{ background: isDbScratched ? '#fafafa' : (rank===1 ? '#fffbeb' : 'white'), opacity: isDbScratched ? 0.45 : 1 }}>
+    <tr id={rowId} className="border-b border-gray-100 text-[11px]" style={{ background: highlighted ? '#fef9c3' : isDbScratched ? '#fafafa' : (rank===1 ? '#fffbeb' : 'white'), opacity: isDbScratched ? 0.45 : 1, outline: highlighted ? '2px solid #f59e0b' : 'none', transition: 'background 0.3s' }}>
       <td className={`${td} text-center font-bold w-7`} style={{ color: rankColor }}>
         {isDbScratched ? '—' : (!isPro ? <LockBtn onClick={onUpgrade} /> : rank)}
       </td>
@@ -2093,6 +2087,7 @@ function RunnerRow({ runner, rank, rc, trackCond, onLogBet, onShowPopup, onHideP
         </div>
       </td>
       {/* Last 4 */}
+      {!compact && (
       <td className={`${td} text-center`}>
         <div className="flex items-center justify-center gap-[2px]">
           {pips.length > 0
@@ -2105,14 +2100,17 @@ function RunnerRow({ runner, rank, rc, trackCond, onLogBet, onShowPopup, onHideP
           }
         </div>
       </td>
+      )}
       {/* Career record */}
+      {!compact && (
       <td className={`${td} text-center text-[9px] font-mono whitespace-nowrap`} style={{ color: '#111827', paddingLeft: 4 }}>
         {runner.starts}-{runner.wins}-{runner.seconds||0}-{runner.thirds||0}
       </td>
+      )}
       {/* Form/Speed/Good/Conn -- merged into one quiet column (hover for
           the breakdown) rather than 4 separate ones, to free up horizontal
           space in the table. */}
-      {GRP_KEYS.some(gk => colVis[gk]) && (
+      {!compact && GRP_KEYS.some(gk => colVis[gk]) && (
         isDbScratched
           ? <td className="px-[3px] py-[5px] text-center" />
           : !isPro
@@ -2120,13 +2118,13 @@ function RunnerRow({ runner, rank, rc, trackCond, onLogBet, onShowPopup, onHideP
             : <CombinedFactorsCell runner={runner} colVis={colVis} tcLabel={tcLabel} />
       )}
       {/* Total */}
-      {colVis.score && (
+      {!compact && colVis.score && (
         <td className={`${td} text-right font-bold text-[12px] tabular-nums`} style={{ color: rankColor }}>
           {isDbScratched ? '—' : !isPro ? <LockBtn onClick={onUpgrade} /> : runner.totalFromGroups.toFixed(1)}
         </td>
       )}
       {/* WW $ */}
-      {colVis.edge && (
+      {!compact && colVis.edge && (
         <td className={`${td} text-right text-[11px] font-semibold text-emerald-600 tabular-nums whitespace-nowrap`}>
           {!isPro ? <LockBtn onClick={onUpgrade} /> : (myO ? `$${formatRacingOdds(myO)}` : '—')}
           {/* Confidence labels -- real, live for all Pro users (not a
@@ -2213,6 +2211,7 @@ function RunnerRow({ runner, rank, rc, trackCond, onLogBet, onShowPopup, onHideP
         </button>
       </td>
       {/* Pace */}
+      {!compact && (
       <td className={td}>
         {pm && (
           <div className="flex items-center gap-1.5">
@@ -2224,16 +2223,19 @@ function RunnerRow({ runner, rank, rc, trackCond, onLogBet, onShowPopup, onHideP
           </div>
         )}
       </td>
+      )}
     </tr>
   );
 }
 
-function FieldView({ results, scratched, rc, trackCond, onLogBet, onShowPopup, onHidePopup, isResulted, betBlocked = false, isPro, onUpgrade, scratchingsSet = new Set(), colVis = DEFAULT_COL_VIS, todayBets = {}, isMobile, canLivePrices = false, livePrices = {}, marketMoves = {}, calibrationCurve = null, trustBuckets = null }) {
+function FieldView({ results, scratched, rc, trackCond, onLogBet, onShowPopup, onHidePopup, isResulted, betBlocked = false, isPro, onUpgrade, scratchingsSet = new Set(), colVis = DEFAULT_COL_VIS, todayBets = {}, isMobile, canLivePrices = false, livePrices = {}, marketMoves = {}, calibrationCurve = null, trustBuckets = null, compact = false, highlightName = null }) {
   const scrKey = h => `${normaliseVenue(rc.venue)}||${rc.num}||${stripCountry(h.name).toUpperCase()}`;
   const activeResults = results.filter(h => !scratchingsSet.has(scrKey(h)));
   const dbScratched   = results.filter(h =>  scratchingsSet.has(scrKey(h)));
   const [layers, setLayers] = useState({ form: false, pace: false, scores: false, picks: false });
-  const mobRankMap = new Map(activeResults.map((r, i) => [r.tab || r.name, i + 1]));
+  // Falls back to display order for any runner with no systemRank (e.g. the
+  // appended DB-scratched-only entries, which never go through scoring).
+  const mobRankMap = new Map(activeResults.map((r, i) => [r.tab || r.name, r.systemRank ?? i + 1]));
   const mobDisplayResults = layers.pace
     ? [...activeResults].sort((a, b) => (+a['BP'] || +a.tab || 99) - (+b['BP'] || +b.tab || 99))
     : activeResults;
@@ -2260,17 +2262,17 @@ function FieldView({ results, scratched, rc, trackCond, onLogBet, onShowPopup, o
             <tr className="border-b border-gray-200">
               <th style={{ ...th, textAlign:'center', width:'3%' }}>RANK</th>
               <th style={{ ...th, textAlign:'left', width:'18%' }}>Horse / Jockey / Trainer</th>
-              <th style={{ ...th, textAlign:'center', width:'7%' }}>Last 4 →</th>
-              <th style={{ ...th, textAlign:'center', width:'6%', paddingLeft: 14 }}>Record</th>
+              {!compact && <th style={{ ...th, textAlign:'center', width:'7%' }}>Last 4 →</th>}
+              {!compact && <th style={{ ...th, textAlign:'center', width:'6%', paddingLeft: 14 }}>Record</th>}
               {/* Form/Speed/Good/Conn merged into one column -- still gated
                   on any of the 4 individual colVis toggles being on, so
                   hiding all of them via settings still hides this column
                   entirely, same as before. */}
-              {(colVis.form || colVis.speed || colVis.cond || colVis.conn) && (
+              {!compact && (colVis.form || colVis.speed || colVis.cond || colVis.conn) && (
                 <th style={{ ...th, textAlign:'center', width:'4%' }}>Factors</th>
               )}
-              {colVis.score && <th style={{ ...th, textAlign:'right', width:'5%' }}>Score</th>}
-              {colVis.edge && <th style={{ ...th, textAlign:'right', width:'6%' }}>WW $</th>}
+              {!compact && colVis.score && <th style={{ ...th, textAlign:'right', width:'5%' }}>Score</th>}
+              {!compact && colVis.edge && <th style={{ ...th, textAlign:'right', width:'6%' }}>WW $</th>}
               <th style={{ ...th, textAlign:'right', width:'6%' }}>Price $</th>
               {/* Widened 3% -> 7% (table is tableLayout:auto, so this is a
                   sizing hint, not a hard cap, but the old 3% badly
@@ -2283,15 +2285,15 @@ function FieldView({ results, scratched, rc, trackCond, onLogBet, onShowPopup, o
               <th style={{ ...th, textAlign:'right', width:'7%', padding: '3px 3px' }}>Move</th>
               {colVis.value && <th style={{ ...th, textAlign:'right', width:'5%' }}>Value</th>}
               <th style={{ ...th, width:'8%' }} />
-              <th style={{ ...th, textAlign:'left', width:'16%' }}>Pace / Crs</th>
+              {!compact && <th style={{ ...th, textAlign:'left', width:'16%' }}>Pace / Crs</th>}
             </tr>
           </thead>
           <tbody>
             {activeResults.map((r, i) => (
-              <RunnerRow key={r.tab || r.name} runner={r} rank={i+1} rc={rc} trackCond={trackCond} onLogBet={onLogBet} onShowPopup={onShowPopup} onHidePopup={onHidePopup} isResulted={isResulted} betBlocked={betBlocked} isPro={isPro} onUpgrade={onUpgrade} colVis={colVis} todayBets={todayBets} canLivePrices={canLivePrices} livePrices={livePrices} marketMoves={marketMoves} calibrationCurve={calibrationCurve} trustBuckets={trustBuckets} />
+              <RunnerRow key={r.tab || r.name} runner={r} rank={r.systemRank ?? i+1} rc={rc} trackCond={trackCond} onLogBet={onLogBet} onShowPopup={onShowPopup} onHidePopup={onHidePopup} isResulted={isResulted} betBlocked={betBlocked} isPro={isPro} onUpgrade={onUpgrade} colVis={colVis} todayBets={todayBets} canLivePrices={canLivePrices} livePrices={livePrices} marketMoves={marketMoves} calibrationCurve={calibrationCurve} trustBuckets={trustBuckets} compact={compact} highlighted={highlightName === stripCountry(r.name).toUpperCase()} />
             ))}
             {dbScratched.map(r => (
-              <RunnerRow key={r.tab || r.name} runner={r} rank={null} rc={rc} trackCond={trackCond} onLogBet={onLogBet} onShowPopup={onShowPopup} onHidePopup={onHidePopup} isResulted={true} betBlocked isPro={isPro} onUpgrade={onUpgrade} isDbScratched colVis={colVis} todayBets={todayBets} canLivePrices={canLivePrices} livePrices={livePrices} marketMoves={marketMoves} />
+              <RunnerRow key={r.tab || r.name} runner={r} rank={null} rc={rc} trackCond={trackCond} onLogBet={onLogBet} onShowPopup={onShowPopup} onHidePopup={onHidePopup} isResulted={true} betBlocked isPro={isPro} onUpgrade={onUpgrade} isDbScratched colVis={colVis} todayBets={todayBets} canLivePrices={canLivePrices} livePrices={livePrices} marketMoves={marketMoves} compact={compact} />
             ))}
           </tbody>
           {scratched.length > 0 && (
@@ -3481,6 +3483,26 @@ function RacesPageInner() {
   const [livePrices, setLivePrices] = useState({});
   const [marketMoves, setMarketMoves] = useState({});
 
+  // Sort/view persisted the same way as oddsBookmaker above (localStorage,
+  // wrapped in try/catch). compactView defaults to Compact under 768px
+  // (isNarrow) the first time it's read, same breakpoint useIsNarrowWidth
+  // already uses for the rail layout -- only read once since isNarrow isn't
+  // known on the very first render pass either way.
+  const [sortMode, setSortModeState] = useState(() => {
+    try { return localStorage.getItem('ww_sort_mode') || 'score'; } catch { return 'score'; }
+  });
+  const setSortMode = (m) => { setSortModeState(m); try { localStorage.setItem('ww_sort_mode', m); } catch {} };
+  const [compactView, setCompactViewState] = useState(() => {
+    try {
+      const saved = localStorage.getItem('ww_compact_view');
+      if (saved !== null) return saved === '1';
+      return typeof window !== 'undefined' && window.innerWidth <= 768;
+    } catch { return false; }
+  });
+  const setCompactView = (v) => { setCompactViewState(v); try { localStorage.setItem('ww_compact_view', v ? '1' : '0'); } catch {} };
+  const [highlightName, setHighlightName] = useState(null);
+  const [upNextOpen, setUpNextOpen] = useState(false);
+
   // Phase 2 calibration is now the real WW $ for every Pro user (shipped
   // -- was admin-only preview until now). Fetched once on Pro load, not
   // per-race, since the active curve changes at most weekly (Part C's
@@ -4084,12 +4106,79 @@ function RacesPageInner() {
       });
     });
 
+    // systemRank -- the model's own score rank, fixed once here regardless
+    // of whatever order the Sort control later displays rows in (the RANK
+    // badge should always mean "model rank", not "position in this sort").
+    res.forEach((r, i) => { r.systemRank = i + 1; });
+
     // DB-scratched horses (not CSV-scratched) appended for display; FieldView/FormView filter them via scratchingsSet
     const dbScratchedOnly = currentRace.horses.filter(h => !h.scratched && isDbScr(h));
     const allHorsesForDisplay = [...res, ...dbScratchedOnly];
 
     return { results: res, scratched: scr, scratchingsSet: s, allHorsesForDisplay };
   }, [currentRace, trackCond, weights, scratchedRows, isPro, firstStarterLiveFlags, calibrationCurve, isSiteAdminUser]);
+
+  // Sort control reorders the active field for display only -- systemRank
+  // (set above) stays the model rank no matter which sort is active.
+  const sortedResults = useMemo(() => {
+    const arr = [...results];
+    if (sortMode === 'number') {
+      arr.sort((a, b) => (+a.tab || 99) - (+b.tab || 99));
+    } else if (sortMode === 'price') {
+      const priceOf = r => {
+        const live = canAccessLivePrices ? livePrices[stripCountry(r.name).toUpperCase()] : undefined;
+        return live ?? r.rawOdds ?? Infinity;
+      };
+      arr.sort((a, b) => priceOf(a) - priceOf(b));
+    } else {
+      arr.sort((a, b) => (a.systemRank || 999) - (b.systemRank || 999));
+    }
+    return arr;
+  }, [results, sortMode, canAccessLivePrices, livePrices]);
+
+  // Verdict row (TOP RATED / BEST VALUE / PACE) shown under RaceHeader --
+  // reuses the exact same scored `results` (TOP RATED) and the same
+  // computeValueEdge formula RunnerRow/Value Bets use (BEST VALUE), plus
+  // the Pace Map's own classifyPaceShape output (PACE), so none of this
+  // introduces a second source of truth for score, price or pace.
+  const headerVerdict = useMemo(() => {
+    if (!isPro || !currentRace || !results.length) return null;
+    const topRated = results[0];
+    let bestValue = null, bestValuePct = -Infinity;
+    results.forEach(r => {
+      const live = canAccessLivePrices ? livePrices[stripCountry(r.name).toUpperCase()] : undefined;
+      const displayPrice = live ?? r.rawOdds;
+      const edge = displayPrice && r.myOdds ? computeValueEdge(displayPrice, r.myOdds) : null;
+      if (edge && edge.pct > bestValuePct) { bestValuePct = edge.pct; bestValue = { runner: r, edge }; }
+    });
+    const byBarrier = results.map(r => ({ ...r, pm: calcPaceMap(r, currentRace.venue, +currentRace.dist, trackCond) }));
+    const shape = classifyPaceShape(byBarrier).shape;
+    const paceLabel = {
+      lone: 'Uncontested pace · lone leader favoured',
+      duel: 'Hot pace · speed duel up front',
+      uneven: 'Genuine pace · leaders favoured',
+      none: 'Even tempo · no standout leader',
+    }[shape] || null;
+    return {
+      topRated: topRated ? { name: topRated.name, score: topRated.totalFromGroups } : null,
+      bestValue: (bestValue && bestValuePct > 0) ? { name: bestValue.runner.name, pct: bestValuePct } : null,
+      paceLabel,
+    };
+  }, [isPro, currentRace, results, trackCond, canAccessLivePrices, livePrices]);
+
+  // Clicking a Firmer/Drifter chip in the verdict row scrolls the Field
+  // table/card to that runner and briefly highlights it -- id is the same
+  // stripCountry(name).toUpperCase() key RunnerRow/MobileRunnerCard already
+  // use to look up livePrices/marketMoves, so no new naming scheme.
+  const jumpToRunner = useCallback((name) => {
+    const key = stripCountry(name).toUpperCase();
+    setHighlightName(key);
+    setView('field');
+    requestAnimationFrame(() => {
+      document.getElementById(`runner-row-${key}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+    setTimeout(() => setHighlightName(cur => cur === key ? null : cur), 2500);
+  }, []);
 
   const handleSelectRace = useCallback(key => {
     setSelectedKey(key);
@@ -4131,10 +4220,12 @@ function RacesPageInner() {
   // silently collapses height unless min-height:0 is set on every single ancestor level — repeated
   // flex patches here kept fixing one column while another regressed. Grid tracks have a definite
   // size from the template itself, not inherited flex math, so this failure mode doesn't apply.
-  const showLeftRail  = hasData && !isNarrow;
-  const showRightRail = hasData && !isPast && !isNarrow;
-  const gridCols = `${showLeftRail ? '202px ' : ''}1fr${showRightRail ? ' 200px' : ''}`;
-  const railScrollStyle = { overflowY: 'auto', height: '100%', WebkitOverflowScrolling: 'touch', overflowX: 'hidden' };
+  // Meeting strip + ticker replace the old LeftRail/RightRail columns -- same
+  // width-based (not touch-based) gating those used, so a wide landscape
+  // phone still gets them, and the Races page now uses the full width
+  // instead of reserving two side columns for them.
+  const showMeetingStrip = hasData && !isNarrow;
+  const showTicker       = hasData && !isPast && !isNarrow;
 
   return (
     <>
@@ -4145,14 +4236,14 @@ function RacesPageInner() {
     `}</style>
     <div
       id="races-grid-outer"
-      className={isNarrow ? 'flex flex-1 overflow-hidden' : undefined}
-      style={isNarrow ? undefined : { display: 'grid', gridTemplateColumns: gridCols, height: '100%', overflow: 'hidden' }}
+      className="flex flex-1 overflow-hidden"
+      style={{ flexDirection: 'column' }}
     >
-      {/* Left rail — width-based, not touch-based: a wide landscape phone still gets it */}
-      {showLeftRail && (
-        <div id="races-left-col" className={isNarrow ? 'flex' : 'mob-page'} style={isNarrow ? undefined : railScrollStyle}>
-          <LeftRail allVenues={allVenues} allRaces={allRaces} selectedRaceKey={selectedKey} onSelect={handleSelectRace} trackConds={trackConds} raceResults={raceResults} abandonedVenues={venueAbandoned} calendarMismatchVenues={venueCalendarMismatch} minRunners={userSettings.racesMinRunners} />
-        </div>
+      {showMeetingStrip && (
+        <MeetingStrip allVenues={allVenues} allRaces={allRaces} selectedRaceKey={selectedKey} onSelect={handleSelectRace} trackConds={trackConds} raceResults={raceResults} abandonedVenues={venueAbandoned} calendarMismatchVenues={venueCalendarMismatch} minRunners={userSettings.racesMinRunners} />
+      )}
+      {showTicker && (
+        <Ticker allRaces={allRaces} allVenues={allVenues} selectedRaceKey={selectedKey} onSelect={handleSelectRace} onOpenUpNext={() => setUpNextOpen(true)} />
       )}
 
       {/* Main */}
@@ -4289,6 +4380,59 @@ function RacesPageInner() {
                     weights={weights} setWeights={setWeights} runnerCount={results.length}
                     onUpgrade={() => setUpgradeOpen(true)} isPro={isPro} isMobile={isNarrow}
                     onOpenGeneralBet={handleOpenGeneralBet} />
+                  {/* Verdict row -- TOP RATED/BEST VALUE/PACE on the left (each
+                      hidden individually when there's no data for it), the
+                      Firmer/Drifter chips on the right (merged from the old
+                      standalone row below the race-number tabs; same
+                      marketMoves-derived data, now clickable to jump to that
+                      runner in the Field table). */}
+                  {(headerVerdict || (view === 'field' || view === 'pacemap' || view === 'odds')) && (() => {
+                    const topFirmer = Object.entries(marketMoves).filter(([, v]) => v.move?.direction === 'firming').sort((a, b) => b[1].move.pct - a[1].move.pct)[0];
+                    const topDrifter = Object.entries(marketMoves).filter(([, v]) => v.move?.direction === 'drifting').sort((a, b) => b[1].move.pct - a[1].move.pct)[0];
+                    const showMoveChips = view === 'field' || view === 'pacemap' || view === 'odds';
+                    return (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 10px', borderBottom: '1px solid #e5e7eb', background: '#fafafa', flexWrap: 'wrap' }}>
+                        {headerVerdict && (
+                          <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', fontSize: 11 }}>
+                            {headerVerdict.topRated && (
+                              <span><b style={{ fontSize: 9, letterSpacing: '0.6px', color: '#6b7a70' }}>TOP RATED</b>{' '}<b>{headerVerdict.topRated.name}</b> {headerVerdict.topRated.score.toFixed(1)}</span>
+                            )}
+                            {headerVerdict.bestValue && (
+                              <span><b style={{ fontSize: 9, letterSpacing: '0.6px', color: '#6b7a70' }}>BEST VALUE</b>{' '}<b>{headerVerdict.bestValue.name}</b> <span style={{ color: '#12834a', fontWeight: 600 }}>+{headerVerdict.bestValue.pct.toFixed(0)}%</span></span>
+                            )}
+                            {headerVerdict.paceLabel && (
+                              <span><b style={{ fontSize: 9, letterSpacing: '0.6px', color: '#6b7a70' }}>PACE</b>{' '}{headerVerdict.paceLabel}</span>
+                            )}
+                          </div>
+                        )}
+                        {showMoveChips && (
+                          <div style={{ display: 'flex', gap: 6, marginLeft: 'auto', alignItems: 'center', flexWrap: 'wrap' }}>
+                            {!canAccessLivePrices ? (
+                              <span onClick={() => setUpgradeOpen(true)} title="Best price across bookmakers" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '2px 8px', borderRadius: 6, background: '#f3f4f6', cursor: 'pointer' }}>
+                                <i className="ti ti-lock" style={{ fontSize: 12, color: '#9ca3af' }} />
+                                <span style={{ fontSize: 10, fontWeight: 600, color: '#6b7280' }}>Firmers &amp; drifters -- Lite</span>
+                              </span>
+                            ) : (
+                              <>
+                              {topFirmer && (
+                                <span onClick={() => jumpToRunner(topFirmer[0])} title="Click to jump to this runner" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '2px 8px', borderRadius: 6, background: '#d1fae5', cursor: 'pointer' }}>
+                                  <i className="ti ti-trending-up" style={{ fontSize: 13, color: '#059669' }} />
+                                  <span style={{ fontSize: 10, fontWeight: 700, color: '#065f46' }} className="tabular-nums">{topFirmer[0]} ▲{topFirmer[1].move.pct}%</span>
+                                </span>
+                              )}
+                              {topDrifter && (
+                                <span onClick={() => jumpToRunner(topDrifter[0])} title="Click to jump to this runner" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '2px 8px', borderRadius: 6, background: '#fee2e2', cursor: 'pointer' }}>
+                                  <i className="ti ti-trending-down" style={{ fontSize: 13, color: '#dc2626' }} />
+                                  <span style={{ fontSize: 10, fontWeight: 700, color: '#991b1b' }} className="tabular-nums">{topDrifter[0]} ▼{topDrifter[1].move.pct}%</span>
+                                </span>
+                              )}
+                              </>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
                   {(() => {
                     const venueRaces = (allVenues[currentRace.venue] || [])
                       .slice()
@@ -4318,79 +4462,45 @@ function RacesPageInner() {
                           );
                         })}
                         <PaceBiasBar roles={paceBiasPoints} />
+                        <div style={{ flexGrow: 1 }} />
+                        {/* Sort / View / bookmaker -- moved here (onto the
+                            race-number row) from their own separate rows so
+                            all three display controls for the Field table
+                            live in one place, per the top-strip redesign. */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: '#55645a', flexShrink: 0 }}>
+                          <span>Sort</span>
+                          <span style={{ display: 'flex', border: '1px solid #d3d9d0', borderRadius: 6, overflow: 'hidden', background: '#fff' }}>
+                            {[['score','Score'],['number','No.'],['price','Price']].map(([k,l]) => (
+                              <button key={k} onClick={() => setSortMode(k)}
+                                style={{ padding: '4px 8px', fontSize: 11, fontWeight: sortMode === k ? 700 : 400, background: sortMode === k ? '#17211b' : 'transparent', color: sortMode === k ? '#fff' : '#55645a', border: 'none', cursor: 'pointer' }}>
+                                {l}
+                              </button>
+                            ))}
+                          </span>
+                          <span>View</span>
+                          <span style={{ display: 'flex', border: '1px solid #d3d9d0', borderRadius: 6, overflow: 'hidden', background: '#fff' }}>
+                            {[[false,'Compact'],[true,'Detailed']].map(([v,l]) => (
+                              <button key={l} onClick={() => setCompactView(l === 'Compact')}
+                                style={{ padding: '4px 8px', fontSize: 11, fontWeight: compactView === (l === 'Compact') ? 700 : 400, background: compactView === (l === 'Compact') ? '#17211b' : 'transparent', color: compactView === (l === 'Compact') ? '#fff' : '#55645a', border: 'none', cursor: 'pointer' }}>
+                                {l}
+                              </button>
+                            ))}
+                          </span>
+                          <select
+                            value={oddsBookmaker}
+                            onChange={e => setOddsBookmaker(e.target.value)}
+                            style={{ padding: '4px 8px', borderRadius: 6, border: '1px solid #d3d9d0', fontSize: 11, background: '#fff', fontWeight: 600 }}
+                          >
+                            {PUNTERSEDGE_BOOKMAKER_COLUMNS.map(c => (
+                              <option key={c.slug} value={c.slug}>{bookmakerNameForSlug(c.slug)}</option>
+                            ))}
+                          </select>
+                          <PuntersEdgeCredit />
+                        </div>
                       </div>
                     );
                   })()}
                   {!isNarrow && <ViewTabBar view={view} setView={setView} runnerCount={results.length} isPast={isPast} tabs={[VIEW_TABS[0], ODDS_TAB, ...VIEW_TABS.slice(1)]} />}
-                  {(view === 'field' || view === 'pacemap' || view === 'odds') && (() => {
-                    // Top firmer/top drifter for this race -- reads the SAME
-                    // marketMoves state already fetched for Field/Pace Map
-                    // (and read directly here, no prop drilling needed since
-                    // this row lives inside RacesPageInner itself). Hidden
-                    // entirely (not "Top firmer: none") when nothing in this
-                    // race currently qualifies at the >=15% threshold. Moved
-                    // here (2026-09-15) from next to the race title -- same
-                    // row as the bookmaker picker on all three tabs that show
-                    // live prices, not just Field/Pace Map.
-                    const topFirmer = Object.entries(marketMoves).filter(([, v]) => v.move?.direction === 'firming').sort((a, b) => b[1].move.pct - a[1].move.pct)[0];
-                    const topDrifter = Object.entries(marketMoves).filter(([, v]) => v.move?.direction === 'drifting').sort((a, b) => b[1].move.pct - a[1].move.pct)[0];
-                    return (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 10px', borderBottom: '1px solid #e5e7eb', background: '#fafafa', flexWrap: 'wrap' }}>
-                      <span style={{ fontSize: 10, color: '#6b7280' }}>Live price:</span>
-                      <select
-                        value={oddsBookmaker}
-                        onChange={e => setOddsBookmaker(e.target.value)}
-                        style={{ padding: '2px 6px', borderRadius: 6, border: '1px solid #d1d5db', fontSize: 11, background: '#fff' }}
-                      >
-                        {PUNTERSEDGE_BOOKMAKER_COLUMNS.map(c => (
-                          <option key={c.slug} value={c.slug}>{bookmakerNameForSlug(c.slug)}</option>
-                        ))}
-                      </select>
-                      {!canAccessLivePrices ? (
-                        <span
-                          onClick={() => setUpgradeOpen(true)}
-                          title="Best price across bookmakers"
-                          style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '2px 8px', borderRadius: 6, background: '#f3f4f6', cursor: 'pointer' }}
-                        >
-                          <i className="ti ti-lock" style={{ fontSize: 12, color: '#9ca3af' }} />
-                          <span style={{ fontSize: 10, fontWeight: 600, color: '#6b7280' }}>Firmers &amp; drifters -- Lite</span>
-                        </span>
-                      ) : (
-                      <>
-                      {topFirmer && (
-                        <span title="Best price across bookmakers" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '2px 8px', borderRadius: 6, background: '#d1fae5' }}>
-                          <i className="ti ti-trending-up" style={{ fontSize: 13, color: '#059669' }} />
-                          <span style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.15 }}>
-                            <span style={{ fontSize: 7, fontWeight: 700, color: '#059669', textTransform: 'uppercase', letterSpacing: '0.3px' }}>Top firmer</span>
-                            <span style={{ fontSize: 10, fontWeight: 700, color: '#065f46' }} className="tabular-nums">
-                              {topFirmer[0]} ▲{topFirmer[1].move.pct}%
-                              {Number.isFinite(topFirmer[1].open) && Number.isFinite(topFirmer[1].current) && (
-                                <span style={{ fontWeight: 500, color: '#047857' }}> ${topFirmer[1].open.toFixed(2)} → ${topFirmer[1].current.toFixed(2)}</span>
-                              )}
-                            </span>
-                          </span>
-                        </span>
-                      )}
-                      {topDrifter && (
-                        <span title="Best price across bookmakers" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '2px 8px', borderRadius: 6, background: '#fee2e2' }}>
-                          <i className="ti ti-trending-down" style={{ fontSize: 13, color: '#dc2626' }} />
-                          <span style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.15 }}>
-                            <span style={{ fontSize: 7, fontWeight: 700, color: '#dc2626', textTransform: 'uppercase', letterSpacing: '0.3px' }}>Top drifter</span>
-                            <span style={{ fontSize: 10, fontWeight: 700, color: '#991b1b' }} className="tabular-nums">
-                              {topDrifter[0]} ▼{topDrifter[1].move.pct}%
-                              {Number.isFinite(topDrifter[1].open) && Number.isFinite(topDrifter[1].current) && (
-                                <span style={{ fontWeight: 500, color: '#b91c1c' }}> ${topDrifter[1].open.toFixed(2)} → ${topDrifter[1].current.toFixed(2)}</span>
-                              )}
-                            </span>
-                          </span>
-                        </span>
-                      )}
-                      </>
-                      )}
-                      <PuntersEdgeCredit style={{ marginLeft: 'auto' }} />
-                    </div>
-                    );
-                  })()}
                   {currentRaceResult && (
                     <div style={{ background:'#f0fdf4', borderBottom:'1px solid #86efac', padding:'5px 12px', display:'flex', alignItems:'center', gap:8 }}>
                       <i className="ti ti-flag-check" style={{ color:'#16a34a', fontSize:13 }} />
@@ -4406,13 +4516,14 @@ function RacesPageInner() {
               const contentBlock = (
                 <div id="races-middle-scroll" className={isNarrow ? 'flex-1 overflow-hidden flex flex-col' : 'mob-page'} style={isNarrow ? undefined : { overflowY: 'auto', height: '100%', flex: 1, minHeight: 0, WebkitOverflowScrolling: 'touch' }}>
                   {view === 'field' && (
-                    <FieldView results={allHorsesForDisplay} scratched={scratched} rc={currentRace}
+                    <FieldView results={[...sortedResults, ...allHorsesForDisplay.filter(h => !results.includes(h))]} scratched={scratched} rc={currentRace}
                       trackCond={trackCond} onLogBet={handleLogBet}
                       onShowPopup={showHorsePopup} onHidePopup={hideHorsePopup}
                       isResulted={!!currentRaceResult} betBlocked={betBlocked}
                       isPro={isPro} onUpgrade={() => setUpgradeOpen(true)}
                       scratchingsSet={scratchingsSet} colVis={colVis} todayBets={todayBets} isMobile={isNarrow}
-                      canLivePrices={canAccessLivePrices} livePrices={livePrices} marketMoves={marketMoves} calibrationCurve={calibrationCurve} trustBuckets={trustBuckets} />
+                      canLivePrices={canAccessLivePrices} livePrices={livePrices} marketMoves={marketMoves} calibrationCurve={calibrationCurve} trustBuckets={trustBuckets}
+                      compact={compactView} highlightName={highlightName} />
                   )}
                   {view === 'form' && (
                     <FormView results={allHorsesForDisplay} scratched={scratched} onLogBet={handleLogBet} isResulted={!!currentRaceResult} betBlocked={betBlocked} rc={currentRace} isPro={isPro} onUpgrade={() => setUpgradeOpen(true)} scratchingsSet={scratchingsSet} />
@@ -4459,16 +4570,29 @@ function RacesPageInner() {
                 </div>
               );
             })() : (
-              <div className="flex-1 flex items-center justify-center text-gray-400 text-sm">Select a race from the left</div>
+              <div className="flex-1 flex items-center justify-center text-gray-400 text-sm">Select a race above</div>
             )}
           </>
         )}
       </main>
 
-      {/* Right rail — width-based, not touch-based: a wide landscape phone still gets it */}
-      {showRightRail && (
-        <div id="races-right-col" className={isNarrow ? 'flex' : 'mob-page'} style={isNarrow ? undefined : railScrollStyle}>
-          <RightRail allRaces={allRaces} allVenues={allVenues} selectedRaceKey={selectedKey} onSelect={handleSelectRace} isPro={isPro} userId={user?.id} todayBets={todayBets} />
+      {/* "All upcoming" drawer — opened from the Ticker, reuses RightRail's
+          existing Up Next table verbatim rather than a second
+          implementation of the same countdown-sorted race list. */}
+      {upNextOpen && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 400, display: 'flex', justifyContent: 'flex-end' }}>
+          <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.35)' }} onClick={() => setUpNextOpen(false)} />
+          <div style={{ position: 'relative', width: 280, maxWidth: '85vw', height: '100%', boxShadow: '-4px 0 16px rgba(0,0,0,0.15)', display: 'flex', flexDirection: 'column' }}>
+            <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#00471b', padding: '8px 12px' }}>
+              <span style={{ color: '#fff', fontSize: 11, fontWeight: 700, letterSpacing: '0.4px', textTransform: 'uppercase' }}>All Upcoming</span>
+              <button onClick={() => setUpNextOpen(false)} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.7)', cursor: 'pointer', fontSize: 16, lineHeight: 1 }}>✕</button>
+            </div>
+            <div style={{ flex: 1, minHeight: 0 }}>
+              <RightRail allRaces={allRaces} allVenues={allVenues} selectedRaceKey={selectedKey}
+                onSelect={(k) => { handleSelectRace(k); setUpNextOpen(false); }}
+                isPro={isPro} userId={user?.id} todayBets={todayBets} />
+            </div>
+          </div>
         </div>
       )}
 
