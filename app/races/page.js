@@ -21,7 +21,7 @@ import { validateBetForm } from '@/lib/betValidation';
 import { estimatePlacePrice, paidPlacesForFieldSize } from '@/lib/placePrice';
 import { BOOKMAKERS as BOOKIES } from '@/lib/bookmakers';
 import { PUNTERSEDGE_BOOKMAKER_COLUMNS, bookmakerNameForSlug, getPuntersEdgeSlug } from '@/lib/puntersedgeBookmakers';
-import { fetchMarketMoveFlags, nameKey as marketMoveNameKey } from '@/lib/marketMoves';
+import { fetchMarketMoveFlags, nameKey as marketMoveNameKey, MARKET_MOVE_THRESHOLD } from '@/lib/marketMoves';
 import { sydneyDateTimeToInstant, viewerTimeZoneLabel } from '@/lib/raceTime';
 import FirmingDriftingBadge from '@/components/FirmingDriftingBadge';
 import { generatePaceAnalysis, classifyPaceShape } from '@/lib/paceAnalysis';
@@ -325,7 +325,7 @@ function chipCountdown(secs) {
   return { label: `OFF -${m}m`, color: '#fff', bg: '#dc2626' };
 }
 
-function MeetingStrip({ allVenues, allRaces, selectedRaceKey, onSelect, trackConds, raceResults, abandonedVenues, calendarMismatchVenues, minRunners }) {
+function MeetingStrip({ allVenues, allRaces, selectedRaceKey, onSelect, trackConds, raceResults, abandonedVenues, calendarMismatchVenues, minRunners, dateToggle }) {
   const [now, setNow] = useState(() => Date.now());
   const [showAll, setShowAll] = useState(false);
   const [pinned, setPinned] = useState(() => {
@@ -434,18 +434,21 @@ function MeetingStrip({ allVenues, allRaces, selectedRaceKey, onSelect, trackCon
   };
 
   return (
-    <div style={{ flexShrink: 0, background: '#fff', borderBottom: '1px solid #dfe4dc', padding: '8px 12px', display: 'flex', gap: 8, alignItems: 'stretch', overflowX: 'auto', scrollSnapType: 'x proximity' }}>
-      {ordered.map(renderChip)}
-      {!showAll && hiddenCount > 0 && (
-        <button onClick={() => setShowAll(true)} style={{ flexShrink: 0, alignSelf: 'center', fontSize: 10, fontWeight: 600, color: '#6b7a70', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline', whiteSpace: 'nowrap' }}>
-          +{hiddenCount} hidden
-        </button>
-      )}
-      {showAll && minCount > 0 && (
-        <button onClick={() => setShowAll(false)} style={{ flexShrink: 0, alignSelf: 'center', fontSize: 10, fontWeight: 600, color: '#6b7a70', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline', whiteSpace: 'nowrap' }}>
-          Filter
-        </button>
-      )}
+    <div style={{ flexShrink: 0, background: '#fff', borderBottom: '1px solid #dfe4dc', padding: '8px 12px', display: 'flex', gap: 8, alignItems: 'stretch' }}>
+      <div style={{ display: 'flex', gap: 8, overflowX: 'auto', scrollSnapType: 'x proximity', flex: 1, minWidth: 0 }}>
+        {ordered.map(renderChip)}
+        {!showAll && hiddenCount > 0 && (
+          <button onClick={() => setShowAll(true)} style={{ flexShrink: 0, alignSelf: 'center', fontSize: 10, fontWeight: 600, color: '#6b7a70', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline', whiteSpace: 'nowrap' }}>
+            +{hiddenCount} hidden
+          </button>
+        )}
+        {showAll && minCount > 0 && (
+          <button onClick={() => setShowAll(false)} style={{ flexShrink: 0, alignSelf: 'center', fontSize: 10, fontWeight: 600, color: '#6b7a70', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline', whiteSpace: 'nowrap' }}>
+            Filter
+          </button>
+        )}
+      </div>
+      {dateToggle && <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center' }}>{dateToggle}</div>}
     </div>
   );
 }
@@ -1815,13 +1818,25 @@ function MobileRunnerCard({ runner, rank, rc, trackCond, onLogBet, isResulted, b
     ? getConfidenceFlags({ starts: runner.starts, dist: rc?.dist, calPrice: myO, oosMetrics: calibrationCurve?.oos_metrics, marketPrice: displayPrice })
     : null;
 
-  let valStr = '—', valColor = '#374151';
+  let valStr = '—', valColor = '#374151', valPillBg = 'transparent';
   if (displayPrice && myO) {
     const p = (displayPrice - myO) / myO * 100;
     const arrow = p >= 30 ? '▲' : p <= -30 ? '▼' : '';
     valStr  = `${arrow}${p >= 0 ? '+' : ''}${p.toFixed(0)}%`;
-    valColor = p >= 20 ? '#27500A' : p <= -20 ? '#A32D2D' : '#374151';
+    // Same deepens-with-size pill scale as the desktop Value column (C).
+    if (p < 0) { valColor = '#991b1b'; valPillBg = '#fee2e2'; }
+    else if (p < 20) { valColor = '#15803d'; valPillBg = '#f0fdf4'; }
+    else if (p <= 100) { valColor = '#047857'; valPillBg = '#d1fae5'; }
+    else { valColor = '#fff'; valPillBg = '#059669'; }
   }
+  // C's row highlight (top-rated / big firmer / big drifter), same rule as
+  // RunnerRow's desktop table.
+  const mobBigMove = canLivePrices && runnerMove && (runnerMove.pct / 100) >= MARKET_MOVE_THRESHOLD ? runnerMove.direction : null;
+  const mobEdge = isDbScratched ? 'transparent'
+    : mobBigMove === 'firming' ? '#16a34a'
+    : mobBigMove === 'drifting' ? '#dc2626'
+    : rank === 1 ? '#d97706'
+    : 'transparent';
 
   const pm  = calcPaceMap(runner, rc.venue, +rc.dist, trackCond);
   const rfs = runner.rfs || 0;
@@ -1889,8 +1904,10 @@ function MobileRunnerCard({ runner, rank, rc, trackCond, onLogBet, isResulted, b
             ? <span title="Best price across bookmakers" style={{ display: 'block', fontSize: 6, fontWeight: 800, color: '#059669', letterSpacing: '0.3px' }}>LIVE</span>
             : !canLivePrices && <LockBtn onClick={onUpgrade} label="Lite" />}
         </div>
-        <div style={{ flexShrink: 0, width: 32, textAlign: 'right', fontSize: 11, fontWeight: 500, color: valColor }}>
-          {isPro ? valStr : <button onClick={onUpgrade} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '6px 4px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minHeight: 32, color: '#9ca3af' }}><i className="ti ti-lock" style={{ fontSize: 13 }} /></button>}
+        <div style={{ flexShrink: 0, width: 36, textAlign: 'right' }}>
+          {isPro ? (
+            <span style={{ fontSize: 10, fontWeight: 600, color: valColor, background: valPillBg, borderRadius: 4, padding: '2px 4px' }}>{valStr}</span>
+          ) : <button onClick={onUpgrade} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '6px 4px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minHeight: 32, color: '#9ca3af' }}><i className="ti ti-lock" style={{ fontSize: 13 }} /></button>}
         </div>
       </div>
 
@@ -2021,7 +2038,7 @@ function LockBtn({ onClick, label = 'Pro' }) {
 
 const DEFAULT_COL_VIS = { form: true, speed: true, cond: true, conn: true, score: true, edge: true, value: true };
 
-function RunnerRow({ runner, rank, rc, trackCond, onLogBet, onShowPopup, onHidePopup, isResulted, betBlocked = false, isPro, onUpgrade, isDbScratched, colVis = DEFAULT_COL_VIS, todayBets = {}, canLivePrices = false, livePrices = {}, marketMoves = {}, calibrationCurve = null, trustBuckets = null, compact = false, highlighted = false }) {
+function RunnerRow({ runner, rank, rc, trackCond, onLogBet, onShowPopup, onHidePopup, isResulted, betBlocked = false, isPro, onUpgrade, isDbScratched, colVis = DEFAULT_COL_VIS, todayBets = {}, canLivePrices = false, livePrices = {}, marketMoves = {}, calibrationCurve = null, trustBuckets = null, compact = false, highlighted = false, expanded = false, onToggleExpand, oddsBookmaker = '' }) {
   const myO  = runner.myOdds;
   const mktO = runner.rawOdds;
   // Admin-only: odds_snapshot live price for the currently-picked bookmaker,
@@ -2051,7 +2068,18 @@ function RunnerRow({ runner, rank, rc, trackCond, onLogBet, onShowPopup, onHideP
   // in practice despite using identical logic.
   const valueEdge = displayPrice && myO ? computeValueEdge(displayPrice, myO) : null;
   const valStr = valueEdge ? valueEdge.str : '—';
-  const valColor = valueEdge ? valueEdge.color : '#374151';
+  // Pill colour/background deepen with the size of the edge -- purely a
+  // display choice layered on top of computeValueEdge's existing pct/str
+  // (lib/scoring.js itself untouched, so Value Bets tab's own rendering of
+  // the same computeValueEdge output is unaffected).
+  const valuePillStyle = (() => {
+    if (!valueEdge) return { color: '#374151', background: 'transparent' };
+    const pct = valueEdge.pct;
+    if (pct < 0) return { color: '#991b1b', background: '#fee2e2' };
+    if (pct < 20) return { color: '#15803d', background: '#f0fdf4' };
+    if (pct <= 100) return { color: '#047857', background: '#d1fae5' };
+    return { color: '#fff', background: '#059669' };
+  })();
 
   const pips = (runner.lastFin || []).slice(0, 4).filter(v => v !== null && v !== undefined && v !== '').reverse();
   const bp   = runner['BP'] || runner.BP || '';
@@ -2060,10 +2088,37 @@ function RunnerRow({ runner, rank, rc, trackCond, onLogBet, onShowPopup, onHideP
 
   const td = 'px-[3px] py-[2px]';
   const rowId = `runner-row-${stripCountry(runner.name).toUpperCase()}`;
+  // Row highlight precedence: a big firmer/drifter (>= MARKET_MOVE_THRESHOLD,
+  // the exact same gate computeMoveFlag already applied before runnerMove
+  // ever reaches here) outranks the plain "top rated" tint -- a mover is
+  // the more actionable signal of the two. isDbScratched/highlighted (the
+  // Firmer/Drifter-chip jump target) still take priority over both.
+  const bigMove = canLivePrices && runnerMove && (runnerMove.pct / 100) >= MARKET_MOVE_THRESHOLD ? runnerMove.direction : null;
+  const rowEdge = isDbScratched ? 'transparent'
+    : bigMove === 'firming' ? '#16a34a'
+    : bigMove === 'drifting' ? '#dc2626'
+    : rank === 1 ? '#d97706'
+    : 'transparent';
+  const rowBg = highlighted ? '#fef9c3'
+    : isDbScratched ? '#fafafa'
+    : bigMove === 'firming' ? '#f0fdf4'
+    : bigMove === 'drifting' ? '#fef2f2'
+    : rank === 1 ? '#fffbeb'
+    : 'white';
   return (
-    <tr id={rowId} className="border-b border-gray-100 text-[11px]" style={{ background: highlighted ? '#fef9c3' : isDbScratched ? '#fafafa' : (rank===1 ? '#fffbeb' : 'white'), opacity: isDbScratched ? 0.45 : 1, outline: highlighted ? '2px solid #f59e0b' : 'none', transition: 'background 0.3s' }}>
+    <>
+    <tr id={rowId} className="border-b border-gray-100 text-[11px]" style={{ background: rowBg, opacity: isDbScratched ? 0.45 : 1, borderLeft: `3px solid ${rowEdge}`, outline: highlighted ? '2px solid #f59e0b' : 'none', transition: 'background 0.3s' }}>
       <td className={`${td} text-center font-bold w-7`} style={{ color: rankColor }}>
-        {isDbScratched ? '—' : (!isPro ? <LockBtn onClick={onUpgrade} /> : rank)}
+        {isDbScratched || !isPro ? (
+          isDbScratched ? '—' : <LockBtn onClick={onUpgrade} />
+        ) : (
+          <button type="button" onClick={onToggleExpand} aria-expanded={expanded} aria-label={`${expanded ? 'Collapse' : 'Expand'} details for ${runner.name}`}
+            className="flex items-center justify-center gap-0.5 w-full"
+            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'inherit', font: 'inherit', padding: 0 }}>
+            {rank}
+            <i className={`ti ti-chevron-${expanded ? 'up' : 'down'}`} style={{ fontSize: 9, color: '#9ca3af' }} />
+          </button>
+        )}
       </td>
       <td className={`${td} overflow-hidden`}>
         <div className="flex items-center flex-wrap gap-x-1 leading-snug">
@@ -2198,16 +2253,24 @@ function RunnerRow({ runner, rank, rc, trackCond, onLogBet, onShowPopup, onHideP
       </td>
       {/* Value */}
       {colVis.value && (
-        <td className={`${td} text-right text-[10px] font-semibold tabular-nums whitespace-nowrap`} style={{ color: valColor }}>
-          {!isPro ? <LockBtn onClick={onUpgrade} /> : valStr}
+        <td className={`${td} text-right`}>
+          {!isPro ? <LockBtn onClick={onUpgrade} /> : (
+            <span className="text-[10px] font-semibold tabular-nums whitespace-nowrap" style={{ ...valuePillStyle, borderRadius: 4, padding: '2px 6px' }}>
+              {valStr}
+            </span>
+          )}
         </td>
       )}
-      {/* Bet */}
+      {/* Bet -- labelled with the same displayPrice (selected bookmaker's
+          live price, falling back to the static CSV price) shown in the
+          Price $ cell above, and that's the price handed to the Log Bet
+          flow too (overriding rawOdds only on the object this click
+          passes down, not the runner itself). */}
       <td className={`${td} text-center`}>
-        <button onClick={() => !betBlocked && onLogBet(runner, rank)} disabled={betBlocked}
+        <button onClick={() => !betBlocked && onLogBet({ ...runner, rawOdds: displayPrice ?? runner.rawOdds }, rank)} disabled={betBlocked}
           className="text-[9px] font-semibold px-2 py-[3px] rounded border whitespace-nowrap transition-colors"
           style={{ color:betBlocked?'#9ca3af':'#374151', background:betBlocked?'#f9fafb':'#fff', borderColor:'#e5e7eb', cursor:betBlocked?'default':'pointer' }}>
-          {betBlocked ? 'Closed' : '+ Bet'}
+          {betBlocked ? 'Closed' : displayPrice ? `+ Bet $${displayPrice.toFixed(2)}` : '+ Bet'}
         </button>
       </td>
       {/* Pace */}
@@ -2225,14 +2288,154 @@ function RunnerRow({ runner, rank, rc, trackCond, onLogBet, onShowPopup, onHideP
       </td>
       )}
     </tr>
+    {expanded && !isDbScratched && (
+      <tr>
+        <td colSpan={20} style={{ padding: 0, border: 'none' }}>
+          <ExpandedRunnerPanel runner={runner} rc={rc} canLivePrices={canLivePrices} oddsBookmaker={oddsBookmaker} displayPrice={displayPrice} onUpgrade={onUpgrade} />
+        </td>
+      </tr>
+    )}
+    </>
   );
 }
 
-function FieldView({ results, scratched, rc, trackCond, onLogBet, onShowPopup, onHidePopup, isResulted, betBlocked = false, isPro, onUpgrade, scratchingsSet = new Set(), colVis = DEFAULT_COL_VIS, todayBets = {}, isMobile, canLivePrices = false, livePrices = {}, marketMoves = {}, calibrationCurve = null, trustBuckets = null, compact = false, highlightName = null }) {
+// ─── expandable runner row panel ───────────────────────────────────────────────
+
+// Lazy-fetched sparklines cached in module scope (session-lifetime, not
+// persisted) so re-expanding the same runner never re-fetches.
+const sparklineCache = new Map();
+
+function ExpandedRunnerPanel({ runner, rc, canLivePrices, oddsBookmaker, displayPrice, onUpgrade }) {
+  const [sparkState, setSparkState] = useState({ loading: false, points: null });
+  const cacheKey = `${toISO(rc?.date)}|${normaliseVenue(rc?.venue || '')}|${rc?.num}|${oddsBookmaker}|${stripCountry(runner.name).toUpperCase()}`;
+
+  useEffect(() => {
+    if (!canLivePrices || !oddsBookmaker || !rc) return;
+    if (sparklineCache.has(cacheKey)) { setSparkState({ loading: false, points: sparklineCache.get(cacheKey) }); return; }
+    setSparkState({ loading: true, points: null });
+    fetch(`/api/odds-sparkline?venue=${encodeURIComponent(normaliseVenue(rc.venue))}&raceNum=${encodeURIComponent(rc.num)}&date=${encodeURIComponent(toISO(rc.date))}&bookmaker=${encodeURIComponent(oddsBookmaker)}&horse=${encodeURIComponent(runner.name)}`)
+      .then(r => r.ok ? r.json() : { points: [] })
+      .then(data => {
+        const pts = data.points || [];
+        sparklineCache.set(cacheKey, pts);
+        setSparkState({ loading: false, points: pts });
+      })
+      .catch(() => setSparkState({ loading: false, points: [] }));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cacheKey, canLivePrices, oddsBookmaker]);
+
+  // Last 4 runs -- same lastFin/lastSP/lastRunDetails fields buildPopupHTML
+  // already reads, just rendered as JSX instead of an HTML string.
+  const finArr = Array.isArray(runner.lastFin) ? runner.lastFin : [runner.lastFin, null, null, null];
+  const spArr  = Array.isArray(runner.lastSP)  ? runner.lastSP  : [runner.lastSP, null, null, null];
+  const lastRuns = [];
+  for (let ri = 0; ri < 4; ri++) {
+    const pos = finArr[ri];
+    if (pos === null || pos === undefined || pos === '') continue;
+    const dtl = runner.lastRunDetails?.[ri];
+    if (!dtl || !dtl.date) continue;
+    const sp = spArr[ri];
+    lastRuns.push({
+      date: fmtDate(dtl.date), pos, crse: dtl.crse || '—', cls: dtl.cls || '—',
+      dist: dtl.dist ? `${dtl.dist}m` : '—',
+      cond: dtl.cond || null,
+      sp: (sp && !isNaN(+sp) && +sp > 0) ? `$${+sp}` : '—',
+      margin: +pos === 1 ? `Won ${dtl.margin || 0}L` : (dtl.margin != null ? `${dtl.margin}L` : '—'),
+    });
+  }
+
+  // Strike-rate/record blocks -- same fields + "known" test buildPopupHTML
+  // uses (w/p both present, not just truthy, since 0 is a real value but
+  // undefined means the field was stripped for free tier).
+  const statDefs = [
+    { label: 'Jockey 12m',  w: runner.jocLoc12mW, p: runner.jocLoc12mP, s: runner.jocLoc12mS },
+    { label: 'Trainer 12m', w: runner.trnLoc12mW, p: runner.trnLoc12mP, s: runner.trnLoc12mS },
+    { label: 'J/T Combo',   w: runner.jocTrnWins, p: runner.jocTrnPlaces, s: runner.jocTrnStarts },
+    { label: 'Course',      w: runner.courseWins, p: runner.coursePlaces, s: runner.courseStarts },
+    { label: 'Distance',    w: runner.distWins,   p: runner.distPlaces,   s: runner.distStarts },
+    { label: '1st-up',      w: runner.prepRuns1W, p: runner.prepRuns1P,   s: runner.prepRuns1S },
+  ].filter(st => st.w !== undefined && st.p !== undefined && (st.s || 0) > 0);
+
+  const sparkPoints = sparkState.points;
+  const sparkOpen = sparkPoints && sparkPoints.length ? sparkPoints[0].price : null;
+  const sparkNow = sparkPoints && sparkPoints.length ? sparkPoints[sparkPoints.length - 1].price : null;
+
+  return (
+    <div style={{ display: 'flex', gap: 24, padding: '12px 18px 14px', background: '#f8faf6', borderBottom: '1px solid #e1e7de', fontSize: 12, flexWrap: 'wrap' }}>
+      {lastRuns.length > 0 && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 220 }}>
+          <b style={{ fontSize: 9, letterSpacing: '0.6px', color: '#6b7a70', textTransform: 'uppercase' }}>Last 4 runs</b>
+          {lastRuns.map((r, i) => (
+            <span key={i} style={{ color: '#374151' }}>
+              {r.pos === 1 ? '1st' : r.pos === 2 ? '2nd' : r.pos === 3 ? '3rd' : `${r.pos}th`} {r.crse} {r.dist}{r.cond ? ` ${r.cond}` : ''} {r.sp} · {r.margin} <span style={{ color: '#9ca3af' }}>({r.date})</span>
+            </span>
+          ))}
+        </div>
+      )}
+      {statDefs.length > 0 && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 200 }}>
+          <b style={{ fontSize: 9, letterSpacing: '0.6px', color: '#6b7a70', textTransform: 'uppercase' }}>Strike rates</b>
+          {statDefs.map((st, i) => (
+            <span key={i} style={{ color: '#374151' }}>
+              {st.label}: {st.s}S {st.w}W {st.p}P <span style={{ color: '#9ca3af' }}>({Math.round(st.w / st.s * 100)}% win · {Math.round(st.p / st.s * 100)}% plc)</span>
+            </span>
+          ))}
+        </div>
+      )}
+      {canLivePrices && oddsBookmaker && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 220 }}>
+          <b style={{ fontSize: 9, letterSpacing: '0.6px', color: '#6b7a70', textTransform: 'uppercase' }}>Price today ({bookmakerNameForSlug(oddsBookmaker)})</b>
+          {sparkState.loading ? (
+            <span style={{ color: '#9ca3af', fontSize: 11 }}>Loading…</span>
+          ) : sparkPoints && sparkPoints.length >= 2 ? (
+            <PriceSparkline points={sparkPoints} openPrice={sparkOpen} nowPrice={sparkNow} />
+          ) : (
+            <span style={{ color: '#9ca3af', fontSize: 11 }}>No price history yet for this bookmaker.</span>
+          )}
+        </div>
+      )}
+      {!canLivePrices && (
+        <div style={{ display: 'flex', alignItems: 'center' }}>
+          <LockBtn onClick={onUpgrade} label="Lite" />
+          <span style={{ fontSize: 10, color: '#9ca3af', marginLeft: 4 }}>Price history is a Lite feature</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function PriceSparkline({ points, openPrice, nowPrice }) {
+  const w = 220, h = 56, pad = 4;
+  const prices = points.map(p => p.price);
+  const min = Math.min(...prices), max = Math.max(...prices);
+  const span = max - min || 1;
+  const xStep = (w - pad * 2) / (points.length - 1);
+  const coords = points.map((p, i) => {
+    const x = pad + i * xStep;
+    const y = pad + (1 - (p.price - min) / span) * (h - pad * 2);
+    return `${x.toFixed(1)},${y.toFixed(1)}`;
+  }).join(' ');
+  const rising = nowPrice > openPrice; // drifting = rising price
+  const lineColor = rising ? '#dc2626' : '#059669';
+  const lastCoord = coords.split(' ').slice(-1)[0].split(',');
+  return (
+    <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} role="img" aria-label={`Price from $${openPrice} to $${nowPrice}`}>
+      <rect x={0} y={0} width={w} height={h} fill="#f1f4ef" rx={6} />
+      <polyline points={coords} fill="none" stroke={lineColor} strokeWidth={2} strokeLinejoin="round" />
+      <circle cx={lastCoord[0]} cy={lastCoord[1]} r={3} fill={lineColor} />
+      <text x={6} y={h - 6} fontSize={9} fill="#6b7a70" fontFamily="monospace">${openPrice.toFixed(2)} open</text>
+      <text x={w - 6} y={10} fontSize={9} fill={lineColor} fontFamily="monospace" textAnchor="end">${nowPrice.toFixed(2)} now</text>
+    </svg>
+  );
+}
+
+function FieldView({ results, scratched, rc, trackCond, onLogBet, onShowPopup, onHidePopup, isResulted, betBlocked = false, isPro, onUpgrade, scratchingsSet = new Set(), colVis = DEFAULT_COL_VIS, todayBets = {}, isMobile, canLivePrices = false, livePrices = {}, marketMoves = {}, calibrationCurve = null, trustBuckets = null, compact = false, highlightName = null, oddsBookmaker = '' }) {
   const scrKey = h => `${normaliseVenue(rc.venue)}||${rc.num}||${stripCountry(h.name).toUpperCase()}`;
   const activeResults = results.filter(h => !scratchingsSet.has(scrKey(h)));
   const dbScratched   = results.filter(h =>  scratchingsSet.has(scrKey(h)));
   const [layers, setLayers] = useState({ form: false, pace: false, scores: false, picks: false });
+  // D (expandable row) -- one open at a time, keyed by stripCountry(name).
+  const [expandedKey, setExpandedKey] = useState(null);
   // Falls back to display order for any runner with no systemRank (e.g. the
   // appended DB-scratched-only entries, which never go through scoring).
   const mobRankMap = new Map(activeResults.map((r, i) => [r.tab || r.name, r.systemRank ?? i + 1]));
@@ -2256,7 +2459,15 @@ function FieldView({ results, scratched, rc, trackCond, onLogBet, onShowPopup, o
             <ScrollHint />
           </div>
         )}
-        <div ref={fieldScrollRef} className="ww-scroll-x" style={{ overflowX: 'auto' }}>
+        {/* overflowY explicitly 'hidden' (not left as the default
+            'visible') -- the CSS overflow spec forces a 'visible' Y to
+            'auto' whenever X is non-visible, which would make THIS div
+            (not the scrollable contentBlock ancestor above it) the
+            thead's sticky containing block, breaking the sticky column
+            header (B). An explicit non-visible value isn't subject to
+            that forcing rule, so the real vertical scroll stays owned by
+            contentBlock and sticky resolves against it correctly. */}
+        <div ref={fieldScrollRef} className="ww-scroll-x" style={{ overflowX: 'auto', overflowY: 'hidden' }}>
         <table className="ww-race-table w-full border-collapse" style={{ tableLayout: 'auto' }}>
           <thead>
             <tr className="border-b border-gray-200">
@@ -2289,9 +2500,13 @@ function FieldView({ results, scratched, rc, trackCond, onLogBet, onShowPopup, o
             </tr>
           </thead>
           <tbody>
-            {activeResults.map((r, i) => (
-              <RunnerRow key={r.tab || r.name} runner={r} rank={r.systemRank ?? i+1} rc={rc} trackCond={trackCond} onLogBet={onLogBet} onShowPopup={onShowPopup} onHidePopup={onHidePopup} isResulted={isResulted} betBlocked={betBlocked} isPro={isPro} onUpgrade={onUpgrade} colVis={colVis} todayBets={todayBets} canLivePrices={canLivePrices} livePrices={livePrices} marketMoves={marketMoves} calibrationCurve={calibrationCurve} trustBuckets={trustBuckets} compact={compact} highlighted={highlightName === stripCountry(r.name).toUpperCase()} />
-            ))}
+            {activeResults.map((r, i) => {
+              const rKey = stripCountry(r.name).toUpperCase();
+              return (
+              <RunnerRow key={r.tab || r.name} runner={r} rank={r.systemRank ?? i+1} rc={rc} trackCond={trackCond} onLogBet={onLogBet} onShowPopup={onShowPopup} onHidePopup={onHidePopup} isResulted={isResulted} betBlocked={betBlocked} isPro={isPro} onUpgrade={onUpgrade} colVis={colVis} todayBets={todayBets} canLivePrices={canLivePrices} livePrices={livePrices} marketMoves={marketMoves} calibrationCurve={calibrationCurve} trustBuckets={trustBuckets} compact={compact} highlighted={highlightName === rKey}
+                expanded={expandedKey === rKey} onToggleExpand={() => setExpandedKey(k => k === rKey ? null : rKey)} oddsBookmaker={oddsBookmaker} />
+              );
+            })}
             {dbScratched.map(r => (
               <RunnerRow key={r.tab || r.name} runner={r} rank={null} rc={rc} trackCond={trackCond} onLogBet={onLogBet} onShowPopup={onShowPopup} onHidePopup={onHidePopup} isResulted={true} betBlocked isPro={isPro} onUpgrade={onUpgrade} isDbScratched colVis={colVis} todayBets={todayBets} canLivePrices={canLivePrices} livePrices={livePrices} marketMoves={marketMoves} compact={compact} />
             ))}
@@ -2462,7 +2677,7 @@ function FormCard({ runner: r, rank, onLogBet, isResulted, betBlocked = false, r
   const breedLine = breedParts.join(' · ');
 
   return (
-    <div style={{ borderRadius:6, border:'0.5px solid #e5e7eb', background:'#fff', overflow:'hidden' }}>
+    <div style={{ borderRadius:6, border:'0.5px solid #e5e7eb', borderLeft: `3px solid ${mobEdge}`, background: mobBigMove === 'firming' ? '#f0fdf4' : mobBigMove === 'drifting' ? '#fef2f2' : rank === 1 ? '#fffbeb' : '#fff', overflow:'hidden' }}>
       {/* Header */}
       <div style={{ background:'#00471b', borderRadius:'6px 6px 0 0', padding:'6px 10px' }}>
         {/* Row 1 */}
@@ -2484,9 +2699,9 @@ function FormCard({ runner: r, rank, onLogBet, isResulted, betBlocked = false, r
             <span style={{ fontSize:10, color:'rgba(255,255,255,0.75)', fontFamily:'monospace' }}>{starts}-{wins}-{secs}-{thirds}</span>
             <span style={{ fontSize:10, color:winPct>=25?'#6ee7b7':winPct>=12?'#fcd34d':'rgba(255,255,255,0.75)' }}>{winPct}%win</span>
             {dslast!=null && <span style={{ fontSize:10, color:'rgba(255,255,255,0.75)' }}>{dslast}d</span>}
-            <button type="button" onClick={() => !betBlocked && onLogBet(r, rank)} disabled={betBlocked}
-              style={{ fontSize:9, fontWeight:600, padding:'2px 8px', borderRadius:3, border:'1px solid rgba(255,255,255,0.25)', color:betBlocked?'rgba(255,255,255,0.35)':'rgba(255,255,255,0.8)', background:'transparent', cursor:betBlocked?'default':'pointer', flexShrink:0 }}>
-              {betBlocked ? 'Closed' : '+ Bet'}
+            <button type="button" onClick={() => !betBlocked && onLogBet({ ...r, rawOdds: displayPrice ?? r.rawOdds }, rank)} disabled={betBlocked}
+              style={{ fontSize:9, fontWeight:600, padding:'2px 8px', minHeight: 24, borderRadius:3, border:'1px solid rgba(255,255,255,0.25)', color:betBlocked?'rgba(255,255,255,0.35)':'rgba(255,255,255,0.8)', background:'transparent', cursor:betBlocked?'default':'pointer', flexShrink:0 }}>
+              {betBlocked ? 'Closed' : displayPrice ? `+ Bet $${displayPrice.toFixed(2)}` : '+ Bet'}
             </button>
             <button type="button" onClick={() => { if (!isPro) { onUpgrade(); } else { window.__addToBlackbook && window.__addToBlackbook({ name: r.name, venue: rc?.venue || '', raceNumber: rc?.num || '', distance: rc?.dist || '', cls: rc?.cls || '' }); } }}
               style={{ fontSize:9, fontWeight:600, padding:'2px 8px', borderRadius:3, border:'1px solid rgba(255,255,255,0.25)', color:'rgba(255,255,255,0.8)', background:'transparent', cursor:'pointer', flexShrink:0 }}>
@@ -4226,6 +4441,63 @@ function RacesPageInner() {
   // instead of reserving two side columns for them.
   const showMeetingStrip = hasData && !isNarrow;
   const showTicker       = hasData && !isPast && !isNarrow;
+  const isCustomCsv = !!fileName && fileName !== 'today.csv';
+  const csvTitle = isRacesAdmin(user?.id) && isToday ? `${fileName || 'today.csv'} · ${raceKeys.length} race${raceKeys.length !== 1 ? 's' : ''}${meetingsSynced ? ' · Meetings synced' : ''}` : undefined;
+
+  // Date toggle -- moved off its own row (A, 2026-10-12) onto the end of the
+  // meeting strip's row, exactly the same control (showPicker-on-click
+  // button + invisible native <input type=date>, Today/Tomorrow shortcuts),
+  // just relocated. Rendered as a prop rather than inlined inside
+  // MeetingStrip itself since it needs isPro/selectedDate/dateInputRef etc.
+  // that only RacesPageInner has.
+  const dateToggleNode = (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }} title={csvTitle}>
+      <div style={{ position: 'relative', display: 'inline-flex' }}>
+        <button
+          onClick={() => { if (isPro !== true) { setUpgradeOpen(true); return; } dateInputRef.current?.showPicker?.(); }}
+          style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 10, color: isPast ? '#d97706' : isFuture ? '#2563eb' : '#374151', fontWeight: isHistoricalMode ? 700 : 400, background: '#fff', border: '1px solid #e5e7eb', borderRadius: 4, padding: '4px 8px', cursor: 'pointer', whiteSpace: 'nowrap' }}
+        >
+          <i className="ti ti-calendar" style={{ fontSize: 9 }} />
+          {isHistoricalMode ? selectedDate : 'Today'}
+          {isPro !== true && <i className="ti ti-lock" style={{ fontSize: 7, color: '#9ca3af', marginLeft: 2 }} />}
+        </button>
+        {isPro === true && (
+          // Desktop: pointer-events none, button is the sole click target and opens the
+          // picker via showPicker(). Mobile: showPicker() support is unreliable across
+          // mobile browsers and the button has no fallback once the input can't be tapped,
+          // so let the (still invisible) input receive the tap directly — native mobile
+          // date inputs open their own picker sheet on tap/focus with no JS needed.
+          <input
+            ref={dateInputRef}
+            type="date"
+            value={selectedDate}
+            max={maxSelectableDate}
+            onChange={e => { if (e.target.value) setSelectedDate(e.target.value); }}
+            style={{ position: 'absolute', inset: 0, opacity: 0, width: '100%', height: '100%', cursor: 'default', pointerEvents: isMobile ? 'auto' : 'none' }}
+          />
+        )}
+      </div>
+      {isHistoricalMode && (
+        <button onClick={() => setSelectedDate(todayISO)} style={{ fontSize: 9, color: '#059669', fontWeight: 600, background: 'none', border: 'none', cursor: 'pointer', padding: '2px 0', whiteSpace: 'nowrap' }}>
+          ← Today
+        </button>
+      )}
+      {selectedDate !== maxSelectableDate && (
+        <button onClick={() => setSelectedDate(maxSelectableDate)} style={{ fontSize: 9, color: '#059669', fontWeight: 600, background: 'none', border: 'none', cursor: 'pointer', padding: '2px 0', whiteSpace: 'nowrap' }}>
+          Tomorrow →
+        </button>
+      )}
+      {histLoading && <span style={{ fontSize: 9, color: '#9ca3af' }}>Loading…</span>}
+      {isCustomCsv && isRacesAdmin(user?.id) && isToday && (
+        <button
+          onClick={() => { setAllRaces({}); setAllVenues({}); setRaceKeys([]); setSelectedKey(null); setFileName(''); setMeetingsSynced(false); }}
+          style={{ fontSize: 9, fontWeight: 600, color: '#9ca3af', background: 'none', border: 'none', cursor: 'pointer', padding: '2px 0', whiteSpace: 'nowrap' }}
+        >
+          <i className="ti ti-x" style={{ fontSize: 9 }} /> Clear
+        </button>
+      )}
+    </div>
+  );
 
   return (
     <>
@@ -4240,55 +4512,24 @@ function RacesPageInner() {
       style={{ flexDirection: 'column' }}
     >
       {showMeetingStrip && (
-        <MeetingStrip allVenues={allVenues} allRaces={allRaces} selectedRaceKey={selectedKey} onSelect={handleSelectRace} trackConds={trackConds} raceResults={raceResults} abandonedVenues={venueAbandoned} calendarMismatchVenues={venueCalendarMismatch} minRunners={userSettings.racesMinRunners} />
+        <MeetingStrip allVenues={allVenues} allRaces={allRaces} selectedRaceKey={selectedKey} onSelect={handleSelectRace} trackConds={trackConds} raceResults={raceResults} abandonedVenues={venueAbandoned} calendarMismatchVenues={venueCalendarMismatch} minRunners={userSettings.racesMinRunners} dateToggle={dateToggleNode} />
       )}
       {showTicker && (
         <Ticker allRaces={allRaces} allVenues={allVenues} selectedRaceKey={selectedKey} onSelect={handleSelectRace} onOpenUpNext={() => setUpNextOpen(true)} />
       )}
+      {/* Narrow viewports, and any date with no data loaded yet, lose the
+          meeting strip entirely (MobileRacePicker takes over on narrow, the
+          empty-state screens take over on no-data) -- the date toggle still
+          needs a home either way, so it renders as its own slim row
+          whenever the strip itself isn't there. */}
+      {!showMeetingStrip && (
+        <div style={{ flexShrink: 0, display: 'flex', justifyContent: 'flex-end', padding: '4px 10px', background: '#fff', borderBottom: '1px solid #e5e7eb' }}>
+          {dateToggleNode}
+        </div>
+      )}
 
       {/* Main */}
       <main className="flex-1 flex flex-col overflow-hidden bg-slate-50">
-        {/* Date picker bar */}
-        <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 8, padding: '4px 12px', background: '#fff', borderBottom: '1px solid #e5e7eb' }}>
-          <span style={{ fontSize: 9, color: '#9ca3af', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.4px' }}>Date</span>
-          <div style={{ position: 'relative', display: 'inline-flex' }}>
-            <button
-              onClick={() => { if (isPro !== true) { setUpgradeOpen(true); return; } dateInputRef.current?.showPicker?.(); }}
-              style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 10, color: isPast ? '#d97706' : isFuture ? '#2563eb' : '#374151', fontWeight: isHistoricalMode ? 700 : 400, background: 'none', border: '1px solid #e5e7eb', borderRadius: 4, padding: '2px 7px', cursor: 'pointer' }}
-            >
-              <i className="ti ti-calendar" style={{ fontSize: 9 }} />
-              {isHistoricalMode ? selectedDate : 'Today'}
-              {isPro !== true && <i className="ti ti-lock" style={{ fontSize: 7, color: '#9ca3af', marginLeft: 2 }} />}
-            </button>
-            {isPro === true && (
-              // Desktop: pointer-events none, button is the sole click target and opens the
-              // picker via showPicker(). Mobile: showPicker() support is unreliable across
-              // mobile browsers and the button has no fallback once the input can't be tapped,
-              // so let the (still invisible) input receive the tap directly — native mobile
-              // date inputs open their own picker sheet on tap/focus with no JS needed.
-              <input
-                ref={dateInputRef}
-                type="date"
-                value={selectedDate}
-                max={maxSelectableDate}
-                onChange={e => { if (e.target.value) setSelectedDate(e.target.value); }}
-                style={{ position: 'absolute', inset: 0, opacity: 0, width: '100%', height: '100%', cursor: 'default', pointerEvents: isMobile ? 'auto' : 'none' }}
-              />
-            )}
-          </div>
-          {isHistoricalMode && (
-            <button onClick={() => setSelectedDate(todayISO)} style={{ fontSize: 9, color: '#059669', fontWeight: 600, background: 'none', border: 'none', cursor: 'pointer', padding: '2px 0' }}>
-              ← Today
-            </button>
-          )}
-          {selectedDate !== maxSelectableDate && (
-            <button onClick={() => setSelectedDate(maxSelectableDate)} style={{ fontSize: 9, color: '#059669', fontWeight: 600, background: 'none', border: 'none', cursor: 'pointer', padding: '2px 0' }}>
-              Tomorrow →
-            </button>
-          )}
-          {histLoading && <span style={{ fontSize: 9, color: '#9ca3af' }}>Loading…</span>}
-        </div>
-
         {!hasData ? (
           (csvLoading || histLoading) ? (
             <div className="flex-1 flex items-center justify-center">
@@ -4337,22 +4578,12 @@ function RacesPageInner() {
             {/* Mobile race picker */}
             {isNarrow && <MobileRacePicker allVenues={allVenues} allRaces={allRaces} selectedRaceKey={selectedKey} onSelect={handleSelectRace} />}
 
-            {/* CSV toolbar — admin only, today's live-upload flow, hidden any other date */}
-            {isRacesAdmin(user?.id) && isToday && (
-              <div className="flex items-center gap-2 px-4 py-1.5 bg-white border-b border-gray-100 text-[10px] text-gray-500 flex-shrink-0">
-                <i className="ti ti-file-type-csv text-sm text-gray-400" />
-                <span className="font-medium text-gray-700">{fileName}</span>
-                <span className="text-gray-300">·</span>
-                <span>{raceKeys.length} races</span>
-                {meetingsSynced && <span style={{ color: '#059669', fontWeight: 600 }}>✓ Meetings synced</span>}
-                <button
-                  onClick={() => { setAllRaces({}); setAllVenues({}); setRaceKeys([]); setSelectedKey(null); setFileName(''); setMeetingsSynced(false); }}
-                  className="ml-auto text-[9px] font-semibold text-gray-400 hover:text-red-500 transition-colors flex items-center gap-1"
-                >
-                  <i className="ti ti-x text-xs" /> Clear
-                </button>
-              </div>
-            )}
+            {/* CSV toolbar row removed (A, 2026-10-12) -- its info
+                ("today.csv · N races · Meetings synced") now shows as a
+                tooltip on the date toggle (see csvTitle/dateToggleNode
+                above), and its Clear button moved inline next to the date
+                toggle, shown only when a custom (non-today.csv) file is
+                loaded. */}
 
             {currentRace ? (() => {
               const headerBlock = (
@@ -4392,6 +4623,7 @@ function RacesPageInner() {
                     const showMoveChips = view === 'field' || view === 'pacemap' || view === 'odds';
                     return (
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 10px', borderBottom: '1px solid #e5e7eb', background: '#fafafa', flexWrap: 'wrap' }}>
+                        <PaceBiasBar roles={paceBiasPoints} />
                         {headerVerdict && (
                           <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', fontSize: 11 }}>
                             {headerVerdict.topRated && (
@@ -4439,7 +4671,7 @@ function RacesPageInner() {
                       .sort((a, b) => (allRaces[a]?.num || 0) - (allRaces[b]?.num || 0));
                     if (venueRaces.length < 2) return null;
                     return (
-                      <div style={{ display:'flex', alignItems:'center', gap:4, padding:'4px 10px', borderBottom:'1px solid #e5e7eb', overflowX:'auto', flexShrink:0, background:'#fafafa' }}>
+                      <div style={{ display:'flex', alignItems:'center', gap:4, padding:'3px 10px', borderBottom:'1px solid #e5e7eb', overflowX:'auto', flexShrink:0, background:'#fafafa' }}>
                         {venueRaces.map(key => {
                           const rn = allRaces[key]?.num;
                           const active = key === selectedKey;
@@ -4450,10 +4682,10 @@ function RacesPageInner() {
                               key={key}
                               onClick={() => setSelectedKey(key)}
                               style={{
-                                minWidth:28, height:40, fontSize:12, fontWeight: active ? 700 : 500,
+                                minWidth:26, height:30, fontSize:11, fontWeight: active ? 700 : 500,
                                 borderRadius:5, border: active ? '1.5px solid #1D9E75' : '1px solid #d1d5db',
                                 background: active ? '#1D9E75' : '#fff', color: active ? '#fff' : '#374151',
-                                cursor:'pointer', flexShrink:0, padding:'0 5px', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:2,
+                                cursor:'pointer', flexShrink:0, padding:'0 5px', display:'flex', flexDirection:'row', alignItems:'center', justifyContent:'center', gap:3,
                               }}
                             >
                               <span>R{rn}</span>
@@ -4461,7 +4693,6 @@ function RacesPageInner() {
                             </button>
                           );
                         })}
-                        <PaceBiasBar roles={paceBiasPoints} />
                         <div style={{ flexGrow: 1 }} />
                         {/* Sort / View / bookmaker -- moved here (onto the
                             race-number row) from their own separate rows so
@@ -4523,7 +4754,7 @@ function RacesPageInner() {
                       isPro={isPro} onUpgrade={() => setUpgradeOpen(true)}
                       scratchingsSet={scratchingsSet} colVis={colVis} todayBets={todayBets} isMobile={isNarrow}
                       canLivePrices={canAccessLivePrices} livePrices={livePrices} marketMoves={marketMoves} calibrationCurve={calibrationCurve} trustBuckets={trustBuckets}
-                      compact={compactView} highlightName={highlightName} />
+                      compact={compactView} highlightName={highlightName} oddsBookmaker={oddsBookmaker} />
                   )}
                   {view === 'form' && (
                     <FormView results={allHorsesForDisplay} scratched={scratched} onLogBet={handleLogBet} isResulted={!!currentRaceResult} betBlocked={betBlocked} rc={currentRace} isPro={isPro} onUpgrade={() => setUpgradeOpen(true)} scratchingsSet={scratchingsSet} />
