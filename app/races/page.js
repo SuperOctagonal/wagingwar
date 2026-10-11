@@ -21,7 +21,7 @@ import { validateBetForm } from '@/lib/betValidation';
 import { estimatePlacePrice, paidPlacesForFieldSize } from '@/lib/placePrice';
 import { BOOKMAKERS as BOOKIES } from '@/lib/bookmakers';
 import { PUNTERSEDGE_BOOKMAKER_COLUMNS, bookmakerNameForSlug, getPuntersEdgeSlug } from '@/lib/puntersedgeBookmakers';
-import { fetchMarketMoveFlags, nameKey as marketMoveNameKey, MARKET_MOVE_THRESHOLD } from '@/lib/marketMoves';
+import { fetchMarketMoveFlags, nameKey as marketMoveNameKey } from '@/lib/marketMoves';
 import { sydneyDateTimeToInstant, viewerTimeZoneLabel } from '@/lib/raceTime';
 import FirmingDriftingBadge from '@/components/FirmingDriftingBadge';
 import { generatePaceAnalysis, classifyPaceShape } from '@/lib/paceAnalysis';
@@ -1836,7 +1836,7 @@ function MobileRacePicker({ allVenues, allRaces, selectedRaceKey, onSelect }) {
 
 // ─── mobile runner card ───────────────────────────────────────────────────────
 
-function MobileRunnerCard({ runner, rank, rc, trackCond, onLogBet, isResulted, betBlocked = false, isPro, onUpgrade, isDbScratched, layers, canLivePrices = false, livePrices = {}, marketMoves = {}, calibrationCurve = null }) {
+function MobileRunnerCard({ runner, rank, rc, trackCond, onLogBet, isResulted, betBlocked = false, isPro, onUpgrade, isDbScratched, layers, canLivePrices = false, livePrices = {}, marketMoves = {}, calibrationCurve = null, isBiggestFirmer = false, isBiggestDrifter = false }) {
   const mktO = runner.rawOdds;
   const myO  = runner.myOdds;
   const wt   = runner['Weight'] ? `${runner['Weight']}kg` : '';
@@ -1872,13 +1872,16 @@ function MobileRunnerCard({ runner, rank, rc, trackCond, onLogBet, isResulted, b
     else if (p <= 100) { valColor = '#047857'; valPillBg = '#d1fae5'; }
     else { valColor = '#fff'; valPillBg = '#059669'; }
   }
-  // C's row highlight (top-rated / big firmer / big drifter), same rule as
-  // RunnerRow's desktop table.
-  const mobBigMove = canLivePrices && runnerMove && (runnerMove.pct / 100) >= MARKET_MOVE_THRESHOLD ? runnerMove.direction : null;
+  // C's row highlight -- top-rated, or this race's single biggest firmer/
+  // drifter (isBiggestFirmer/isBiggestDrifter, computed once across the
+  // field in FieldView, already gated at >=25% there), same rule as
+  // RunnerRow's desktop table. Top-rated keeps gold even if it's also the
+  // biggest firmer/drifter -- that combination gets a small chip instead.
+  const mobIsTopRated = rank === 1;
   const mobEdge = isDbScratched ? 'transparent'
-    : mobBigMove === 'firming' ? '#16a34a'
-    : mobBigMove === 'drifting' ? '#dc2626'
-    : rank === 1 ? '#d97706'
+    : mobIsTopRated ? '#d97706'
+    : isBiggestFirmer ? '#16a34a'
+    : isBiggestDrifter ? '#dc2626'
     : 'transparent';
 
   const pm  = calcPaceMap(runner, rc.venue, +rc.dist, trackCond);
@@ -1943,6 +1946,14 @@ function MobileRunnerCard({ runner, rank, rc, trackCond, onLogBet, isResulted, b
               (confidence LTD/GAP flags, the name/jockey-trainer stack) are
               already multi-line. */}
           {canLivePrices && <FirmingDriftingBadge move={runnerMove} prices={runnerMoveEntry ? { open: runnerMoveEntry.open, current: runnerMoveEntry.current } : null} pctLayout="stacked" />}
+          {/* Top-rated keeps its gold tint even when it's also the race's
+              biggest firmer/drifter -- shown as a small chip here instead. */}
+          {mobIsTopRated && isBiggestFirmer && (
+            <span title="Biggest firmer in this race" style={{ display: 'inline-block', marginTop: 2, fontSize: 7, fontWeight: 800, color: '#fff', background: '#16a34a', padding: '1px 3px', borderRadius: 3 }}>▲</span>
+          )}
+          {mobIsTopRated && isBiggestDrifter && (
+            <span title="Biggest drifter in this race" style={{ display: 'inline-block', marginTop: 2, fontSize: 7, fontWeight: 800, color: '#fff', background: '#dc2626', padding: '1px 3px', borderRadius: 3 }}>▼</span>
+          )}
           {isLivePrice
             ? <span title="Best price across bookmakers" style={{ display: 'block', fontSize: 6, fontWeight: 800, color: '#059669', letterSpacing: '0.3px' }}>LIVE</span>
             : !canLivePrices && <LockBtn onClick={onUpgrade} label="Lite" />}
@@ -2081,7 +2092,7 @@ function LockBtn({ onClick, label = 'Pro' }) {
 
 const DEFAULT_COL_VIS = { form: true, speed: true, cond: true, conn: true, score: true, edge: true, value: true };
 
-function RunnerRow({ runner, rank, rc, trackCond, onLogBet, onShowPopup, onHidePopup, isResulted, betBlocked = false, isPro, onUpgrade, isDbScratched, colVis = DEFAULT_COL_VIS, todayBets = {}, canLivePrices = false, livePrices = {}, marketMoves = {}, calibrationCurve = null, trustBuckets = null, compact = false, highlighted = false, expanded = false, onToggleExpand, oddsBookmaker = '' }) {
+function RunnerRow({ runner, rank, rc, trackCond, onLogBet, onShowPopup, onHidePopup, isResulted, betBlocked = false, isPro, onUpgrade, isDbScratched, colVis = DEFAULT_COL_VIS, todayBets = {}, canLivePrices = false, livePrices = {}, marketMoves = {}, calibrationCurve = null, trustBuckets = null, compact = false, highlighted = false, expanded = false, onToggleExpand, oddsBookmaker = '', isBiggestFirmer = false, isBiggestDrifter = false }) {
   const myO  = runner.myOdds;
   const mktO = runner.rawOdds;
   // Admin-only: odds_snapshot live price for the currently-picked bookmaker,
@@ -2131,22 +2142,26 @@ function RunnerRow({ runner, rank, rc, trackCond, onLogBet, onShowPopup, onHideP
 
   const td = 'px-[3px] py-[2px]';
   const rowId = `runner-row-${stripCountry(runner.name).toUpperCase()}`;
-  // Row highlight precedence: a big firmer/drifter (>= MARKET_MOVE_THRESHOLD,
-  // the exact same gate computeMoveFlag already applied before runnerMove
-  // ever reaches here) outranks the plain "top rated" tint -- a mover is
-  // the more actionable signal of the two. isDbScratched/highlighted (the
-  // Firmer/Drifter-chip jump target) still take priority over both.
-  const bigMove = canLivePrices && runnerMove && (runnerMove.pct / 100) >= MARKET_MOVE_THRESHOLD ? runnerMove.direction : null;
+  // Row tint/edge is reserved for three runners per race, each a single
+  // winner (isBiggestFirmer/isBiggestDrifter are computed once in FieldView
+  // across the whole field, already gated at >=25% there -- MARKET_MOVE_
+  // THRESHOLD (15%) stays the gate for the Move column's own arrow/colour
+  // and the header Firmer/Drifter chips, untouched here): the top-rated
+  // runner (gold), the single biggest firmer (green) and the single
+  // biggest drifter (red). Top-rated wins the row tint if it's ALSO the
+  // biggest firmer/drifter -- that case instead gets a small chip next to
+  // the Move cell rather than losing its gold tint.
+  const isTopRated = rank === 1;
   const rowEdge = isDbScratched ? 'transparent'
-    : bigMove === 'firming' ? '#16a34a'
-    : bigMove === 'drifting' ? '#dc2626'
-    : rank === 1 ? '#d97706'
+    : isTopRated ? '#d97706'
+    : isBiggestFirmer ? '#16a34a'
+    : isBiggestDrifter ? '#dc2626'
     : 'transparent';
   const rowBg = highlighted ? '#fef9c3'
     : isDbScratched ? '#fafafa'
-    : bigMove === 'firming' ? '#f0fdf4'
-    : bigMove === 'drifting' ? '#fef2f2'
-    : rank === 1 ? '#fffbeb'
+    : isTopRated ? '#fffbeb'
+    : isBiggestFirmer ? '#f0fdf4'
+    : isBiggestDrifter ? '#fef2f2'
     : 'white';
   return (
     <>
@@ -2293,6 +2308,15 @@ function RunnerRow({ runner, rank, rc, trackCond, onLogBet, onShowPopup, onHideP
         {canLivePrices
           ? <FirmingDriftingBadge move={runnerMove} compact prices={runnerMoveEntry ? { open: runnerMoveEntry.open, current: runnerMoveEntry.current } : null} />
           : <LockBtn onClick={onUpgrade} label="Lite" />}
+        {/* Top-rated keeps its gold row tint even when it's ALSO the
+            race's single biggest firmer/drifter -- that case shows as a
+            small chip here instead of losing the gold tint to green/red. */}
+        {isTopRated && isBiggestFirmer && (
+          <span title="Biggest firmer in this race" style={{ marginLeft: 3, fontSize: 7, fontWeight: 800, color: '#fff', background: '#16a34a', padding: '1px 3px', borderRadius: 3 }}>▲</span>
+        )}
+        {isTopRated && isBiggestDrifter && (
+          <span title="Biggest drifter in this race" style={{ marginLeft: 3, fontSize: 7, fontWeight: 800, color: '#fff', background: '#dc2626', padding: '1px 3px', borderRadius: 3 }}>▼</span>
+        )}
       </td>
       {/* Value */}
       {colVis.value && (
@@ -2479,6 +2503,22 @@ function FieldView({ results, scratched, rc, trackCond, onLogBet, onShowPopup, o
   const [layers, setLayers] = useState({ form: false, pace: false, scores: false, picks: false });
   // D (expandable row) -- one open at a time, keyed by stripCountry(name).
   const [expandedKey, setExpandedKey] = useState(null);
+  // Row tint/edge is reserved for the single biggest firmer and single
+  // biggest drifter in the race (each >= 25%, stricter than the Move
+  // column's own 15% MARKET_MOVE_THRESHOLD, which stays untouched for the
+  // arrow/colour there and for the header Firmer/Drifter chips) -- computed
+  // once here across the whole field rather than per-row, since "biggest
+  // in the race" is a field-wide comparison.
+  const biggestMoves = useMemo(() => {
+    if (!canLivePrices) return { firmerKey: null, drifterKey: null };
+    let firmerKey = null, firmerPct = -1, drifterKey = null, drifterPct = -1;
+    Object.entries(marketMoves).forEach(([key, v]) => {
+      if (!v.move || v.move.pct < 25) return;
+      if (v.move.direction === 'firming' && v.move.pct > firmerPct) { firmerPct = v.move.pct; firmerKey = key; }
+      if (v.move.direction === 'drifting' && v.move.pct > drifterPct) { drifterPct = v.move.pct; drifterKey = key; }
+    });
+    return { firmerKey, drifterKey };
+  }, [marketMoves, canLivePrices]);
   // Falls back to display order for any runner with no systemRank (e.g. the
   // appended DB-scratched-only entries, which never go through scoring).
   const mobRankMap = new Map(activeResults.map((r, i) => [r.tab || r.name, r.systemRank ?? i + 1]));
@@ -2547,7 +2587,8 @@ function FieldView({ results, scratched, rc, trackCond, onLogBet, onShowPopup, o
               const rKey = stripCountry(r.name).toUpperCase();
               return (
               <RunnerRow key={r.tab || r.name} runner={r} rank={r.systemRank ?? i+1} rc={rc} trackCond={trackCond} onLogBet={onLogBet} onShowPopup={onShowPopup} onHidePopup={onHidePopup} isResulted={isResulted} betBlocked={betBlocked} isPro={isPro} onUpgrade={onUpgrade} colVis={colVis} todayBets={todayBets} canLivePrices={canLivePrices} livePrices={livePrices} marketMoves={marketMoves} calibrationCurve={calibrationCurve} trustBuckets={trustBuckets} compact={compact} highlighted={highlightName === rKey}
-                expanded={expandedKey === rKey} onToggleExpand={() => setExpandedKey(k => k === rKey ? null : rKey)} oddsBookmaker={oddsBookmaker} />
+                expanded={expandedKey === rKey} onToggleExpand={() => setExpandedKey(k => k === rKey ? null : rKey)} oddsBookmaker={oddsBookmaker}
+                isBiggestFirmer={biggestMoves.firmerKey === rKey} isBiggestDrifter={biggestMoves.drifterKey === rKey} />
               );
             })}
             {dbScratched.map(r => (
@@ -2615,10 +2656,14 @@ function FieldView({ results, scratched, rc, trackCond, onLogBet, onShowPopup, o
 
         {/* Scrollable runner cards */}
         <div className="mob-page" style={{ flex: 1, minHeight: 0, overflowY: 'auto', overflowX: 'hidden' }}>
-          {mobDisplayResults.map(r => (
+          {mobDisplayResults.map(r => {
+            const rKey = stripCountry(r.name).toUpperCase();
+            return (
             <MobileRunnerCard key={r.tab || r.name} runner={r} rank={mobRankMap.get(r.tab || r.name)} rc={rc} trackCond={trackCond}
-              onLogBet={onLogBet} isResulted={isResulted} betBlocked={betBlocked} isPro={isPro} onUpgrade={onUpgrade} layers={layers} canLivePrices={canLivePrices} livePrices={livePrices} marketMoves={marketMoves} calibrationCurve={calibrationCurve} />
-          ))}
+              onLogBet={onLogBet} isResulted={isResulted} betBlocked={betBlocked} isPro={isPro} onUpgrade={onUpgrade} layers={layers} canLivePrices={canLivePrices} livePrices={livePrices} marketMoves={marketMoves} calibrationCurve={calibrationCurve}
+              isBiggestFirmer={biggestMoves.firmerKey === rKey} isBiggestDrifter={biggestMoves.drifterKey === rKey} />
+            );
+          })}
           {dbScratched.map(r => (
             <MobileRunnerCard key={r.tab || r.name} runner={r} rank={null} rc={rc} trackCond={trackCond}
               onLogBet={onLogBet} isResulted={true} betBlocked isPro={isPro} onUpgrade={onUpgrade} isDbScratched layers={layers} canLivePrices={canLivePrices} livePrices={livePrices} marketMoves={marketMoves} />
@@ -2720,7 +2765,7 @@ function FormCard({ runner: r, rank, onLogBet, isResulted, betBlocked = false, r
   const breedLine = breedParts.join(' · ');
 
   return (
-    <div style={{ borderRadius:6, border:'0.5px solid #e5e7eb', borderLeft: `3px solid ${mobEdge}`, background: mobBigMove === 'firming' ? '#f0fdf4' : mobBigMove === 'drifting' ? '#fef2f2' : rank === 1 ? '#fffbeb' : '#fff', overflow:'hidden' }}>
+    <div style={{ borderRadius:6, border:'0.5px solid #e5e7eb', borderLeft: `3px solid ${mobEdge}`, background: mobIsTopRated ? '#fffbeb' : isBiggestFirmer ? '#f0fdf4' : isBiggestDrifter ? '#fef2f2' : '#fff', overflow:'hidden' }}>
       {/* Header */}
       <div style={{ background:'#00471b', borderRadius:'6px 6px 0 0', padding:'6px 10px' }}>
         {/* Row 1 */}
