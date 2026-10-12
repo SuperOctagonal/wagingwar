@@ -1,5 +1,4 @@
-const MONTHLY_URL = process.env.NEXT_PUBLIC_STRIPE_MONTHLY_URL || '#upgrade';
-const ANNUAL_URL  = process.env.NEXT_PUBLIC_STRIPE_ANNUAL_URL  || '#upgrade';
+import CheckoutButton from '@/components/CheckoutButton';
 
 const STATUS = {
   live:    { emoji: '✅', label: 'Live',            bg: '#dcfce7', color: '#15803d' },
@@ -160,18 +159,18 @@ export default function UpcomingPage() {
             Subscribe now and be first to access every feature as it launches.
           </p>
           <div style={{ display: 'flex', justifyContent: 'center', gap: 12, flexWrap: 'wrap' }}>
-            <a
-              href={MONTHLY_URL}
-              style={{ display: 'inline-block', padding: '13px 28px', background: '#fff', color: '#1B4332', borderRadius: 8, fontSize: 14, fontWeight: 700, textDecoration: 'none', whiteSpace: 'nowrap' }}
+            <CheckoutButton
+              interval="month"
+              style={{ display: 'inline-block', padding: '13px 28px', background: '#fff', color: '#1B4332', borderRadius: 8, fontSize: 14, fontWeight: 700, whiteSpace: 'nowrap' }}
             >
               Subscribe — $29/mo
-            </a>
-            <a
-              href={ANNUAL_URL}
-              style={{ display: 'inline-block', padding: '13px 28px', background: 'rgba(255,255,255,0.1)', color: '#fff', border: '1px solid rgba(255,255,255,0.3)', borderRadius: 8, fontSize: 14, fontWeight: 700, textDecoration: 'none', whiteSpace: 'nowrap' }}
+            </CheckoutButton>
+            <CheckoutButton
+              interval="year"
+              style={{ display: 'inline-block', padding: '13px 28px', background: 'rgba(255,255,255,0.1)', color: '#fff', border: '1px solid rgba(255,255,255,0.3)', borderRadius: 8, fontSize: 14, fontWeight: 700, whiteSpace: 'nowrap' }}
             >
               Best Value — $249/yr
-            </a>
+            </CheckoutButton>
           </div>
         </div>
       </div>

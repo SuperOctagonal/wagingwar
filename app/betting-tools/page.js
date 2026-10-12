@@ -1,9 +1,9 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { useRouter } from 'next/navigation';
 import useIsMobile from '@/hooks/useIsMobile';
 import useIsPro from '@/hooks/useIsPro';
+import UpgradeModal from '@/components/UpgradeModal';
 
 const LS_KEY = 'ww_betting_tools';
 const DARK = '#0d3b2e';
@@ -461,7 +461,6 @@ function syncConvFromDec(conv, v) {
 export default function BettingToolsPage() {
   const isMobile = useIsMobile();
   const isPro = useIsPro();
-  const router = useRouter();
   const [state, setStateRaw] = useState(DEFAULT);
   const [hydrated, setHydrated] = useState(false);
 
@@ -482,7 +481,8 @@ export default function BettingToolsPage() {
   }, []);
 
   const locked = isPro === false;
-  const onUpgrade = () => router.push('/account');
+  const [upgradeOpen, setUpgradeOpen] = useState(false);
+  const onUpgrade = () => setUpgradeOpen(true);
 
   const TABS = [
     { id:'kelly',   label:'Kelly staking' },
@@ -581,6 +581,7 @@ export default function BettingToolsPage() {
           </>
         )}
       </div>
+      {upgradeOpen && <UpgradeModal onClose={() => setUpgradeOpen(false)} />}
     </div>
   );
 }

@@ -1,12 +1,15 @@
 'use client';
 
 import { useUser, useClerk } from '@clerk/nextjs';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { sbFetch } from '@/lib/supabase';
 import { getTier, ALL_TIERS } from '@/lib/tiers';
 import useIsPro from '@/hooks/useIsPro';
 import { punterFallback } from '@/lib/punterFallback';
+import { startCheckoutSession } from '@/lib/checkout';
+import CheckoutButton from '@/components/CheckoutButton';
 
 const GREEN = '#1B4332';
 const GOLD  = '#B7791F';
@@ -138,7 +141,7 @@ function ManageSubButton() {
   );
 }
 
-export default function AccountPage() {
+function AccountPageInner() {
   const { user, isLoaded } = useUser();
   const { signOut }        = useClerk();
   const isPro              = useIsPro();
@@ -152,6 +155,20 @@ export default function AccountPage() {
   const [showDelete, setShowDelete] = useState(false);
 
   const userId = user?.id;
+  const searchParams = useSearchParams();
+
+  // Signed-out visitors who clicked a CheckoutButton land on /sign-up with
+  // ?redirect_url=/account?checkout=start&interval=... (Clerk reads that
+  // param natively) and come back here once signed in -- this is the
+  // "continue to checkout automatically" half of that flow. Runs once per
+  // distinct interval value (not on every render) since startCheckoutSession
+  // navigates away on success; the effect dep array naturally skips
+  // re-firing after the query string itself is gone post-redirect.
+  useEffect(() => {
+    if (!userId || searchParams.get('checkout') !== 'start') return;
+    const interval = searchParams.get('interval') === 'month' ? 'month' : 'year';
+    startCheckoutSession(interval).catch(err => console.error('[account checkout=start]', err.message));
+  }, [userId, searchParams]);
 
   useEffect(() => {
     if (!userId) return;
@@ -222,9 +239,6 @@ export default function AccountPage() {
   const displayName = user.username || punterFallback(user.id);
   const initial     = (displayName[0] ?? '?').toUpperCase();
   const memberSince = fmtMonth(user.createdAt || profile?.created_at);
-
-  const stripeMonthlyUrl = process.env.NEXT_PUBLIC_STRIPE_MONTHLY_URL || '/sign-up';
-  const stripeAnnualUrl  = process.env.NEXT_PUBLIC_STRIPE_ANNUAL_URL  || '/sign-up';
 
   const now        = Date.now();
   const WEEK       = 7  * 864e5;
@@ -386,12 +400,12 @@ export default function AccountPage() {
                   ))}
                 </div>
                 <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 8 }}>
-                  <a href={stripeMonthlyUrl} style={{ flex: '1 1 140px', display: 'block', textAlign: 'center', background: GREEN, color: '#fff', fontSize: 13, fontWeight: 800, padding: '12px 16px', borderRadius: 8, textDecoration: 'none' }}>
+                  <CheckoutButton interval="month" style={{ flex: '1 1 140px', display: 'block', textAlign: 'center', background: GREEN, color: '#fff', fontSize: 13, fontWeight: 800, padding: '12px 16px', borderRadius: 8 }}>
                     Subscribe $29/mo
-                  </a>
-                  <a href={stripeAnnualUrl} style={{ flex: '1 1 140px', display: 'block', textAlign: 'center', background: GOLD, color: '#fff', fontSize: 13, fontWeight: 800, padding: '12px 16px', borderRadius: 8, textDecoration: 'none' }}>
+                  </CheckoutButton>
+                  <CheckoutButton interval="year" style={{ flex: '1 1 140px', display: 'block', textAlign: 'center', background: GOLD, color: '#fff', fontSize: 13, fontWeight: 800, padding: '12px 16px', borderRadius: 8 }}>
                     Best Value $249/yr
-                  </a>
+                  </CheckoutButton>
                 </div>
                 <div style={{ textAlign: 'center', fontSize: 11, color: '#9ca3af' }}>7-day free trial included</div>
               </Card>
@@ -538,12 +552,12 @@ export default function AccountPage() {
                     You&apos;re on the <strong>free plan</strong>. Upgrade to unlock all features with a 7-day free trial.
                   </div>
                   <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-                    <a href={stripeMonthlyUrl} style={{ flex: '1 1 140px', display: 'block', textAlign: 'center', background: GREEN, color: '#fff', fontSize: 13, fontWeight: 800, padding: '11px 16px', borderRadius: 8, textDecoration: 'none' }}>
+                    <CheckoutButton interval="month" style={{ flex: '1 1 140px', display: 'block', textAlign: 'center', background: GREEN, color: '#fff', fontSize: 13, fontWeight: 800, padding: '11px 16px', borderRadius: 8 }}>
                       Subscribe $29/mo
-                    </a>
-                    <a href={stripeAnnualUrl} style={{ flex: '1 1 140px', display: 'block', textAlign: 'center', background: GOLD, color: '#fff', fontSize: 13, fontWeight: 800, padding: '11px 16px', borderRadius: 8, textDecoration: 'none' }}>
+                    </CheckoutButton>
+                    <CheckoutButton interval="year" style={{ flex: '1 1 140px', display: 'block', textAlign: 'center', background: GOLD, color: '#fff', fontSize: 13, fontWeight: 800, padding: '11px 16px', borderRadius: 8 }}>
                       Best Value $249/yr
-                    </a>
+                    </CheckoutButton>
                   </div>
                 </div>
               )}
@@ -584,4 +598,8 @@ export default function AccountPage() {
       <style>{`@keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }`}</style>
     </main>
   );
+}
+
+export default function AccountPage() {
+  return <Suspense><AccountPageInner /></Suspense>;
 }

@@ -5,6 +5,7 @@ import { useUser } from '@clerk/nextjs';
 import useIsPro from '@/hooks/useIsPro';
 import useIsMobile from '@/hooks/useIsMobile';
 import BetFilterPanel from '@/components/BetFilterPanel';
+import UpgradeModal from '@/components/UpgradeModal';
 
 const SURL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SKEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -139,6 +140,7 @@ export default function InsightsPanel({ bets: sharedBets } = {}) {
   const isPro = useIsPro();
   const isMobile = useIsMobile();
   const [lockVisible, setLockVisible] = useState(true);
+  const [upgradeOpen, setUpgradeOpen] = useState(false);
   const [ownBets, setOwnBets] = useState([]);
   const bets = sharedBets ?? ownBets;
   const [results, setResults] = useState([]);
@@ -403,10 +405,11 @@ export default function InsightsPanel({ bets: sharedBets } = {}) {
               <div style={{ fontSize: 28, marginBottom: 10 }}>&#128202;</div>
               <div style={{ fontSize: 15, fontWeight: 700, color: '#111', marginBottom: 8 }}>Insights is a Pro feature</div>
               <div style={{ fontSize: 13, color: '#6b7280', lineHeight: 1.5, marginBottom: 20 }}>Full betting analytics — CLV tracking, edge zones, Kelly advisor and more.</div>
-              <a href="/account" style={{ display: 'inline-block', background: G, color: '#fff', borderRadius: 8, padding: '10px 24px', fontSize: 13, fontWeight: 600, textDecoration: 'none' }}>Upgrade to Pro</a>
+              <button type="button" onClick={() => setUpgradeOpen(true)} style={{ display: 'inline-block', background: G, color: '#fff', border: 'none', cursor: 'pointer', borderRadius: 8, padding: '10px 24px', fontSize: 13, fontWeight: 600 }}>Upgrade to Pro</button>
             </div>
           </div>
         )}
+        {upgradeOpen && <UpgradeModal onClose={() => setUpgradeOpen(false)} />}
       </div>
     );
   }

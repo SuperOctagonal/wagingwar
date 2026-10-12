@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import useIsMobile from '@/hooks/useIsMobile';
 import BottomSheet from '@/components/BottomSheet';
+import { startCheckoutSession } from '@/lib/checkout';
 
 const PLAN = {
   label: 'Pro', monthly: 29, annual: 249,
@@ -26,20 +27,9 @@ function ProModal() {
     setError(null);
     setLoading(true);
     try {
-      const res = await fetch('/api/create-checkout-session', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ plan: 'pro', interval }),
-      });
-      const data = await res.json();
-      if (!res.ok || !data.url) {
-        setError(data.error || 'Could not start checkout — try again');
-        setLoading(false);
-        return;
-      }
-      window.location.href = data.url;
-    } catch {
-      setError('Could not start checkout — try again');
+      await startCheckoutSession(interval);
+    } catch (err) {
+      setError(err.message || 'Could not start checkout — try again');
       setLoading(false);
     }
   }

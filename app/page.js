@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import CheckoutButton from '@/components/CheckoutButton';
 
 export const metadata = {
   title: 'Waging War | Horse Racing Analytics and Bet Tracking Australia',
@@ -200,8 +201,6 @@ function ProductScreenshot() {
 }
 
 export default function HomePage() {
-  const stripeMonthlyUrl = process.env.NEXT_PUBLIC_STRIPE_MONTHLY_URL || '/sign-up';
-
   return (
     <main className="flex-1 overflow-y-auto flex flex-col">
 
@@ -361,18 +360,19 @@ export default function HomePage() {
                 ))}
               </ul>
 
-              <a
-                href={stripeMonthlyUrl}
+              <CheckoutButton
+                interval="month"
                 style={{
                   display: 'block', textAlign: 'center',
                   background: GREEN, color: '#fff',
                   fontWeight: 800, fontSize: 14, padding: '13px 20px',
-                  borderRadius: 8, textDecoration: 'none',
+                  borderRadius: 8,
                   boxShadow: '0 4px 10px rgba(0,0,0,0.15)',
+                  width: '100%',
                 }}
               >
                 Start Free 7-Day Trial
-              </a>
+              </CheckoutButton>
               <p style={{ textAlign: 'center', fontSize: 11, color: '#9ca3af', margin: '10px 0 0' }}>
                 7-day free trial · card required · cancel anytime
               </p>

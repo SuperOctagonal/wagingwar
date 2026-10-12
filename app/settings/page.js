@@ -7,6 +7,7 @@ import useIsPro from '@/hooks/useIsPro';
 import usePlan from '@/hooks/usePlan';
 import { punterFallback } from '@/lib/punterFallback';
 import { BOOKMAKERS } from '@/lib/bookmakers';
+import UpgradeModal from '@/components/UpgradeModal';
 
 const SURL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SKEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -176,7 +177,7 @@ function SaveBt({ saving, onClick }) {
   );
 }
 
-function UpgradeOverlay() {
+function UpgradeOverlay({ onUpgrade }) {
   return (
     <div style={{
       position: 'absolute', inset: 0,
@@ -192,26 +193,27 @@ function UpgradeOverlay() {
         <div style={{ fontSize: 13, color: '#6b7280', lineHeight: 1.5, marginBottom: 20 }}>
           Upgrade to unlock this section and 5 more Pro-only settings.
         </div>
-        <a
-          href="/account"
+        <button
+          type="button"
+          onClick={onUpgrade}
           style={{
             display: 'inline-block', background: G, color: '#fff', borderRadius: 8,
-            padding: '10px 24px', fontSize: 13, fontWeight: 600, textDecoration: 'none',
+            padding: '10px 24px', fontSize: 13, fontWeight: 600, border: 'none', cursor: 'pointer',
           }}
-        >Upgrade to Pro</a>
+        >Upgrade to Pro</button>
       </div>
     </div>
   );
 }
 
-function ProGate({ isPro, children }) {
+function ProGate({ isPro, onUpgrade, children }) {
   if (isPro) return children;
   return (
     <div style={{ position: 'relative', minHeight: 280 }}>
       <div style={{ opacity: 0.12, filter: 'blur(3px)', pointerEvents: 'none', userSelect: 'none' }}>
         {children}
       </div>
-      <UpgradeOverlay />
+      <UpgradeOverlay onUpgrade={onUpgrade} />
     </div>
   );
 }
@@ -230,6 +232,7 @@ export default function SettingsPage() {
   const [deleteError, setDeleteError] = useState(null);
   const [portalState, setPortalState] = useState('idle'); // idle | loading | error
   const [avatarUploading, setAvatarUploading] = useState(false);
+  const [upgradeOpen, setUpgradeOpen] = useState(false);
   const [avatarError, setAvatarError] = useState(null);
   const avatarInputRef = useRef(null);
 
@@ -509,7 +512,7 @@ export default function SettingsPage() {
       );
 
       case 'betting': return (
-        <ProGate isPro={isPro}>
+        <ProGate isPro={isPro} onUpgrade={() => setUpgradeOpen(true)}>
           <>
             <SecTitle>Betting defaults</SecTitle>
             <Field label="Default bookmaker">
@@ -542,7 +545,7 @@ export default function SettingsPage() {
       );
 
       case 'races': return (
-        <ProGate isPro={isPro}>
+        <ProGate isPro={isPro} onUpgrade={() => setUpgradeOpen(true)}>
           <>
             <SecTitle>Races page</SecTitle>
             <Field label="Default tab">
@@ -572,7 +575,7 @@ export default function SettingsPage() {
       );
 
       case 'mybets': return (
-        <ProGate isPro={isPro}>
+        <ProGate isPro={isPro} onUpgrade={() => setUpgradeOpen(true)}>
           <>
             <SecTitle>My Bets</SecTitle>
             <Field label="Default date range">
@@ -593,7 +596,7 @@ export default function SettingsPage() {
       );
 
       case 'insights': return (
-        <ProGate isPro={isPro}>
+        <ProGate isPro={isPro} onUpgrade={() => setUpgradeOpen(true)}>
           <>
             <SecTitle>Insights</SecTitle>
             <Field label="Default time period">
@@ -613,7 +616,7 @@ export default function SettingsPage() {
       );
 
       case 'competition': return (
-        <ProGate isPro={isPro}>
+        <ProGate isPro={isPro} onUpgrade={() => setUpgradeOpen(true)}>
           <>
             <SecTitle>Competition</SecTitle>
             <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, marginBottom: 16 }}>
@@ -815,10 +818,10 @@ export default function SettingsPage() {
                 </button>
               </>
             ) : (
-              <a href="/account" style={{
-                display: 'inline-block', background: G, color: '#fff',
-                borderRadius: 8, padding: '10px 24px', fontSize: 13, fontWeight: 600, textDecoration: 'none',
-              }}>Upgrade</a>
+              <button type="button" onClick={() => setUpgradeOpen(true)} style={{
+                display: 'inline-block', background: G, color: '#fff', border: 'none', cursor: 'pointer',
+                borderRadius: 8, padding: '10px 24px', fontSize: 13, fontWeight: 600,
+              }}>Upgrade</button>
             )}
           </div>
         </>
@@ -882,6 +885,7 @@ export default function SettingsPage() {
           {toast === 'saved' ? 'Settings saved' : toast === 'cleared' ? 'All bets cleared' : toast === 'error' ? 'Failed — try again' : 'Failed to save — try again'}
         </div>
       )}
+      {upgradeOpen && <UpgradeModal onClose={() => setUpgradeOpen(false)} />}
     </div>
   );
 }
