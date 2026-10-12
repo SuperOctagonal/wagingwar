@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
 import { auth, clerkClient } from '@clerk/nextjs/server';
-import { hasFeature } from '@/lib/planFeatures';
 import { isSiteAdmin } from '@/lib/admin';
 import { nameKey } from '@/lib/marketMoves';
 
@@ -8,16 +7,19 @@ const SURL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SKEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
 // Backs the Field table's expandable-row price sparkline (open -> now, one
-// bookmaker, one horse) -- same real Pro/site-admin gate as
-// /api/race-live-prices, since this is just a different slice of the exact
-// same odds_snapshot data that route already serves.
+// bookmaker, one horse). Checked literally against 'pro' rather than
+// hasFeature(plan,'live_odds') -- live_odds' min plan is 'free' (the
+// live price/Move column/Firmer-Drifter chips are open to every signed-in
+// user), but the sparkline series + the rest of the expandable row stay
+// Pro-only, so this can't ride on that flag the way /api/race-live-prices
+// does.
 export async function GET(req) {
   const { userId } = await auth();
   if (!userId) return NextResponse.json({ error: 'Unauthenticated' }, { status: 401 });
 
   const client = await clerkClient();
   const user = await client.users.getUser(userId);
-  if (!hasFeature(user?.publicMetadata?.plan, 'live_odds') && !isSiteAdmin(userId)) {
+  if (user?.publicMetadata?.plan !== 'pro' && !isSiteAdmin(userId)) {
     return NextResponse.json({ error: 'Pro required' }, { status: 403 });
   }
 

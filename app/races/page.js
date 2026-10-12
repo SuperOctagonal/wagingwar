@@ -1945,7 +1945,7 @@ function MobileRunnerCard({ runner, rank, rc, trackCond, onLogBet, isResulted, b
               acceptable per-row height growth given other cells here
               (confidence LTD/GAP flags, the name/jockey-trainer stack) are
               already multi-line. */}
-          {canLivePrices && <FirmingDriftingBadge move={runnerMove} prices={runnerMoveEntry ? { open: runnerMoveEntry.open, current: runnerMoveEntry.current } : null} pctLayout="stacked" />}
+          <FirmingDriftingBadge move={runnerMove} prices={runnerMoveEntry ? { open: runnerMoveEntry.open, current: runnerMoveEntry.current } : null} pctLayout="stacked" />
           {/* Top-rated keeps its gold tint even when it's also the race's
               biggest firmer/drifter -- shown as a small chip here instead. */}
           {mobIsTopRated && isBiggestFirmer && (
@@ -1954,9 +1954,9 @@ function MobileRunnerCard({ runner, rank, rc, trackCond, onLogBet, isResulted, b
           {mobIsTopRated && isBiggestDrifter && (
             <span title="Biggest drifter in this race" style={{ display: 'inline-block', marginTop: 2, fontSize: 7, fontWeight: 800, color: '#fff', background: '#dc2626', padding: '1px 3px', borderRadius: 3 }}>▼</span>
           )}
-          {isLivePrice
-            ? <span title="Best price across bookmakers" style={{ display: 'block', fontSize: 6, fontWeight: 800, color: '#059669', letterSpacing: '0.3px' }}>LIVE</span>
-            : !canLivePrices && <LockBtn onClick={onUpgrade} />}
+          {isLivePrice && (
+            <span title="Best price across bookmakers" style={{ display: 'block', fontSize: 6, fontWeight: 800, color: '#059669', letterSpacing: '0.3px' }}>LIVE</span>
+          )}
         </div>
         <div style={{ flexShrink: 0, width: 36, textAlign: 'right' }}>
           {isPro ? (
@@ -2284,28 +2284,21 @@ function RunnerRow({ runner, rank, rc, trackCond, onLogBet, onShowPopup, onHideP
       )}
       {/* Price $ -- the static CSV-derived price (mktO) is free-tier
           content regardless (lib/freeTierFields.js's FREE_HORSE_FIELDS
-          includes 'odds'/'rawOdds'), unaffected by canLivePrices: liveP is
-          already undefined for a free user (see above), so displayPrice
-          already falls back to mktO with no extra logic needed here. Only
-          the LIVE badge is gated -- replaced with a small Pro lock for a
-          free user instead of removing the (already-free) price itself. */}
+          includes 'odds'/'rawOdds'); live_odds is min-plan 'free' (restored
+          to its pre-Lite-work state), so canLivePrices/isLivePrice/the LIVE
+          badge are all open to every signed-in user now too, not just Pro. */}
       <td className={`${td} text-right text-[11px] tabular-nums whitespace-nowrap`} style={{ color: '#111827' }}>
         {displayPrice ? `$${displayPrice.toFixed(2)}` : '—'}
-        {isLivePrice
-          ? <span title="Best price across bookmakers" style={{ marginLeft: 3, fontSize: 7, fontWeight: 800, color: '#059669', background: '#d1fae5', padding: '1px 3px', borderRadius: 3, letterSpacing: '0.3px' }}>LIVE</span>
-          : !canLivePrices && <span style={{ marginLeft: 3 }}><LockBtn onClick={onUpgrade} /></span>}
+        {isLivePrice && (
+          <span title="Best price across bookmakers" style={{ marginLeft: 3, fontSize: 7, fontWeight: 800, color: '#059669', background: '#d1fae5', padding: '1px 3px', borderRadius: 3, letterSpacing: '0.3px' }}>LIVE</span>
+        )}
       </td>
       {/* Move -- own column, Field tab (RunnerRow) only. Odds tab/page and
           Pace Map keep the badge stacked under the price as before; this is
           a Field-tab-specific layout choice, not a shared component change.
-          Always rendered (not canLivePrices-gated) -- a free user gets a
-          locked placeholder, not a missing column, so column counts always
-          agree between thead and tbody and nothing shifts between a free
-          and a paying user. */}
+          Open to every signed-in user (live_odds is min-plan 'free'). */}
       <td className={`${td} text-right whitespace-nowrap`} style={{ verticalAlign: 'middle' }}>
-        {canLivePrices
-          ? <FirmingDriftingBadge move={runnerMove} compact prices={runnerMoveEntry ? { open: runnerMoveEntry.open, current: runnerMoveEntry.current } : null} />
-          : <LockBtn onClick={onUpgrade} />}
+        <FirmingDriftingBadge move={runnerMove} compact prices={runnerMoveEntry ? { open: runnerMoveEntry.open, current: runnerMoveEntry.current } : null} />
         {/* Top-rated keeps its gold row tint even when it's ALSO the
             race's single biggest firmer/drifter -- that case shows as a
             small chip here instead of losing the gold tint to green/red. */}
@@ -2356,7 +2349,7 @@ function RunnerRow({ runner, rank, rc, trackCond, onLogBet, onShowPopup, onHideP
     {expanded && !isDbScratched && (
       <tr>
         <td colSpan={20} style={{ padding: 0, border: 'none' }}>
-          <ExpandedRunnerPanel runner={runner} rc={rc} canLivePrices={canLivePrices} oddsBookmaker={oddsBookmaker} displayPrice={displayPrice} onUpgrade={onUpgrade} />
+          <ExpandedRunnerPanel runner={runner} rc={rc} isPro={isPro} oddsBookmaker={oddsBookmaker} displayPrice={displayPrice} onUpgrade={onUpgrade} />
         </td>
       </tr>
     )}
@@ -2370,12 +2363,17 @@ function RunnerRow({ runner, rank, rc, trackCond, onLogBet, onShowPopup, onHideP
 // persisted) so re-expanding the same runner never re-fetches.
 const sparklineCache = new Map();
 
-function ExpandedRunnerPanel({ runner, rc, canLivePrices, oddsBookmaker, displayPrice, onUpgrade }) {
+function ExpandedRunnerPanel({ runner, rc, isPro, oddsBookmaker, displayPrice, onUpgrade }) {
   const [sparkState, setSparkState] = useState({ loading: false, points: null });
   const cacheKey = `${toISO(rc?.date)}|${normaliseVenue(rc?.venue || '')}|${rc?.num}|${oddsBookmaker}|${stripCountry(runner.name).toUpperCase()}`;
 
+  // isPro, not canLivePrices -- live_odds (the Price/Move/Firmer-Drifter
+  // gate) is min-plan 'free' now, but the sparkline series stays Pro-only
+  // regardless. The expand button that reaches this panel at all is
+  // already Pro-gated in RunnerRow, so this is defense-in-depth, not the
+  // only thing stopping a free user from seeing it.
   useEffect(() => {
-    if (!canLivePrices || !oddsBookmaker || !rc) return;
+    if (!isPro || !oddsBookmaker || !rc) return;
     if (sparklineCache.has(cacheKey)) { setSparkState({ loading: false, points: sparklineCache.get(cacheKey) }); return; }
     setSparkState({ loading: true, points: null });
     fetch(`/api/odds-sparkline?venue=${encodeURIComponent(normaliseVenue(rc.venue))}&raceNum=${encodeURIComponent(rc.num)}&date=${encodeURIComponent(toISO(rc.date))}&bookmaker=${encodeURIComponent(oddsBookmaker)}&horse=${encodeURIComponent(runner.name)}`)
@@ -2387,7 +2385,7 @@ function ExpandedRunnerPanel({ runner, rc, canLivePrices, oddsBookmaker, display
       })
       .catch(() => setSparkState({ loading: false, points: [] }));
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cacheKey, canLivePrices, oddsBookmaker]);
+  }, [cacheKey, isPro, oddsBookmaker]);
 
   // Last 4 runs -- same lastFin/lastSP/lastRunDetails fields buildPopupHTML
   // already reads, just rendered as JSX instead of an HTML string.
@@ -2447,7 +2445,7 @@ function ExpandedRunnerPanel({ runner, rc, canLivePrices, oddsBookmaker, display
           ))}
         </div>
       )}
-      {canLivePrices && oddsBookmaker && (
+      {isPro && oddsBookmaker && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 220 }}>
           <b style={{ fontSize: 9, letterSpacing: '0.6px', color: '#6b7a70', textTransform: 'uppercase' }}>Price today ({bookmakerNameForSlug(oddsBookmaker)})</b>
           {sparkState.loading ? (
@@ -2459,7 +2457,7 @@ function ExpandedRunnerPanel({ runner, rc, canLivePrices, oddsBookmaker, display
           )}
         </div>
       )}
-      {!canLivePrices && (
+      {!isPro && (
         <div style={{ display: 'flex', alignItems: 'center' }}>
           <LockBtn onClick={onUpgrade} />
           <span style={{ fontSize: 10, color: '#9ca3af', marginLeft: 4 }}>Price history is a Pro feature</span>
@@ -3764,11 +3762,13 @@ function RacesPageInner() {
   // PuntersEdge moved to a Plus plan, removing the licensing reason for the
   // earlier admin-only gate (905d605) -- but the isAdmin props threaded into
   // FieldView/PaceMapView were left hardcoded `true` rather than actually
-  // removed, so every signed-in user (any plan) ended up seeing live
-  // prices/Move data regardless of isAdmin's real value. Re-gated to Pro
-  // below (canAccessLivePrices). isSiteAdminUser is still used for the
-  // things that stay admin-only forever (calibration curve bypass, Trust $
-  // preview).
+  // removed. live_odds is min-plan 'free' (restored to that pre-Lite-work
+  // state after a brief Lite-gated detour), so canAccessLivePrices below
+  // is effectively "signed in" for every plan -- isSiteAdminUser is still
+  // used for the things that stay admin-only forever (calibration curve
+  // bypass, Trust $ preview), and separately for Pace Map's own Pro-only
+  // live-price gate (canPaceMap || isSiteAdminUser), which this flag does
+  // not affect.
   const isSiteAdminUser = isSiteAdmin(user?.id);
   // Real admin bypass, same convention as canMovers/canValueBets's isAdmin
   // param -- gates both the /api/race-live-prices fetch below and every
@@ -3939,14 +3939,10 @@ function RacesPageInner() {
   // livePrices (single selected bookmaker) + marketMoves (best price across
   // all bookmakers, open vs current -- also backs the race-header top-
   // firmer/top-drifter pills, no separate fetch for those) -- both now come
-  // from one server route, /api/race-live-prices, which actually enforces
-  // Pro (or real site-admin) server-side. This used to be two direct
-  // client-side Supabase REST calls with the anon key and no auth check at
-  // all, displayed behind an `isAdmin` prop that was hardcoded true
-  // everywhere it reached a render site -- i.e. every signed-in user, any
-  // plan, already saw all of this. canAccessLivePrices (declared below,
-  // near the other hasFeature() flags) gates this fetch so a free user's
-  // browser doesn't even make the call.
+  // from one server route, /api/race-live-prices, which requires being
+  // signed in (live_odds is min-plan 'free', so Free and Pro both pass).
+  // canAccessLivePrices (declared above) gates this fetch so a signed-out
+  // visitor's browser doesn't even make the call.
   useEffect(() => {
     if (!canAccessLivePrices || !currentRace?.venue || !currentRace?.num) {
       setLivePrices({});
@@ -4732,28 +4728,22 @@ function RacesPageInner() {
                           </div>
                         )}
                         <PaceBiasBar roles={paceBiasPoints} />
+                        {/* Firmer/Drifter chips -- open to every signed-in
+                            user (live_odds is min-plan 'free', restored to
+                            its pre-Lite-work state), no lock placeholder. */}
                         {showMoveChips && (
                           <div style={{ display: 'flex', gap: 6, marginLeft: 'auto', alignItems: 'center', flexWrap: 'wrap' }}>
-                            {!canAccessLivePrices ? (
-                              <span onClick={() => setUpgradeOpen(true)} title="Best price across bookmakers" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '2px 8px', borderRadius: 6, background: '#f3f4f6', cursor: 'pointer' }}>
-                                <i className="ti ti-lock" style={{ fontSize: 12, color: '#9ca3af' }} />
-                                <span style={{ fontSize: 10, fontWeight: 600, color: '#6b7280' }}>Firmers &amp; drifters -- Pro</span>
+                            {topFirmer && (
+                              <span onClick={() => jumpToRunner(topFirmer[0])} title="Click to jump to this runner" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '2px 8px', borderRadius: 6, background: '#d1fae5', cursor: 'pointer' }}>
+                                <i className="ti ti-trending-up" style={{ fontSize: 13, color: '#059669' }} />
+                                <span style={{ fontSize: 10, fontWeight: 700, color: '#065f46' }} className="tabular-nums">{topFirmer[0]} ▲{topFirmer[1].move.pct}%</span>
                               </span>
-                            ) : (
-                              <>
-                              {topFirmer && (
-                                <span onClick={() => jumpToRunner(topFirmer[0])} title="Click to jump to this runner" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '2px 8px', borderRadius: 6, background: '#d1fae5', cursor: 'pointer' }}>
-                                  <i className="ti ti-trending-up" style={{ fontSize: 13, color: '#059669' }} />
-                                  <span style={{ fontSize: 10, fontWeight: 700, color: '#065f46' }} className="tabular-nums">{topFirmer[0]} ▲{topFirmer[1].move.pct}%</span>
-                                </span>
-                              )}
-                              {topDrifter && (
-                                <span onClick={() => jumpToRunner(topDrifter[0])} title="Click to jump to this runner" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '2px 8px', borderRadius: 6, background: '#fee2e2', cursor: 'pointer' }}>
-                                  <i className="ti ti-trending-down" style={{ fontSize: 13, color: '#dc2626' }} />
-                                  <span style={{ fontSize: 10, fontWeight: 700, color: '#991b1b' }} className="tabular-nums">{topDrifter[0]} ▼{topDrifter[1].move.pct}%</span>
-                                </span>
-                              )}
-                              </>
+                            )}
+                            {topDrifter && (
+                              <span onClick={() => jumpToRunner(topDrifter[0])} title="Click to jump to this runner" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '2px 8px', borderRadius: 6, background: '#fee2e2', cursor: 'pointer' }}>
+                                <i className="ti ti-trending-down" style={{ fontSize: 13, color: '#dc2626' }} />
+                                <span style={{ fontSize: 10, fontWeight: 700, color: '#991b1b' }} className="tabular-nums">{topDrifter[0]} ▼{topDrifter[1].move.pct}%</span>
+                              </span>
                             )}
                           </div>
                         )}
@@ -4863,23 +4853,12 @@ function RacesPageInner() {
                   {view === 'value' && (
                     <ValueBetsView canAccess={canValueBets} onUpgrade={() => setUpgradeOpen(true)} isAdmin={isSiteAdminUser} />
                   )}
+                  {/* Open to every signed-in user -- live_odds is min-plan
+                      'free' (restored to its pre-Lite-work state; the Odds
+                      tab had no lock at all before that rollout). */}
                   {view === 'odds' && (
-                    <div style={{ padding: 12, position: 'relative' }}>
-                      {!canLiveOdds && !isSiteAdminUser && (
-                        <div style={{ position: 'absolute', inset: 0, zIndex: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(255,255,255,0.85)' }}>
-                          <div style={{ textAlign: 'center', padding: 24 }}>
-                            <i className="ti ti-lock" style={{ fontSize: 36, color: '#9ca3af', display: 'block', marginBottom: 12 }} />
-                            <div style={{ fontSize: 13, fontWeight: 700, color: '#111827', marginBottom: 6 }}>Live Odds is a Pro feature</div>
-                            <div style={{ fontSize: 11, color: '#6b7280', marginBottom: 16 }}>Upgrade to compare every bookmaker&apos;s live price</div>
-                            <button onClick={() => setUpgradeOpen(true)} style={{ padding: '9px 22px', background: '#00471b', color: '#fff', border: 'none', borderRadius: 7, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
-                              Unlock with Pro
-                            </button>
-                          </div>
-                        </div>
-                      )}
-                      <div style={{ filter: (canLiveOdds || isSiteAdminUser) ? 'none' : 'blur(4px)', pointerEvents: (canLiveOdds || isSiteAdminUser) ? 'auto' : 'none' }}>
-                        <OddsTable venue={normaliseVenue(currentRace.venue)} raceNum={String(currentRace.num)} selectedBookmaker={oddsBookmaker} />
-                      </div>
+                    <div style={{ padding: 12 }}>
+                      <OddsTable venue={normaliseVenue(currentRace.venue)} raceNum={String(currentRace.num)} selectedBookmaker={oddsBookmaker} />
                     </div>
                   )}
                 </div>

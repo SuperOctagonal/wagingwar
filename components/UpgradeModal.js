@@ -6,7 +6,7 @@ import BottomSheet from '@/components/BottomSheet';
 
 const PLAN = {
   label: 'Pro', monthly: 29, annual: 249,
-  features: ['Full race scores & rankings', 'Live odds', 'Movers', 'Value bets', 'Pace Maps', 'Blackbook', 'Bet tracker', 'Community posting', 'Sectionals'],
+  features: ['Full race scores & rankings', 'Movers', 'Value bets', 'Pace Maps', 'Blackbook', 'Bet tracker', 'Community posting', 'Sectionals'],
 };
 
 function annualSavings() {
