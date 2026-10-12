@@ -740,9 +740,9 @@ export default function SettingsPage() {
       );
 
       case 'subscription': {
-        const hasSub = plan === 'lite' || plan === 'pro';
-        const planLabel = plan === 'pro' ? 'Pro plan' : plan === 'lite' ? 'Lite plan' : 'Free plan';
-        const badgeLabel = plan === 'pro' ? 'PRO' : plan === 'lite' ? 'LITE' : 'FREE';
+        const hasSub = plan === 'pro';
+        const planLabel = plan === 'pro' ? 'Pro plan' : 'Free plan';
+        const badgeLabel = plan === 'pro' ? 'PRO' : 'FREE';
         const isTrialing = user?.publicMetadata?.subscriptionStatus === 'trialing' && user?.publicMetadata?.trialEnd;
         const trialEndDate = isTrialing ? new Date(user.publicMetadata.trialEnd * 1000) : null;
         return (
@@ -760,7 +760,6 @@ export default function SettingsPage() {
               </div>
               <div style={{ fontSize: 12, color: '#6b7280', marginTop: 2 }}>
                 {plan === 'pro' ? 'Full access to all Pro features'
-                  : plan === 'lite' ? 'Full scores, live odds, Movers & Value bets'
                   : 'Upgrade for full access'}
               </div>
             </div>
@@ -812,7 +811,7 @@ export default function SettingsPage() {
                   disabled={portalState === 'loading'}
                   style={{ background: 'transparent', border: 'none', color: '#9ca3af', fontSize: 12, cursor: portalState === 'loading' ? 'default' : 'pointer', padding: 0 }}
                 >
-                  {plan === 'lite' ? 'Upgrade to Pro, switch plans, or cancel via billing portal' : 'Cancel via billing portal'}
+                  Cancel via billing portal
                 </button>
               </>
             ) : (

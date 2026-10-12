@@ -245,11 +245,9 @@ function exportCSV(horses) {
 export default function BlackbookPage() {
   const { user, isLoaded } = useUser();
   const userId = user?.id || null;
-  // Blackbook is a Pro-minimum feature (lib/planFeatures.js) -- isPro keeps
-  // its name/boolean shape here (false while loading, false for Lite, same
-  // as hasFeature('pro'-minimum) always was) so every downstream `isPro`
-  // check below (including the isPro === false "loaded as free" convention)
-  // is unaffected by the Lite rollout.
+  // Blackbook is a Pro-minimum feature (lib/planFeatures.js) -- isPro is
+  // false while loading and false for a free plan, per the usual
+  // convention.
   const plan = usePlan();
   const isPro = hasFeature(plan, 'blackbook');
   const isMobile = useIsMobile();

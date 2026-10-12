@@ -3,7 +3,7 @@ import { auth, clerkClient } from '@clerk/nextjs/server';
 import { fetchAllTodayValueBets } from '@/lib/valueBets';
 import { hasFeature } from '@/lib/planFeatures';
 
-// Lite+ gated -- same server-side pattern as every other plan gate (e.g.
+// Pro gated -- same server-side pattern as every other plan gate (e.g.
 // /api/insights/summary, /api/market-movers): auth() for the signed-in
 // user, then check their Clerk publicMetadata.plan against the shared
 // feature table.
@@ -14,7 +14,7 @@ export async function GET(req) {
   const client = await clerkClient();
   const user = await client.users.getUser(userId);
   if (!hasFeature(user?.publicMetadata?.plan, 'value_bets')) {
-    return NextResponse.json({ error: 'Lite or Pro required' }, { status: 403 });
+    return NextResponse.json({ error: 'Pro required' }, { status: 403 });
   }
 
   const { searchParams } = new URL(req.url);

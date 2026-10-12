@@ -496,10 +496,8 @@ function BetCountdown({ bet, isFirst = false }) {
 
 export default function MybetsPage() {
   const { user, isLoaded } = useUser();
-  // Bet tracker is Pro-minimum (lib/planFeatures.js) -- isPro keeps its
-  // name/boolean shape (false while loading, false for Lite) so every
-  // downstream isPro check below, including the isPro === false "loaded as
-  // free" convention, is unaffected by the Lite rollout.
+  // Bet tracker is Pro-minimum (lib/planFeatures.js) -- isPro is false
+  // while loading and false for a free plan, per the usual convention.
   const plan     = usePlan();
   const isPro    = hasFeature(plan, 'bet_tracker');
   const isMobile = useIsMobile();

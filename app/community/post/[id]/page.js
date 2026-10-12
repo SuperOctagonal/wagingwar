@@ -99,9 +99,7 @@ export default function PostDetailPage() {
   const router = useRouter();
   const { user } = useUser();
   const userId  = user?.id || null;
-  // Community posting/upvoting is Pro-minimum (lib/planFeatures.js) --
-  // isPro keeps its name/boolean shape so every downstream isPro check
-  // below is unaffected by the Lite rollout.
+  // Community posting/upvoting is Pro-minimum (lib/planFeatures.js).
   const plan    = usePlan();
   const isPro   = hasFeature(plan, 'community_post');
   const isAdmin = userId === ADMIN_ID;

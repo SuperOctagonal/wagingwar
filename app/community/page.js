@@ -959,9 +959,7 @@ function CommunityPageInner() {
   const searchParams = useSearchParams();
   const isAdmin = userId === ADMIN_ID;
   const router    = useRouter();
-  // Community posting is Pro-minimum (lib/planFeatures.js) -- isPro keeps
-  // its name/boolean shape so every downstream isPro check below is
-  // unaffected by the Lite rollout.
+  // Community posting is Pro-minimum (lib/planFeatures.js).
   const plan      = usePlan();
   const isPro     = hasFeature(plan, 'community_post');
   const isMobile  = useIsMobile();

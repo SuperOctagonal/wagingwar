@@ -8,7 +8,7 @@ const SURL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SKEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
 // Backs the Field table's expandable-row price sparkline (open -> now, one
-// bookmaker, one horse) -- same real lite+/site-admin gate as
+// bookmaker, one horse) -- same real Pro/site-admin gate as
 // /api/race-live-prices, since this is just a different slice of the exact
 // same odds_snapshot data that route already serves.
 export async function GET(req) {
@@ -18,7 +18,7 @@ export async function GET(req) {
   const client = await clerkClient();
   const user = await client.users.getUser(userId);
   if (!hasFeature(user?.publicMetadata?.plan, 'live_odds') && !isSiteAdmin(userId)) {
-    return NextResponse.json({ error: 'Lite or Pro required' }, { status: 403 });
+    return NextResponse.json({ error: 'Pro required' }, { status: 403 });
   }
 
   if (!SURL || !SKEY) return NextResponse.json({ error: 'Supabase env vars not set' }, { status: 500 });

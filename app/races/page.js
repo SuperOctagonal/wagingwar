@@ -1841,7 +1841,7 @@ function MobileRunnerCard({ runner, rank, rc, trackCond, onLogBet, isResulted, b
   const myO  = runner.myOdds;
   const wt   = runner['Weight'] ? `${runner['Weight']}kg` : '';
 
-  // Lite+ (or site admin): odds_snapshot live price for the currently-
+  // Pro (or site admin): odds_snapshot live price for the currently-
   // picked bookmaker, falling back to the CSV rawOdds value -- never
   // touches rawOdds itself, which the bet-modal pre-fill and Results page
   // still read directly.
@@ -1956,7 +1956,7 @@ function MobileRunnerCard({ runner, rank, rc, trackCond, onLogBet, isResulted, b
           )}
           {isLivePrice
             ? <span title="Best price across bookmakers" style={{ display: 'block', fontSize: 6, fontWeight: 800, color: '#059669', letterSpacing: '0.3px' }}>LIVE</span>
-            : !canLivePrices && <LockBtn onClick={onUpgrade} label="Lite" />}
+            : !canLivePrices && <LockBtn onClick={onUpgrade} />}
         </div>
         <div style={{ flexShrink: 0, width: 36, textAlign: 'right' }}>
           {isPro ? (
@@ -2080,8 +2080,6 @@ function MobileRunnerCard({ runner, rank, rc, trackCond, onLogBet, isResulted, b
 
 // ─── field view ───────────────────────────────────────────────────────────────
 
-// label: default 'Pro' (every existing call site), 'Lite' for the new
-// live-price/Move placeholders below -- same visual treatment either way.
 function LockBtn({ onClick, label = 'Pro' }) {
   return (
     <button onClick={onClick} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 9, fontWeight: 600, color: '#9ca3af', display: 'inline-flex', alignItems: 'center', gap: 2, padding: 0, whiteSpace: 'nowrap' }}>
@@ -2289,13 +2287,13 @@ function RunnerRow({ runner, rank, rc, trackCond, onLogBet, onShowPopup, onHideP
           includes 'odds'/'rawOdds'), unaffected by canLivePrices: liveP is
           already undefined for a free user (see above), so displayPrice
           already falls back to mktO with no extra logic needed here. Only
-          the LIVE badge is gated -- replaced with a small Lite lock for a
+          the LIVE badge is gated -- replaced with a small Pro lock for a
           free user instead of removing the (already-free) price itself. */}
       <td className={`${td} text-right text-[11px] tabular-nums whitespace-nowrap`} style={{ color: '#111827' }}>
         {displayPrice ? `$${displayPrice.toFixed(2)}` : '—'}
         {isLivePrice
           ? <span title="Best price across bookmakers" style={{ marginLeft: 3, fontSize: 7, fontWeight: 800, color: '#059669', background: '#d1fae5', padding: '1px 3px', borderRadius: 3, letterSpacing: '0.3px' }}>LIVE</span>
-          : !canLivePrices && <span style={{ marginLeft: 3 }}><LockBtn onClick={onUpgrade} label="Lite" /></span>}
+          : !canLivePrices && <span style={{ marginLeft: 3 }}><LockBtn onClick={onUpgrade} /></span>}
       </td>
       {/* Move -- own column, Field tab (RunnerRow) only. Odds tab/page and
           Pace Map keep the badge stacked under the price as before; this is
@@ -2307,7 +2305,7 @@ function RunnerRow({ runner, rank, rc, trackCond, onLogBet, onShowPopup, onHideP
       <td className={`${td} text-right whitespace-nowrap`} style={{ verticalAlign: 'middle' }}>
         {canLivePrices
           ? <FirmingDriftingBadge move={runnerMove} compact prices={runnerMoveEntry ? { open: runnerMoveEntry.open, current: runnerMoveEntry.current } : null} />
-          : <LockBtn onClick={onUpgrade} label="Lite" />}
+          : <LockBtn onClick={onUpgrade} />}
         {/* Top-rated keeps its gold row tint even when it's ALSO the
             race's single biggest firmer/drifter -- that case shows as a
             small chip here instead of losing the gold tint to green/red. */}
@@ -2463,8 +2461,8 @@ function ExpandedRunnerPanel({ runner, rc, canLivePrices, oddsBookmaker, display
       )}
       {!canLivePrices && (
         <div style={{ display: 'flex', alignItems: 'center' }}>
-          <LockBtn onClick={onUpgrade} label="Lite" />
-          <span style={{ fontSize: 10, color: '#9ca3af', marginLeft: 4 }}>Price history is a Lite feature</span>
+          <LockBtn onClick={onUpgrade} />
+          <span style={{ fontSize: 10, color: '#9ca3af', marginLeft: 4 }}>Price history is a Pro feature</span>
         </div>
       )}
     </div>
@@ -3138,7 +3136,7 @@ function MoversView({ canAccess, onUpgrade, isAdmin }) {
   const dateRef = useRef(new Intl.DateTimeFormat('en-CA', { timeZone: 'Australia/Sydney' }).format(new Date()));
 
   useEffect(() => {
-    // Not Lite/Pro (and not the admin live-price bypass) -- skip the fetch
+    // Not Pro (and not the admin live-price bypass) -- skip the fetch
     // entirely rather than hitting the plan-gated route just to get a 403;
     // same blur-overlay UX as Pace Map, but there's no free data underneath
     // to blur since Movers spans every race, not just the selected one.
@@ -3199,10 +3197,10 @@ function MoversView({ canAccess, onUpgrade, isAdmin }) {
         <div style={{ position: 'absolute', inset: 0, zIndex: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(255,255,255,0.85)' }}>
           <div style={{ textAlign: 'center', padding: 24 }}>
             <i className="ti ti-lock" style={{ fontSize: 36, color: '#9ca3af', display: 'block', marginBottom: 12 }} />
-            <div style={{ fontSize: 13, fontWeight: 700, color: '#111827', marginBottom: 6 }}>Market Movers is a Lite feature</div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: '#111827', marginBottom: 6 }}>Market Movers is a Pro feature</div>
             <div style={{ fontSize: 11, color: '#6b7280', marginBottom: 16 }}>Upgrade to see every firmer and drifter across today&apos;s races</div>
             <button onClick={onUpgrade} style={{ padding: '9px 22px', background: '#00471b', color: '#fff', border: 'none', borderRadius: 7, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
-              Unlock with Lite
+              Unlock with Pro
             </button>
           </div>
         </div>
@@ -3396,7 +3394,7 @@ function ValueBetsView({ canAccess, onUpgrade, isAdmin }) {
   const dateRef = useRef(new Intl.DateTimeFormat('en-CA', { timeZone: 'Australia/Sydney' }).format(new Date()));
 
   useEffect(() => {
-    // Not Lite/Pro (and not the admin bypass, for consistency with Movers) --
+    // Not Pro (and not the admin bypass, for consistency with Movers) --
     // skip the fetch entirely rather than hitting the plan-gated route just
     // to get a 403.
     if (!canAccess && !isAdmin) { setLoading(false); return; }
@@ -3459,10 +3457,10 @@ function ValueBetsView({ canAccess, onUpgrade, isAdmin }) {
         <div style={{ position: 'absolute', inset: 0, zIndex: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(255,255,255,0.85)' }}>
           <div style={{ textAlign: 'center', padding: 24 }}>
             <i className="ti ti-lock" style={{ fontSize: 36, color: '#9ca3af', display: 'block', marginBottom: 12 }} />
-            <div style={{ fontSize: 13, fontWeight: 700, color: '#111827', marginBottom: 6 }}>Value Bets is a Lite feature</div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: '#111827', marginBottom: 6 }}>Value Bets is a Pro feature</div>
             <div style={{ fontSize: 11, color: '#6b7280', marginBottom: 16 }}>Upgrade to see every value opportunity across today&apos;s races</div>
             <button onClick={onUpgrade} style={{ padding: '9px 22px', background: '#00471b', color: '#fff', border: 'none', borderRadius: 7, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
-              Unlock with Lite
+              Unlock with Pro
             </button>
           </div>
         </div>
@@ -3767,10 +3765,10 @@ function RacesPageInner() {
   // earlier admin-only gate (905d605) -- but the isAdmin props threaded into
   // FieldView/PaceMapView were left hardcoded `true` rather than actually
   // removed, so every signed-in user (any plan) ended up seeing live
-  // prices/Move data regardless of isAdmin's real value. Re-gated to lite+
-  // below (canAccessLivePrices) now that Lite exists as a real tier to sell
-  // it on. isSiteAdminUser is still used for the things that stay
-  // admin-only forever (calibration curve bypass, Trust $ preview).
+  // prices/Move data regardless of isAdmin's real value. Re-gated to Pro
+  // below (canAccessLivePrices). isSiteAdminUser is still used for the
+  // things that stay admin-only forever (calibration curve bypass, Trust $
+  // preview).
   const isSiteAdminUser = isSiteAdmin(user?.id);
   // Real admin bypass, same convention as canMovers/canValueBets's isAdmin
   // param -- gates both the /api/race-live-prices fetch below and every
@@ -3942,7 +3940,7 @@ function RacesPageInner() {
   // all bookmakers, open vs current -- also backs the race-header top-
   // firmer/top-drifter pills, no separate fetch for those) -- both now come
   // from one server route, /api/race-live-prices, which actually enforces
-  // lite+ (or real site-admin) server-side. This used to be two direct
+  // Pro (or real site-admin) server-side. This used to be two direct
   // client-side Supabase REST calls with the anon key and no auth check at
   // all, displayed behind an `isAdmin` prop that was hardcoded true
   // everywhere it reached a render site -- i.e. every signed-in user, any
@@ -4739,7 +4737,7 @@ function RacesPageInner() {
                             {!canAccessLivePrices ? (
                               <span onClick={() => setUpgradeOpen(true)} title="Best price across bookmakers" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '2px 8px', borderRadius: 6, background: '#f3f4f6', cursor: 'pointer' }}>
                                 <i className="ti ti-lock" style={{ fontSize: 12, color: '#9ca3af' }} />
-                                <span style={{ fontSize: 10, fontWeight: 600, color: '#6b7280' }}>Firmers &amp; drifters -- Lite</span>
+                                <span style={{ fontSize: 10, fontWeight: 600, color: '#6b7280' }}>Firmers &amp; drifters -- Pro</span>
                               </span>
                             ) : (
                               <>
@@ -4871,10 +4869,10 @@ function RacesPageInner() {
                         <div style={{ position: 'absolute', inset: 0, zIndex: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(255,255,255,0.85)' }}>
                           <div style={{ textAlign: 'center', padding: 24 }}>
                             <i className="ti ti-lock" style={{ fontSize: 36, color: '#9ca3af', display: 'block', marginBottom: 12 }} />
-                            <div style={{ fontSize: 13, fontWeight: 700, color: '#111827', marginBottom: 6 }}>Live Odds is a Lite feature</div>
+                            <div style={{ fontSize: 13, fontWeight: 700, color: '#111827', marginBottom: 6 }}>Live Odds is a Pro feature</div>
                             <div style={{ fontSize: 11, color: '#6b7280', marginBottom: 16 }}>Upgrade to compare every bookmaker&apos;s live price</div>
                             <button onClick={() => setUpgradeOpen(true)} style={{ padding: '9px 22px', background: '#00471b', color: '#fff', border: 'none', borderRadius: 7, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
-                              Unlock with Lite
+                              Unlock with Pro
                             </button>
                           </div>
                         </div>

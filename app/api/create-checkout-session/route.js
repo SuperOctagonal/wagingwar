@@ -4,14 +4,13 @@ import { auth, clerkClient } from '@clerk/nextjs/server';
 
 const SITE_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://wagingwar.com.au';
 
-// plan+interval -> price id env var. Four real Stripe prices, one Checkout
-// Session route -- replaces the old static Payment Link anchors in
-// UpgradeModal, which couldn't express trial_period_days/
-// payment_method_collection/metadata in code at all (those would have had
-// to live in the Stripe Dashboard's own Payment Link config, invisible to
-// this repo).
+// plan+interval -> price id env var. Two real Stripe prices (Pro
+// monthly/annual), one Checkout Session route -- replaces the old static
+// Payment Link anchors in UpgradeModal, which couldn't express
+// trial_period_days/payment_method_collection/metadata in code at all
+// (those would have had to live in the Stripe Dashboard's own Payment Link
+// config, invisible to this repo).
 const PRICE_ENV_VAR = {
-  lite:  { month: 'STRIPE_LITE_MONTHLY_PRICE_ID', year: 'STRIPE_LITE_ANNUAL_PRICE_ID' },
   pro:   { month: 'STRIPE_PRO_MONTHLY_PRICE_ID',  year: 'STRIPE_PRO_ANNUAL_PRICE_ID' },
 };
 
@@ -22,8 +21,8 @@ export async function POST(req) {
   const body = await req.json().catch(() => null);
   const plan = body?.plan;
   const interval = body?.interval;
-  if (!['lite', 'pro'].includes(plan) || !['month', 'year'].includes(interval)) {
-    return NextResponse.json({ error: "plan must be 'lite'|'pro' and interval must be 'month'|'year'" }, { status: 400 });
+  if (plan !== 'pro' || !['month', 'year'].includes(interval)) {
+    return NextResponse.json({ error: "plan must be 'pro' and interval must be 'month'|'year'" }, { status: 400 });
   }
 
   const envVarName = PRICE_ENV_VAR[plan][interval];
@@ -45,9 +44,8 @@ export async function POST(req) {
   // Never let a user with an existing active/trialing subscription start a
   // second trial -- Stripe would happily create a second subscription on
   // the same customer, which is never what "upgrade"/"downgrade" means
-  // here. Upgrade/downgrade between Lite and Pro goes through the Billing
-  // Portal (configured to allow switching between all four prices), not a
-  // second Checkout Session.
+  // here. Switching billing interval goes through the Billing Portal, not
+  // a second Checkout Session.
   const existingCustomerId = user?.publicMetadata?.stripeCustomerId;
   if (existingCustomerId) {
     try {

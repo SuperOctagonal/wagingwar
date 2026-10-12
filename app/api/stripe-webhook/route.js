@@ -57,26 +57,20 @@ async function resolveClerkUser(stripe, { clerkUserId, customerId }) {
   return result.data[0] ?? null;
 }
 
-// Backward-compatible price-id -> plan mapping. A known Lite price maps to
-// 'lite'; anything else on an active/trialing subscription -- including a
-// known Pro price AND any price id this function doesn't recognise at all
-// -- maps to 'pro', so a webhook replay for one of the 3 pre-existing Pro
-// subscribers (whose subscription was created before Lite existed, and
-// whose price id this function has always known about) is unaffected, and
-// so a genuinely unknown/future price id fails safe toward the more
-// permissive plan rather than silently locking someone out. past_due is
-// NOT active/trialing (unchanged from before Lite existed), so it still
-// resolves to 'free' here, same as every other non-active status
+// Price-id -> plan mapping. Any price id on an active/trialing
+// subscription -- a known Pro price AND any price id this function
+// doesn't recognise at all -- maps to 'pro', so a genuinely unknown/future
+// price id fails safe toward the more permissive plan rather than
+// silently locking someone out. past_due is NOT active/trialing, so it
+// still resolves to 'free' here, same as every other non-active status
 // (canceled, incomplete_expired, unpaid, etc.).
 function resolvePlanFromSubscription(sub) {
   const isActive = ['active', 'trialing'].includes(sub.status);
   if (!isActive) return 'free';
 
   const priceId = sub.items?.data?.[0]?.price?.id;
-  const LITE_PRICE_IDS = [process.env.STRIPE_LITE_MONTHLY_PRICE_ID, process.env.STRIPE_LITE_ANNUAL_PRICE_ID];
   const PRO_PRICE_IDS = [process.env.STRIPE_PRO_MONTHLY_PRICE_ID, process.env.STRIPE_PRO_ANNUAL_PRICE_ID];
 
-  if (LITE_PRICE_IDS.includes(priceId)) return 'lite';
   if (!PRO_PRICE_IDS.includes(priceId)) {
     console.warn(`[stripe-webhook] Unknown price id ${priceId} on active/trialing subscription ${sub.id} -- defaulting to 'pro'`);
   }

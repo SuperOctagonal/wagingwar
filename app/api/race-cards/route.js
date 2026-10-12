@@ -25,10 +25,9 @@ export async function GET(req) {
   const plan = user?.publicMetadata?.plan;
   const hasFullScores = hasFeature(plan, 'full_scores');
 
-  // Historical race cards are a separate, undocumented Pro perk -- not one
-  // of the named Lite features, so this stays literally pro-only rather
-  // than going through hasFeature('full_scores'), which Lite now also
-  // satisfies. Unchanged by the Lite rollout.
+  // Historical race cards are a separate, undocumented Pro perk, checked
+  // literally rather than via hasFeature('full_scores') since the two
+  // happen to coincide today but aren't the same concept.
   if (date !== todayAEST && plan !== 'pro') {
     return NextResponse.json({ error: 'Pro required for historical race cards' }, { status: 403 });
   }

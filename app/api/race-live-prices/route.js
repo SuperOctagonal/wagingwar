@@ -13,7 +13,7 @@ const SKEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 // actually hardcoded `true` everywhere it reached a render site (see
 // app/races/page.js), so every signed-in user, any plan, already saw all
 // of this. This route is the first real enforcement point in that whole
-// pipeline: lite+ (or an actual site admin) required, nothing returned
+// pipeline: Pro (or an actual site admin) required, nothing returned
 // otherwise -- matching the pattern in /api/market-movers and
 // /api/value-bets, not just a UI-side hide.
 export async function GET(req) {
@@ -23,7 +23,7 @@ export async function GET(req) {
   const client = await clerkClient();
   const user = await client.users.getUser(userId);
   if (!hasFeature(user?.publicMetadata?.plan, 'live_odds') && !isSiteAdmin(userId)) {
-    return NextResponse.json({ error: 'Lite or Pro required' }, { status: 403 });
+    return NextResponse.json({ error: 'Pro required' }, { status: 403 });
   }
 
   if (!SURL || !SKEY) return NextResponse.json({ error: 'Supabase env vars not set' }, { status: 500 });
