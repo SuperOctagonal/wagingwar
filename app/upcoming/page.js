@@ -12,8 +12,6 @@ const SECTIONS = [
     title: 'Data & Automation',
     icon: 'ti-database',
     features: [
-      { icon: 'ti-calendar-event', title: 'Auto-loaded daily race fields',  desc: 'Race fields load automatically each morning — no more manual CSV uploads.',                          status: 'live',    subscriber: true  },
-      { icon: 'ti-bell-ringing',   title: 'Live scratchings display',       desc: 'See scratched horses marked instantly on every race card as they come in.',                          status: 'live',    subscriber: true  },
       { icon: 'ti-cloud',          title: 'Track condition auto-updates',   desc: 'Track conditions update automatically throughout the day as official reports come in.',                status: 'dev',     subscriber: false },
     ],
   },
@@ -27,22 +25,10 @@ const SECTIONS = [
     ],
   },
   {
-    title: 'Betting Tools',
-    icon: 'ti-currency-dollar',
-    features: [
-      { icon: 'ti-arrows-exchange', title: 'Live odds vs model price',             desc: 'Side-by-side comparison of live market odds against our model price in real time.',              status: 'soon',    subscriber: true  },
-      { icon: 'ti-calculator',      title: 'Kelly criterion staking calculator',   desc: 'Calculate optimal bet sizing based on your edge and bank size using the Kelly formula.',        status: 'soon',    subscriber: true  },
-      { icon: 'ti-divide',          title: 'Dutching calculator',                  desc: 'Spread risk across multiple runners to guarantee a target return regardless of the winner.',   status: 'planned', subscriber: true  },
-      { icon: 'ti-list-numbers',    title: 'Multi/parlay builder',                 desc: 'Build and analyse multi bets with combined probability and expected value calculations.',       status: 'planned', subscriber: true  },
-    ],
-  },
-  {
     title: 'Analytics & Results',
     icon: 'ti-chart-bar',
     features: [
-      { icon: 'ti-flag-check',   title: 'Auto-populated results',                  desc: 'Race results flow in automatically after each race — no manual entry required.',                            status: 'live',    subscriber: false },
       { icon: 'ti-chart-line',   title: 'Performance breakdown by jockey/trainer', desc: 'Filter your results by jockey, trainer, and track to find your strongest angles.',                        status: 'soon',    subscriber: true  },
-      { icon: 'ti-target',       title: 'Model accuracy tracking',                 desc: 'See how often our model\'s top-ranked horse wins across different race types and conditions.',             status: 'live',    subscriber: false },
       { icon: 'ti-users-group',  title: 'Tipster comparison',                      desc: 'Compare your ROI against other members and public tipsters on the platform leaderboard.',                  status: 'planned', subscriber: false },
     ],
   },
@@ -51,7 +37,6 @@ const SECTIONS = [
     icon: 'ti-users',
     features: [
       { icon: 'ti-messages', title: 'Live race day chat',        desc: 'Real-time chat room active during race meetings — discuss races as they happen.',    status: 'soon', subscriber: true  },
-      { icon: 'ti-trophy',   title: 'Tipping competitions',      desc: 'Weekly and monthly competitions where members tip races for points and prizes.',     status: 'live', subscriber: false },
       { icon: 'ti-podium',   title: 'Weekly P&L leaderboard',   desc: 'See the top performing bettors each week ranked by profit and loss.',               status: 'soon', subscriber: false },
       { icon: 'ti-badge',    title: 'Verified subscriber badge', desc: 'A gold badge on your community profile showing you\'re a paying subscriber.',       status: 'planned', subscriber: true  },
     ],

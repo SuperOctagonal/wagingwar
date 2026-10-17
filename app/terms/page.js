@@ -119,9 +119,10 @@ export default function TermsPage() {
               ))}
             </div>
             <P>
-              All new subscribers receive a <strong>7-day free trial</strong>. You will not be charged
-              during the trial period. At the end of the trial, your chosen plan will automatically
-              begin and your payment method will be charged unless you cancel before the trial ends.
+              All new subscribers receive a <strong>7-day free trial</strong>. A valid payment card is
+              required to start the trial, but you will not be charged during the trial period. At the
+              end of the trial, your chosen plan will automatically begin and your payment method will
+              be charged unless you cancel before the trial ends.
             </P>
             <P>
               Subscription payments are processed securely by Stripe. By subscribing you authorise

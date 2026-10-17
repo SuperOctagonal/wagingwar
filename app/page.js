@@ -244,9 +244,6 @@ export default function HomePage() {
               >
                 Sign Up Free
               </Link>
-              <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.45)', margin: '12px 0 0' }}>
-                No card needed
-              </p>
             </div>
 
             <div>
@@ -294,10 +291,11 @@ export default function HomePage() {
 
               <ul style={{ listStyle: 'none', padding: 0, display: 'flex', flexDirection: 'column', gap: 11, marginBottom: 28 }}>
                 {[
-                  '3 meetings per day',
-                  'Basic scores',
-                  'Community (read-only)',
-                  'Bet tracker (10 bets/month)',
+                  'Live bookmaker prices',
+                  'Move column & price alerts',
+                  'Firmer/Drifter chips',
+                  'Full odds comparison',
+                  'Race results',
                 ].map(f => (
                   <li key={f} style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 13, color: 'rgba(255,255,255,0.75)' }}>
                     <Check />
@@ -345,10 +343,10 @@ export default function HomePage() {
 
               <ul style={{ listStyle: 'none', padding: 0, display: 'flex', flexDirection: 'column', gap: 11, marginBottom: 28 }}>
                 {[
-                  'Unlimited meetings',
                   'Full scores + edge',
                   'Pace maps',
-                  'Unlimited bet tracker',
+                  'Movers & Value Bets',
+                  'Bet tracker & P&L',
                   'Blackbook',
                   'Community posting',
                   'Daily competition',
@@ -463,7 +461,6 @@ export default function HomePage() {
           >
             Sign Up Free
           </Link>
-          <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', margin: '12px 0 0' }}>No card needed</p>
         </div>
       </section>
 

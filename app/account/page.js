@@ -254,13 +254,12 @@ function AccountPageInner() {
   const lockedBadges     = KNOWN_BADGES.filter(kb => !earnedBadgeNames.has(kb.name));
 
   const proFeatures = [
-    'Unlimited meetings per day',
     'Full scores + edge calculations',
     'Pace maps for every race',
-    'Unlimited bet tracker',
-    'Blackbook across all meetings',
+    'Movers & Value Bets',
+    'Bet tracker & P&L',
+    'Blackbook',
     'Community posting and replies',
-    'Model vs market odds comparison',
   ];
 
   return (

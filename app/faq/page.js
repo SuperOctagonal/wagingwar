@@ -14,11 +14,11 @@ const FAQS = [
   },
   {
     q: 'How does the ranking model work?',
-    a: "Our algorithm scores every runner using form, speed, class, and track/condition data, updated as fields and conditions change. We don't publish the exact formula, but we do publish our results — see our Model Performance page for daily strike rate, streaks, and odds-band breakdowns.",
+    a: "Our algorithm scores every runner using form, speed, class, and track/condition data, updated as fields and conditions change. We don't publish the exact formula, but we do publish our results — see the Daily Model Summary on our Results page for daily strike rate, streaks, and odds-band breakdowns.",
   },
   {
     q: "What's the difference between Free and Pro?",
-    a: 'Free gives you access to basic race fields and results. Pro ($29/month) unlocks full model scores and rankings, bet tracking with P&L analysis, tipping competitions, and community features.',
+    a: "Free gives you full race fields and results, live bookmaker prices (with the Move column and Firmer/Drifter alerts), and the full Odds comparison tab. Pro ($29/month) adds full model scores and rankings, the Pace Map, Movers and Value Bets, bet tracking with P&L analysis, Blackbook, tipping competitions, and community posting.",
   },
   {
     q: 'Can I cancel anytime?',
