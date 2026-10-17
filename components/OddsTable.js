@@ -2,7 +2,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import PuntersEdgeCredit from '@/components/PuntersEdgeCredit';
 import { PUNTERSEDGE_BOOKMAKER_COLUMNS, bookmakerNameForSlug } from '@/lib/puntersedgeBookmakers';
-import { fetchMarketMoveFlags, nameKey, MIN_OPEN_BOOKMAKERS } from '@/lib/marketMoves';
+import { nameKey } from '@/lib/marketMoves';
 import FirmingDriftingBadge from '@/components/FirmingDriftingBadge';
 import ScrollHint from '@/components/ScrollHint';
 import { useScrollOverflow } from '@/hooks/useScrollOverflow';
@@ -73,7 +73,8 @@ export default function OddsTable({ venue, raceNum, selectedBookmaker = '' }) {
     let cancelled = false;
     async function loadMoves() {
       const date = sydneyToday();
-      const moves = await fetchMarketMoveFlags({ venue, raceNum, date });
+      const res = await fetch(`/api/market-move-flags?venue=${encodeURIComponent(venue)}&raceNum=${encodeURIComponent(raceNum)}&date=${date}`).catch(() => null);
+      const moves = res?.ok ? await res.json() : {};
       if (!cancelled) setMarketMoves(moves);
     }
     loadMoves();

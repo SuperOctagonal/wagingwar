@@ -20,7 +20,7 @@ import { validateBetForm } from '@/lib/betValidation';
 import { estimatePlacePrice, paidPlacesForFieldSize } from '@/lib/placePrice';
 import { BOOKMAKERS as BOOKIES } from '@/lib/bookmakers';
 import { PUNTERSEDGE_BOOKMAKER_COLUMNS, bookmakerNameForSlug, getPuntersEdgeSlug } from '@/lib/puntersedgeBookmakers';
-import { fetchMarketMoveFlags, nameKey as marketMoveNameKey } from '@/lib/marketMoves';
+import { nameKey as marketMoveNameKey } from '@/lib/marketMoves';
 import { sydneyDateTimeToInstant, viewerTimeZoneLabel } from '@/lib/raceTime';
 import FirmingDriftingBadge from '@/components/FirmingDriftingBadge';
 import { generatePaceAnalysis, classifyPaceShape } from '@/lib/paceAnalysis';
@@ -3967,8 +3967,8 @@ function RacesPageInner() {
   // starts=0 runner, so it can't be limited to admins the way that
   // display-only fetch is -- gated on isPro instead, matching the
   // scoring block below it (myOdds is never computed for non-Pro users
-  // at all). Same fetchMarketMoveFlags() helper Movers/OddsTable/Value
-  // Bets already use, not a new fetch path.
+  // at all). Served by /api/market-move-flags (server-side, same helper
+  // Movers/OddsTable/Value Bets already use), not a direct browser fetch.
   const [firstStarterLiveFlags, setFirstStarterLiveFlags] = useState({});
   useEffect(() => {
     if (!isPro || !currentRace?.venue || !currentRace?.num) {
@@ -3980,7 +3980,8 @@ function RacesPageInner() {
       const venue = normaliseVenue(currentRace.venue);
       const raceNum = String(currentRace.num);
       const date = new Intl.DateTimeFormat('en-CA', { timeZone: 'Australia/Sydney' }).format(new Date());
-      const flags = await fetchMarketMoveFlags({ venue, raceNum, date });
+      const res = await fetch(`/api/market-move-flags?venue=${encodeURIComponent(venue)}&raceNum=${encodeURIComponent(raceNum)}&date=${date}`).catch(() => null);
+      const flags = res?.ok ? await res.json() : {};
       if (!cancelled) setFirstStarterLiveFlags(flags);
     }
     loadFlags();
