@@ -18,11 +18,11 @@ export const metadata = {
     default: 'Waging War | Horse Racing Analytics and Bet Tracking Australia',
     template: '%s | Waging War',
   },
-  description: 'Australian horse racing analytics and community platform',
+  description: 'Live bookmaker prices, free for every punter, plus Australian horse racing analytics and community features',
   icons: { icon: '/images/icon-app.png' },
   openGraph: {
     title: 'Waging War | Horse Racing Analytics and Bet Tracking Australia',
-    description: "Score and rank every runner, track your bets with real P&L, and follow daily tipping competitions - built for serious Australian punters.",
+    description: "Live bookmaker prices free for every punter. Score and rank every runner, track your bets with real P&L, and follow daily tipping competitions - built for serious Australian punters.",
     url: 'https://wagingwar.com.au',
     siteName: 'Waging War',
     images: ['/images/logo-full.png'],
@@ -32,7 +32,7 @@ export const metadata = {
   twitter: {
     card: 'summary_large_image',
     title: 'Waging War | Horse Racing Analytics and Bet Tracking Australia',
-    description: "Score and rank every runner, track your bets with real P&L, and follow daily tipping competitions - built for serious Australian punters.",
+    description: "Live bookmaker prices free for every punter. Score and rank every runner, track your bets with real P&L, and follow daily tipping competitions - built for serious Australian punters.",
     images: ['/images/logo-full.png'],
   },
 };

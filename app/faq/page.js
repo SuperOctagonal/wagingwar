@@ -1,6 +1,6 @@
 export const metadata = {
   title: 'FAQ — Waging War',
-  description: 'Answers to common questions about Waging War — how the model works, Free vs Pro, bet tracking, and responsible gambling support.',
+  description: 'Answers to common questions about Waging War — live bookmaker prices, how the model works, Free vs Pro, bet tracking, and responsible gambling support.',
 };
 
 const FAQS = [
@@ -21,8 +21,17 @@ const FAQS = [
     a: "Free gives you full race fields and results, live bookmaker prices (with the Move column and Firmer/Drifter alerts), and the full Odds comparison tab. Pro ($29/month) adds full model scores and rankings, the Pace Map, Movers and Value Bets, bet tracking with P&L analysis, Blackbook, tipping competitions, and community posting.",
   },
   {
+    q: 'Where do the live prices come from?',
+    a: 'Live bookmaker prices (the LIVE tag, the Move column and the Firmer/Drifter chips) are supplied by PuntersEdge, and are free for every signed-in user.',
+    link: { href: 'https://puntersedge.online', label: 'puntersedge.online' },
+  },
+  {
+    q: 'How does the free trial work?',
+    a: 'Pro starts with a 7-day free trial. A card is required to start it, you are not charged during the trial, and you can cancel any time before it ends from Account > Manage subscription. After the trial it is A$29/month or A$249/year.',
+  },
+  {
     q: 'Can I cancel anytime?',
-    a: 'Yes — Pro is a monthly subscription with no lock-in contract. Cancel anytime from your account settings.',
+    a: 'Yes — Pro is a monthly or annual subscription with no lock-in contract. Cancel anytime from Account > Manage subscription.',
   },
   {
     q: 'Which races does Waging War cover?',
@@ -96,9 +105,14 @@ export default function FaqPage() {
       {/* ── Body ── */}
       <div style={{ maxWidth: 760, margin: '0 auto', padding: '40px 24px 48px' }}>
         <div style={{ background: '#fff', border: '0.5px solid #e5e7eb', borderRadius: 10, padding: '28px 32px', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
-          {FAQS.map(({ q, a }) => (
+          {FAQS.map(({ q, a, link }) => (
             <Section key={q} title={q}>
-              <P>{a}</P>
+              <P>
+                {a}
+                {link && (
+                  <>{' '}<a href={link.href} target="_blank" rel="noopener noreferrer" style={{ color: '#00471b', fontWeight: 600 }}>{link.label}</a></>
+                )}
+              </P>
             </Section>
           ))}
         </div>

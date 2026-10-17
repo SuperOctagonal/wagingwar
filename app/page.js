@@ -1,9 +1,10 @@
 import Link from 'next/link';
 import CheckoutButton from '@/components/CheckoutButton';
+import PuntersEdgeCredit from '@/components/PuntersEdgeCredit';
 
 export const metadata = {
   title: 'Waging War | Horse Racing Analytics and Bet Tracking Australia',
-  description: 'Score and rank every runner, track your bets with real P&L, and follow daily tipping competitions - built for serious Australian punters.',
+  description: 'Live bookmaker prices free for every punter. Score and rank every runner, track your bets with real P&L, and follow daily tipping competitions - built for serious Australian punters.',
 };
 
 const GREEN = '#1B4332';
@@ -30,13 +31,18 @@ function StepCard({ step, icon, title, desc }) {
   );
 }
 
-function FeatureCard({ icon, title, desc }) {
+function FeatureCard({ icon, title, desc, free }) {
   return (
     <div style={{
       background: '#fff', border: '0.5px solid #e5e7eb', borderRadius: 12,
       padding: '24px 20px', boxShadow: '0 1px 5px rgba(0,0,0,0.05)',
     }}>
-      <div style={{ fontSize: 28, marginBottom: 12 }}>{icon}</div>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+        <div style={{ fontSize: 28 }}>{icon}</div>
+        {free && (
+          <span style={{ fontSize: 9, fontWeight: 700, padding: '2px 7px', borderRadius: 3, background: '#dcfce7', color: '#166534', letterSpacing: '0.3px' }}>FREE</span>
+        )}
+      </div>
       <div style={{ fontSize: 14, fontWeight: 800, color: TEXT, marginBottom: 6 }}>{title}</div>
       <div style={{ fontSize: 13, color: '#6b7280', lineHeight: 1.6 }}>{desc}</div>
     </div>
@@ -85,13 +91,13 @@ function ProductScreenshot() {
   const grpColor = { form: '#d97706', speed: '#2563eb', cond: '#0891b2', conn: '#7c3aed' };
 
   const rows = [
-    // rank, tab, name, jockey, trainer, lastFin[newest→oldest], record, form, speed, cond, conn, score, edge, ref, valPct, pace
+    // rank, tab, name, jockey, trainer, lastFin[newest→oldest], record, form, speed, cond, conn, score, ww, price, move, moveColor, valPct, pace
     // Best: form=row0, speed=row1, cond=row2, conn=row0 | Worst: form=row4, speed=row4, cond=row4, conn=row4
-    { rank:1, tab:5,  name:'Sunfire Prince', j:'J. McDonald', t:'C. Waller',    pips:[1,2,1,3], rec:'24-8-4-3',  form:18.4, speed:16.2, cond:14.8, conn:12.1, score:72.4, edge:'$4.50', ref:'$6.00', val:'+33%', valColor:'#059669', pace:'LDR', bestForm:true,  bestConn:true  },
-    { rank:2, tab:2,  name:'Storm King',     j:'D. Oliver',   t:'P. Moody',     pips:[2,1,3,4], rec:'31-11-6-4', form:15.2, speed:18.6, cond:12.3, conn: 9.8, score:65.8, edge:'$5.20', ref:'$5.50', val: '+6%', valColor:'#374151', pace:'PRE', bestSpeed:true },
-    { rank:3, tab:8,  name:'Golden Arrow',   j:'T. Berry',    t:'G. Waterhouse', pips:[3,2,1,2], rec:'18-5-4-4',  form:14.1, speed:12.4, cond:16.7, conn:11.3, score:63.2, edge:'$6.00', ref:'$4.50', val:'-25%', valColor:'#dc2626', pace:'MID', bestCond:true  },
-    { rank:4, tab:1,  name:'Rapid River',    j:'R. Bayliss',  t:'L. Maher',     pips:[4,3,2,5], rec:'27-7-5-6',  form:12.8, speed:14.1, cond:11.9, conn:10.2, score:58.4, edge:'$8.00', ref:'$9.00', val:'+13%', valColor:'#374151', pace:'CLO' },
-    { rank:5, tab:11, name:'Misty Belle',    j:'J. Bowman',   t:'M. Moroney',   pips:[5,6,3,1], rec:'22-4-3-5',  form:10.2, speed:11.8, cond: 9.4, conn: 8.7, score:48.7, edge:'$12.00',ref:'$14.00',val:'+17%', valColor:'#374151', pace:'BAC', worstForm:true, worstSpeed:true, worstCond:true, worstConn:true },
+    { rank:1, tab:5,  name:'Sunfire Prince', j:'J. McDonald', t:'C. Waller',    pips:[1,2,1,3], rec:'24-8-4-3',  form:18.4, speed:16.2, cond:14.8, conn:12.1, score:72.4, ww:'$4.50', price:'$6.00', move:'▲18%', moveColor:'#059669', val:'+33%', valColor:'#059669', pace:'LDR', bestForm:true,  bestConn:true  },
+    { rank:2, tab:2,  name:'Storm King',     j:'D. Oliver',   t:'P. Moody',     pips:[2,1,3,4], rec:'31-11-6-4', form:15.2, speed:18.6, cond:12.3, conn: 9.8, score:65.8, ww:'$5.20', price:'$5.50', move:'—',    moveColor:'#9ca3af', val: '+6%', valColor:'#374151', pace:'PRE', bestSpeed:true },
+    { rank:3, tab:8,  name:'Golden Arrow',   j:'T. Berry',    t:'G. Waterhouse', pips:[3,2,1,2], rec:'18-5-4-4',  form:14.1, speed:12.4, cond:16.7, conn:11.3, score:63.2, ww:'$6.00', price:'$4.50', move:'▼9%',  moveColor:'#dc2626', val:'-25%', valColor:'#dc2626', pace:'MID', bestCond:true  },
+    { rank:4, tab:1,  name:'Rapid River',    j:'R. Bayliss',  t:'L. Maher',     pips:[4,3,2,5], rec:'27-7-5-6',  form:12.8, speed:14.1, cond:11.9, conn:10.2, score:58.4, ww:'$8.00', price:'$9.00', move:'—',    moveColor:'#9ca3af', val:'+13%', valColor:'#374151', pace:'CLO' },
+    { rank:5, tab:11, name:'Misty Belle',    j:'J. Bowman',   t:'M. Moroney',   pips:[5,6,3,1], rec:'22-4-3-5',  form:10.2, speed:11.8, cond: 9.4, conn: 8.7, score:48.7, ww:'$12.00',price:'$14.00',move:'▲22%', moveColor:'#059669', val:'+17%', valColor:'#374151', pace:'BAC', worstForm:true, worstSpeed:true, worstCond:true, worstConn:true },
   ];
 
   return (
@@ -147,8 +153,9 @@ function ProductScreenshot() {
               <th style={{ ...th, textAlign: 'right',   width: 48, color: grpColor.cond  }}>Good</th>
               <th style={{ ...th, textAlign: 'right',   width: 48, color: grpColor.conn  }}>Conn</th>
               <th style={{ ...th, textAlign: 'right',   width: 48 }}>Score</th>
-              <th style={{ ...th, textAlign: 'right',   width: 56 }}>Edge $</th>
-              <th style={{ ...th, textAlign: 'right',   width: 56 }}>Ref $</th>
+              <th style={{ ...th, textAlign: 'right',   width: 52 }}>WW $</th>
+              <th style={{ ...th, textAlign: 'right',   width: 56 }}>Price $</th>
+              <th style={{ ...th, textAlign: 'right',   width: 48 }}>Move</th>
               <th style={{ ...th, textAlign: 'right',   width: 52 }}>Value</th>
               <th style={{ ...th, textAlign: 'left',    width: 52 }}>Pace</th>
             </tr>
@@ -183,10 +190,15 @@ function ProductScreenshot() {
                 <FakeGrpCell val={r.conn.toFixed(1)}  isBest={!!r.bestConn}  isWorst={!!r.worstConn}  grpColor={grpColor.conn}  />
                 {/* Total score — mirrors: font-bold text-[12px], color=rankColor */}
                 <td style={{ padding: '3px 3px', textAlign: 'right', fontWeight: 700, fontSize: 12, fontFamily: 'ui-monospace,monospace', color: rankColor[r.rank], whiteSpace: 'nowrap' }}>{r.score.toFixed(1)}</td>
-                {/* Edge $ — mirrors: text-[11px] font-semibold text-emerald-600 */}
-                <td style={{ padding: '3px 3px', textAlign: 'right', fontSize: 11, fontWeight: 600, color: '#059669', fontFamily: 'ui-monospace,monospace', whiteSpace: 'nowrap' }}>{r.edge}</td>
-                {/* Ref $ — mirrors: text-[11px] color:#111827 */}
-                <td style={{ padding: '3px 3px', textAlign: 'right', fontSize: 11, color: '#111827', fontFamily: 'ui-monospace,monospace', whiteSpace: 'nowrap' }}>{r.ref}</td>
+                {/* WW $ — mirrors: text-[11px] font-semibold text-emerald-600 */}
+                <td style={{ padding: '3px 3px', textAlign: 'right', fontSize: 11, fontWeight: 600, color: '#059669', fontFamily: 'ui-monospace,monospace', whiteSpace: 'nowrap' }}>{r.ww}</td>
+                {/* Price $ — live bookmaker price, with the same LIVE tag used on the Races page */}
+                <td style={{ padding: '3px 3px', textAlign: 'right', fontSize: 11, color: '#111827', fontFamily: 'ui-monospace,monospace', whiteSpace: 'nowrap' }}>
+                  {r.price}
+                  <span style={{ marginLeft: 3, fontSize: 6, fontWeight: 800, color: '#059669', background: '#d1fae5', padding: '1px 3px', borderRadius: 3, letterSpacing: '0.3px' }}>LIVE</span>
+                </td>
+                {/* Move — price move since open, free for every signed-in user */}
+                <td style={{ padding: '3px 3px', textAlign: 'right', fontSize: 10, fontWeight: 700, fontFamily: 'ui-monospace,monospace', color: r.moveColor, whiteSpace: 'nowrap' }}>{r.move}</td>
                 {/* Value — mirrors: text-[10px] font-semibold, color by threshold */}
                 <td style={{ padding: '3px 3px', textAlign: 'right', fontSize: 10, fontWeight: 600, fontFamily: 'ui-monospace,monospace', color: r.valColor, whiteSpace: 'nowrap' }}>{r.val}</td>
                 {/* Pace — mirrors: text-[8px] font-bold, color=pm.color */}
@@ -229,8 +241,8 @@ export default function HomePage() {
                 fontSize: 'clamp(13px, 2vw, 16px)', color: 'rgba(255,255,255,0.72)',
                 margin: '0 auto 40px', maxWidth: 520, lineHeight: 1.7,
               }}>
-                Australia&apos;s most advanced horse racing analytics platform.
-                Score and rank every runner in every race in seconds.
+                Live bookmaker prices free for every punter. Pro adds scores,
+                pace maps and value.
               </p>
 
               <Link
@@ -263,6 +275,11 @@ export default function HomePage() {
           </div>
 
           <ProductScreenshot />
+          <div style={{ textAlign: 'center', marginTop: 10 }}>
+            <div style={{ display: 'inline-block', background: '#fff', borderRadius: 6, padding: '4px 10px' }}>
+              <PuntersEdgeCredit />
+            </div>
+          </div>
         </div>
       </section>
 
@@ -406,6 +423,7 @@ export default function HomePage() {
             Everything You Need on Race Day
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+            <FeatureCard icon="💹" title="Live Bookmaker Prices" desc="Live prices with the Move column and Firmer/Drifter alerts, free for every signed-in punter" free />
             <FeatureCard icon="🎯" title="Race Scoring"    desc="Proprietary algorithm ranks every runner instantly" />
             <FeatureCard icon="🗺️" title="Pace Maps"       desc="Visualise how each race will be run before it starts" />
             <FeatureCard icon="📈" title="Bet Tracker"     desc="Log bets and track P&L with full analytics" />

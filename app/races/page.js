@@ -1564,6 +1564,7 @@ function BetModal({ horse, onClose, isAdmin = false, oddsBookmaker = '' }) {
             </button>
           ))}
         </div>
+        {isAdmin && oddsBookmaker && <PuntersEdgeCredit style={{ marginTop: 6, fontSize: 11 }} />}
       </div>
 
       {/* Staking alert warning */}
@@ -4745,6 +4746,12 @@ function RacesPageInner() {
                                 <span style={{ fontSize: 10, fontWeight: 700, color: '#991b1b' }} className="tabular-nums">{topDrifter[0]} ▼{topDrifter[1].move.pct}%</span>
                               </span>
                             )}
+                            {/* Also rendered here (not just the race-number
+                                tabs row below) since that row returns null
+                                for a single-race meeting -- this verdict row
+                                always renders on Field/Pace Map/Odds, so
+                                attribution is never silently missing. */}
+                            <PuntersEdgeCredit style={{ fontSize: 10 }} />
                           </div>
                         )}
                       </div>

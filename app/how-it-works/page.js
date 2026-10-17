@@ -24,6 +24,7 @@ function ProPill() {
 
 const TOC = [
   { id: 'field',     icon: 'ti-layout-list',    title: 'Field tab',        badge: 'mixed' },
+  { id: 'liveprices', icon: 'ti-arrows-exchange', title: 'Live prices & Move', badge: 'free' },
   { id: 'form',      icon: 'ti-notebook',        title: 'Form tab',         badge: 'free'  },
   { id: 'pace',      icon: 'ti-map',             title: 'Pace map',         badge: 'pro'   },
   { id: 'scoring',   icon: 'ti-chart-bar',       title: 'Scoring system',   badge: 'pro'   },
@@ -98,10 +99,27 @@ export default function HowItWorksPage() {
               <li>Career record — starts-wins-seconds-thirds</li>
               <li>Form / Speed / Conditions / Connections — four scored factor groups feeding the total score</li>
               <li>Score — total model score out of 100<ProPill /></li>
-              <li>Edge $ — our model&apos;s fair value price for the runner<ProPill /></li>
+              <li>WW $ — our model&apos;s fair value price for the runner<ProPill /></li>
               <li>Value % — the gap between our price and the market&apos;s — green means value, red means overbet<ProPill /></li>
               <li>Pace — expected running position: Leader, Presser, Midfield, Closer or Backmarker</li>
               <li>Click any horse name to open its full career stats popup</li>
+            </ul>
+          </div>
+
+          {/* 1b. Live prices & Move */}
+          <div id="liveprices" style={{ border: '0.5px solid #e5e7eb', borderLeft: `3px solid ${GREEN}`, background: '#fff', borderRadius: 8, padding: '16px 20px', marginBottom: 20, scrollMarginTop: 16 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8, flexWrap: 'wrap' }}>
+              <i className="ti ti-arrows-exchange" style={{ fontSize: 18, color: GREEN }} />
+              <span style={{ fontSize: 15, fontWeight: 700, color: '#111827' }}>Live prices &amp; Move</span>
+              <FreeBadge />
+            </div>
+            <p style={{ fontSize: 13, color: '#374151', lineHeight: 1.7, margin: 0 }}>Live bookmaker prices, supplied by PuntersEdge, free for every signed-in punter — no Pro subscription required.</p>
+            <ul style={{ marginTop: 10, paddingLeft: 18, fontSize: 12, color: '#374151', lineHeight: 1.9, margin: '10px 0 0 0' }}>
+              <li>Price $ — the live price from your selected bookmaker, marked with a LIVE tag</li>
+              <li>Pick your bookmaker from the dropdown above the field</li>
+              <li>Move — how much a price has shifted since the market opened, shown as a percentage</li>
+              <li>Firmer/Drifter chips — the race&apos;s biggest mover in each direction, highlighted at the top of the page</li>
+              <li>The same live prices power the full Odds tab, where you can compare every bookmaker side by side</li>
             </ul>
           </div>
 
