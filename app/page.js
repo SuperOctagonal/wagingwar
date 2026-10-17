@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import CheckoutButton from '@/components/CheckoutButton';
 import PuntersEdgeCredit from '@/components/PuntersEdgeCredit';
+import { getHomepageModelStats } from '@/lib/homepageModelStats';
 
 export const metadata = {
   title: 'Waging War | Horse Racing Analytics and Bet Tracking Australia',
@@ -51,6 +52,68 @@ function FeatureCard({ icon, title, desc, free }) {
 
 function Check({ dark }) {
   return <span style={{ color: dark ? GREEN : '#86efac', flexShrink: 0 }}>✓</span>;
+}
+
+function fmtDateAU(d) {
+  if (!d) return '';
+  return new Date(d + 'T12:00:00').toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+// Real phone-style stats card replacing the old hero video -- computed
+// server-side (app/page.js, see getHomepageModelStats) from the exact same
+// Daily Model Summary calculation the Results page uses, never hard-coded.
+// `stats` is null on a query failure or an empty window, in which case this
+// hides the numbers entirely rather than showing anything fabricated.
+function ModelStatsPhone({ stats }) {
+  const GRID = 40;
+  const filled = stats ? Math.round(GRID * stats.winPct) : 0;
+
+  return (
+    <div style={{
+      width: '100%', maxWidth: 340, aspectRatio: '9 / 16',
+      borderRadius: 22, border: '1px solid rgba(255,255,255,0.18)',
+      display: 'flex', flexDirection: 'column', margin: '0 auto',
+      boxShadow: '0 20px 60px rgba(0,0,0,0.35)', background: '#0f2e1e',
+      padding: '28px 24px', boxSizing: 'border-box', textAlign: 'center',
+    }}>
+      <div style={{ fontSize: 10, fontWeight: 700, color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: 4 }}>
+        Top-rated runner, last {stats?.days || 30} days
+      </div>
+      {stats && (
+        <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)', marginBottom: 18 }}>
+          {fmtDateAU(stats.dateFrom)} – {fmtDateAU(stats.dateTo)}
+        </div>
+      )}
+
+      {stats ? (
+        <>
+          <div style={{ fontSize: 34, fontWeight: 800, color: '#fff', marginBottom: 2 }}>
+            {stats.wins} / {stats.total} won
+          </div>
+          <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', marginBottom: 20 }}>
+            {Math.round(stats.winPct * 100)}% win · {Math.round(stats.top3Pct * 100)}% top-3
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(10, 1fr)', gap: 5, marginBottom: 'auto' }}>
+            {Array.from({ length: GRID }, (_, i) => (
+              <div key={i} style={{
+                aspectRatio: '1 / 1', borderRadius: 3,
+                background: i < filled ? GOLD : 'rgba(255,255,255,0.1)',
+              }} />
+            ))}
+          </div>
+        </>
+      ) : (
+        <div style={{ margin: 'auto', fontSize: 12, color: 'rgba(255,255,255,0.4)' }}>
+          Model results updating — check back shortly.
+        </div>
+      )}
+
+      <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.3)', marginTop: 16, lineHeight: 1.5 }}>
+        Past performance is not a guide to the future.
+      </div>
+    </div>
+  );
 }
 
 // Mirrors pipStyle() from app/races/page.js exactly
@@ -212,7 +275,8 @@ function ProductScreenshot() {
   );
 }
 
-export default function HomePage() {
+export default async function HomePage() {
+  const modelStats = await getHomepageModelStats();
   return (
     <main className="flex-1 overflow-y-auto flex flex-col">
 
@@ -259,18 +323,7 @@ export default function HomePage() {
             </div>
 
             <div>
-              <video
-                src="/videos/results-reel.mp4"
-                autoPlay
-                muted
-                loop
-                playsInline
-                style={{
-                  width: '100%', maxWidth: 340, aspectRatio: '9 / 16', objectFit: 'cover',
-                  borderRadius: 22, border: '1px solid rgba(255,255,255,0.18)',
-                  display: 'block', margin: '0 auto', boxShadow: '0 20px 60px rgba(0,0,0,0.35)',
-                }}
-              />
+              <ModelStatsPhone stats={modelStats} />
             </div>
           </div>
 

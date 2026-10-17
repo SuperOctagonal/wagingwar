@@ -8,6 +8,7 @@ import { normaliseVenue, AU_VENUE_STATE, filterAuMeetings } from '@/lib/venues';
 import { paidPlacesForFieldSize, estimatePlacePrice } from '@/lib/placePrice';
 import { fetchAllRows } from '@/lib/fetchAllRows';
 import { ODDS_BANDS } from '@/lib/oddsBucket';
+import { groupResultsByDateRace, buildRank1Records } from '@/lib/modelSummary';
 import ProfileRail from '@/components/ProfileRail';
 import UpgradeModal from '@/components/UpgradeModal';
 import useIsMobile from '@/hooks/useIsMobile';
@@ -56,22 +57,8 @@ async function fetchResultsRange(startDate, endDate) {
   } catch { return []; }
 }
 
-// Groups race_results rows into { "date||venue||raceNum": {date,venue,raceNum,trackCond,dist,runners} }
-// — same shape `grouped` uses for a single date, but keyed with date included
-// so rows from different days in a rolling window don't collide.
-function groupResultsByDateRace(rows) {
-  const g = {};
-  (rows || []).forEach(row => {
-    const norm = normaliseVenue(row.venue);
-    const key = `${row.date}||${norm}||${row.race_num}`;
-    if (!g[key]) g[key] = {
-      date: row.date, venue: norm, raceNum: row.race_num,
-      trackCond: row.track_cond || '', dist: row.dist || '', runners: [],
-    };
-    if (row.finish_pos) g[key].runners.push({ place: row.finish_pos, name: row.horse_name, sp: row.sp || 0 });
-  });
-  return g;
-}
+// groupResultsByDateRace now lives in lib/modelSummary.js (shared with the
+// homepage's model-stats card).
 
 // Fetches server-computed ranks (never raw scoring inputs) for each date via
 // /api/results-ranks — looped per date since that route is single-date. Auth
@@ -163,34 +150,9 @@ const RESULT_BADGE = {
   LOST:   { bg: '#f3f4f6', color: '#9ca3af' },
 };
 
-// Given a map of resulted races (each with venue/raceNum/trackCond/dist/runners,
-// same shape as `grouped`) plus rankDataByRace (the server-computed
-// { [venue]: { [raceNum]: {ranks, margin} } } from /api/results-ranks), builds
-// the rank-1 pick record array. Shared by the single-day summary and the
-// rolling-window summary (which calls this once per date with that date's own
-// rank data, then concatenates). Rank-1 name/margin come entirely from the
-// server response — no scoring happens client-side here, so this is safe and
-// correct regardless of the viewer's Pro status.
-function buildRank1Records(groupedResults, rankDataByRace, extra = {}) {
-  const records = [];
-  Object.values(groupedResults).forEach(res => {
-    if (!res.runners || !res.runners.length) return;
-    const normVenue = normaliseVenue(res.venue);
-    const raceRanks = rankDataByRace?.[normVenue]?.[res.raceNum];
-    if (!raceRanks || !raceRanks.ranks) return;
-    const rank1Norm = Object.keys(raceRanks.ranks).find(k => raceRanks.ranks[k] === 1);
-    if (!rank1Norm) return;
-    const runner = res.runners.find(r => normName(r.name) === rank1Norm);
-    if (!runner || runner.place == null) return;
-    records.push({
-      venue: res.venue, raceNum: res.raceNum, trackCond: res.trackCond || 'good',
-      dist: parseInt(res.dist, 10) || null,
-      horse: runner.name, place: runner.place, sp: Number(runner.sp) || 0, margin: raceRanks.margin,
-      ...extra,
-    });
-  });
-  return records;
-}
+// buildRank1Records now lives in lib/modelSummary.js (shared with the
+// homepage's model-stats card) -- same rank-1 pick record array, built the
+// same way, imported above.
 
 // Pure aggregation: records -> all the stats/cards the Daily Model Summary
 // renders. Reused as-is by both the single-day view and the rolling-window
