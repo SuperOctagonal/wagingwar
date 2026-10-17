@@ -174,13 +174,13 @@ function AccountPageInner() {
     if (!userId) return;
     (async () => {
       const [prof, allR, bdg, plog] = await Promise.all([
-        sbFetch(`user_profiles?clerk_id=eq.${userId}&limit=1`),
-        sbFetch(`bet_log?clerk_id=eq.${userId}&select=result&order=created_at.desc`),
+        fetch('/api/profile/me').then(r => r.ok ? r.json() : null),
+        fetch('/api/bets').then(r => r.ok ? r.json() : null),
         sbFetch(`user_badges?clerk_id=eq.${userId}&order=earned_at.desc`),
         sbFetch(`points_log?clerk_id=eq.${userId}&select=*&order=created_at.desc&limit=50`),
       ]);
       if (plog?.length) console.log('[points_log row sample]', plog[0]);
-      setProfile(prof?.[0] ?? null);
+      setProfile(prof ?? null);
       setAllResults(allR ?? []);
       setBadges(bdg ?? []);
       setPointsLog(plog ?? []);

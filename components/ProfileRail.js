@@ -13,6 +13,9 @@ import NameFlair from '@/components/NameFlair';
 const SURL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SKEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
+// posts count stays a direct anon-key read -- community/posts is Batch 2,
+// not touched by this pass. user_profiles (own profile) and bet_log (own
+// bets) now go through /api/profile/me and /api/bets instead.
 export default function ProfileRail({ children }) {
   const { user, isLoaded } = useUser();
   const isPro = useIsPro();
@@ -35,19 +38,15 @@ export default function ProfileRail({ children }) {
       if (!userId) return;
       try {
         const [profRes, betRes, postRes] = await Promise.all([
-          fetch(`${SURL}/rest/v1/user_profiles?clerk_id=eq.${userId}&limit=1`, {
-            headers: { apikey: SKEY, Authorization: `Bearer ${SKEY}` },
-          }),
-          fetch(`${SURL}/rest/v1/bet_log?clerk_id=eq.${userId}&select=result`, {
-            headers: { apikey: SKEY, Authorization: `Bearer ${SKEY}` },
-          }),
+          fetch('/api/profile/me'),
+          fetch('/api/bets'),
           fetch(`${SURL}/rest/v1/posts?user_id=eq.${userId}&select=id`, {
             headers: { apikey: SKEY, Authorization: `Bearer ${SKEY}` },
           }),
         ]);
         if (profRes.ok) {
           const data = await profRes.json();
-          setProfile(data?.[0] ?? {});
+          setProfile(data ?? {});
         }
         if (betRes.ok) {
           const bets = await betRes.json();

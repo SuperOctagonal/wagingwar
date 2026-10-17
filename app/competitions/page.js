@@ -990,12 +990,10 @@ export default function CompetitionsPage() {
   }, [user?.id, isPro, mainTab, btmSubTab]);
 
   useEffect(() => {
-    if (!SURL || !SKEY || !isPro) return;
-    fetch(`${SURL}/rest/v1/user_profiles?hide_from_lb=eq.true&select=clerk_id`, {
-      headers: { apikey: SKEY, Authorization: `Bearer ${SKEY}` },
-    })
-      .then(r => r.ok ? r.json() : [])
-      .then(rows => { if (Array.isArray(rows)) setHiddenFromLb(new Set(rows.map(r => r.clerk_id))); })
+    if (!isPro) return;
+    fetch('/api/profile?hiddenFromLb=true')
+      .then(r => r.ok ? r.json() : { clerkIds: [] })
+      .then(d => setHiddenFromLb(new Set(d.clerkIds || [])))
       .catch(() => {});
   }, [user?.id]);
 

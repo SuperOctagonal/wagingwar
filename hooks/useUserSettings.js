@@ -2,9 +2,6 @@
 import { useState, useEffect } from 'react';
 import { useUser } from '@clerk/nextjs';
 
-const SURL = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const SKEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
 export const SETTINGS_DEFAULTS = {
   displayName: '', state: 'QLD',
   notifRank1: false, notifBlackbooked: false,
@@ -26,10 +23,8 @@ export default function useUserSettings() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!user?.id || !SURL || !SKEY) { setLoading(false); return; }
-    fetch(`${SURL}/rest/v1/user_settings?clerk_id=eq.${encodeURIComponent(user.id)}&select=settings&limit=1`, {
-      headers: { apikey: SKEY, Authorization: `Bearer ${SKEY}` },
-    })
+    if (!user?.id) { setLoading(false); return; }
+    fetch('/api/settings')
       .then(r => r.ok ? r.json() : [])
       .then(rows => {
         const saved = rows?.[0]?.settings || {};

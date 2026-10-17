@@ -177,9 +177,10 @@ function EditModal({ horse, onClose, onSave }) {
 
   const handleSave = async () => {
     setSaving(true);
-    await sb(`blackbook?id=eq.${horse.id}`, {
+    await fetch(`/api/blackbook?id=${horse.id}`, {
       method: 'PATCH',
-      body: { note: editNote, tags, priority, updated_at: new Date().toISOString() },
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ note: editNote, tags, priority }),
     });
     setSaving(false);
     onSave({ ...horse, note: editNote, tags, priority });
@@ -279,7 +280,7 @@ export default function BlackbookPage() {
   useEffect(() => {
     if (!isLoaded) return;
     if (!userId || !isPro) { setLoading(false); return; }
-    sb(`blackbook?clerk_id=eq.${userId}&order=added_at.desc`).then(r => {
+    fetch('/api/blackbook').then(r => r.ok ? r.json() : []).then(r => {
       setHorses(r || []);
       setLoading(false);
     });
@@ -328,7 +329,11 @@ export default function BlackbookPage() {
       newBanners.forEach(async b => {
         const row = horses.find(h => h.id === b.rowId);
         const newNotified = [...(row?.notified_wins || []), b.nkey];
-        await sb(`blackbook?id=eq.${b.rowId}`, { method: 'PATCH', body: { notified_wins: newNotified } });
+        await fetch(`/api/blackbook?id=${b.rowId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ notified_wins: newNotified }),
+        });
         if (userId) awardPoints(userId, 'blackbook_win', b.horse).catch(() => {});
       });
     });
@@ -336,11 +341,10 @@ export default function BlackbookPage() {
 
   useEffect(() => {
     if (!isPro) return;
-    sb('blackbook?select=horse_name').then(all => {
-      if (!all) return;
-      const counts = {};
-      all.forEach(row => { const n = row.horse_name; if (n) counts[n] = (counts[n] || 0) + 1; });
-      setMostWatched(Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 10));
+    // Server-side aggregate (/api/blackbook/most-watched) -- never returns
+    // raw rows or clerk_ids, just [horse_name, count] pairs.
+    fetch('/api/blackbook/most-watched').then(r => r.ok ? r.json() : []).then(rows => {
+      setMostWatched(rows || []);
     });
   }, []);
 
@@ -392,7 +396,7 @@ export default function BlackbookPage() {
 
   const handleRemove = useCallback(async (id) => {
     if (!confirm('Remove from blackbook?')) return;
-    await sb(`blackbook?id=eq.${id}`, { method: 'DELETE' });
+    await fetch(`/api/blackbook?id=${id}`, { method: 'DELETE' });
     setHorses(prev => prev.filter(h => h.id !== id));
   }, []);
 

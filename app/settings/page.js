@@ -9,35 +9,7 @@ import { punterFallback } from '@/lib/punterFallback';
 import { BOOKMAKERS } from '@/lib/bookmakers';
 import UpgradeModal from '@/components/UpgradeModal';
 
-const SURL = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const SKEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 const G = '#00471b';
-
-async function sbFetch(path, opts = {}) {
-  if (!SURL || !SKEY) return null;
-  try {
-    const res = await fetch(`${SURL}/rest/v1/${path}`, {
-      method: opts.method || 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        apikey: SKEY,
-        Authorization: `Bearer ${SKEY}`,
-        ...(opts.prefer ? { Prefer: opts.prefer } : {}),
-      },
-      body: opts.body ? JSON.stringify(opts.body) : undefined,
-    });
-    if (!res.ok) {
-      const errBody = await res.text();
-      console.error('[settings sbFetch]', path, res.status, errBody);
-      return null;
-    }
-    const t = await res.text();
-    return t ? JSON.parse(t) : true;
-  } catch (err) {
-    console.error('[settings sbFetch] network error:', err);
-    return null;
-  }
-}
 
 const NAV = [
   { key: 'profile',       label: 'Profile',          pro: false },
@@ -256,8 +228,7 @@ export default function SettingsPage() {
 
   useEffect(() => {
     if (!user?.id) return;
-    if (!SURL || !SKEY) return;
-    sbFetch(`user_settings?clerk_id=eq.${encodeURIComponent(user.id)}&select=settings`).then(rows => {
+    fetch('/api/settings').then(r => r.ok ? r.json() : []).then(rows => {
       const saved = rows?.[0]?.settings || {};
       setS({ ...DEFAULTS, ...saved });
     });
@@ -300,25 +271,17 @@ export default function SettingsPage() {
   async function save() {
     if (!user?.id) return;
     setSaving(true);
-    const [res] = await Promise.all([
-      sbFetch('user_settings?on_conflict=clerk_id', {
-        method: 'POST',
-        prefer: 'return=minimal,resolution=merge-duplicates',
-        body: { clerk_id: user.id, settings: s, updated_at: new Date().toISOString() },
-      }),
-      sbFetch(`user_profiles?clerk_id=eq.${encodeURIComponent(user.id)}`, {
-        method: 'PATCH',
-        prefer: 'return=minimal',
-        body: { hide_from_lb: s.compLeaderboard === false },
-      }),
+    const [settingsRes, profileRes] = await Promise.all([
+      fetch('/api/settings', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ settings: s }) }),
+      fetch('/api/profile/me', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ hide_from_lb: s.compLeaderboard === false }) }),
     ]);
     setSaving(false);
-    showToast(res !== null ? 'saved' : 'error');
+    showToast(settingsRes.ok && profileRes.ok ? 'saved' : 'error');
   }
 
   async function exportCSV() {
     if (!user?.id) return;
-    const rows = await sbFetch(`bet_log?clerk_id=eq.${encodeURIComponent(user.id)}&select=*&order=created_at.desc`);
+    const rows = await fetch('/api/bets').then(r => r.ok ? r.json() : null).catch(() => null);
     if (!rows?.length) { alert('No bets found.'); return; }
     const cols = Object.keys(rows[0]);
     const csv = [cols.join(','), ...rows.map(r => cols.map(c => JSON.stringify(r[c] ?? '')).join(','))].join('\n');
@@ -349,9 +312,9 @@ export default function SettingsPage() {
   async function clearBets() {
     if (!user?.id) return;
     setClearStep(2);
-    const res = await sbFetch(`bet_log?clerk_id=eq.${encodeURIComponent(user.id)}`, { method: 'DELETE' });
+    const res = await fetch('/api/bets?all=true', { method: 'DELETE' });
     setClearStep(0);
-    showToast(res !== null ? 'cleared' : 'error');
+    showToast(res.ok ? 'cleared' : 'error');
   }
 
   async function deleteAccount() {

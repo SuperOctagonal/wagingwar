@@ -1011,25 +1011,13 @@ function CommunityPageInner() {
   useEffect(() => {
     if (!userId) return;
     (async () => {
-      const r = await sb(`user_profiles?select=*&clerk_id=eq.${userId}&limit=1`);
-      if (r && r.length) {
-        setProfile(r[0]);
-      } else {
-        const email = user?.emailAddresses?.[0]?.emailAddress || '';
-        // display_name column kept populated for now (not dropped per plan),
-        // but never with real-name data — same username-or-fallback everyone
-        // else sees, not user?.firstName/email.
-        const display_name = user?.username || punterFallback(userId);
-        const created = await sb('user_profiles', {
-          method: 'POST',
-          body: { clerk_id: userId, email, display_name, points: 0 },
-          prefer: 'return=representation',
-        });
-        if (created && created[0]) setProfile(created[0]);
-        else if (created && !Array.isArray(created)) setProfile(created);
-      }
+      // /api/profile/me auto-creates the row (server-derived email/
+      // display_name from the Clerk session) if this is the user's first
+      // visit, same as the old create-on-missing logic here used to.
+      const r = await fetch('/api/profile/me').then(res => res.ok ? res.json() : null);
+      if (r) setProfile(r);
       const [bets, posts] = await Promise.all([
-        sb(`bet_log?clerk_id=eq.${userId}&select=result`),
+        fetch('/api/bets').then(res => res.ok ? res.json() : null),
         sb(`posts?user_id=eq.${userId}&select=id`),
       ]);
       const resultedBets = (bets || []).filter(b => b.result && b.result !== 'pending' && b.result !== 'scratched' && b.result !== 'unresolved' && b.result !== 'abandoned');
@@ -1062,13 +1050,16 @@ function CommunityPageInner() {
       const [nameMap, cosmeticsMap] = await Promise.all([fetchDisplayNames(ids), fetchEquippedCosmetics(ids)]);
       setLeaderboard(r.map(e => ({ ...e, display_name: nameMap[e.clerk_id] || punterFallback(e.clerk_id), cosmetics: cosmeticsMap[e.clerk_id] })));
     });
-    sb('user_profiles?select=clerk_id,points&order=points.desc&limit=5').then(async r => {
+    fetch('/api/profile?top=5').then(res => res.ok ? res.json() : []).then(async r => {
       if (!r || !r.length) { setContributors([]); return; }
       const ids = r.map(c => c.clerk_id).filter(Boolean);
       const [nameMap, cosmeticsMap] = await Promise.all([fetchDisplayNames(ids), fetchEquippedCosmetics(ids)]);
       setContributors(r.map(c => ({ ...c, display_name: nameMap[c.clerk_id] || punterFallback(c.clerk_id), cosmetics: cosmeticsMap[c.clerk_id] })));
     });
-    Promise.all([sbCount('user_profiles'), sbCount('posts')]).then(([members, postsCount]) => {
+    Promise.all([
+      fetch('/api/profile?count=true').then(res => res.ok ? res.json() : { count: 0 }).then(d => d.count),
+      sbCount('posts'),
+    ]).then(([members, postsCount]) => {
       setStats({ members, posts: postsCount });
     });
   }, []);

@@ -158,10 +158,10 @@ export default function InsightsPanel({ bets: sharedBets } = {}) {
     setLoading(true);
     const betsPromise = sharedBets != null
       ? Promise.resolve(sharedBets)
-      : sbFetch(`bet_log?clerk_id=eq.${encodeURIComponent(user.id)}&select=*&order=date.asc,created_at.asc`);
+      : fetch('/api/bets').then(r => r.ok ? r.json() : null);
     Promise.all([
       betsPromise,
-      sbFetch(`user_settings?clerk_id=eq.${encodeURIComponent(user.id)}&select=settings`),
+      fetch('/api/settings').then(r => r.ok ? r.json() : null),
     ]).then(([betRows, settingRows]) => {
       const rows = betRows || [];
       if (sharedBets == null) {

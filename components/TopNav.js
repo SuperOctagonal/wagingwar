@@ -9,9 +9,6 @@ import useIsMobile from '@/hooks/useIsMobile';
 import { isSiteAdmin } from '@/lib/admin';
 import { punterFallback } from '@/lib/punterFallback';
 
-const SURL = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const SKEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
 const NAV_LINKS = [
   { id: 'races',        label: 'Races',        href: '/races',        public: true },
   { id: 'results',      label: 'Results',      href: '/results' },
@@ -74,14 +71,11 @@ export default function TopNav() {
 
   // Pending bet count for "My Bets" badge
   useEffect(() => {
-    if (!user?.id || !SURL || !SKEY) { setPendingCount(0); return; }
+    if (!user?.id) { setPendingCount(0); return; }
     let cancelled = false;
     const load = async () => {
       try {
-        const res = await fetch(
-          `${SURL}/rest/v1/bet_log?clerk_id=eq.${encodeURIComponent(user.id)}&select=id,status`,
-          { headers: { apikey: SKEY, Authorization: `Bearer ${SKEY}` } }
-        );
+        const res = await fetch('/api/bets');
         if (res.ok && !cancelled) {
           const rows = await res.json();
           setPendingCount(Array.isArray(rows) ? rows.filter(r => !r.status || r.status === 'pending' || r.status === 'unresolved').length : 0);

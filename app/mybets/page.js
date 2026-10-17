@@ -63,17 +63,28 @@ async function sbFetch(path, opts = {}) {
   }
 }
 
-async function loadBets(userId) {
-  const data = await sbFetch(`bet_log?clerk_id=eq.${encodeURIComponent(userId)}&order=date.desc,id.desc`);
+// bet_log reads/writes now go through /api/bets (Clerk-session-scoped,
+// service-key server-side) instead of the anon key directly -- loadBets/
+// removeBet/patchBet keep their old names/signatures so every call site
+// below is unchanged.
+async function loadBets() {
+  const res = await fetch('/api/bets');
+  const data = res.ok ? await res.json() : null;
   return Array.isArray(data) ? data : [];
 }
 
 async function removeBet(id) {
-  return sbFetch(`bet_log?id=eq.${id}`, { method: 'DELETE' });
+  const res = await fetch(`/api/bets?id=${id}`, { method: 'DELETE' });
+  return res.ok ? true : null;
 }
 
 async function patchBet(id, fields) {
-  return sbFetch(`bet_log?id=eq.${id}`, { method: 'PATCH', body: fields, prefer: 'return=minimal' });
+  const res = await fetch(`/api/bets?id=${id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(fields),
+  });
+  return res.ok ? true : null;
 }
 
 // sbFetch's null return is ambiguous (also returned on a genuine 204 success
@@ -83,22 +94,21 @@ async function patchBet(id, fields) {
 // isEditedAfterResult). Once the column exists this always succeeds on the
 // first try and the fallback is dead weight, not a behavior change.
 async function patchBetSafe(id, fields) {
-  if (!SURL || !SKEY) return { ok: false, fields: null };
   try {
-    const res = await fetch(`${SURL}/rest/v1/bet_log?id=eq.${id}`, {
+    const res = await fetch(`/api/bets?id=${id}`, {
       method: 'PATCH',
-      headers: { 'Content-Type': 'application/json', apikey: SKEY, Authorization: `Bearer ${SKEY}`, Prefer: 'return=minimal' },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(fields),
     });
-    if (res.ok) return { ok: true, fields };
+    if (res.ok) return { ok: true, fields: await res.json() };
     if ('edited_at' in fields) {
       const { edited_at, ...rest } = fields;
-      const res2 = await fetch(`${SURL}/rest/v1/bet_log?id=eq.${id}`, {
+      const res2 = await fetch(`/api/bets?id=${id}`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json', apikey: SKEY, Authorization: `Bearer ${SKEY}`, Prefer: 'return=minimal' },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(rest),
       });
-      if (res2.ok) return { ok: true, fields: rest };
+      if (res2.ok) return { ok: true, fields: await res2.json() };
     }
     console.error('[MyBets patchBetSafe] failed', res.status, await res.text().catch(() => ''));
     return { ok: false, fields: null };
@@ -317,14 +327,9 @@ async function matchAndUpdateBets(pendingBets) {
     };
 
     patches.push(
-      fetch(`${SURL}/rest/v1/bet_log?id=eq.${bet.id}`, {
+      fetch(`/api/bets?id=${bet.id}`, {
         method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          apikey: SKEY,
-          Authorization: `Bearer ${SKEY}`,
-          Prefer: 'return=minimal',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(fields),
       })
     );

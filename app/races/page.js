@@ -1272,10 +1272,8 @@ function BetModal({ horse, onClose, isAdmin = false, oddsBookmaker = '' }) {
   }, []);
 
   useEffect(() => {
-    if (!user?.id || !SURL || !SKEY) return;
-    fetch(`${SURL}/rest/v1/user_settings?clerk_id=eq.${user.id}&select=settings&limit=1`, {
-      headers: { apikey: SKEY, Authorization: `Bearer ${SKEY}` },
-    })
+    if (!user?.id) return;
+    fetch('/api/settings')
       .then(r => r.ok ? r.json() : [])
       .then(rows => {
         const s = rows?.[0]?.settings;
@@ -3624,32 +3622,28 @@ function BlackbookModal({ target, onClose, userId, canAccess }) {
   const starColor = BB_STAR_COLORS[priority] || '#d1d5db';
 
   const handleSave = async () => {
-    if (!SURL || !SKEY || !userId || !canAccess) return;
+    if (!userId || !canAccess) return;
     setSaving(true);
     const payload = {
-      clerk_id: userId,
       horse_name: horseName,
       venue: venue || null,
       race_number: raceNumber || null,
       distance: distance || null,
       class: cls || null,
       note, tags, priority,
-      added_at: new Date().toISOString(),
     };
-    console.log('[BB Save] attempting save:', { clerk_id: userId, horse_name: horseName, venue, raceNumber });
     try {
-      const res = await fetch(`${SURL}/rest/v1/blackbook`, {
+      const res = await fetch('/api/blackbook', {
         method: 'POST',
-        headers: { apikey: SKEY, Authorization: `Bearer ${SKEY}`, 'Content-Type': 'application/json', Prefer: 'resolution=merge-duplicates' },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
-      console.log('[BB Save] response status:', res.status);
-      const responseText = await res.clone().text();
-      console.log('[BB Save] response body:', responseText);
       if (res.ok) {
         awardPoints(userId, 'blackbook_save', horseName).catch(ptErr => {
           console.error('[BB Save] points error:', ptErr);
         });
+      } else {
+        console.error('[BB Save] failed', res.status, await res.text().catch(() => ''));
       }
     } catch (err) {
       console.error('[BB Save] fetch error:', err);
@@ -3891,15 +3885,13 @@ function RacesPageInner() {
   }, []);
 
   useEffect(() => {
-    if (!isPro || !user?.id || !SURL || !SKEY) return;
+    if (!isPro || !user?.id) return;
     const d = new Date().toLocaleDateString('sv-SE', { timeZone: 'Australia/Brisbane' });
-    fetch(`${SURL}/rest/v1/bet_log?clerk_id=eq.${user.id}&date=eq.${d}&select=venue,race_number,horse_name`, {
-      headers: { apikey: SKEY, Authorization: `Bearer ${SKEY}` },
-    })
+    fetch('/api/bets')
       .then(r => r.ok ? r.json() : [])
       .then(rows => {
         const m = {};
-        (Array.isArray(rows) ? rows : []).forEach(r => {
+        (Array.isArray(rows) ? rows : []).filter(r => r.date === d).forEach(r => {
           const k = `${normaliseVenue(r.venue||'')}||${String(r.race_number)}`;
           if (!m[k]) m[k] = [];
           m[k].push(r.horse_name || '');
