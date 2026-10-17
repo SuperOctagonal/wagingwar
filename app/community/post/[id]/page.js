@@ -6,7 +6,6 @@ import { useUser } from '@clerk/nextjs';
 import usePlan from '@/hooks/usePlan';
 import { hasFeature } from '@/lib/planFeatures';
 import UpgradeModal from '@/components/UpgradeModal';
-import { awardPoints } from '@/lib/points';
 import { punterFallback } from '@/lib/punterFallback';
 import { fetchDisplayNames } from '@/lib/displayNames';
 import { fetchEquippedCosmetics } from '@/lib/cosmetics';
@@ -148,35 +147,44 @@ export default function PostDetailPage() {
 
   const handleUpvotePost = useCallback(async () => {
     if (!post) return;
-    const v = upvotedPost ? (post.votes || 0) - 1 : (post.votes || 0) + 1;
-    await sb(`posts?id=eq.${post.id}`, { method: 'PATCH', body: { votes: v }, prefer: 'return=minimal' });
-    setPost(p => ({ ...p, votes: v }));
+    const already = upvotedPost;
+    const res = already
+      ? await fetch(`/api/community/vote?targetType=post&targetId=${post.id}`, { method: 'DELETE' })
+      : await fetch('/api/community/vote', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ targetType: 'post', targetId: post.id }),
+        });
+    if (!res.ok) return;
+    const { votes } = await res.json();
+    setPost(p => ({ ...p, votes }));
     setUpvotedPost(u => !u);
-    if (!upvotedPost && post.user_id && post.user_id !== userId) {
-      awardPoints(post.user_id, 'upvote_received').catch(() => {});
-    }
-  }, [post, upvotedPost, userId]);
+  }, [post, upvotedPost]);
 
-  const handleUpvoteReply = useCallback(async (replyId, current, authorId) => {
+  const handleUpvoteReply = useCallback(async (replyId) => {
     const already = upvotedReplies.has(replyId);
-    const v = already ? (current || 0) - 1 : (current || 0) + 1;
-    await sb(`replies?id=eq.${replyId}`, { method: 'PATCH', body: { votes: v }, prefer: 'return=minimal' });
-    setReplies(rs => rs.map(r => r.id === replyId ? { ...r, votes: v } : r));
+    const res = already
+      ? await fetch(`/api/community/vote?targetType=reply&targetId=${replyId}`, { method: 'DELETE' })
+      : await fetch('/api/community/vote', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ targetType: 'reply', targetId: replyId }),
+        });
+    if (!res.ok) return;
+    const { votes } = await res.json();
+    setReplies(rs => rs.map(r => r.id === replyId ? { ...r, votes } : r));
     setUpvotedReplies(prev => { const next = new Set(prev); already ? next.delete(replyId) : next.add(replyId); return next; });
-    if (!already && authorId && authorId !== userId) {
-      awardPoints(authorId, 'upvote_received').catch(() => {});
-    }
-  }, [upvotedReplies, userId]);
+  }, [upvotedReplies]);
 
   const handleDeletePost = useCallback(async () => {
     if (!post) return;
-    await sb(`posts?id=eq.${post.id}`, { method: 'DELETE' });
+    await fetch(`/api/community/post?id=${post.id}`, { method: 'DELETE' });
     router.push('/community');
     router.refresh();
   }, [post, router]);
 
   const handleDeleteReply = useCallback(async (replyId) => {
-    await sb(`replies?id=eq.${replyId}`, { method: 'DELETE' });
+    await fetch(`/api/community/reply?id=${replyId}`, { method: 'DELETE' });
     setReplies(rs => rs.filter(r => r.id !== replyId));
   }, []);
 
@@ -192,17 +200,12 @@ export default function PostDetailPage() {
       const result = await res.json();
       if (result && result.length) {
         setReplies(rs => [...rs, { ...result[0], author: { display_name: punterName } }]);
-        const newCount = (post.reply_count || 0) + 1;
-        const newActivityAt = new Date().toISOString();
-        const patched = await sb(`posts?id=eq.${post.id}`, { method: 'PATCH', body: { reply_count: newCount, last_activity_at: newActivityAt }, prefer: 'return=representation' });
-        if (patched && patched.length) {
-          setPost(p => ({ ...p, ...patched[0] }));
-        } else {
-          console.error('[handleAddReply] posts PATCH failed or returned no row — reply_count/last_activity_at not updated for post', post.id);
-        }
+        // /api/community/reply already bumped reply_count/last_activity_at
+        // and awarded community_reply points server-side -- just reflect
+        // the count locally instead of re-fetching the post.
+        setPost(p => ({ ...p, reply_count: (p.reply_count || 0) + 1, last_activity_at: new Date().toISOString() }));
         setReplyText('');
         window.dispatchEvent(new Event('ww:profile:refresh'));
-        awardPoints(userId, 'community_reply', replyText.trim().slice(0, 100)).catch(() => {});
       }
     }
     setSubmitting(false);

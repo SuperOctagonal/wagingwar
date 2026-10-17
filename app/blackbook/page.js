@@ -6,7 +6,6 @@ import usePlan from '@/hooks/usePlan';
 import { hasFeature } from '@/lib/planFeatures';
 import useIsMobile from '@/hooks/useIsMobile';
 import UpgradeModal from '@/components/UpgradeModal';
-import { awardPoints } from '@/lib/points';
 import { sydneyDateTimeToInstant } from '@/lib/raceTime';
 
 const SURL = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -329,12 +328,13 @@ export default function BlackbookPage() {
       newBanners.forEach(async b => {
         const row = horses.find(h => h.id === b.rowId);
         const newNotified = [...(row?.notified_wins || []), b.nkey];
+        // /api/blackbook's PATCH handler diffs notified_wins itself and
+        // awards blackbook_win server-side for each genuinely new entry.
         await fetch(`/api/blackbook?id=${b.rowId}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ notified_wins: newNotified }),
         });
-        if (userId) awardPoints(userId, 'blackbook_win', b.horse).catch(() => {});
       });
     });
   }, [horses, userId, isLoaded]);

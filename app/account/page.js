@@ -4,7 +4,6 @@ import { useUser, useClerk } from '@clerk/nextjs';
 import { useEffect, useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { sbFetch } from '@/lib/supabase';
 import { getTier, ALL_TIERS } from '@/lib/tiers';
 import useIsPro from '@/hooks/useIsPro';
 import { punterFallback } from '@/lib/punterFallback';
@@ -176,14 +175,13 @@ function AccountPageInner() {
       const [prof, allR, bdg, plog] = await Promise.all([
         fetch('/api/profile/me').then(r => r.ok ? r.json() : null),
         fetch('/api/bets').then(r => r.ok ? r.json() : null),
-        sbFetch(`user_badges?clerk_id=eq.${userId}&order=earned_at.desc`),
-        sbFetch(`points_log?clerk_id=eq.${userId}&select=*&order=created_at.desc&limit=50`),
+        fetch('/api/badges').then(r => r.ok ? r.json() : null),
+        fetch('/api/points-log').then(r => r.ok ? r.json() : null),
       ]);
-      if (plog?.length) console.log('[points_log row sample]', plog[0]);
       setProfile(prof ?? null);
       setAllResults(allR ?? []);
       setBadges(bdg ?? []);
-      setPointsLog(plog ?? []);
+      setPointsLog((plog ?? []).slice(0, 50));
       setLoading(false);
     })();
   }, [userId]);

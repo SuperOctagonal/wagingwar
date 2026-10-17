@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { parseCSV, buildRaces } from '@/lib/csvParser';
 import { selectBeatModelRace } from '@/lib/beatModel';
 import { normaliseVenue } from '@/lib/venues';
-import { awardPoints } from '@/lib/points';
+import { awardPointsServer } from '@/lib/awardPointsServer';
 import { getWizardCsv } from '@/lib/wizardCsvCache';
 
 const SURL = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -143,7 +143,7 @@ export async function POST(request) {
     const updatedRows = await r.json();
     if (Array.isArray(updatedRows) && updatedRows.length) {
       result.resolved++;
-      if (won) await awardPoints(pick.clerk_id, 'beat_model_correct').catch(() => {});
+      if (won) await awardPointsServer(pick.clerk_id, 'beat_model_correct', { referenceId: `beat_model_correct:${pick.clerk_id}:${pick.comp_date}` }).catch(() => {});
     }
   }
 

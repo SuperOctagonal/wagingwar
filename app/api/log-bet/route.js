@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { auth, clerkClient } from '@clerk/nextjs/server';
 import { ALL_KNOWN_BOOKMAKERS } from '@/lib/bookmakers';
 import { hasFeature } from '@/lib/planFeatures';
+import { awardPointsServer } from '@/lib/awardPointsServer';
 
 const SURL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SKEY = process.env.SUPABASE_SERVICE_KEY;
@@ -73,5 +74,10 @@ export async function POST(req) {
     return NextResponse.json({ error: `Supabase ${r.status}` }, { status: 502 });
   }
   const data = await r.json();
+
+  const row = Array.isArray(data) ? data[0] : data;
+  if (row?.id != null) {
+    awardPointsServer(userId, 'bet_logged', { referenceId: `bet:${row.id}`, detail: body.horse_name }).catch(() => {});
+  }
   return NextResponse.json(data);
 }

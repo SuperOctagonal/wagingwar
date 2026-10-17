@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 import { randomUUID } from 'crypto';
+import { awardPointsServer } from '@/lib/awardPointsServer';
 
 const SURL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SKEY = process.env.SUPABASE_SERVICE_KEY;
@@ -46,5 +47,9 @@ export async function POST(req) {
   });
   if (!r.ok) return NextResponse.json({ error: `Supabase ${r.status}` }, { status: 502 });
 
+  // Each share gets its own id, so this is naturally "once per real share"
+  // -- was previously awarded client-side on every menu OPEN regardless of
+  // whether a share was actually created (components/ShareMenu.js).
+  awardPointsServer(userId, 'bet_card_share', { referenceId: `bet_card_share:${id}` }).catch(() => {});
   return NextResponse.json({ id, url: `https://wagingwar.com.au/bet-share/${id}` });
 }

@@ -14,7 +14,6 @@ import BottomSheet from '@/components/BottomSheet';
 import ShareMenu from '@/components/ShareMenu';
 import PuntersEdgeCredit from '@/components/PuntersEdgeCredit';
 import OddsTable from '@/components/OddsTable';
-import { awardPoints } from '@/lib/points';
 import { normaliseVenue, stripSponsorPrefix, SPONSOR_PREFIXES, resolveCrseAbbrev, isNzVenue } from '@/lib/venues';
 import { isRacesAdmin, isSiteAdmin } from '@/lib/admin';
 import { validateBetForm } from '@/lib/betValidation';
@@ -1231,19 +1230,17 @@ function BetModal({ horse, onClose, isAdmin = false, oddsBookmaker = '' }) {
   // pre-fill below and the bookmaker grid's onClick, so both stay backed by
   // the exact same lookup.
   const fetchLivePriceForBookmaker = useCallback(async (slug) => {
-    if (!slug || !horse?._venue || !horse?._raceNum || !horse?._meetingDate || !horse?.name || !SURL || !SKEY) return null;
+    if (!slug || !horse?._venue || !horse?._raceNum || !horse?._meetingDate || !horse?.name) return null;
     try {
       const venue = normaliseVenue(horse._venue);
       const raceNum = String(horse._raceNum);
       const res = await fetch(
-        `${SURL}/rest/v1/odds_snapshot?race_date=eq.${horse._meetingDate}&race_venue=eq.${encodeURIComponent(venue)}&race_num=eq.${encodeURIComponent(raceNum)}&bookmaker=eq.${encodeURIComponent(slug)}&select=horse_name,price,captured_at&order=captured_at.desc&limit=200`,
-        { headers: { apikey: SKEY, Authorization: `Bearer ${SKEY}` } },
+        `/api/race-live-prices?venue=${encodeURIComponent(venue)}&raceNum=${encodeURIComponent(raceNum)}&date=${encodeURIComponent(horse._meetingDate)}&bookmaker=${encodeURIComponent(slug)}`,
       );
       if (!res.ok) return null;
-      const rows = await res.json();
-      const targetName = stripCountry(horse.name).toUpperCase();
-      const hit = rows.find(r => stripCountry(r.horse_name).toUpperCase() === targetName);
-      return hit ? Number(hit.price) : null;
+      const { livePrices } = await res.json();
+      const price = livePrices?.[stripCountry(horse.name).toUpperCase()];
+      return typeof price === 'number' && isFinite(price) ? price : null;
     } catch { return null; }
   }, [horse?._venue, horse?._raceNum, horse?.name]);
 
@@ -1365,8 +1362,9 @@ function BetModal({ horse, onClose, isAdmin = false, oddsBookmaker = '' }) {
           const errText = await res.text();
           console.error('[BetSave] /api/log-bet error — status:', res.status, '| body:', errText);
         } else {
+          // bet_logged points are now awarded server-side, inside
+          // /api/log-bet's POST handler.
           dbSuccess = true;
-          awardPoints(user.id, 'bet_logged', horse.name).catch(err => { console.error('[BetSave] points error:', err); });
         }
       } catch (err) {
         console.error('[BetSave] Network error:', err);
@@ -1421,7 +1419,8 @@ function BetModal({ horse, onClose, isAdmin = false, oddsBookmaker = '' }) {
     });
     if (res.ok) {
       window.dispatchEvent(new Event('ww:profile:refresh'));
-      awardPoints(user.id, 'community_post', title.slice(0, 100)).catch(() => {});
+      // community_post points are now awarded server-side, inside
+      // /api/community/post's POST handler.
       setShareToast('Posted to Community');
     } else if (res.status === 403) {
       setShareToast('Community posting is a Pro feature');
@@ -3638,11 +3637,9 @@ function BlackbookModal({ target, onClose, userId, canAccess }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
-      if (res.ok) {
-        awardPoints(userId, 'blackbook_save', horseName).catch(ptErr => {
-          console.error('[BB Save] points error:', ptErr);
-        });
-      } else {
+      if (!res.ok) {
+        // blackbook_save points are now awarded server-side, inside
+        // /api/blackbook's POST handler.
         console.error('[BB Save] failed', res.status, await res.text().catch(() => ''));
       }
     } catch (err) {

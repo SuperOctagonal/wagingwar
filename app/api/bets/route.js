@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { requireUser } from '@/lib/serverAuth';
 import { sbAdminRaw } from '@/lib/supabaseAdmin';
 import { ALL_KNOWN_BOOKMAKERS } from '@/lib/bookmakers';
+import { awardPointsServer } from '@/lib/awardPointsServer';
 
 // Replaces every direct-anon-key bet_log call from the browser: mybets'
 // load/edit/delete/settle-patch, TopNav/ProfileRail/InsightsPanel's own-bets
@@ -94,6 +95,10 @@ export async function POST(req) {
     body: insertBody,
   });
   if (!ok) return NextResponse.json({ error: 'Supabase error' }, { status: status === 400 ? 400 : 502 });
+  const row = Array.isArray(data) ? data[0] : data;
+  if (row?.id != null) {
+    awardPointsServer(userId, 'bet_logged', { referenceId: `bet:${row.id}`, detail: insertBody.horse_name }).catch(() => {});
+  }
   return NextResponse.json(data);
 }
 

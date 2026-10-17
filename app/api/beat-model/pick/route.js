@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { auth, clerkClient } from '@clerk/nextjs/server';
-import { awardPoints } from '@/lib/points';
+import { awardPointsServer } from '@/lib/awardPointsServer';
 
 const SURL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SKEY = process.env.SUPABASE_SERVICE_KEY;
@@ -54,7 +54,7 @@ export async function POST(req) {
   // the pick itself now that the pick write is server-side. The 1/day cap
   // in lib/points.js's LIMITS already stops a changed pick from re-earning
   // this, same as before.
-  await awardPoints(userId, 'beat_model_participate').catch(() => {});
+  await awardPointsServer(userId, 'beat_model_participate', { referenceId: `beat_model_participate:${userId}:${compDate}` }).catch(() => {});
 
   return NextResponse.json({ ok: true, comp_date: compDate, horse_name: horseName });
 }

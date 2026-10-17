@@ -3,6 +3,7 @@ import { auth } from '@clerk/nextjs/server';
 import { randomUUID } from 'crypto';
 import { normaliseVenue } from '@/lib/venues';
 import { findBattleCardStats } from '@/lib/edgeZone';
+import { awardPointsServer } from '@/lib/awardPointsServer';
 
 const SURL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 // Service key, not anon -- battle_card_shares has no RLS policies (all access
@@ -65,5 +66,11 @@ export async function POST() {
     if (!r.ok) return NextResponse.json({ error: `Supabase ${r.status}` }, { status: 502 });
   }
 
+  // No referenceId -- this action is meant to be repeatable (re-sharing
+  // overwrites the same row), bounded by LIMITS' weekly maxPoints cap, not
+  // by a once-ever dedup key. Was previously awarded client-side on every
+  // menu OPEN (components/ShareMenu.js), regardless of whether a share was
+  // actually created -- now only fires here, after a real share exists.
+  awardPointsServer(userId, 'battle_card_share').catch(() => {});
   return NextResponse.json({ id, url: `https://wagingwar.com.au/battle-card/share/${id}` });
 }

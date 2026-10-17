@@ -672,7 +672,8 @@ export default function CompetitionsPage() {
 
   useEffect(() => {
     if (!user?.id || !isPro || !SURL || !SKEY) return;
-    sbFetch(`comp_picks?clerk_id=eq.${encodeURIComponent(user.id)}&comp_date=eq.${today}&select=venue,race_num,horse_name`)
+    fetch(`/api/competitions/picks?comp_date=${today}`)
+      .then(r => r.ok ? r.json() : [])
       .then(rows => {
         if (!Array.isArray(rows)) return;
         const p = {};
@@ -748,18 +749,15 @@ export default function CompetitionsPage() {
   useEffect(() => {
     if (!SURL || !SKEY || !isPro) return;
     function loadAll() {
-      sbFetch(`comp_picks_popular?comp_date=eq.${today}&select=venue,race_num,horse_name,pick_count`)
-        .then(rows => { if (Array.isArray(rows)) setPopularData(rows); });
-      // order=clerk_id.asc, not score.desc -- comp_picks is a per-pick row
-      // (one per race per user), it has no score column at all; score is
-      // computed client-side afterwards from these rows + race results. Any
-      // deterministic ORDER BY fixes the actual bug (PostgREST/Postgres row
-      // order is otherwise unspecified without one), and clerk_id.asc
-      // matches the final tie-breaker in the entries.sort() below for
-      // consistency between the two.
-      sbFetch(`comp_picks?comp_date=eq.${today}&hide_picks=eq.false&select=clerk_id,username,venue,race_num,horse_name&order=clerk_id.asc`)
-        .then(rows => Array.isArray(rows) ? resolveLiveUsernames(rows) : [])
-        .then(rows => { if (Array.isArray(rows)) setAllPicksData(rows); });
+      // Server strips hide_picks=true rows and any pick for a race that
+      // hasn't locked yet -- see /api/competitions/picks's mode=public.
+      fetch(`/api/competitions/picks?mode=public&comp_date=${today}`)
+        .then(r => r.ok ? r.json() : { popular: [], picks: [] })
+        .then(async ({ popular, picks: rows }) => {
+          if (Array.isArray(popular)) setPopularData(popular);
+          const resolved = Array.isArray(rows) ? await resolveLiveUsernames(rows) : [];
+          if (Array.isArray(resolved)) setAllPicksData(resolved);
+        });
     }
     loadAll();
     const id = setInterval(loadAll, 30000);
@@ -769,7 +767,8 @@ export default function CompetitionsPage() {
   useEffect(() => {
     if (!user?.id || !isPro || !SURL || !SKEY) return;
     function loadPoints() {
-      sbFetch(`points_log?clerk_id=eq.${encodeURIComponent(user.id)}&select=points`)
+      fetch('/api/points-log')
+        .then(r => r.ok ? r.json() : [])
         .then(rows => {
           if (!Array.isArray(rows)) return;
           setAllTimePoints(rows.reduce((s, r) => s + (r.points || 0), 0));
@@ -825,7 +824,8 @@ export default function CompetitionsPage() {
 
   useEffect(() => {
     if (!user?.id || !isPro || !SURL || !SKEY) return;
-    sbFetch(`comp_picks?clerk_id=eq.${encodeURIComponent(user.id)}&select=comp_date,venue,race_num,horse_name`)
+    fetch('/api/competitions/picks')
+      .then(r => r.ok ? r.json() : [])
       .then(rows => { if (Array.isArray(rows)) setUserAllPicksData(rows); });
   }, [user?.id]);
 
@@ -1008,13 +1008,13 @@ export default function CompetitionsPage() {
     const key = rk(race.venue, race.num);
     if (isLocked(race) && !scratchAlerts.some(r => rk(r.venue, r.num) === key)) return;
     setPicks(p => ({ ...p, [key]: horseName }));
-    if (!user?.id || !SURL || !SKEY) return;
+    if (!user?.id) return;
     setSavingKey(key);
-    await sbFetch('comp_picks?on_conflict=clerk_id,comp_date,venue,race_num', {
+    await fetch('/api/competitions/picks', {
       method: 'POST',
-      prefer: 'resolution=merge-duplicates,return=minimal',
-      body: { clerk_id: user.id, comp_date: today, venue: normaliseVenue(race.venue||''), race_num: +race.num, horse_name: horseName, username: uname, hide_picks: settings.compShowPicks === false },
-    });
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ comp_date: today, venue: normaliseVenue(race.venue||''), race_num: +race.num, horse_name: horseName, username: uname, hide_picks: settings.compShowPicks === false }),
+    }).catch(() => {});
     setSavingKey(null);
   }
 

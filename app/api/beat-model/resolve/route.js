@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { auth, clerkClient } from '@clerk/nextjs/server';
-import { awardPoints } from '@/lib/points';
+import { awardPointsServer } from '@/lib/awardPointsServer';
 
 const SURL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SKEY = process.env.SUPABASE_SERVICE_KEY;
@@ -58,7 +58,7 @@ export async function POST(req) {
   const rows = await r.json();
   const updated = Array.isArray(rows) && rows.length > 0;
   if (updated && won) {
-    await awardPoints(userId, 'beat_model_correct').catch(() => {});
+    await awardPointsServer(userId, 'beat_model_correct', { referenceId: `beat_model_correct:${userId}:${compDate}` }).catch(() => {});
   }
   return NextResponse.json({ ok: true, updated, won });
 }

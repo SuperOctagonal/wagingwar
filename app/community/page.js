@@ -8,7 +8,6 @@ import usePlan from '@/hooks/usePlan';
 import { hasFeature } from '@/lib/planFeatures';
 import useIsMobile from '@/hooks/useIsMobile';
 import UpgradeModal from '@/components/UpgradeModal';
-import { awardPoints } from '@/lib/points';
 import { punterFallback } from '@/lib/punterFallback';
 import { fetchDisplayNames } from '@/lib/displayNames';
 import { fetchEquippedCosmetics } from '@/lib/cosmetics';
@@ -1027,7 +1026,7 @@ function CommunityPageInner() {
       setCosmetics(equipped[userId] || { border: null, flair: null });
     })();
     setBadges([]);
-    sb(`user_missions?select=*,missions(title,points)&clerk_id=eq.${userId}&limit=5`).then(r => {
+    fetch('/api/missions/mine').then(res => res.ok ? res.json() : null).then(r => {
       if (r) setMissions(r.map(um => ({
         id: um.mission_id,
         title: um.missions?.title,
@@ -1076,7 +1075,8 @@ function CommunityPageInner() {
     if (result && result.length) {
       setPosts(ps => [{ ...result[0], author: { display_name: punterName } }, ...ps]);
       window.dispatchEvent(new Event('ww:profile:refresh'));
-      awardPoints(userId, 'community_post', title.slice(0, 100)).catch(() => {});
+      // Points for community_post are now awarded server-side, inside
+      // /api/community/post's POST handler.
     }
     return !!result;
   }, [userId, punterName]);

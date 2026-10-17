@@ -9,9 +9,6 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { BOOKMAKERS, ALL_KNOWN_BOOKMAKERS } from '@/lib/bookmakers';
 import { fetchBookmakerTransactions, computeBookmakerRows } from '@/lib/bookmakerStats';
 
-const SURL = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const SKEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
 const inp = { fontSize: 12, padding: '7px 10px', border: '1px solid #e5e7eb', borderRadius: 6, color: '#111827', outline: 'none', background: '#fff', width: '100%', boxSizing: 'border-box' };
 
 export default function BookiesPanel({ bets, userId }) {
@@ -70,18 +67,16 @@ export default function BookiesPanel({ bets, userId }) {
     if (!ALL_KNOWN_BOOKMAKERS.includes(formBookmaker)) { setFormError('Unknown bookmaker'); return; }
     const amt = +formAmount;
     if (!amt || isNaN(amt)) { setFormError('Enter an amount'); return; }
-    const signedAmount = formType === 'withdrawal' ? -Math.abs(amt) : amt;
     setSaving(true);
     setFormError('');
     try {
-      const res = await fetch(`${SURL}/rest/v1/bookmaker_transactions`, {
+      const res = await fetch('/api/bookmaker-transactions', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', apikey: SKEY, Authorization: `Bearer ${SKEY}`, Prefer: 'return=minimal' },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          clerk_id: userId,
           bookmaker: formBookmaker,
           type: formType,
-          amount: signedAmount,
+          amount: amt,
           note: formNote || null,
           occurred_at: formDate,
         }),

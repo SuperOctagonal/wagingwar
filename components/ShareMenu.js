@@ -2,7 +2,6 @@
 
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { awardPoints } from '@/lib/points';
 
 // Reusable share menu: device-share / Facebook / X / download / copy, plus
 // an optional extra actions slot (used by Bet Share's "Share to Community").
@@ -71,7 +70,10 @@ export default function ShareMenu({
   const handleOpen = useCallback(async () => {
     if (!userId || menuOpen) return;
     setMenuOpen(true);
-    if (pointsAction) awardPoints(userId, pointsAction).catch(() => {});
+    // Points are now awarded server-side, inside createPublicUrl's own
+    // route (/api/battle-card/share or /api/bet-card/share), as a side
+    // effect of a share actually being created -- not here on every menu
+    // open regardless of outcome.
 
     setPublicStatus('loading');
     setImgStatus('loading');

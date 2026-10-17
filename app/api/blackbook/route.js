@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { requireUser } from '@/lib/serverAuth';
 import { sbAdminRaw } from '@/lib/supabaseAdmin';
+import { awardPointsServer } from '@/lib/awardPointsServer';
 
 // Replaces app/blackbook/page.js's own reads/writes and the add-horse
 // upsert in app/races/page.js (~line 3641). clerk_id always comes from the
@@ -61,6 +62,11 @@ export async function POST(req) {
     body: upsertBody,
   });
   if (!ok) return NextResponse.json({ error: 'Supabase error' }, { status: status === 400 ? 400 : 502 });
+
+  const row = Array.isArray(data) ? data[0] : data;
+  if (row?.id != null) {
+    awardPointsServer(userId, 'blackbook_save', { referenceId: `blackbook:${row.id}`, detail: upsertBody.horse_name }).catch(() => {});
+  }
   return NextResponse.json(data);
 }
 
@@ -75,6 +81,21 @@ export async function PATCH(req) {
   const body = await req.json().catch(() => null);
   const patch = sanitizePatch(body);
   if (!patch) return NextResponse.json({ error: 'Invalid fields' }, { status: 400 });
+
+  // blackbook_win points: award once per newly-added notified_wins entry
+  // (the entry's own key, e.g. "VENUE||RACE||date", is the dedup
+  // reference_id -- same key the client already used to track "have I
+  // shown this win banner"). Diff against the row's current value first
+  // so only genuinely new entries earn points, never a resend of the
+  // same list.
+  if (patch.notified_wins !== undefined) {
+    const { data: before } = await sbAdminRaw(`blackbook?id=eq.${id}&clerk_id=eq.${encodeURIComponent(userId)}&select=notified_wins,horse_name`);
+    const prevWins = new Set(before?.[0]?.notified_wins || []);
+    const newWins = patch.notified_wins.filter(w => !prevWins.has(w));
+    newWins.forEach(w => {
+      awardPointsServer(userId, 'blackbook_win', { referenceId: `blackbook_win:${id}:${w}`, detail: before?.[0]?.horse_name }).catch(() => {});
+    });
+  }
 
   const { ok, data } = await sbAdminRaw(
     `blackbook?id=eq.${id}&clerk_id=eq.${encodeURIComponent(userId)}`,

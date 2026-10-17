@@ -7,40 +7,17 @@ import FirmingDriftingBadge from '@/components/FirmingDriftingBadge';
 import ScrollHint from '@/components/ScrollHint';
 import { useScrollOverflow } from '@/hooks/useScrollOverflow';
 
-const SURL = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const SKEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-function sbHeaders() {
-  return { apikey: SKEY, Authorization: `Bearer ${SKEY}` };
-}
-
-async function sb(path) {
-  if (!SURL || !SKEY) return [];
+// Odds comparison data (odds_snapshot + race_cards join, latest batch via
+// the race_odds_open_latest RPC) now comes from /api/odds-table -- a public,
+// server-fetched (service-key) route, replacing the previous direct
+// anon-key reads of both tables.
+async function fetchOddsTable(date, venue, raceNum) {
   try {
-    const res = await fetch(`${SURL}/rest/v1/${path}`, { headers: sbHeaders() });
-    if (!res.ok) return [];
+    const res = await fetch(`/api/odds-table?venue=${encodeURIComponent(venue)}&raceNum=${encodeURIComponent(raceNum)}&date=${encodeURIComponent(date)}`);
+    if (!res.ok) return { rows: [], cardInfo: {}, capturedAt: null };
     return await res.json();
   } catch {
-    return [];
-  }
-}
-
-// Latest captured_at via the same race_odds_open_latest RPC fetchMarketMoveFlags
-// uses, instead of order=captured_at.desc&limit=1 -- that query still sorts
-// every row for the race's full day before taking the top one.
-async function fetchLatestTs(date, venue, raceNum) {
-  if (!SURL || !SKEY) return null;
-  try {
-    const res = await fetch(`${SURL}/rest/v1/rpc/race_odds_open_latest`, {
-      method: 'POST',
-      headers: { ...sbHeaders(), 'Content-Type': 'application/json' },
-      body: JSON.stringify({ p_date: date, p_venue: venue, p_race: String(raceNum), p_min_books: MIN_OPEN_BOOKMAKERS }),
-    });
-    if (!res.ok) return null;
-    const rows = await res.json();
-    return rows[0]?.latest_ts ?? null;
-  } catch {
-    return null;
+    return { rows: [], cardInfo: {}, capturedAt: null };
   }
 }
 
@@ -75,28 +52,9 @@ export default function OddsTable({ venue, raceNum, selectedBookmaker = '' }) {
     async function load() {
       setLoading(true);
       const today = sydneyToday();
-      // odds_snapshot is append-only (one batch per ~15min poll) -- read only
-      // the most recent batch's captured_at, not the whole day's history.
-      const ts = await fetchLatestTs(today, venue, raceNum);
-      if (!ts) {
-        if (!cancelled) { setRows([]); setCardInfo({}); setCapturedAt(null); setLoading(false); }
-        return;
-      }
-      // odds_snapshot itself has no horse number/barrier -- those live on
-      // race_cards (the same table the Field tab reads them from), joined
-      // here by horse_name since odds_snapshot.horse_name is already the
-      // matched race_cards.horse_name value (written by the puntersedge-refs
-      // ingest route's matcher, not a raw PuntersEdge name).
-      const [snapshot, cards] = await Promise.all([
-        sb(`odds_snapshot?race_date=eq.${today}&race_venue=eq.${encodeURIComponent(venue)}&race_num=eq.${encodeURIComponent(raceNum)}&captured_at=eq.${encodeURIComponent(ts)}&select=horse_name,bookmaker,price`),
-        sb(`race_cards?date=eq.${today}&venue=eq.${encodeURIComponent(venue)}&race_num=eq.${encodeURIComponent(raceNum)}&select=horse_name,barrier,form_data`),
-      ]);
+      const { rows: snapshot, cardInfo: info, capturedAt: ts } = await fetchOddsTable(today, venue, raceNum);
       if (!cancelled) {
         setRows(snapshot);
-        const info = {};
-        for (const c of cards) {
-          info[c.horse_name] = { tab: c.form_data?.tab ?? null, barrier: c.barrier ?? null };
-        }
         setCardInfo(info);
         setCapturedAt(ts);
         setLoading(false);
