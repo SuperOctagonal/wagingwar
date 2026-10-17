@@ -9,13 +9,6 @@ const STATUS = {
 
 const SECTIONS = [
   {
-    title: 'Data & Automation',
-    icon: 'ti-database',
-    features: [
-      { icon: 'ti-cloud',          title: 'Track condition auto-updates',   desc: 'Track conditions update automatically throughout the day as official reports come in.',                status: 'dev',     subscriber: false },
-    ],
-  },
-  {
     title: 'Mobile App',
     icon: 'ti-device-mobile',
     features: [
@@ -28,6 +21,7 @@ const SECTIONS = [
     title: 'Analytics & Results',
     icon: 'ti-chart-bar',
     features: [
+      { icon: 'ti-cloud',        title: 'Track condition auto-updates',            desc: 'Track conditions update automatically throughout the day as official reports come in.',                status: 'dev',     subscriber: false },
       { icon: 'ti-chart-line',   title: 'Performance breakdown by jockey/trainer', desc: 'Filter your results by jockey, trainer, and track to find your strongest angles.',                        status: 'soon',    subscriber: true  },
       { icon: 'ti-users-group',  title: 'Tipster comparison',                      desc: 'Compare your ROI against other members and public tipsters on the platform leaderboard.',                  status: 'planned', subscriber: false },
     ],

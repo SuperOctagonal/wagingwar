@@ -292,7 +292,7 @@ export default function HomePage() {
               <ul style={{ listStyle: 'none', padding: 0, display: 'flex', flexDirection: 'column', gap: 11, marginBottom: 28 }}>
                 {[
                   'Live bookmaker prices',
-                  'Move column & price alerts',
+                  'Move column (price moves)',
                   'Firmer/Drifter chips',
                   'Full odds comparison',
                   'Race results',
