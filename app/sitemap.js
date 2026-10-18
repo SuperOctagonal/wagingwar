@@ -2,7 +2,8 @@ import { normaliseVenue } from '@/lib/venues';
 import { fetchAllRows } from '@/lib/fetchAllRows';
 
 const SURL = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const SKEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+// Public data, but this runs server-side -- service key for consistency.
+const SKEY = process.env.SUPABASE_SERVICE_KEY;
 
 // Regenerate at most once an hour rather than on every crawl request —
 // this makes a live Supabase call.

@@ -7,7 +7,8 @@ import { isSiteAdmin } from '@/lib/admin';
 // bucket (lib/trustApply.js's pickTrustBucket() picks the right one
 // client-side per runner).
 const SURL = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const SKEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+// Public data, but this is a server route -- service key for consistency.
+const SKEY = process.env.SUPABASE_SERVICE_KEY;
 
 export async function GET() {
   const { userId } = await auth();

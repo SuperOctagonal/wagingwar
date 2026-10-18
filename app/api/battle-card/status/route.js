@@ -4,7 +4,9 @@ import { normaliseVenue } from '@/lib/venues';
 import { findBattleCardStats } from '@/lib/edgeZone';
 
 const SURL = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const SKEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+// Service key, not anon -- bet_log is private and has no anon-role SELECT
+// policy (401 once the open RLS policies are removed).
+const SKEY = process.env.SUPABASE_SERVICE_KEY;
 
 // Lightweight qualification check -- same stats as /api/battle-card, but
 // returns JSON instead of rendering a PNG, so My Bets can decide whether to

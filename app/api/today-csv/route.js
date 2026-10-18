@@ -6,7 +6,9 @@ import { getWizardCsv } from '@/lib/wizardCsvCache';
 import { hasFeature } from '@/lib/planFeatures';
 
 const SURL = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const SKEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+// Service key, not anon -- for consistency with the rest of the server
+// data layer (Storage access, not a table read, but same principle).
+const SKEY = process.env.SUPABASE_SERVICE_KEY;
 
 function csvField(v) {
   const s = v == null ? '' : String(v);

@@ -9,7 +9,8 @@ import { isSiteAdmin } from '@/lib/admin';
 // (lib/calibrationCurve.js) which lib/livePricing.js's calculateLiveOdds
 // applies -- the single shared point every WW$ consumer goes through.
 const SURL = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const SKEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+// Public data, but this is a server route -- service key for consistency.
+const SKEY = process.env.SUPABASE_SERVICE_KEY;
 
 export async function GET() {
   const { userId } = await auth();

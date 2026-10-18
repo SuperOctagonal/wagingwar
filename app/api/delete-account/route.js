@@ -3,7 +3,11 @@ import { auth, clerkClient } from '@clerk/nextjs/server';
 import { NextResponse } from 'next/server';
 
 const SURL = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const SKEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+// Service key, not anon -- every table deleted below is private and has no
+// anon-role DELETE policy. These calls were silently 401ing (sbDel only
+// logs the error) once the open RLS policies were removed, meaning
+// account deletion stopped actually deleting any of the user's data.
+const SKEY = process.env.SUPABASE_SERVICE_KEY;
 
 async function sbDel(table, filter) {
   const res = await fetch(`${SURL}/rest/v1/${table}?${filter}`, {

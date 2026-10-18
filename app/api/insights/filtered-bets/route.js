@@ -5,7 +5,9 @@ import { ODDS_BANDS as ODDS_BANDS_LIST } from '@/lib/oddsBucket';
 import { fetchAllRows } from '@/lib/fetchAllRows';
 
 const SURL = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const SKEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+// Service key, not anon -- bet_log is private and has no anon-role SELECT
+// policy (401 once the open RLS policies are removed).
+const SKEY = process.env.SUPABASE_SERVICE_KEY;
 
 // Same bands Insights' ROI-by-Odds-Band heatmap and BetFilterPanel's Odds
 // band filter both use — see lib/oddsBucket.js, the single source of truth.

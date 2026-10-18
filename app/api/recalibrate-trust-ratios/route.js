@@ -5,7 +5,6 @@ import { FIRST_STARTER_LIVE_WEIGHT } from '@/lib/scoring';
 
 const SURL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SKEY = process.env.SUPABASE_SERVICE_KEY;
-const ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 const SECRET = process.env.IMPORT_CSV_SECRET;
 
 // Part D: extends Phase 2's weekly-recalibration pattern to Phase 3's
@@ -44,7 +43,7 @@ export async function POST(request) {
     const incoming = request.headers.get('x-import-secret');
     if (incoming !== SECRET) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
-  if (!SURL || !SKEY || !ANON_KEY) return NextResponse.json({ error: 'Supabase env vars not set' }, { status: 500 });
+  if (!SURL || !SKEY) return NextResponse.json({ error: 'Supabase env vars not set' }, { status: 500 });
 
   const result = { buckets: {}, errors: [] };
 

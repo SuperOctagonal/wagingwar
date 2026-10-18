@@ -6,7 +6,8 @@ import { filterAuMeetings } from '@/lib/venues';
 import { hasFeature } from '@/lib/planFeatures';
 
 const SURL = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const SKEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+// Public data, but this is a server route -- service key for consistency.
+const SKEY = process.env.SUPABASE_SERVICE_KEY;
 
 export async function GET(req) {
   const { userId } = await auth();
