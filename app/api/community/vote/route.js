@@ -17,10 +17,13 @@ import { awardPointsServer } from '@/lib/awardPointsServer';
 //     ON post_votes (clerk_id, target_id, target_type);
 
 const TARGET_TABLES = { post: 'posts', reply: 'replies' };
+// posts.id/replies.id and post_votes.target_id are all uuid, not bigint --
+// see app/api/blackbook/route.js's note.
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 function validTarget(targetType, targetId) {
   if (!TARGET_TABLES[targetType]) return false;
-  if (!/^\d+$/.test(String(targetId))) return false;
+  if (!UUID_RE.test(String(targetId))) return false;
   return true;
 }
 
@@ -54,7 +57,10 @@ export async function POST(req) {
     const { ok } = await sbAdminRaw('post_votes', {
       method: 'POST',
       prefer: 'return=minimal',
-      body: { clerk_id: userId, target_id: +targetId, target_type: targetType },
+      // target_id is a uuid column -- must stay a string; +targetId here
+      // coerced it to NaN (JSON.stringify(NaN) -> null), so every vote
+      // insert was silently writing a null target_id.
+      body: { clerk_id: userId, target_id: targetId, target_type: targetType },
     });
     if (!ok) return NextResponse.json({ error: 'Supabase error' }, { status: 502 });
     if (authorId && authorId !== userId) {

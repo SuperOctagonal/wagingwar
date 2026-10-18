@@ -148,14 +148,14 @@ export default function PostDetailPage() {
   const handleUpvotePost = useCallback(async () => {
     if (!post) return;
     const already = upvotedPost;
-    const res = already
-      ? await fetch(`/api/community/vote?targetType=post&targetId=${post.id}`, { method: 'DELETE' })
-      : await fetch('/api/community/vote', {
+    const res = await (already
+      ? fetch(`/api/community/vote?targetType=post&targetId=${post.id}`, { method: 'DELETE' })
+      : fetch('/api/community/vote', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ targetType: 'post', targetId: post.id }),
-        });
-    if (!res.ok) return;
+        })).catch(() => null);
+    if (!res || !res.ok) { alert('Could not record your vote — please try again.'); return; }
     const { votes } = await res.json();
     setPost(p => ({ ...p, votes }));
     setUpvotedPost(u => !u);
@@ -163,14 +163,14 @@ export default function PostDetailPage() {
 
   const handleUpvoteReply = useCallback(async (replyId) => {
     const already = upvotedReplies.has(replyId);
-    const res = already
-      ? await fetch(`/api/community/vote?targetType=reply&targetId=${replyId}`, { method: 'DELETE' })
-      : await fetch('/api/community/vote', {
+    const res = await (already
+      ? fetch(`/api/community/vote?targetType=reply&targetId=${replyId}`, { method: 'DELETE' })
+      : fetch('/api/community/vote', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ targetType: 'reply', targetId: replyId }),
-        });
-    if (!res.ok) return;
+        })).catch(() => null);
+    if (!res || !res.ok) { alert('Could not record your vote — please try again.'); return; }
     const { votes } = await res.json();
     setReplies(rs => rs.map(r => r.id === replyId ? { ...r, votes } : r));
     setUpvotedReplies(prev => { const next = new Set(prev); already ? next.delete(replyId) : next.add(replyId); return next; });
@@ -178,13 +178,15 @@ export default function PostDetailPage() {
 
   const handleDeletePost = useCallback(async () => {
     if (!post) return;
-    await fetch(`/api/community/post?id=${post.id}`, { method: 'DELETE' });
+    const res = await fetch(`/api/community/post?id=${post.id}`, { method: 'DELETE' }).catch(() => null);
+    if (!res || !res.ok) { alert('Could not delete this post — please try again.'); return; }
     router.push('/community');
     router.refresh();
   }, [post, router]);
 
   const handleDeleteReply = useCallback(async (replyId) => {
-    await fetch(`/api/community/reply?id=${replyId}`, { method: 'DELETE' });
+    const res = await fetch(`/api/community/reply?id=${replyId}`, { method: 'DELETE' }).catch(() => null);
+    if (!res || !res.ok) { alert('Could not delete this reply — please try again.'); return; }
     setReplies(rs => rs.filter(r => r.id !== replyId));
   }, []);
 
@@ -195,8 +197,8 @@ export default function PostDetailPage() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ post_id: post.id, content: replyText.trim() }),
-    });
-    if (res.ok) {
+    }).catch(() => null);
+    if (res && res.ok) {
       const result = await res.json();
       if (result && result.length) {
         setReplies(rs => [...rs, { ...result[0], author: { display_name: punterName } }]);
@@ -207,6 +209,8 @@ export default function PostDetailPage() {
         setReplyText('');
         window.dispatchEvent(new Event('ww:profile:refresh'));
       }
+    } else {
+      alert('Could not post your reply — please try again.');
     }
     setSubmitting(false);
   }, [replyText, userId, post, punterName]);

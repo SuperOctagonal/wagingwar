@@ -6,6 +6,9 @@ import { awardPointsServer } from '@/lib/awardPointsServer';
 import { isCommunityAdmin } from '@/lib/admin';
 
 const MAX_CONTENT = 5000;
+// replies.id and replies.post_id are both uuid, not bigint -- see
+// app/api/blackbook/route.js's note.
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 // POST: create a reply. clerk_id always from the session. Also bumps the
 // parent post's reply_count/last_activity_at here (server-side, right
@@ -22,7 +25,7 @@ export async function POST(req) {
   }
 
   const { post_id, content } = await req.json().catch(() => ({}));
-  if (!post_id || !/^\d+$/.test(String(post_id)) || !content) {
+  if (!post_id || !UUID_RE.test(String(post_id)) || !content) {
     return NextResponse.json({ error: 'Missing fields' }, { status: 400 });
   }
   if (typeof content !== 'string' || content.length > MAX_CONTENT) {
@@ -63,7 +66,7 @@ export async function DELETE(req) {
 
   const { searchParams } = new URL(req.url);
   const id = searchParams.get('id');
-  if (!id || !/^\d+$/.test(id)) return NextResponse.json({ error: 'Invalid id' }, { status: 400 });
+  if (!id || !UUID_RE.test(id)) return NextResponse.json({ error: 'Invalid id' }, { status: 400 });
 
   const { ok: foundOk, data: found } = await sbAdminRaw(`replies?id=eq.${id}&select=id,clerk_id`);
   if (!foundOk) return NextResponse.json({ error: 'Supabase error' }, { status: 502 });

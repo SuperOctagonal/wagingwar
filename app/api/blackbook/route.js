@@ -8,6 +8,11 @@ import { awardPointsServer } from '@/lib/awardPointsServer';
 // Clerk session; every PATCH/DELETE filters on id AND clerk_id, so a user
 // can never edit or remove another user's blackbook row.
 
+// blackbook.id is uuid, not bigint -- a /^\d+$/ check here always 400'd
+// against every real id, so PATCH/DELETE (edit/remove) never actually
+// worked in production. Confirmed against the live schema, 2026-10-18.
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 const UPSERT_FIELDS = ['horse_name', 'venue', 'race_number', 'distance', 'class', 'note', 'tags', 'priority'];
 const PATCH_FIELDS = ['note', 'tags', 'priority', 'notified_wins'];
 
@@ -76,7 +81,7 @@ export async function PATCH(req) {
 
   const { searchParams } = new URL(req.url);
   const id = searchParams.get('id');
-  if (!id || !/^\d+$/.test(id)) return NextResponse.json({ error: 'Invalid id' }, { status: 400 });
+  if (!id || !UUID_RE.test(id)) return NextResponse.json({ error: 'Invalid id' }, { status: 400 });
 
   const body = await req.json().catch(() => null);
   const patch = sanitizePatch(body);
@@ -112,7 +117,7 @@ export async function DELETE(req) {
 
   const { searchParams } = new URL(req.url);
   const id = searchParams.get('id');
-  if (!id || !/^\d+$/.test(id)) return NextResponse.json({ error: 'Invalid id' }, { status: 400 });
+  if (!id || !UUID_RE.test(id)) return NextResponse.json({ error: 'Invalid id' }, { status: 400 });
 
   const { ok, data } = await sbAdminRaw(
     `blackbook?id=eq.${id}&clerk_id=eq.${encodeURIComponent(userId)}`,

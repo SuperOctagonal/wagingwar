@@ -176,12 +176,16 @@ function EditModal({ horse, onClose, onSave }) {
 
   const handleSave = async () => {
     setSaving(true);
-    await fetch(`/api/blackbook?id=${horse.id}`, {
+    const res = await fetch(`/api/blackbook?id=${horse.id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ note: editNote, tags, priority }),
-    });
+    }).catch(() => null);
     setSaving(false);
+    if (!res || !res.ok) {
+      alert('Could not save changes — please try again.');
+      return; // leave the modal open with the unsaved edits, don't touch the row
+    }
     onSave({ ...horse, note: editNote, tags, priority });
     onClose();
   };
@@ -396,7 +400,11 @@ export default function BlackbookPage() {
 
   const handleRemove = useCallback(async (id) => {
     if (!confirm('Remove from blackbook?')) return;
-    await fetch(`/api/blackbook?id=${id}`, { method: 'DELETE' });
+    const res = await fetch(`/api/blackbook?id=${id}`, { method: 'DELETE' }).catch(() => null);
+    if (!res || !res.ok) {
+      alert('Could not remove this horse — please try again.');
+      return; // don't touch local state, nothing was actually deleted
+    }
     setHorses(prev => prev.filter(h => h.id !== id));
   }, []);
 

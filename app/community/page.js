@@ -239,6 +239,7 @@ function NewPostModal({ onClose, onPost, userId }) {
     const ok = await onPost({ section, title: title.trim(), body: body.trim() });
     setSubmitting(false);
     if (ok) onClose();
+    else alert('Could not post — please try again.');
   };
 
   return (

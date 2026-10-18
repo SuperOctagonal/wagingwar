@@ -7,6 +7,8 @@ import { isCommunityAdmin } from '@/lib/admin';
 
 const MAX_TITLE = 200;
 const MAX_BODY = 5000;
+// posts.id is uuid, not bigint -- see app/api/blackbook/route.js's note.
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 // POST: create a post. user_id always from the session (never the body).
 // Points are awarded here as a side effect of the verified write, keyed to
@@ -50,7 +52,7 @@ export async function DELETE(req) {
 
   const { searchParams } = new URL(req.url);
   const id = searchParams.get('id');
-  if (!id || !/^\d+$/.test(id)) return NextResponse.json({ error: 'Invalid id' }, { status: 400 });
+  if (!id || !UUID_RE.test(id)) return NextResponse.json({ error: 'Invalid id' }, { status: 400 });
 
   const { ok: foundOk, data: found } = await sbAdminRaw(`posts?id=eq.${id}&select=id,user_id`);
   if (!foundOk) return NextResponse.json({ error: 'Supabase error' }, { status: 502 });
