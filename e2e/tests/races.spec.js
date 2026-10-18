@@ -3,7 +3,7 @@ const { test, expect } = require('@playwright/test');
 // Read-only -- no content created, nothing to clean up.
 test('Races loads with live prices and the Move column', async ({ page }) => {
   await page.goto('/races');
-  await page.waitForLoadState('networkidle').catch(() => {});
+  await page.waitForLoadState('domcontentloaded').catch(() => {});
 
   // The Field table renders a price in every runner row once race data is
   // loaded -- a bare "$" figure is the most stable thing to assert on

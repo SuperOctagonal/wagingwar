@@ -6,5 +6,5 @@ const { test, expect } = require('@playwright/test');
 test('signed-in session loads a protected page', async ({ page }) => {
   await page.goto('/account');
   await expect(page).not.toHaveURL(/\/sign-in/);
-  await page.waitForLoadState('networkidle').catch(() => {});
+  await page.waitForLoadState('domcontentloaded').catch(() => {});
 });

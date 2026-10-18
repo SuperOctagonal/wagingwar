@@ -22,6 +22,14 @@ module.exports = defineConfig({
   fullyParallel: false,
   workers: 1,
   retries: 0,
+  // Several pages here poll on their own setInterval (My Bets, Blackbook,
+  // Competitions) and never truly reach networkidle, so a test that
+  // reloads a couple of times and waits on networkidle each time can
+  // exceed Playwright's 30s default well before anything is actually
+  // wrong (confirmed live, 2026-10-18: a few tests failed with "Test
+  // timeout of 30000ms exceeded" despite the awaited content already
+  // being on the page by the time of the failure screenshot).
+  timeout: 60000,
   reporter: [['list'], ['html', { open: 'never' }]],
   globalSetup: require.resolve('./e2e/global-setup.js'),
   use: {

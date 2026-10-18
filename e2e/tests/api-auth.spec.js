@@ -48,29 +48,41 @@ test.describe('signed in, wrong/unowned id', () => {
   const FAKE_UUID = '00000000-0000-0000-0000-000000000000';
   const FAKE_BIGINT = '999999999';
 
-  test('PATCH/DELETE on an unowned bet returns 404 and changes nothing', async ({ request }) => {
-    const patchRes = await request.patch(`/api/bets?id=${FAKE_BIGINT}`, { data: { stake: 1 } });
+  // Clerk's session cookie is short-lived (~60s) and is only kept fresh
+  // by ClerkJS running inside a loaded page -- a bare request fires with
+  // whatever cookie storageState captured at `npm run e2e:login` time,
+  // which is almost always already stale by the time a test runs
+  // (confirmed live, 2026-10-18: every one of these got 401, not 404).
+  // page.request shares the page's own cookie jar, so navigating first
+  // lets Clerk refresh it before the real request fires.
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/account');
+    await page.waitForLoadState('domcontentloaded').catch(() => {});
+  });
+
+  test('PATCH/DELETE on an unowned bet returns 404 and changes nothing', async ({ page }) => {
+    const patchRes = await page.request.patch(`/api/bets?id=${FAKE_BIGINT}`, { data: { stake: 1 } });
     expect(patchRes.status()).toBe(404);
-    const delRes = await request.delete(`/api/bets?id=${FAKE_BIGINT}`);
+    const delRes = await page.request.delete(`/api/bets?id=${FAKE_BIGINT}`);
     expect(delRes.status()).toBe(404);
   });
 
-  test('PATCH/DELETE on an unowned blackbook row returns 404', async ({ request }) => {
-    const patchRes = await request.patch(`/api/blackbook?id=${FAKE_UUID}`, { data: { note: 'x' } });
+  test('PATCH/DELETE on an unowned blackbook row returns 404', async ({ page }) => {
+    const patchRes = await page.request.patch(`/api/blackbook?id=${FAKE_UUID}`, { data: { note: 'x' } });
     expect(patchRes.status()).toBe(404);
-    const delRes = await request.delete(`/api/blackbook?id=${FAKE_UUID}`);
+    const delRes = await page.request.delete(`/api/blackbook?id=${FAKE_UUID}`);
     expect(delRes.status()).toBe(404);
   });
 
-  test('DELETE on a non-existent community post/reply returns 404', async ({ request }) => {
-    const postRes = await request.delete(`/api/community/post?id=${FAKE_UUID}`);
+  test('DELETE on a non-existent community post/reply returns 404', async ({ page }) => {
+    const postRes = await page.request.delete(`/api/community/post?id=${FAKE_UUID}`);
     expect(postRes.status()).toBe(404);
-    const replyRes = await request.delete(`/api/community/reply?id=${FAKE_UUID}`);
+    const replyRes = await page.request.delete(`/api/community/reply?id=${FAKE_UUID}`);
     expect(replyRes.status()).toBe(404);
   });
 
-  test('DELETE on an unowned comp_picks row returns 404', async ({ request }) => {
-    const res = await request.delete(`/api/competitions/picks?id=${FAKE_BIGINT}`);
+  test('DELETE on an unowned comp_picks row returns 404', async ({ page }) => {
+    const res = await page.request.delete(`/api/competitions/picks?id=${FAKE_BIGINT}`);
     expect(res.status()).toBe(404);
   });
 });
