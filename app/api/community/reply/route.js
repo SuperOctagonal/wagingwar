@@ -68,7 +68,7 @@ export async function DELETE(req) {
   const id = searchParams.get('id');
   if (!id || !UUID_RE.test(id)) return NextResponse.json({ error: 'Invalid id' }, { status: 400 });
 
-  const { ok: foundOk, data: found } = await sbAdminRaw(`replies?id=eq.${id}&select=id,clerk_id`);
+  const { ok: foundOk, data: found } = await sbAdminRaw(`replies?id=eq.${id}&select=id,clerk_id,post_id`);
   if (!foundOk) return NextResponse.json({ error: 'Supabase error' }, { status: 502 });
   if (!found || !found.length) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
@@ -78,5 +78,18 @@ export async function DELETE(req) {
 
   const { ok } = await sbAdminRaw(`replies?id=eq.${id}`, { method: 'DELETE', prefer: 'return=minimal' });
   if (!ok) return NextResponse.json({ error: 'Supabase error' }, { status: 502 });
-  return NextResponse.json({ deleted: 1 });
+
+  // Mirror the POST handler's reply_count bump -- was previously only ever
+  // incremented, never decremented on delete, so a post's header count
+  // stayed permanently stale after any reply was removed.
+  const postId = found[0].post_id;
+  const { data: postRows } = await sbAdminRaw(`posts?id=eq.${postId}&select=reply_count`);
+  const newCount = Math.max(0, (postRows?.[0]?.reply_count || 0) - 1);
+  await sbAdminRaw(`posts?id=eq.${postId}`, {
+    method: 'PATCH',
+    prefer: 'return=minimal',
+    body: { reply_count: newCount },
+  });
+
+  return NextResponse.json({ deleted: 1, reply_count: newCount });
 }

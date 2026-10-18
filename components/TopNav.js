@@ -31,6 +31,26 @@ const MOB_TABS = [
   { id: 'competitions', label: 'Comps',     icon: 'trophy' },
 ];
 
+// Logo + 9 full-text nav items + the right-side icon group measure out to
+// ~1154px (confirmed live, 2026-10-18) -- wider than a 1024px window, so
+// the old 768px isMobile breakpoint left the desktop link row visible and
+// overflowing on anything between 768-1199px, forcing the whole page to
+// scroll sideways. Below 1200px this nav instead falls back to the same
+// hamburger drawer true mobile already uses. Only the desktop link row,
+// the hamburger button and the drawer itself use this -- the bottom
+// mobile tab bar stays on the real isMobile (768px) breakpoint, since
+// that's a genuinely phone-only affordance, not a squeeze fix.
+function useIsNarrowNav() {
+  const [narrow, setNarrow] = useState(false);
+  useEffect(() => {
+    const check = () => setNarrow(window.innerWidth < 1200);
+    check();
+    window.addEventListener('resize', check);
+    return () => window.removeEventListener('resize', check);
+  }, []);
+  return narrow;
+}
+
 export default function TopNav() {
   const pathname = usePathname();
   const router = useRouter();
@@ -42,6 +62,7 @@ export default function TopNav() {
   const punterName = user ? (user.username || punterFallback(user.id)) : null;
   const isPro = useIsPro();
   const isMobile = useIsMobile();
+  const isNarrowNav = useIsNarrowNav();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [showRacesMenu, setShowRacesMenu] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -157,7 +178,7 @@ export default function TopNav() {
         </Link>
 
         {/* Desktop nav links */}
-        <div className={isMobile ? 'hidden' : 'flex h-full flex-1'}>
+        <div className={isNarrowNav ? 'hidden' : 'flex h-full flex-1'}>
           {NAV_LINKS.map(link => {
             if (link.id === 'races') {
               const racesActive = currentPage === 'races' || currentPage === 'today';
@@ -252,8 +273,8 @@ export default function TopNav() {
             <i className="ti ti-settings" style={{ fontSize: 13 }} />
           </button>
 
-          {/* Mobile hamburger */}
-          {isMobile && (
+          {/* Hamburger -- shown whenever the full link row is hidden */}
+          {isNarrowNav && (
             <button
               className="flex items-center justify-center w-[36px] h-[36px] rounded text-white/80 hover:text-white"
               onClick={() => setDrawerOpen(true)}
@@ -335,8 +356,8 @@ export default function TopNav() {
         </div>
       </nav>
 
-      {/* ── MOBILE NAV DRAWER ── */}
-      {drawerOpen && isMobile && (
+      {/* ── NAV DRAWER (mobile + the 1024-1199px gap) ── */}
+      {drawerOpen && isNarrowNav && (
         <>
           {/* Overlay */}
           <div

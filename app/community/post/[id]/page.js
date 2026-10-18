@@ -178,6 +178,7 @@ export default function PostDetailPage() {
 
   const handleDeletePost = useCallback(async () => {
     if (!post) return;
+    if (!confirm('Delete this post? This cannot be undone.')) return;
     const res = await fetch(`/api/community/post?id=${post.id}`, { method: 'DELETE' }).catch(() => null);
     if (!res || !res.ok) { alert('Could not delete this post — please try again.'); return; }
     router.push('/community');
@@ -185,9 +186,12 @@ export default function PostDetailPage() {
   }, [post, router]);
 
   const handleDeleteReply = useCallback(async (replyId) => {
+    if (!confirm('Delete this reply?')) return;
     const res = await fetch(`/api/community/reply?id=${replyId}`, { method: 'DELETE' }).catch(() => null);
     if (!res || !res.ok) { alert('Could not delete this reply — please try again.'); return; }
+    const { reply_count } = await res.json().catch(() => ({}));
     setReplies(rs => rs.filter(r => r.id !== replyId));
+    setPost(p => ({ ...p, reply_count: reply_count ?? Math.max(0, (p.reply_count || 0) - 1) }));
   }, []);
 
   const handleAddReply = useCallback(async () => {
@@ -292,7 +296,7 @@ export default function PostDetailPage() {
                   background: upvotedPost ? '#00471b' : '#f3f4f6', color: upvotedPost ? '#fff' : '#374151' }}>
                 ▲ {post.votes || 0} upvotes
               </button>
-              <span>· {post.reply_count || 0} replies · Views: —</span>
+              <span>· {post.reply_count || 0} {(post.reply_count || 0) === 1 ? 'reply' : 'replies'} · Views: —</span>
             </div>
 
             {/* Body */}

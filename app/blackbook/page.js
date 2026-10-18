@@ -51,50 +51,6 @@ function normName(name) {
   return (name || '').replace(/\s*\([A-Z]{2,3}\)\s*$/i, '').trim().toUpperCase();
 }
 
-function parseCSVHorses(csvText) {
-  if (!csvText) return [];
-  const lines = csvText.split('\n');
-  if (lines.length < 2) return [];
-  const headers = lines[0].split(',').map(h => h.trim().toLowerCase().replace(/"/g, ''));
-  const horseIdx = headers.findIndex(h => h === 'horse' || h === 'horse name' || h === 'horsename' || h.includes('horse'));
-  if (horseIdx < 0) return [];
-  const horses = [];
-  for (let i = 1; i < lines.length; i++) {
-    const cols = lines[i].split(',');
-    const name = (cols[horseIdx] || '').trim().replace(/"/g, '');
-    if (name) horses.push(normName(name));
-  }
-  return horses;
-}
-
-function parseCSVRaces(csvText) {
-  if (!csvText) return {};
-  const lines = csvText.split('\n');
-  if (lines.length < 2) return {};
-  const headers = lines[0].split(',').map(h => h.trim().toLowerCase().replace(/"/g, ''));
-  const idx = key => headers.findIndex(h => h.includes(key));
-  const horseIdx = headers.findIndex(h => h === 'horse' || h === 'horse name' || h.includes('horse'));
-  const venueIdx = idx('venue') !== -1 ? idx('venue') : idx('track');
-  const raceIdx  = headers.findIndex(h => h.includes('race') && (h.includes('num') || h.includes('no')));
-  const distIdx  = idx('dist');
-  const clsIdx   = headers.findIndex(h => h === 'class' || h === 'cls' || h.includes('class'));
-  const timeIdx  = idx('time');
-  const map = {};
-  for (let i = 1; i < lines.length; i++) {
-    const cols = lines[i].split(',');
-    const name = (cols[horseIdx] || '').trim().replace(/"/g, '');
-    if (!name) continue;
-    map[normName(name)] = {
-      venue:   (cols[venueIdx]  || '').trim().replace(/"/g, ''),
-      raceNum: (cols[raceIdx]   || '').trim().replace(/"/g, ''),
-      dist:    (cols[distIdx]   || '').trim().replace(/"/g, ''),
-      cls:     (cols[clsIdx]    || '').trim().replace(/"/g, ''),
-      time:    (cols[timeIdx]   || '').trim().replace(/"/g, ''),
-    };
-  }
-  return map;
-}
-
 function fmtDate(iso) {
   if (!iso) return '';
   try { return new Date(iso).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' }); }
@@ -273,11 +229,28 @@ export default function BlackbookPage() {
   const [horseInfo,     setHorseInfo]     = useState({});
   const [sortDir,       setSortDir]       = useState('desc');
 
+  // "Running today" was previously derived from localStorage's 'ww_csv'
+  // blob -- the Races page's own CSV cache, which only exists in THIS
+  // browser if that page happened to load one for today. A horse genuinely
+  // racing today (e.g. Olney, Moe R4) showed as not-running whenever that
+  // cache was empty or stale, which is unrelated to name matching -- it's
+  // a wrong data source. Now queries today's race_cards directly (public
+  // table, same one the Field tab reads), independent of any other page's
+  // local cache.
   useEffect(() => {
-    const csv = localStorage.getItem('ww_csv');
-    if (!csv) return;
-    setCsvNames(parseCSVHorses(csv));
-    setCsvRaces(parseCSVRaces(csv));
+    const todayISO = new Date().toLocaleDateString('sv-SE', { timeZone: 'Australia/Brisbane' });
+    sb(`race_cards?date=eq.${todayISO}&select=horse_name,venue,race_num`).then(rows => {
+      if (!Array.isArray(rows)) return;
+      const names = [];
+      const races = {};
+      rows.forEach(r => {
+        const key = normName(r.horse_name);
+        if (!names.includes(key)) names.push(key);
+        races[key] = { venue: r.venue, raceNum: r.race_num };
+      });
+      setCsvNames(names);
+      setCsvRaces(races);
+    });
   }, []);
 
   useEffect(() => {
