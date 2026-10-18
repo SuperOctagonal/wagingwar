@@ -1,5 +1,6 @@
 'use client';
 import { useState, useEffect } from 'react';
+import useIsMobile from '@/hooks/useIsMobile';
 
 // Live racing radio (RSN 927, Melbourne) via TuneIn's own embeddable player
 // -- a sanctioned embed TuneIn provides for other sites, no permission
@@ -18,6 +19,7 @@ const TUNEIN_EMBED_URL = 'https://tunein.com/embed/player/s3007/?background=dark
 
 export default function RadioPlayer() {
   const [expanded, setExpanded] = useState(false);
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     try {
@@ -35,12 +37,21 @@ export default function RadioPlayer() {
     <div
       style={{
         position: 'fixed',
-        right: 12,
-        bottom: 'calc(var(--mobile-chrome-height, 0px) + 12px)',
+        // Left, not right -- several pages put their own tappable controls
+        // in the bottom-right corner (Community's "+ new post" FAB,
+        // app/community/page.js) at a similar bottom offset, and this
+        // being the higher z-index element meant it silently ate those
+        // taps (confirmed live, 2026-10-18). Nothing else anchors to the
+        // bottom-left corner on mobile.
+        left: 12,
+        // +52px clears My Bets' own extra mobile section bar on top of
+        // the shared RG-banner+tab-bar chrome (app/mybets/page.js) --
+        // harmless slack on pages that don't have one.
+        bottom: 'calc(var(--mobile-chrome-height, 80px) + 52px + 12px)',
         zIndex: 1500,
         display: 'flex',
         flexDirection: 'column',
-        alignItems: 'flex-end',
+        alignItems: 'flex-start',
       }}
     >
       {expanded && (
@@ -80,7 +91,15 @@ export default function RadioPlayer() {
       {!expanded && (
         <button
           onClick={toggle}
-          style={{
+          aria-label="Open RSN 927 live racing radio"
+          style={isMobile ? {
+            // Icon-only and smaller on mobile -- less of the already-
+            // crowded bottom-corner area to overlap anything else in.
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            width: 36, height: 36, borderRadius: '50%',
+            background: '#00471b', color: '#fff', border: 'none',
+            cursor: 'pointer', boxShadow: '0 2px 8px rgba(0,0,0,0.25)',
+          } : {
             display: 'flex', alignItems: 'center', gap: 6,
             padding: '7px 12px', borderRadius: 20,
             background: '#00471b', color: '#fff', border: 'none',
@@ -88,8 +107,8 @@ export default function RadioPlayer() {
             cursor: 'pointer', boxShadow: '0 2px 8px rgba(0,0,0,0.25)',
           }}
         >
-          <i className="ti ti-broadcast" style={{ fontSize: 14 }} />
-          RSN 927
+          <i className="ti ti-broadcast" style={{ fontSize: isMobile ? 16 : 14 }} />
+          {!isMobile && 'RSN 927'}
         </button>
       )}
     </div>

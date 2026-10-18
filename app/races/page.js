@@ -1881,6 +1881,7 @@ function MobileRunnerCard({ runner, rank, rc, trackCond, onLogBet, isResulted, b
   // field in FieldView, already gated at >=25% there), same rule as
   // RunnerRow's desktop table. Top-rated keeps gold even if it's also the
   // biggest firmer/drifter -- that combination gets a small chip instead.
+  const [showConfInfo, setShowConfInfo] = useState(false);
   const mobIsTopRated = rank === 1;
   const mobEdge = isDbScratched ? 'transparent'
     : mobIsTopRated ? '#d97706'
@@ -1919,16 +1920,42 @@ function MobileRunnerCard({ runner, rank, rc, trackCond, onLogBet, isResulted, b
         <div style={{ flexShrink: 0, width: 36, textAlign: 'right', fontSize: 13, fontWeight: 600, color: '#111827' }}>
           {isDbScratched ? '—' : !isPro ? <LockBtn onClick={onUpgrade} /> : runner.totalFromGroups.toFixed(1)}
         </div>
-        <div style={{ flexShrink: 0, width: 34, textAlign: 'right', fontSize: 11, fontWeight: 600, color: '#059669' }}>
+        <div style={{ flexShrink: 0, width: 34, textAlign: 'right', fontSize: 11, fontWeight: 600, color: '#059669', position: 'relative' }}>
           {isDbScratched ? '—' : !isPro ? <LockBtn onClick={onUpgrade} /> : (myO ? `$${formatRacingOdds(myO)}` : '—')}
           {/* Two independent, distinctly-labelled flags -- NOT the same
               "Limited data" text for both, since they mean different things
-              (see lib/confidence.js). Both shown, stacked, if both trip. */}
-          {confidenceFlags?.thinData && (
-            <div style={{ fontSize: 6, fontWeight: 700, color: '#b91c1c', letterSpacing: '0.2px' }}>⚠ LTD</div>
+              (see lib/confidence.js). Both shown, stacked, if both trip.
+              Was fontSize:6 (unreadable) and non-interactive -- now large
+              enough to read and tap opens a one-line explanation, since
+              neither abbreviation is self-explanatory on a phone with no
+              hover/tooltip. */}
+          {(confidenceFlags?.thinData || confidenceFlags?.disagreement) && (
+            <button
+              onClick={(e) => { e.stopPropagation(); setShowConfInfo(v => !v); }}
+              style={{ display: 'block', width: '100%', background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
+            >
+              {confidenceFlags?.thinData && (
+                <div style={{ fontSize: 10, fontWeight: 700, color: '#b91c1c', letterSpacing: '0.2px' }}>⚠ LTD</div>
+              )}
+              {confidenceFlags?.disagreement && (
+                <div style={{ fontSize: 10, fontWeight: 700, color: '#9a3412', letterSpacing: '0.2px' }}>⚠ GAP</div>
+              )}
+            </button>
           )}
-          {confidenceFlags?.disagreement && (
-            <div style={{ fontSize: 6, fontWeight: 700, color: '#9a3412', letterSpacing: '0.2px' }}>⚠ GAP</div>
+          {showConfInfo && (
+            <>
+              {/* Full-screen transparent overlay, below the popover itself
+                  in DOM order so its own tap doesn't re-open this -- tap
+                  anywhere outside the popover closes it. */}
+              <div onClick={() => setShowConfInfo(false)} style={{ position: 'fixed', inset: 0, zIndex: 299 }} />
+              <div
+                onClick={e => e.stopPropagation()}
+                style={{ position: 'absolute', top: '100%', right: 0, marginTop: 4, width: 170, background: '#111827', color: '#fff', borderRadius: 6, padding: '8px 10px', fontSize: 10, fontWeight: 500, lineHeight: 1.4, textAlign: 'left', zIndex: 300, boxShadow: '0 4px 12px rgba(0,0,0,0.3)' }}
+              >
+                {confidenceFlags?.thinData && <div style={{ marginBottom: confidenceFlags?.disagreement ? 6 : 0 }}><strong>LTD</strong> — limited data: this runner has very few starts to base a score on.</div>}
+                {confidenceFlags?.disagreement && <div><strong>GAP</strong> — the model&apos;s price and the market&apos;s price disagree by a large margin.</div>}
+              </div>
+            </>
           )}
         </div>
         {/* Widened 42 -> 76 to fit the open/current price line below the
@@ -1959,12 +1986,20 @@ function MobileRunnerCard({ runner, rank, rc, trackCond, onLogBet, isResulted, b
             <span title="Biggest drifter in this race" style={{ display: 'inline-block', marginTop: 2, fontSize: 7, fontWeight: 800, color: '#fff', background: '#dc2626', padding: '1px 3px', borderRadius: 3 }}>▼</span>
           )}
           {isLivePrice && (
-            <span title="Best price across bookmakers" style={{ display: 'block', fontSize: 6, fontWeight: 800, color: '#059669', letterSpacing: '0.3px' }}>LIVE</span>
+            <span title="Best price across bookmakers" style={{ display: 'block', fontSize: 9, fontWeight: 800, color: '#059669', letterSpacing: '0.3px' }}>LIVE</span>
           )}
         </div>
-        <div style={{ flexShrink: 0, width: 36, textAlign: 'right' }}>
+        {/* minWidth, not a fixed width -- "▲+249%"-length values (fontSize
+            10 bold + padding) didn't actually fit in 36px, so the pill
+            rendered wider than its box and bled into the column to its
+            left (the Firming/Drifting badge), clipped or overlapping on
+            every card with a large edge (confirmed live, 2026-10-18).
+            flexShrink:0 keeps it from being squeezed back down; the only
+            flexible neighbour is the name column (flex:1, already
+            ellipsis-truncated), which absorbs the few extra px this takes. */}
+        <div style={{ flexShrink: 0, minWidth: 36, textAlign: 'right' }}>
           {isPro ? (
-            <span style={{ fontSize: 10, fontWeight: 600, color: valColor, background: valPillBg, borderRadius: 4, padding: '2px 4px' }}>{valStr}</span>
+            <span style={{ fontSize: 9, fontWeight: 600, color: valColor, background: valPillBg, borderRadius: 4, padding: '2px 4px', whiteSpace: 'nowrap' }}>{valStr}</span>
           ) : <button onClick={onUpgrade} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '6px 4px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minHeight: 32, color: '#9ca3af' }}><i className="ti ti-lock" style={{ fontSize: 13 }} /></button>}
         </div>
       </div>
@@ -2074,7 +2109,7 @@ function MobileRunnerCard({ runner, rank, rc, trackCond, onLogBet, isResulted, b
             <div style={{ height: '100%', width: `${pm.pct}%`, background: pm.color }} />
           </div>
           <span style={{ fontSize: 8, fontWeight: 700, color: pm.color, whiteSpace: 'nowrap' }}>{pm.role}</span>
-          {!pm.hasTPPC && <span style={{ fontSize: 7, color: '#d97706', fontWeight: 600, whiteSpace: 'nowrap' }}>Est</span>}
+          {!pm.hasTPPC && <span style={{ fontSize: 9, color: '#d97706', fontWeight: 600, whiteSpace: 'nowrap' }}>Est</span>}
         </div>
       )}
 
@@ -2610,9 +2645,17 @@ function FieldView({ results, scratched, rc, trackCond, onLogBet, onShowPopup, o
 
       {/* Mobile section */}
       <div className={isMobile ? 'flex-1 flex flex-col overflow-hidden' : 'hidden'}>
-        {/* Toggle pills: Top picks | Form detail | Score breakdown | Pace map */}
+        {/* Toggle pills: Top picks | Form detail | Score breakdown | Pace map | Odds.
+            Odds added here (2026-10) -- the top-level Field/Odds/Form/Pace
+            Map tab bar (ViewTabBar) is desktop-only (!isNarrow), so phones
+            had no way to reach the Odds comparison view at all. Smallest
+            fix: a 5th layer chip reusing the exact same OddsTable component
+            the desktop Odds tab renders, same pattern as the "Top picks"
+            strip below (an expandable block above the runner cards, not a
+            full view swap -- OddsTable itself doesn't need to know the
+            difference). */}
         <div style={{ flexShrink: 0, display: 'flex', gap: 6, overflowX: 'auto', padding: '6px 10px', background: '#fff', borderBottom: '1px solid #e5e7eb' }}>
-          {[['picks','Top picks'],['form','Form detail'],['scores','Score breakdown'],['pace','Pace map']].map(([key, label]) => (
+          {[['picks','Top picks'],['form','Form detail'],['scores','Score breakdown'],['pace','Pace map'],['odds','Odds']].map(([key, label]) => (
             <button key={key} onClick={() => {
               if ((key === 'pace' || key === 'picks') && !isPro) { onUpgrade(); return; }
               setLayers(l => ({ ...l, [key]: !l[key] }));
@@ -2625,6 +2668,13 @@ function FieldView({ results, scratched, rc, trackCond, onLogBet, onShowPopup, o
             </button>
           ))}
         </div>
+
+        {/* Odds comparison -- same OddsTable the desktop Odds tab renders. */}
+        {layers.odds && (
+          <div style={{ flexShrink: 0, padding: '8px 10px', background: '#f9fafb', borderBottom: '1px solid #e5e7eb', overflowX: 'auto' }}>
+            <OddsTable venue={normaliseVenue(rc.venue)} raceNum={String(rc.num)} selectedBookmaker={oddsBookmaker} />
+          </div>
+        )}
 
         {/* Top picks strip — above column header */}
         {layers.picks && isPro && (
@@ -3034,7 +3084,7 @@ function PaceMapView({ results, scratched, rc, trackCond, canAccess, onUpgrade, 
                 <div className="text-[10px] font-semibold text-emerald-600">{myO}</div>
                 <div className="text-[9px] text-gray-400">
                   SP {spO}
-                  {isLivePrice && <span style={{ marginLeft: 2, fontSize: 6, fontWeight: 800, color: '#059669', background: '#d1fae5', padding: '1px 2px', borderRadius: 3, letterSpacing: '0.3px' }}>LIVE</span>}
+                  {isLivePrice && <span style={{ marginLeft: 2, fontSize: 9, fontWeight: 800, color: '#059669', background: '#d1fae5', padding: '1px 2px', borderRadius: 3, letterSpacing: '0.3px' }}>LIVE</span>}
                   <FirmingDriftingBadge move={canLivePrices ? marketMoves[marketMoveNameKey(h.name)]?.move : undefined} />
                 </div>
               </div>

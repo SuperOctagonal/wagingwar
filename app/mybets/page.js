@@ -1251,7 +1251,7 @@ export default function MybetsPage() {
       )}
 
       {/* ── Main content ── */}
-      <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflowY: 'auto', overflowX: 'hidden', background: '#f3f4f6', ...(isMobile && { paddingBottom: 52 }) }}>
+      <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflowY: 'auto', overflowX: 'hidden', background: '#f3f4f6', ...(isMobile && { paddingBottom: 'calc(var(--mobile-chrome-height, 80px) + 52px)' }) }}>
 
 
         {/* DATE RANGE SWITCHER — only Overview/Ledger use it; Insights has its
@@ -2170,10 +2170,14 @@ export default function MybetsPage() {
 
       {/* ── My Bets mobile bottom tab bar — same visual language as the
           site's global mobile nav (components/TopNav.js MOB_TABS), stacked
-          directly above it (bottom: 52px = that bar's own height) so
-          neither overlaps the other. ── */}
+          directly above it. Was a hardcoded bottom:52 assuming the global
+          tab bar is 52px tall -- it's actually 56px (h-14), plus the
+          Gamble Responsibly strip (FooterChrome.js) adds ~23px on top of
+          that, so this bar sat clipped underneath both (confirmed live,
+          2026-10-18). --mobile-chrome-height (MobileChromeVars.js) measures
+          their real combined height, same var RadioPlayer.js already uses. ── */}
       {isMobile && (
-        <div style={{ position: 'fixed', left: 0, right: 0, bottom: 52, height: 52, background: '#00471b', borderTop: '1px solid rgba(255,255,255,0.12)', display: 'flex', zIndex: 900 }}>
+        <div style={{ position: 'fixed', left: 0, right: 0, bottom: 'var(--mobile-chrome-height, 80px)', height: 52, background: '#00471b', borderTop: '1px solid rgba(255,255,255,0.12)', display: 'flex', zIndex: 900 }}>
           {MYBETS_SECTIONS.map(({ id, label, icon }) => (
             <button key={id} onClick={() => setMainTab(id)}
               style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 2, background: 'none', cursor: 'pointer',
