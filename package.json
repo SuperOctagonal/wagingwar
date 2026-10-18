@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "e2e": "playwright test"
+    "e2e": "playwright test",
+    "e2e:login": "node e2e/login.js"
   },
   "dependencies": {
     "@clerk/nextjs": "^6.7.0",

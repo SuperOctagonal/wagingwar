@@ -9,7 +9,7 @@ node_modules/
 .DS_Store
 
 # Playwright e2e
-e2e/.auth/
+.auth/
 playwright-report/
 test-results/
 blob-report/

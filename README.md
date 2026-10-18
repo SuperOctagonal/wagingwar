@@ -6,7 +6,13 @@ A Playwright suite that drives the **live site** (production by default)
 with a dedicated Clerk test account. It is not run automatically on
 deploy or in any CI hook -- it's invoked explicitly.
 
-### Setup
+Authentication is a **saved browser session**, not stored credentials --
+Clerk challenges a fresh browser/device with an emailed code, which
+can't be scripted without hooking into the app's own email delivery. You
+sign in by hand once; Playwright reuses that session for every test
+until it expires.
+
+### Setup (Windows)
 
 1. Create a dedicated Clerk user to test with. **Never use a real
    punter's account** -- the suite logs real bets, blackbook rows,
@@ -15,13 +21,25 @@ deploy or in any CI hook -- it's invoked explicitly.
    created them, but transient activity still happens). Give it the
    **Pro** plan so every covered flow (Blackbook, Insights, Community,
    competitions, live odds) is actually reachable.
-2. Copy `.env.e2e.example` to `.env.e2e` and fill in:
-   - `E2E_USER_EMAIL` / `E2E_USER_PASSWORD` -- that test account's real
-     sign-in credentials.
-   - `BASE_URL` -- defaults to `https://wagingwar.com.au`; override to
-     point at a preview deploy or local dev server instead.
-   `.env.e2e` is git-ignored. Never commit it.
-3. Install Playwright's browser binary once: `npx playwright install chromium`.
+2. Copy `.env.e2e.example` to `.env.e2e` (optional -- only needed to
+   override `BASE_URL`, e.g. to point at a preview deploy instead of
+   production). `.env.e2e` is git-ignored; it holds no credentials.
+3. Install Playwright's browser binary once:
+   ```
+   npx playwright install chromium
+   ```
+4. Save a session:
+   ```
+   npm run e2e:login
+   ```
+   A real Chrome window opens at the sign-in page. Sign in as the test
+   account by hand, including Clerk's emailed new-device code when it
+   asks for one. Once you're through to a signed-in page, the script
+   detects it automatically, writes `.auth/user.json`, and prints
+   `Session saved`. Leave the window alone until you see that line --
+   it waits up to 5 minutes.
+5. Re-run step 4 (`npm run e2e:login`) whenever the saved session
+   expires -- see "fails fast" below for how you'll know.
 
 ### Running
 
@@ -37,6 +55,12 @@ to attribute and risk one test's writes colliding with another's.
 Every test prefixes everything it creates with `QA e2e -` and deletes it
 again in a `finally`/cleanup block, even on failure. No test clears all
 of the account's bets or touches anything account-wide.
+
+If `.auth/user.json` is missing, or the saved session has expired, the
+whole run fails immediately with one message -- **`Session missing or
+expired, run npm run e2e:login`** -- instead of every signed-in test
+failing separately for the same reason. Run `npm run e2e:login` again
+and re-run `npm run e2e`.
 
 View the HTML report after a run: `npx playwright show-report`.
 
