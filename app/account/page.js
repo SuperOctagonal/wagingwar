@@ -217,10 +217,12 @@ function AccountPageInner() {
   const ptsToNext = nextTier ? nextTier.points - pts : 0;
 
   const totalBets = allResults?.length || 0;
-  const wins      = allResults?.filter(b => b.result === 'win').length ?? 0;
-  const winPct    = totalBets > 0 ? Math.round((wins / totalBets) * 100) : null;
-
   const settledBets = (allResults ?? []).filter(b => b.result && b.result !== 'pending');
+  const wins      = settledBets.filter(b => b.result === 'win').length;
+  // Denominator is settled bets only -- a pile of still-pending bets was
+  // previously dragging Win Rate down toward 0% even though none of them
+  // had actually been lost yet.
+  const winPct    = settledBets.length > 0 ? Math.round((wins / settledBets.length) * 100) : null;
   let currentStreak = 0;
   for (const b of settledBets) {
     if (b.result === 'win') currentStreak++;
@@ -357,7 +359,7 @@ function AccountPageInner() {
             {/* Stats */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               <StatBox label="Total Bets"     value={totalBets} />
-              <StatBox label="Win Rate"       value={winPct !== null ? `${winPct}%` : '—'} sub={winPct !== null ? `${wins} of ${totalBets}` : 'No data'} />
+              <StatBox label="Win Rate"       value={winPct !== null ? `${winPct}%` : '—'} sub={winPct !== null ? `${wins} of ${settledBets.length}` : 'No data'} />
               <StatBox label="Current Streak" value={currentStreak} sub="wins" />
               <StatBox label="Longest Streak" value={longestStreak} sub="all time" />
             </div>

@@ -1234,8 +1234,14 @@ function BetModal({ horse, onClose, isAdmin = false, oddsBookmaker = '' }) {
     try {
       const venue = normaliseVenue(horse._venue);
       const raceNum = String(horse._raceNum);
+      // _meetingDate is the raw CSV date (DD/MM/YYYY) -- must convert to ISO
+      // before this reaches the race_odds_open_latest RPC server-side, which
+      // does a real Postgres `date` cast and 400s on "18/10/2026" (confirmed
+      // live, 2026-10-18). Same conversion line 1338 below already does.
+      const date = toISO(horse._meetingDate);
+      if (!date) return null;
       const res = await fetch(
-        `/api/race-live-prices?venue=${encodeURIComponent(venue)}&raceNum=${encodeURIComponent(raceNum)}&date=${encodeURIComponent(horse._meetingDate)}&bookmaker=${encodeURIComponent(slug)}`,
+        `/api/race-live-prices?venue=${encodeURIComponent(venue)}&raceNum=${encodeURIComponent(raceNum)}&date=${encodeURIComponent(date)}&bookmaker=${encodeURIComponent(slug)}`,
       );
       if (!res.ok) return null;
       const { livePrices } = await res.json();

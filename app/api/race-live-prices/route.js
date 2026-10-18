@@ -35,8 +35,8 @@ export async function GET(req) {
   const raceNum = searchParams.get('raceNum');
   const date = searchParams.get('date');
   const bookmaker = searchParams.get('bookmaker');
-  if (!venue || !raceNum || !date) {
-    return NextResponse.json({ error: 'venue, raceNum and date are required' }, { status: 400 });
+  if (!venue || !raceNum || !date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    return NextResponse.json({ error: 'venue, raceNum and a valid ISO date are required' }, { status: 400 });
   }
 
   let livePrices = {};

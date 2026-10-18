@@ -26,7 +26,7 @@ export default function ProfileRail({ children }) {
   // the Supabase dashboard but nothing in this codebase (frontend or backend)
   // ever writes to them, so they were permanently stuck at 0. Same live-query
   // approach app/account/page.js already uses for its own bet stats.
-  const [betStats, setBetStats] = useState({ total: 0, wins: 0 });
+  const [betStats, setBetStats] = useState({ total: 0, settled: 0, wins: 0 });
   const [postCount, setPostCount] = useState(0);
   const [cosmetics, setCosmetics] = useState({ border: null, flair: null });
   const userId = user?.id;
@@ -50,7 +50,11 @@ export default function ProfileRail({ children }) {
         }
         if (betRes.ok) {
           const bets = await betRes.json();
-          setBetStats({ total: bets.length, wins: bets.filter(b => b.result === 'win').length });
+          // Win% denominator is settled bets only -- pending bets were
+          // dragging this toward 0% before any of them had actually lost.
+          // "Bets" (total) still counts every logged bet, settled or not.
+          const settled = bets.filter(b => b.result && b.result !== 'pending' && b.result !== 'scratched' && b.result !== 'unresolved' && b.result !== 'abandoned');
+          setBetStats({ total: bets.length, settled: settled.length, wins: settled.filter(b => b.result === 'win').length });
         }
         if (postRes.ok) {
           const posts = await postRes.json();
@@ -128,7 +132,7 @@ export default function ProfileRail({ children }) {
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 4 }}>
           {[
             { label: 'Bets',  val: betStats.total },
-            { label: 'Win%',  val: betStats.total > 0 ? `${Math.round(betStats.wins / betStats.total * 100)}%` : '—' },
+            { label: 'Win%',  val: betStats.settled > 0 ? `${Math.round(betStats.wins / betStats.settled * 100)}%` : '—' },
             { label: 'Posts', val: postCount },
           ].map(s => (
             <div key={s.label} style={{ background: '#f9fafb', borderRadius: 4, padding: '4px 6px', textAlign: 'center' }}>
