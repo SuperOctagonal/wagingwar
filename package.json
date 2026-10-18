@@ -6,7 +6,8 @@
     "dev": "next dev -p 3001",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "e2e": "playwright test"
   },
   "dependencies": {
     "@clerk/nextjs": "^6.7.0",
@@ -18,7 +19,9 @@
     "stripe": "^22.2.1"
   },
   "devDependencies": {
+    "@playwright/test": "^1.62.1",
     "autoprefixer": "^10.4.20",
+    "dotenv": "^18.0.8",
     "eslint": "^9.17.0",
     "eslint-config-next": "^15.3.3",
     "playwright": "^1.62.1",

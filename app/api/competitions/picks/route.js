@@ -86,3 +86,23 @@ export async function POST(req) {
   if (!ok) return NextResponse.json({ error: 'Supabase error' }, { status: status === 400 ? 400 : 502 });
   return NextResponse.json(Array.isArray(data) ? data[0] : data);
 }
+
+// comp_picks.id is bigint. Added for the e2e suite's own cleanup -- no UI
+// exposes this today (a saved pick is normally overwritten by a new one,
+// never withdrawn), but every created row still needs a real way back out.
+export async function DELETE(req) {
+  const userId = await requireUser();
+  if (!userId) return NextResponse.json({ error: 'Unauthenticated' }, { status: 401 });
+
+  const { searchParams } = new URL(req.url);
+  const id = searchParams.get('id');
+  if (!id || !/^\d+$/.test(id)) return NextResponse.json({ error: 'Invalid id' }, { status: 400 });
+
+  const { ok, data } = await sbAdminRaw(
+    `comp_picks?id=eq.${id}&clerk_id=eq.${encodeURIComponent(userId)}`,
+    { method: 'DELETE', prefer: 'return=representation' },
+  );
+  if (!ok) return NextResponse.json({ error: 'Supabase error' }, { status: 502 });
+  if (!data || !data.length) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+  return NextResponse.json({ deleted: 1 });
+}

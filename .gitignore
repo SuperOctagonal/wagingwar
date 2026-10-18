@@ -4,5 +4,12 @@ node_modules/
 .env
 .env.local
 .env.production
+.env.e2e
 *.txt
 .DS_Store
+
+# Playwright e2e
+e2e/.auth/
+playwright-report/
+test-results/
+blob-report/
