@@ -7,7 +7,7 @@ import {
 
 const POS = '#6fb4ff'; // profit -- blue, per the brief (not green)
 const NEG = '#ff9455'; // loss -- orange, per the brief (not red)
-const MUT = '#98a1ad';
+const MUT = '#c3cad3'; // brightened from #98a1ad for AA contrast on #0d0f12
 const AMBER = '#ffc247';
 
 const selStyle = {
@@ -19,7 +19,10 @@ const selStyle = {
   fontWeight: 700,
   border: 0,
   borderBottom: `2px dashed ${AMBER}`,
-  padding: '0 18px 2px 2px',
+  // right padding kept tight (not the old 18px) so a trailing comma or
+  // full stop sits right after the chosen word instead of floating in a
+  // gap left over for a dropdown-arrow icon this select never draws.
+  padding: '0 2px 2px 2px',
   margin: '0 2px',
   cursor: 'pointer',
   borderRadius: 0,
@@ -31,6 +34,15 @@ const selStyle = {
   alignItems: 'center',
   minHeight: 44,
   verticalAlign: 'middle',
+  // colorScheme: 'dark' makes the browser render the native dropdown
+  // popup (option list) in a dark UA theme instead of defaulting to
+  // amber-on-white -- the .tr-sel option rule below is the fallback for
+  // engines that ignore colorScheme on <option>.
+  colorScheme: 'dark',
+  // field-sizing: content shrinks the box to the chosen option's text so
+  // the sentence has no leftover gap; unsupported browsers fall back to
+  // the fixed padding above, which is slightly looser but never clipped.
+  fieldSizing: 'content',
 };
 const btnStyle = {
   cursor: 'pointer', background: '#14171c', color: '#e8eaee', border: '1px solid #2b313a',
@@ -43,7 +55,7 @@ const chipStyle = {
 };
 const hdStyle = {
   cursor: 'pointer', background: 'none', border: 0, color: MUT, font: 'inherit',
-  fontSize: 12, letterSpacing: '.06em', textTransform: 'uppercase', padding: 0, textAlign: 'inherit',
+  fontSize: 13, textTransform: 'uppercase', padding: 0, textAlign: 'inherit',
 };
 // JetBrains Mono is already loaded globally (app/layout.js, next/font) as
 // --font-jetbrains-mono -- reused here rather than pulling in a second
@@ -54,30 +66,30 @@ const DEFAULT_FILTERS = { st: 'all', pr: 'all', sc: 'all', per: 'all', q: '', gr
 
 function Sentence({ f, set }) {
   return (
-    <div style={{ fontSize: 20, lineHeight: 2, fontWeight: 500, color: '#e8eaee' }}>
+    <div style={{ fontSize: 22, lineHeight: 2, fontWeight: 500, color: '#e8eaee' }}>
       Show top picks in{' '}
-      <select aria-label="State" style={selStyle} value={f.st} onChange={e => set({ st: e.target.value })}>
+      <select aria-label="State" className="tr-sel" style={selStyle} value={f.st} onChange={e => set({ st: e.target.value })}>
         <option value="all">any state</option>
         {['NSW', 'VIC', 'QLD', 'WA', 'SA', 'TAS', 'NT', 'ACT'].map(s => <option key={s} value={s}>{s}</option>)}
       </select>{' '}
       priced{' '}
-      <select aria-label="Tip price" style={selStyle} value={f.pr} onChange={e => set({ pr: e.target.value })}>
+      <select aria-label="Tip price" className="tr-sel" style={selStyle} value={f.pr} onChange={e => set({ pr: e.target.value })}>
         <option value="all">at any price</option>
         {PL.map(p => <option key={p} value={p}>{p.toLowerCase()}</option>)}
       </select>{' '}
       with a score{' '}
-      <select aria-label="Score" style={selStyle} value={f.sc} onChange={e => set({ sc: e.target.value })}>
+      <select aria-label="Score" className="tr-sel" style={selStyle} value={f.sc} onChange={e => set({ sc: e.target.value })}>
         <option value="all">of any size</option>
         {SL.map(s => <option key={s} value={s}>{s.toLowerCase()}</option>)}
       </select>{' '}
       over{' '}
-      <select aria-label="Period" style={selStyle} value={f.per} onChange={e => set({ per: e.target.value })}>
+      <select aria-label="Period" className="tr-sel" style={selStyle} value={f.per} onChange={e => set({ per: e.target.value })}>
         <option value="all">all time</option>
         <option value="14">the last 14 days</option>
         <option value="7">the last 7 days</option>
       </select>
       ,{' '}grouped by{' '}
-      <select aria-label="Group by" style={selStyle} value={f.grp} onChange={e => set({ grp: e.target.value })}>
+      <select aria-label="Group by" className="tr-sel" style={selStyle} value={f.grp} onChange={e => set({ grp: e.target.value })}>
         <option value="none">nothing (every tip)</option>
         <option value="state">state</option>
         <option value="venue">venue</option>
@@ -96,14 +108,14 @@ function Readout({ a, sparkPts, col }) {
   return (
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(min(520px,100%),1fr))', gap: 20, alignItems: 'stretch', borderTop: '1px solid #232830', borderBottom: '1px solid #232830', padding: '20px 0' }}>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(130px,1fr))', gap: '18px 20px', alignContent: 'center' }}>
-        <div><div style={{ ...mono, fontSize: 30, fontWeight: 700 }}>{ni(a.n)}</div><div style={{ color: MUT, fontSize: 12, letterSpacing: '.06em' }}>BETS</div></div>
-        <div><div style={{ ...mono, fontSize: 30, fontWeight: 700 }}>{ni(a.w)} <span style={{ fontSize: 15, color: MUT, fontWeight: 500 }}>{a.sr.toFixed(1)}%</span></div><div style={{ color: MUT, fontSize: 12, letterSpacing: '.06em' }}>WON</div></div>
-        <div><div style={{ ...mono, fontSize: 30, fontWeight: 700 }}>{ni(a.p)} <span style={{ fontSize: 15, color: MUT, fontWeight: 500 }}>{a.pr.toFixed(1)}%</span></div><div style={{ color: MUT, fontSize: 12, letterSpacing: '.06em' }}>FINISHED TOP 3</div></div>
-        <div><div style={{ ...mono, fontSize: 30, fontWeight: 700, color: col }}>{sg(a.u, 2)}</div><div style={{ color: MUT, fontSize: 12, letterSpacing: '.06em' }}>UNITS ($1 FLAT)</div></div>
-        <div><div style={{ ...mono, fontSize: 30, fontWeight: 700, color: col }}>{pc(a.roi, 1)}</div><div style={{ color: MUT, fontSize: 12, letterSpacing: '.06em' }}>RETURN ON TURNOVER</div></div>
+        <div><div style={{ ...mono, fontSize: 30, fontWeight: 700 }}>{ni(a.n)}</div><div style={{ color: MUT, fontSize: 13 }}>BETS</div></div>
+        <div><div style={{ ...mono, fontSize: 30, fontWeight: 700 }}>{ni(a.w)} <span style={{ fontSize: 15, color: MUT, fontWeight: 500 }}>{a.sr.toFixed(1)}%</span></div><div style={{ color: MUT, fontSize: 13 }}>WON</div></div>
+        <div><div style={{ ...mono, fontSize: 30, fontWeight: 700 }}>{ni(a.p)} <span style={{ fontSize: 15, color: MUT, fontWeight: 500 }}>{a.pr.toFixed(1)}%</span></div><div style={{ color: MUT, fontSize: 13 }}>FINISHED TOP 3</div></div>
+        <div><div style={{ ...mono, fontSize: 30, fontWeight: 700, color: col }}>{sg(a.u, 2)}</div><div style={{ color: MUT, fontSize: 13 }}>UNITS ($1 FLAT)</div></div>
+        <div><div style={{ ...mono, fontSize: 30, fontWeight: 700, color: col }}>{pc(a.roi, 1)}</div><div style={{ color: MUT, fontSize: 13 }}>RETURN ON TURNOVER</div></div>
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6, justifyContent: 'center' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', color: MUT, fontSize: 12, letterSpacing: '.06em' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', color: MUT, fontSize: 13 }}>
           <span>RUNNING PROFIT / LOSS, IN ORDER OF RACE</span><span style={{ ...mono, color: col }}>{sg(a.u, 2)}</span>
         </div>
         <svg viewBox="0 0 600 120" width="100%" role="img" aria-label="Running profit and loss for the current selection" style={{ display: 'block' }}>
@@ -169,13 +181,13 @@ function LedgerTable({ rows, sk, sd, setSort, show, setShow }) {
             return (
               <div key={i} style={{ display: 'grid', gridTemplateColumns: tpl, gap: 10, padding: '10px 16px', borderBottom: '1px solid #1b1f25', alignItems: 'center' }}>
                 <div style={{ ...mono, color: '#b4bcc7' }}>{r[0]}</div>
-                <div>{r[1]} <span style={{ color: MUT, fontSize: 12 }}>{r[2]}</span></div>
+                <div>{r[1]} <span style={{ color: MUT, fontSize: 13 }}>{r[2]}</span></div>
                 <div style={{ ...mono, color: MUT }}>R{r[3]}</div>
                 <div style={{ fontWeight: 600 }}>{r[4]}</div>
                 <div style={{ ...mono, textAlign: 'right' }}>{r[5]}</div>
                 <div style={{ ...mono, textAlign: 'right' }}>{money(r[7])}</div>
                 <div style={{ ...mono, textAlign: 'right' }}>{money(r[8])}</div>
-                <div><span style={{ display: 'inline-block', minWidth: 48, textAlign: 'center', borderRadius: 999, padding: '2px 10px', fontSize: 12, fontWeight: 700, background: p[0], color: p[1], border: `1px solid ${p[2]}` }}>{ordn(r[9])}</span></div>
+                <div><span style={{ display: 'inline-block', minWidth: 48, textAlign: 'center', borderRadius: 999, padding: '2px 10px', fontSize: 13, fontWeight: 700, background: p[0], color: p[1], border: `1px solid ${p[2]}` }}>{ordn(r[9])}</span></div>
                 <div style={{ ...mono, textAlign: 'right', fontWeight: 600, color: uc }}>{sg(u, 2)}</div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <div style={{ flex: 1, height: 6, background: '#1b1f25', borderRadius: 3, position: 'relative' }}>
@@ -208,14 +220,14 @@ function GroupedTable({ rows, grp, minN, setMinN, open, setOpen }) {
     <>
       <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap', color: '#b4bcc7', fontSize: 13, marginBottom: 12 }}>
         <label htmlFor="minn">Hide groups with fewer than</label>
-        <select id="minn" style={selStyle} value={minN} onChange={e => setMinN(+e.target.value)}>
+        <select id="minn" className="tr-sel" style={selStyle} value={minN} onChange={e => setMinN(+e.target.value)}>
           {[0, 10, 20, 50, 100].map(n => <option key={n} value={n}>{n} bets</option>)}
         </select>
         <span>Groups under 20 bets are faded: too few to trust.</span>
       </div>
       <div style={{ overflowX: 'auto', border: '1px solid #232830', borderRadius: 12 }}>
         <div style={{ minWidth: 860 }}>
-          <div style={{ display: 'grid', gridTemplateColumns: tpl, gap: 10, padding: '12px 16px', background: '#14171c', borderBottom: '1px solid #232830', borderRadius: '12px 12px 0 0', color: MUT, fontSize: 12, letterSpacing: '.06em', textTransform: 'uppercase' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: tpl, gap: 10, padding: '12px 16px', background: '#14171c', borderBottom: '1px solid #232830', borderRadius: '12px 12px 0 0', color: MUT, fontSize: 13, textTransform: 'uppercase' }}>
             <div>{DIMS[grp].label}</div>
             <div style={{ textAlign: 'right' }}>Bets</div>
             <div style={{ textAlign: 'right' }}>Won</div>
@@ -242,7 +254,7 @@ function GroupedTable({ rows, grp, minN, setMinN, open, setOpen }) {
                   <div style={{ display: 'grid', gridTemplateColumns: tpl, gap: 10, padding: '12px 16px', alignItems: 'center' }}>
                     <div style={{ fontWeight: 700 }}>
                       <span style={{ display: 'inline-block', width: 16, color: AMBER }}>{isOpen ? '▾' : '▸'}</span>
-                      {g.key} <span style={{ color: MUT, fontSize: 12, fontWeight: 500 }}>{small ? '· small sample' : ''}</span>
+                      {g.key} <span style={{ color: MUT, fontSize: 13, fontWeight: 500 }}>{small ? '· small sample' : ''}</span>
                     </div>
                     <div style={{ ...mono, textAlign: 'right' }}>{ni(g.a.n)}</div>
                     <div style={{ ...mono, textAlign: 'right' }}>{ni(g.a.w)}</div>
@@ -264,7 +276,7 @@ function GroupedTable({ rows, grp, minN, setMinN, open, setOpen }) {
                 </button>
                 {isOpen && (
                   <div style={{ background: '#10131a', padding: '6px 16px 14px 44px', borderTop: '1px solid #1b1f25' }}>
-                    <div style={{ color: MUT, fontSize: 12, padding: '8px 0' }}>Latest {sub.length} of {g.a.n} bets in this group</div>
+                    <div style={{ color: MUT, fontSize: 13, padding: '8px 0' }}>Latest {sub.length} of {g.a.n} bets in this group</div>
                     {sub.map((r, i) => (
                       <div key={i} style={{ display: 'grid', gridTemplateColumns: '70px 1.6fr 1.4fr 70px 70px', gap: 10, padding: '5px 0', borderBottom: '1px solid #1b1f25' }}>
                         <span style={{ ...mono, color: '#b4bcc7' }}>{r[0]}</span>
@@ -360,16 +372,18 @@ export default function TipRecordClient() {
   const vWeek = () => { setF({ ...DEFAULT_FILTERS, per: '7' }); setShow(40); setOpen(null); };
 
   return (
-    <main style={{ minHeight: '100vh', background: '#0d0f12', color: '#e8eaee', fontFamily: 'var(--font-space-grotesk), system-ui, sans-serif', fontSize: 14, lineHeight: 1.45 }}>
+    <main className="mob-page" style={{ flex: 1, minHeight: 0, overflowY: 'auto', WebkitOverflowScrolling: 'touch', background: '#0d0f12', color: '#e8eaee', fontFamily: 'var(--font-space-grotesk), system-ui, sans-serif', fontSize: 15, fontWeight: 500, lineHeight: 1.45 }}>
       <style>{`
-        @media (max-width:700px){.tr-title{font-size:32px !important}.tr-sentence{font-size:18px !important;line-height:2.2 !important}}
-        .tr-sel option{color:#111;background:#fff;font-weight:500}
+        @media (max-width:700px){.tr-title{font-size:32px !important}.tr-sentence{font-size:20px !important;line-height:2.2 !important}}
+        .tr-sel{color-scheme:dark}
+        .tr-sel option{color:#e8eaee;background:#14171c;font-weight:500}
+        .tr-sel option:checked{background:#2b313a;color:#ffc247}
         .tr-btn:hover{border-color:${AMBER}}
         .tr-page{max-width:100vw;overflow-x:hidden}
       `}</style>
       <div className="tr-page" style={{ maxWidth: 1240, margin: '0 auto', padding: '24px 16px 72px', display: 'flex', flexDirection: 'column', gap: 20 }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          <div style={{ ...mono, fontSize: 12, color: MUT, letterSpacing: '.08em' }}>
+          <div style={{ ...mono, fontSize: 13, color: MUT }}>
             TIP RECORD {data ? `· SETTLED RESULTS TO ${data.meta.results_to}` : ''}
           </div>
           <h1 className="tr-title" style={{ margin: 0, fontSize: 44, lineHeight: 1.05, fontWeight: 800, letterSpacing: '-.02em' }}>Tip Record</h1>
@@ -436,7 +450,7 @@ export default function TipRecordClient() {
           </>
         )}
 
-        <div><Link href="/results" style={{ color: MUT, fontSize: 12 }}>← Back to Results</Link></div>
+        <div><Link href="/results" style={{ color: MUT, fontSize: 13 }}>← Back to Results</Link></div>
       </div>
     </main>
   );

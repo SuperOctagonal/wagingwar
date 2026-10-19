@@ -12,6 +12,19 @@ test('Tip Record loads logged out', async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'Tip Record' })).toBeVisible({ timeout: 20000 });
 });
 
+test('Page scrolls to the footer disclosure', async ({ page }) => {
+  await page.goto('/tip-record');
+  await page.waitForLoadState('domcontentloaded').catch(() => {});
+  await expect(page.getByRole('heading', { name: 'Tip Record' })).toBeVisible({ timeout: 20000 });
+  const gambleHelp = page.getByText('Gambling Help 1800 858 858');
+  // The app shell makes `body` overflow-hidden and expects each page to
+  // supply its own scrolling container (see /results) -- this proves
+  // /tip-record actually does, by scrolling the real page, not just
+  // asserting the element exists in the DOM off-screen.
+  await gambleHelp.scrollIntoViewIfNeeded();
+  await expect(gambleHelp).toBeInViewport();
+});
+
 test('Headline numbers match the API', async ({ page }) => {
   const res = await page.request.get('/api/tip-record');
   expect(res.ok(), `tip-record API failed: ${res.status()}`).toBeTruthy();
