@@ -12,6 +12,7 @@ import { punterFallback } from '@/lib/punterFallback';
 const NAV_LINKS = [
   { id: 'races',        label: 'Races',        href: '/races',        public: true },
   { id: 'results',      label: 'Results',      href: '/results' },
+  { id: 'tip-record',   label: 'Tip Record',   href: '/tip-record',   public: true },
   { id: 'mybets',       label: 'My Bets',      href: '/mybets' },
   { id: 'betting-tools', label: 'Tools',       href: '/betting-tools' },
   { id: 'community',    label: 'Community',    href: '/community' },
