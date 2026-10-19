@@ -3,7 +3,7 @@
 // mockup's fake day-offset dates to real ISO date strings and to the
 // actual API row shape:
 // [date, venue, state, race, horse, score, ww_price, market_price, sp,
-//  finish_pos, field_size, edge_pct, field_rank]
+//  finish_pos, field_size, edge_pct, field_rank, dead_heat_winners]
 const DOW = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
@@ -26,15 +26,13 @@ export function weekStart(iso) {
   return addDays(iso, -dowOf(iso));
 }
 
-// units() -- $1 win at official SP. win pays sp - 1, otherwise -1. This
-// intentionally does NOT apply the dead-heat split (sp / dead_heat_winners
-// - 1): the API's compact row doesn't carry dead_heat_winners (by the
-// agreed payload spec), so the one historical dead-heat tip (BITTA BON
-// MAGIC, FORBES 10 Oct) reads as a full sp-1 win here rather than the
-// correct, smaller dead-heat payout -- a known, flagged gap affecting
-// exactly one row out of 1,400+.
+// units() -- $1 win at official SP. On a win the stake itself is split
+// between dead-heat winners, so the payout is sp / dead_heat_winners - 1
+// (not (sp-1)/dead_heat_winners -- that under-splits the profit only,
+// not the stake). r[13] is 1 for every normal, non-dead-heat win.
+// Otherwise -1.
 export function pl(r) {
-  return r[9] === 1 ? r[8] - 1 : -1;
+  return r[9] === 1 ? r[8] / (r[13] || 1) - 1 : -1;
 }
 
 export function agg(rows) {

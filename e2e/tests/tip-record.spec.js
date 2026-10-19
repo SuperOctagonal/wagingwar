@@ -76,6 +76,10 @@ test('API response has no fields outside the documented shape', async ({ page })
   expect(Object.keys(body.meta).sort()).toEqual(['excluded', 'results_to', 'settled']);
   expect(Object.keys(body.meta.excluded).sort()).toEqual(['abandoned', 'no_result', 'scratched', 'total']);
   if (body.rows.length) {
-    expect(body.rows[0]).toHaveLength(13); // date, venue, state, race, horse, score, ww_price, market_price, sp, finish_pos, field_size, edge_pct, field_rank
+    // date, venue, state, race, horse, score, ww_price, market_price, sp,
+    // finish_pos, field_size, edge_pct, field_rank, dead_heat_winners --
+    // the one approved addition beyond the original 13-field spec, needed
+    // for the page's own units calc to apply the dead-heat payout rule.
+    expect(body.rows[0]).toHaveLength(14);
   }
 });
