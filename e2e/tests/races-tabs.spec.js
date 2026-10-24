@@ -31,7 +31,10 @@ test('Races tabs do not crash the page (desktop)', async ({ page }) => {
   // never crash the page.
   const tabs = ['Field', 'Odds', 'Form', 'Pace Map', 'Movers', 'Value', 'Sectionals'];
   for (const label of tabs) {
-    await page.getByRole('button', { name: new RegExp(`^${label}`) }).first().click();
+    // Each tab button's accessible name leads with its icon font's glyph
+    // character (the <i> isn't aria-hidden), so the label is a substring,
+    // not the start of the name -- no `^` anchor.
+    await page.getByRole('button', { name: new RegExp(label) }).first().click();
     await page.waitForTimeout(500);
     // The page itself (not just the clicked tab) must still be alive --
     // this is exactly what a blanked-page crash would fail.

@@ -8,6 +8,12 @@ import { useEffect } from 'react';
 // hardcoded guess that drifts if either element's height ever changes.
 // Falls back to the existing 80px CSS default until this runs (or if it
 // can't find the elements, e.g. on desktop where they're not rendered).
+//
+// Also measures the desktop RG strip + footer (components/FooterChrome.js,
+// in-flow rather than fixed on desktop, but still pinned to the viewport
+// bottom by the body's own flex-column + overflow-hidden layout) and
+// exposes that as --desktop-footer-height, for RadioPlayer.js to clear on
+// desktop the same exact way.
 export default function MobileChromeVars() {
   useEffect(() => {
     const measure = () => {
@@ -17,6 +23,13 @@ export default function MobileChromeVars() {
       const tabHeight = tab?.getBoundingClientRect().height ?? 0;
       if (rgHeight || tabHeight) {
         document.documentElement.style.setProperty('--mobile-chrome-height', `${rgHeight + tabHeight}px`);
+      }
+
+      const dRg = document.getElementById('desktop-rg-strip');
+      const dFooter = document.getElementById('desktop-footer');
+      const dHeight = (dRg?.getBoundingClientRect().height ?? 0) + (dFooter?.getBoundingClientRect().height ?? 0);
+      if (dHeight) {
+        document.documentElement.style.setProperty('--desktop-footer-height', `${dHeight}px`);
       }
     };
 
