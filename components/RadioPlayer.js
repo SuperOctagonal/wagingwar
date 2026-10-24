@@ -1,5 +1,6 @@
 'use client';
 import { useState, useEffect } from 'react';
+import { usePathname } from 'next/navigation';
 import useIsMobile from '@/hooks/useIsMobile';
 
 // Live racing radio (RSN 927, Melbourne) via TuneIn's own embeddable player
@@ -20,6 +21,15 @@ const TUNEIN_EMBED_URL = 'https://tunein.com/embed/player/s3007/?background=dark
 export default function RadioPlayer() {
   const [expanded, setExpanded] = useState(false);
   const isMobile = useIsMobile();
+  const pathname = usePathname();
+  // Community's own mobile FAB ("+ new post", app/community/page.js) sits
+  // at bottom:72/right:16, 52px tall -- the only other fixed bottom-right
+  // element anywhere in the app (checked: no page has a floating Bet
+  // button, Odds chip or other floating control; /races, /mybets, /results
+  // and /tip-record only have the shared RG banner + tab bar in this
+  // corner). Stacking this above it here is the one place a plain bottom
+  // offset isn't enough.
+  const isCommunity = pathname?.startsWith('/community');
 
   useEffect(() => {
     try {
@@ -37,21 +47,19 @@ export default function RadioPlayer() {
     <div
       style={{
         position: 'fixed',
-        // Left, not right -- several pages put their own tappable controls
-        // in the bottom-right corner (Community's "+ new post" FAB,
-        // app/community/page.js) at a similar bottom offset, and this
-        // being the higher z-index element meant it silently ate those
-        // taps (confirmed live, 2026-10-18). Nothing else anchors to the
-        // bottom-left corner on mobile.
-        left: 12,
-        // +52px clears My Bets' own extra mobile section bar on top of
-        // the shared RG-banner+tab-bar chrome (app/mybets/page.js) --
-        // harmless slack on pages that don't have one.
-        bottom: 'calc(var(--mobile-chrome-height, 80px) + 52px + 12px)',
+        // Bottom right on every page. +52px clears My Bets' own extra
+        // mobile section bar on top of the shared RG-banner+tab-bar chrome
+        // (app/mybets/page.js) -- harmless slack on pages that don't have
+        // one. On /community, stack above its FAB (bottom:72, 52px tall)
+        // instead of the normal offset, so the two never overlap.
+        right: 12,
+        bottom: isCommunity
+          ? 'calc(72px + 52px + 12px)'
+          : 'calc(var(--mobile-chrome-height, 80px) + 52px + 12px)',
         zIndex: 1500,
         display: 'flex',
         flexDirection: 'column',
-        alignItems: 'flex-start',
+        alignItems: 'flex-end',
       }}
     >
       {expanded && (
@@ -93,15 +101,16 @@ export default function RadioPlayer() {
           onClick={toggle}
           aria-label="Open RSN 927 live racing radio"
           style={isMobile ? {
-            // Icon-only and smaller on mobile -- less of the already-
-            // crowded bottom-corner area to overlap anything else in.
+            // Icon-only on mobile -- less of the already-crowded
+            // bottom-corner area to overlap anything else in. 44x44 is a
+            // real tap target, not just the icon's own visual size.
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            width: 36, height: 36, borderRadius: '50%',
+            width: 44, height: 44, borderRadius: '50%',
             background: '#00471b', color: '#fff', border: 'none',
             cursor: 'pointer', boxShadow: '0 2px 8px rgba(0,0,0,0.25)',
           } : {
             display: 'flex', alignItems: 'center', gap: 6,
-            padding: '7px 12px', borderRadius: 20,
+            padding: '0 14px', minHeight: 44, borderRadius: 22,
             background: '#00471b', color: '#fff', border: 'none',
             fontSize: 11, fontWeight: 700, letterSpacing: '0.2px',
             cursor: 'pointer', boxShadow: '0 2px 8px rgba(0,0,0,0.25)',

@@ -58,6 +58,7 @@ import {
 } from '@/lib/scoring';
 import { calculateLiveOdds, CALIBRATION_ENABLED } from '@/lib/livePricing';
 import { getConfidenceFlags } from '@/lib/confidence';
+import TabPanelErrorBoundary from '@/components/TabPanelErrorBoundary';
 
 // ─── small helpers ────────────────────────────────────────────────────────────
 
@@ -2732,6 +2733,15 @@ function FieldView({ results, scratched, rc, trackCond, onLogBet, onShowPopup, o
 // ─── form view ────────────────────────────────────────────────────────────────
 
 function FormCard({ runner: r, rank, onLogBet, isResulted, betBlocked = false, rc, isPro, onUpgrade, isDbScratched, getWinner }) {
+  // FormView doesn't plumb through live prices or the biggest-mover flags
+  // (those are a FieldView/MobileRunnerCard concept) -- displayPrice falls
+  // back to the stored rawOdds, and the card never claims to be the
+  // biggest firmer/drifter. mobIsTopRated still highlights rank 1.
+  const displayPrice = r.rawOdds;
+  const isBiggestFirmer = false;
+  const isBiggestDrifter = false;
+  const mobIsTopRated = rank === 1;
+  const mobEdge = isDbScratched ? 'transparent' : mobIsTopRated ? '#d97706' : 'transparent';
   const bp      = r['BP'] || r.BP || '';
   const wt      = r['Weight'] ? `${r['Weight']}kg` : '';
   const allow   = r.allowance ? ` -${r.allowance}kg` : '';
@@ -4885,34 +4895,46 @@ function RacesPageInner() {
               const contentBlock = (
                 <div id="races-middle-scroll" className={isNarrow ? 'flex-1 overflow-hidden flex flex-col' : 'mob-page'} style={isNarrow ? undefined : { overflowY: 'auto', height: '100%', flex: 1, minHeight: 0, WebkitOverflowScrolling: 'touch' }}>
                   {view === 'field' && (
-                    <FieldView results={[...sortedResults, ...allHorsesForDisplay.filter(h => !results.includes(h))]} scratched={scratched} rc={currentRace}
-                      trackCond={trackCond} onLogBet={handleLogBet}
-                      onShowPopup={showHorsePopup} onHidePopup={hideHorsePopup}
-                      isResulted={!!currentRaceResult} betBlocked={betBlocked}
-                      isPro={isPro} onUpgrade={() => setUpgradeOpen(true)}
-                      scratchingsSet={scratchingsSet} colVis={colVis} todayBets={todayBets} isMobile={isNarrow}
-                      canLivePrices={canAccessLivePrices} livePrices={livePrices} marketMoves={marketMoves} calibrationCurve={calibrationCurve} trustBuckets={trustBuckets}
-                      compact={compactView} highlightName={highlightName} oddsBookmaker={oddsBookmaker} />
+                    <TabPanelErrorBoundary label="Field" resetKey={selectedKey}>
+                      <FieldView results={[...sortedResults, ...allHorsesForDisplay.filter(h => !results.includes(h))]} scratched={scratched} rc={currentRace}
+                        trackCond={trackCond} onLogBet={handleLogBet}
+                        onShowPopup={showHorsePopup} onHidePopup={hideHorsePopup}
+                        isResulted={!!currentRaceResult} betBlocked={betBlocked}
+                        isPro={isPro} onUpgrade={() => setUpgradeOpen(true)}
+                        scratchingsSet={scratchingsSet} colVis={colVis} todayBets={todayBets} isMobile={isNarrow}
+                        canLivePrices={canAccessLivePrices} livePrices={livePrices} marketMoves={marketMoves} calibrationCurve={calibrationCurve} trustBuckets={trustBuckets}
+                        compact={compactView} highlightName={highlightName} oddsBookmaker={oddsBookmaker} />
+                    </TabPanelErrorBoundary>
                   )}
                   {view === 'form' && (
-                    <FormView results={allHorsesForDisplay} scratched={scratched} onLogBet={handleLogBet} isResulted={!!currentRaceResult} betBlocked={betBlocked} rc={currentRace} isPro={isPro} onUpgrade={() => setUpgradeOpen(true)} scratchingsSet={scratchingsSet} />
+                    <TabPanelErrorBoundary label="Form" resetKey={selectedKey}>
+                      <FormView results={allHorsesForDisplay} scratched={scratched} onLogBet={handleLogBet} isResulted={!!currentRaceResult} betBlocked={betBlocked} rc={currentRace} isPro={isPro} onUpgrade={() => setUpgradeOpen(true)} scratchingsSet={scratchingsSet} />
+                    </TabPanelErrorBoundary>
                   )}
                   {view === 'pacemap' && (
-                    <PaceMapView results={allHorsesForDisplay} scratched={scratched} rc={currentRace} trackCond={trackCond} canAccess={canPaceMap} onUpgrade={() => setUpgradeOpen(true)} scratchingsSet={scratchingsSet} canLivePrices={canPaceMap || isSiteAdminUser} livePrices={livePrices} marketMoves={marketMoves} paceBiasPoints={paceBiasPoints} />
+                    <TabPanelErrorBoundary label="Pace Map" resetKey={selectedKey}>
+                      <PaceMapView results={allHorsesForDisplay} scratched={scratched} rc={currentRace} trackCond={trackCond} canAccess={canPaceMap} onUpgrade={() => setUpgradeOpen(true)} scratchingsSet={scratchingsSet} canLivePrices={canPaceMap || isSiteAdminUser} livePrices={livePrices} marketMoves={marketMoves} paceBiasPoints={paceBiasPoints} />
+                    </TabPanelErrorBoundary>
                   )}
                   {view === 'movers' && (
-                    <MoversView canAccess={canMovers} onUpgrade={() => setUpgradeOpen(true)} isAdmin={isSiteAdminUser} />
+                    <TabPanelErrorBoundary label="Movers" resetKey={selectedKey}>
+                      <MoversView canAccess={canMovers} onUpgrade={() => setUpgradeOpen(true)} isAdmin={isSiteAdminUser} />
+                    </TabPanelErrorBoundary>
                   )}
                   {view === 'value' && (
-                    <ValueBetsView canAccess={canValueBets} onUpgrade={() => setUpgradeOpen(true)} isAdmin={isSiteAdminUser} />
+                    <TabPanelErrorBoundary label="Value" resetKey={selectedKey}>
+                      <ValueBetsView canAccess={canValueBets} onUpgrade={() => setUpgradeOpen(true)} isAdmin={isSiteAdminUser} />
+                    </TabPanelErrorBoundary>
                   )}
                   {/* Open to every signed-in user -- live_odds is min-plan
                       'free' (restored to its pre-Lite-work state; the Odds
                       tab had no lock at all before that rollout). */}
                   {view === 'odds' && (
-                    <div style={{ padding: 12 }}>
-                      <OddsTable venue={normaliseVenue(currentRace.venue)} raceNum={String(currentRace.num)} selectedBookmaker={oddsBookmaker} />
-                    </div>
+                    <TabPanelErrorBoundary label="Odds" resetKey={selectedKey}>
+                      <div style={{ padding: 12 }}>
+                        <OddsTable venue={normaliseVenue(currentRace.venue)} raceNum={String(currentRace.num)} selectedBookmaker={oddsBookmaker} />
+                      </div>
+                    </TabPanelErrorBoundary>
                   )}
                 </div>
               );
