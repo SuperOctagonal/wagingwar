@@ -30,6 +30,12 @@ export default function RadioPlayer() {
   // corner). Stacking this above it here is the one place a plain bottom
   // offset isn't enough.
   const isCommunity = pathname?.startsWith('/community');
+  // My Bets' own extra mobile section bar (app/mybets/page.js) only
+  // exists on that one page -- the +52+12 clearance for it was being
+  // applied everywhere on mobile as "harmless slack", but on /races that
+  // slack instead pushed the pill up over the Field view's own runner
+  // card buttons (+ Log bet / Blackbook), confirmed live 2026-10-24.
+  const isMyBets = pathname?.startsWith('/mybets');
 
   useEffect(() => {
     try {
@@ -47,24 +53,28 @@ export default function RadioPlayer() {
     <div
       style={{
         position: 'fixed',
-        // Bottom right on every page. On mobile, +52px clears My Bets' own
-        // extra mobile section bar on top of the shared RG-banner+tab-bar
-        // chrome (app/mybets/page.js) -- harmless slack on mobile pages
-        // that don't have one. Desktop has no such bar and uses its own
-        // measured --desktop-footer-height (MobileChromeVars.js) instead
-        // of reusing the mobile figure -- the mobile stack is much taller
-        // than the desktop RG-strip+footer, and applying it on desktop
-        // left the pill floating well above the footer, over the Field
-        // table's own scrollable content instead (confirmed live,
-        // 2026-10-24: it sat on top of mid-table rows on /races). On
-        // /community, stack above its FAB (bottom:72, 52px tall) instead
-        // of either offset, so the two never overlap.
+        // Bottom right on every page. On /mybets (mobile only), +52px
+        // clears its own extra mobile section bar on top of the shared
+        // RG-banner+tab-bar chrome -- that bar doesn't exist on any other
+        // page, and applying the same +52 slack there as "harmless" (the
+        // original assumption) actually pushed the pill up over the Field
+        // view's own runner-card buttons on /races instead (confirmed
+        // live, 2026-10-24). Desktop has no such bar and uses its own
+        // measured --desktop-footer-height (MobileChromeVars.js) -- the
+        // mobile stack is much taller than the desktop RG-strip+footer, and
+        // applying it on desktop left the pill floating well above the
+        // footer, over the Field table's own scrollable content instead
+        // (same day, same root cause). On /community, stack above its FAB
+        // (bottom:72, 52px tall) instead of any of the above, so the two
+        // never overlap.
         right: 12,
         bottom: isCommunity
           ? 'calc(72px + 52px + 12px)'
-          : isMobile
+          : isMobile && isMyBets
             ? 'calc(var(--mobile-chrome-height, 80px) + 52px + 12px)'
-            : 'calc(var(--desktop-footer-height, 64px) + 12px)',
+            : isMobile
+              ? 'calc(var(--mobile-chrome-height, 80px) + 12px)'
+              : 'calc(var(--desktop-footer-height, 64px) + 12px)',
         zIndex: 1500,
         display: 'flex',
         flexDirection: 'column',
