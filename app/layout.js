@@ -19,7 +19,7 @@ export const metadata = {
     template: '%s | Waging War',
   },
   description: 'Live bookmaker prices, free for every punter, plus Australian horse racing analytics and community features',
-  icons: { icon: '/images/icon-app.png' },
+  icons: { icon: '/images/icon-app-72.png' },
   openGraph: {
     title: 'Waging War | Horse Racing Analytics and Bet Tracking Australia',
     description: "Live bookmaker prices free for every punter. Score and rank every runner, track your bets with real P&L, and follow daily tipping competitions - built for serious Australian punters.",
@@ -43,7 +43,24 @@ export default function RootLayout({ children }) {
       <html lang="en" className={`${spaceGrotesk.variable} ${bebasNeue.variable} ${jetbrainsMono.variable}`}>
         <head>
           <meta name="format-detection" content="telephone=no, address=no, email=no" />
-          <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css" />
+          {/* Non-blocking icon CSS: loads as media="print" (doesn't block
+              render), then the inline script below flips it to "all" once
+              loaded. React drops string onLoad handlers, hence the script. */}
+          <link
+            id="tabler-icons-css"
+            rel="stylesheet"
+            href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css"
+            media="print"
+            suppressHydrationWarning
+          />
+          <script
+            dangerouslySetInnerHTML={{
+              __html: "(function(){var l=document.getElementById('tabler-icons-css');if(!l)return;var on=function(){l.media='all'};if(l.sheet)on();else l.addEventListener('load',on);})();",
+            }}
+          />
+          <noscript>
+            <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css" />
+          </noscript>
           <script
             type="application/ld+json"
             dangerouslySetInnerHTML={{

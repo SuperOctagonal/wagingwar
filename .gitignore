@@ -13,3 +13,6 @@ node_modules/
 playwright-report/
 test-results/
 blob-report/
+
+# Local research scratch — never commit
+scratch_research/
