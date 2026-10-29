@@ -1,17 +1,23 @@
 'use client';
 import { useState, useEffect } from 'react';
+import { CONSENT_KEY, setConsent } from '@/lib/analytics';
 
 export default function CookieBanner() {
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
-    if (!localStorage.getItem('ww_cookie_consent')) setVisible(true);
+    if (!localStorage.getItem(CONSENT_KEY)) setVisible(true);
   }, []);
 
   if (!visible) return null;
 
   const accept = () => {
-    localStorage.setItem('ww_cookie_consent', '1');
+    setConsent('granted');
+    setVisible(false);
+  };
+
+  const decline = () => {
+    setConsent('declined');
     setVisible(false);
   };
 
@@ -23,6 +29,16 @@ export default function CookieBanner() {
       gap: 12, padding: '10px 16px', fontSize: 12, flexWrap: 'wrap',
     }}>
       This site uses cookies to understand traffic.
+      <button
+        onClick={decline}
+        style={{
+          padding: '4px 14px', background: 'transparent', color: '#d1d5db',
+          border: '1px solid #4b5563', borderRadius: 4, fontSize: 12, fontWeight: 600,
+          cursor: 'pointer', flexShrink: 0,
+        }}
+      >
+        Decline / Necessary only
+      </button>
       <button
         onClick={accept}
         style={{
