@@ -165,7 +165,9 @@ function ProductScreenshot() {
 
   return (
     <div style={{
-      maxWidth: 780, margin: '40px auto 0',
+      // width:100% so the frame fits its column and clips the mock nav,
+      // instead of growing to the nav's min-content (overflowed 375px phones).
+      width: '100%', maxWidth: 780, margin: '40px auto 0',
       borderRadius: 10, overflow: 'hidden',
       boxShadow: '0 20px 60px rgba(0,0,0,0.5)',
       border: '1px solid rgba(255,255,255,0.1)',
@@ -186,7 +188,7 @@ function ProductScreenshot() {
       <div style={{ background: '#1B4332', padding: '6px 12px', display: 'flex', alignItems: 'center', gap: 10 }}>
         <span style={{ fontWeight: 800, color: '#fff', fontSize: 11, letterSpacing: '0.06em' }}>WAGING WAR</span>
         <span style={{ color: '#fbbf24', fontSize: 9, letterSpacing: '0.1em', fontWeight: 600 }}>RACING ANALYTICS</span>
-        <div style={{ marginLeft: 'auto', display: 'flex', gap: 12, fontSize: 9, color: 'rgba(255,255,255,0.55)', fontWeight: 600 }}>
+        <div style={{ marginLeft: 'auto', display: 'flex', gap: 12, fontSize: 9, color: 'rgba(255,255,255,0.55)', fontWeight: 600, minWidth: 0, overflow: 'hidden' }}>
           {['Races','Today','My Bets','Insights','Results','Community'].map(l => (
             <span key={l} style={{ color: l === 'Races' ? '#fff' : undefined, borderBottom: l === 'Races' ? '2px solid #fbbf24' : '2px solid transparent', paddingBottom: 1 }}>{l}</span>
           ))}

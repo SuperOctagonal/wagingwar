@@ -168,9 +168,9 @@ export default function TopNav() {
   return (
     <>
       {/* ── TOP NAV ── */}
-      <nav className="bg-brand h-11 flex-shrink-0 flex items-center px-3.5 gap-0 border-b border-[#003314]">
-        {/* Brand */}
-        <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0, marginRight: 16, textDecoration: 'none' }}>
+      <nav className="bg-brand h-11 flex-shrink-0 flex items-center px-2.5 min-[400px]:px-3.5 gap-0 border-b border-[#003314]">
+        {/* Brand (tighter margin under 400px so the row fits 320px phones) */}
+        <Link href="/" className="mr-2 min-[400px]:mr-4" style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0, textDecoration: 'none' }}>
           <img
             src="/images/icon-app-36.png"
             srcSet="/images/icon-app-36.webp 1x, /images/icon-app-72.webp 2x"
@@ -305,7 +305,10 @@ export default function TopNav() {
                     ? <img src={user.imageUrl} alt="" style={{ width: 22, height: 22, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
                     : <span className="w-[22px] h-[22px] rounded-full bg-amber-400 text-gray-900 flex items-center justify-center text-[11px] font-bold flex-shrink-0">{initial}</span>
                   }
-                  <span className="max-w-[80px] overflow-hidden text-ellipsis whitespace-nowrap">
+                  {/* Name hidden below 440px: brand + hamburger + full pill is
+                      ~430px wide and pushed phone layouts 16px past the screen
+                      (moving fixed-bottom UI like the cookie banner off-screen). */}
+                  <span className="hidden min-[440px]:block max-w-[80px] overflow-hidden text-ellipsis whitespace-nowrap">
                     {punterName || 'Account'}
                   </span>
                   <span style={{ background: isPro ? '#FAEEDA' : '#E1F5EE', color: isPro ? '#854F0B' : '#0F6E56', fontSize: 10, fontWeight: 500, padding: '2px 7px', borderRadius: 4, flexShrink: 0 }}>

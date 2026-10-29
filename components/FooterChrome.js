@@ -19,15 +19,18 @@ export default function FooterChrome() {
     );
   }
 
+  // flex-wrap on both rows: this desktop variant is also the first render on
+  // phones (isMobile starts false), and an unwrappable row there widened the
+  // mobile layout viewport, pushing fixed-bottom UI (cookie banner) off-screen.
   return (
     <>
-      <div id="desktop-rg-strip" className="flex flex-shrink-0 items-center justify-center px-4 py-1.5 bg-gray-800 text-[11px] text-gray-300 gap-3">
+      <div id="desktop-rg-strip" className="flex flex-wrap flex-shrink-0 items-center justify-center px-4 py-1.5 bg-gray-800 text-[11px] text-gray-300 gap-3">
         Gamble responsibly. Never bet more than you can afford to lose.
         <a href="/responsible-gambling" className="underline hover:text-white transition-colors">
           For help call 1800&nbsp;858&nbsp;858
         </a>
       </div>
-      <footer id="desktop-footer" className="flex flex-shrink-0 items-center justify-center gap-5 px-4 py-2 bg-white border-t border-gray-100 text-[10px] text-gray-900">
+      <footer id="desktop-footer" className="flex flex-wrap flex-shrink-0 items-center justify-center gap-x-5 gap-y-1 px-4 py-2 bg-white border-t border-gray-100 text-[10px] text-gray-900">
         <span>© {new Date().getFullYear()} Waging War</span>
         <a href="/privacy"                 className="hover:text-gray-600 transition-colors">Privacy Policy</a>
         <a href="/terms"                   className="hover:text-gray-600 transition-colors">Terms of Service</a>
