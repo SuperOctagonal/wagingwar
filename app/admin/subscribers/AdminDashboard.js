@@ -1,10 +1,11 @@
 'use client';
 
 import { useMemo } from 'react';
-import { C, Panel, NoData, KpiTile, fmtAud } from '@/components/admin/AdminUi';
+import { C, Panel, KpiTile, fmtAud } from '@/components/admin/AdminUi';
 import SignupsPanel from './SignupsPanel';
 import AdsPanel from './AdsPanel';
 import DataHealthPanel, { HEALTH } from './DataHealthPanel';
+import TipHealthPanel from './TipHealthPanel';
 import { summarizeAds } from '@/lib/attribution';
 import { aestDay } from '@/lib/aestDay';
 import SubscribersTable from './SubscribersTable';
@@ -20,7 +21,8 @@ const SECTIONS = [
 
 function sum(arr, key) { return arr.reduce((t, d) => t + d[key], 0); }
 
-export default function AdminDashboard({ rows, mrr, stripeError, signups, ads, health, healthDates, generatedAt }) {
+export default function AdminDashboard({ rows, mrr, stripeError, signups, ads, health, healthDates, tip, generatedAt }) {
+  const rec = tip?.ok ? tip.record : null;
   const kpi = useMemo(() => {
     const counts = { FREE: 0, TRIAL: 0, PRO: 0, CANCELLED: 0, PAST_DUE: 0 };
     for (const r of rows) counts[r.status] = (counts[r.status] || 0) + 1;
@@ -83,9 +85,9 @@ export default function AdminDashboard({ rows, mrr, stripeError, signups, ads, h
             value={health?.ok && health.overall ? HEALTH[health.overall].label : null}
             sub={health?.ok ? `${health.counts.red} problem · ${health.counts.amber} warning · ${health.counts.green} OK` : null}
           />
-          <KpiTile label="Tips settled" pending="Not built yet (Stage 4)" />
-          <KpiTile label="Strike rate" pending="Not built yet (Stage 4)" />
-          <KpiTile label="Tip ROI" pending="Not built yet (Stage 4)" />
+          <KpiTile label="Tips settled" value={rec?.settled ? rec.settled.toLocaleString('en-AU') : null} sub={rec?.settled ? `${rec.wins} wins · today ${tip.todayTips.settled}/${tip.todayTips.tips} settled` : null} />
+          <KpiTile label="Strike rate" value={rec?.strikeRate != null ? `${rec.strikeRate.toFixed(1)}%` : null} sub={rec?.settled ? 'rank-1 tips, all time' : null} />
+          <KpiTile label="Tip ROI" value={rec?.roi != null ? `${rec.roi > 0 ? '+' : ''}${rec.roi.toFixed(1)}%` : null} sub={rec?.settled ? `${rec.units > 0 ? '+' : ''}${rec.units.toFixed(2)} units · dead-heat rule` : null} />
         </section>
 
         <Panel id="signups" title="Sign-ups per day" subtitle="New Clerk accounts per AEST day, split by current plan">
@@ -100,8 +102,8 @@ export default function AdminDashboard({ rows, mrr, stripeError, signups, ads, h
           <DataHealthPanel initial={health} dates={healthDates} />
         </Panel>
 
-        <Panel id="tip-record" title="Tip Record health" subtitle="Unsettled tips, snapshot freshness, record to date">
-          <NoData>Not built yet (Stage 4).</NoData>
+        <Panel id="tip-record" title="Tip Record health" subtitle="Unsettled tips, snapshot freshness, today's tips and the record to date (tip_results, race_feature_snapshots)">
+          <TipHealthPanel tip={tip} />
         </Panel>
 
         <Panel id="subscribers" title="Subscribers" subtitle={`${rows.length} total users`}>
