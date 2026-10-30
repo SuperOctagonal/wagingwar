@@ -3,6 +3,9 @@
 import { useMemo } from 'react';
 import { C, Panel, NoData, KpiTile, fmtAud } from '@/components/admin/AdminUi';
 import SignupsPanel from './SignupsPanel';
+import AdsPanel from './AdsPanel';
+import { summarizeAds } from '@/lib/attribution';
+import { aestDay } from '@/lib/aestDay';
 import SubscribersTable from './SubscribersTable';
 
 const SECTIONS = [
@@ -16,7 +19,7 @@ const SECTIONS = [
 
 function sum(arr, key) { return arr.reduce((t, d) => t + d[key], 0); }
 
-export default function AdminDashboard({ rows, mrr, stripeError, signups, generatedAt }) {
+export default function AdminDashboard({ rows, mrr, stripeError, signups, ads, generatedAt }) {
   const kpi = useMemo(() => {
     const counts = { FREE: 0, TRIAL: 0, PRO: 0, CANCELLED: 0, PAST_DUE: 0 };
     for (const r of rows) counts[r.status] = (counts[r.status] || 0) + 1;
@@ -29,8 +32,10 @@ export default function AdminDashboard({ rows, mrr, stripeError, signups, genera
       s30: sum(last30, 'total'), s30d: sum(last30, 'total') - sum(prev30, 'total'),
       spark30: last30.map(d => d.total),
       spark90: signups.slice(n - 90).map(d => d.total),
+      // Ads, last 30 AEST days (same window as the Ads panel default).
+      ads30: ads.ready ? summarizeAds({ ...ads, users: rows, from: last30[0]?.date, to: last30[last30.length - 1]?.date, dayOf: aestDay }).total : null,
     };
-  }, [rows, signups]);
+  }, [rows, signups, ads]);
 
   return (
     <div className="flex-1 overflow-y-auto mob-page" style={{ background: C.soft }}>
@@ -70,8 +75,8 @@ export default function AdminDashboard({ rows, mrr, stripeError, signups, genera
           />
           <KpiTile label="Sign-ups 7d" value={kpi.s7} delta={kpi.s7d} deltaLabel="vs prior 7d" spark={kpi.spark30} sparkLabel="Daily sign-ups, last 30 days" />
           <KpiTile label="Sign-ups 30d" value={kpi.s30} delta={kpi.s30d} deltaLabel="vs prior 30d" spark={kpi.spark90} sparkLabel="Daily sign-ups, last 90 days" />
-          <KpiTile label="Ad spend" pending="Not built yet (Stage 2)" />
-          <KpiTile label="Cost / sign-up" pending="Not built yet (Stage 2)" />
+          <KpiTile label="Ad spend 30d" value={kpi.ads30?.spend != null ? fmtAud(kpi.ads30.spend) : null} sub={kpi.ads30 ? `${kpi.ads30.landings} landing hits` : null} />
+          <KpiTile label="Cost / sign-up 30d" value={kpi.ads30?.costPerSignup != null ? fmtAud(kpi.ads30.costPerSignup) : null} sub={kpi.ads30 ? `${kpi.ads30.signups} attributed sign-ups` : null} />
           <KpiTile label="Data health" pending="Not built yet (Stage 3)" />
           <KpiTile label="Tips settled" pending="Not built yet (Stage 4)" />
           <KpiTile label="Strike rate" pending="Not built yet (Stage 4)" />
@@ -82,8 +87,8 @@ export default function AdminDashboard({ rows, mrr, stripeError, signups, genera
           <SignupsPanel signups={signups} />
         </Panel>
 
-        <Panel id="ads" title="Ads to sign-ups" subtitle="Landing hits, sign-ups, trials, paid and spend per ad">
-          <NoData>Not built yet (Stage 2).</NoData>
+        <Panel id="ads" title="Ads to sign-ups" subtitle="Landing hits, attributed sign-ups, trials, paid and spend (A$) per ad">
+          <AdsPanel ads={ads} users={rows} />
         </Panel>
 
         <Panel id="data-health" title="Data health" subtitle="Meetings, race cards, results, track conditions, scrapers">

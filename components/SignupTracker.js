@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 import { useUser } from '@clerk/nextjs';
 import { CONSENT_EVENT, META_PIXEL_ID, UTM_CONTENT_KEY, hasConsent, gaEvent, fbqTrack } from '@/lib/analytics';
+import { FIRST_TOUCH_KEY } from '@/lib/attribution';
 
 // Clerk has no signup-completion webhook wired up, so we detect "just signed
 // up" client-side: a freshly created account (createdAt within the last two
@@ -13,6 +14,8 @@ import { CONSENT_EVENT, META_PIXEL_ID, UTM_CONTENT_KEY, hasConsent, gaEvent, fbq
 const RECENT_MS = 2 * 60 * 1000;
 const WAIT_MS = 10 * 1000;
 const POLL_MS = 250;
+// Same window /api/attribution/signup accepts.
+const ATTRIBUTION_WINDOW_MS = 24 * 60 * 60 * 1000;
 
 function readPending(key) {
   try { return JSON.parse(sessionStorage.getItem(key)); } catch { return null; }
@@ -71,6 +74,29 @@ export default function SignupTracker() {
     };
     tick();
     return () => clearTimeout(timer);
+  }, [isLoaded, isSignedIn, user, consented]);
+
+  // First-touch ad attribution -> /api/attribution/signup, once per new
+  // account, only with cookie consent (the first touch itself is only ever
+  // stored with consent, see components/AttributionCapture.js). Marked done
+  // when the server accepts or rejects it for good; left to retry on a later
+  // page load if the server can't store it right now.
+  useEffect(() => {
+    if (!isLoaded || !isSignedIn || !user || !consented) return;
+    const doneKey = `ww_attr_sent_${user.id}`;
+    let firstTouch = null;
+    try {
+      if (localStorage.getItem(doneKey)) return;
+      firstTouch = JSON.parse(localStorage.getItem(FIRST_TOUCH_KEY) || 'null');
+    } catch { return; }
+    const createdAt = user.createdAt ? new Date(user.createdAt).getTime() : 0;
+    if (!firstTouch || !createdAt || Date.now() - createdAt > ATTRIBUTION_WINDOW_MS) {
+      try { localStorage.setItem(doneKey, '1'); } catch { /* storage blocked */ }
+      return;
+    }
+    fetch('/api/attribution/signup', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(firstTouch) })
+      .then(r => { if (r.ok || r.status === 400 || r.status === 409) localStorage.setItem(doneKey, '1'); })
+      .catch(() => {});
   }, [isLoaded, isSignedIn, user, consented]);
 
   return null;

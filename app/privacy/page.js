@@ -168,6 +168,10 @@ export default function PrivacyPage() {
               reviewed at policies.google.com/privacy.
             </P>
             <P>
+              If you arrive from one of our ads, we record which ad and landing page, and link it to your
+              account when you sign up, to measure our advertising. We don&apos;t record your IP address for this.
+            </P>
+            <P>
               You can clear cookies and local storage at any time via your browser settings. Clearing
               session cookies will sign you out of the platform.
             </P>

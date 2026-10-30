@@ -8,6 +8,7 @@ import MobileChromeVars from '@/components/MobileChromeVars';
 import RadioPlayer from '@/components/RadioPlayer';
 import Analytics from '@/components/Analytics';
 import SignupTracker from '@/components/SignupTracker';
+import AttributionCapture from '@/components/AttributionCapture';
 import './globals.css';
 
 const spaceGrotesk = Space_Grotesk({ subsets:['latin'], variable:'--font-space-grotesk', weight:['400','500','600','700'], display:'swap' });
@@ -79,6 +80,7 @@ export default function RootLayout({ children }) {
               everyone (not Pro-gated). See components/RadioPlayer.js. */}
           <RadioPlayer />
           <SignupTracker />
+          <AttributionCapture />
           <Suspense fallback={null}>
             <Analytics />
           </Suspense>
