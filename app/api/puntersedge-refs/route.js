@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { normaliseVenue, resolveAmbiguousVenue } from '@/lib/venues';
 import { matchRunnerName } from '@/lib/puntersedgeMatch';
 import { fetchAllRows } from '@/lib/fetchAllRows';
+import { createTtlCache } from '@/lib/ttlCache.mjs';
 
 const SURL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SKEY = process.env.SUPABASE_SERVICE_KEY;
@@ -26,7 +27,10 @@ const ODDS_SNAPSHOT_POST_JUMP_GRACE_MIN = Number(process.env.ODDS_SNAPSHOT_POST_
 // -- same convention as lib/wizardCsvCache.js. A process restart just means
 // one extra batch gets written for every still-throttled race on the next
 // poll after restart, which is harmless.
-const _lastSnapshotWriteMs = new Map(); // `${resolvedVenue}||${raceNum}` -> ms
+// `${resolvedVenue}||${raceNum}` -> ms. An entry only matters within the
+// throttle interval, so that's its TTL; capped at 2,000 races (previously
+// never removed).
+const _lastSnapshotWriteMs = createTtlCache({ ttlMs: ODDS_SNAPSHOT_THROTTLE_INTERVAL_MIN * 60000, max: 2000 });
 
 // An ISO/epoch timestamp carries its own zone (Z or an explicit +/-HH:MM
 // offset) -- unambiguous regardless of which state the race is in. A bare

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { auth, clerkClient } from '@clerk/nextjs/server';
 import { punterFallback } from '@/lib/punterFallback';
+import { createTtlCache } from '@/lib/ttlCache.mjs';
 
 // Resolves clerk_id -> username-or-fallback for OTHER users. The client
 // Clerk SDK only ever exposes the current signed-in user, so anywhere
@@ -15,8 +16,10 @@ import { punterFallback } from '@/lib/punterFallback';
 // billing cache this one should stay short-lived since a username change
 // should show up for other users reasonably quickly, not sit stale for
 // minutes.
+// clerkId -> name. Expired entries are removed and at most 5,000 users are
+// held (previously one entry per user ever seen, never removed).
 const CACHE_TTL_MS = 60 * 1000;
-const cache = new Map(); // clerkId -> { name, expiresAt }
+const cache = createTtlCache({ ttlMs: CACHE_TTL_MS, max: 5000 });
 
 export async function GET(req) {
   const { userId } = await auth();
@@ -27,11 +30,8 @@ export async function GET(req) {
   const { searchParams } = new URL(req.url);
   const ids = [...new Set((searchParams.get('ids') || '').split(',').filter(Boolean))].slice(0, 200);
 
-  const now = Date.now();
-  const stale = ids.filter(id => {
-    const entry = cache.get(id);
-    return !entry || entry.expiresAt <= now;
-  });
+  const fresh = new Map(ids.map(id => [id, cache.get(id)]));
+  const stale = ids.filter(id => fresh.get(id) === undefined);
 
   if (stale.length) {
     const clerk = await clerkClient();
@@ -46,13 +46,14 @@ export async function GET(req) {
     for (const id of stale) {
       const u = found.get(id);
       const name = u?.username || punterFallback(id);
-      cache.set(id, { name, expiresAt: now + CACHE_TTL_MS });
+      cache.set(id, name);
+      fresh.set(id, name);
     }
   }
 
   const result = {};
   for (const id of ids) {
-    result[id] = cache.get(id)?.name ?? punterFallback(id);
+    result[id] = fresh.get(id) ?? punterFallback(id);
   }
 
   return NextResponse.json(result);
