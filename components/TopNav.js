@@ -62,6 +62,16 @@ export default function TopNav() {
   const pathname = usePathname();
   const router = useRouter();
   const { user, isLoaded } = useUser();
+  // The server can't know the Clerk user, but a fast client sometimes does
+  // on its first render -- rendering from `user` directly made those differ
+  // (hydration mismatch, which re-rendered the page and wiped anything the
+  // visitor had already typed). Everything rendered from the user waits
+  // until after mount AND Clerk has loaded; until then the account button
+  // shows a neutral placeholder. Effects/handlers still read `user`.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true); }, []);
+  const authReady = mounted && isLoaded;
+  const shownUser = authReady ? user : null;
   const { signOut, openSignIn } = useClerk();
   // What other users see too — never real name. Clerk's own username field
   // if set, otherwise a stable per-account fallback (never "real name" data
@@ -282,7 +292,7 @@ export default function TopNav() {
           <style>{`@keyframes ww-spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}`}</style>
           {/* ww:refresh only has a listener on My Bets (app/mybets/page.js) —
               hide the button everywhere else instead of showing a no-op. */}
-          {user && currentPage === 'mybets' && (
+          {shownUser && currentPage === 'mybets' && (
             <button
               onClick={handleRefresh}
               title="Refresh data"
@@ -313,15 +323,23 @@ export default function TopNav() {
           <div className="relative" ref={dropdownRef}>
             <button
               onClick={() => {
+                if (!authReady) return;
                 if (!user) { openSignIn(); return; }
                 setDropdownOpen(v => !v);
               }}
+              aria-busy={!authReady}
+              aria-label={authReady ? undefined : 'Account'}
               className="bg-white/10 border border-white/20 rounded-md text-white text-[10px] font-semibold font-space px-2.5 py-[5px] flex items-center gap-[5px] min-w-[80px]"
             >
-              {isLoaded && user ? (
+              {!authReady ? (
+                // Same on the server and the first client render: a neutral,
+                // text-free placeholder (neither "Sign in" nor an avatar), so
+                // there's no hydration mismatch and no flash of the wrong state.
+                <span aria-hidden="true" className="block h-[22px] w-full min-w-[56px] rounded bg-white/10" />
+              ) : shownUser ? (
                 <>
-                  {user.hasImage
-                    ? <img src={user.imageUrl} alt="" style={{ width: 22, height: 22, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
+                  {shownUser.hasImage
+                    ? <img src={shownUser.imageUrl} alt="" style={{ width: 22, height: 22, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
                     : <span className="w-[22px] h-[22px] rounded-full bg-amber-400 text-gray-900 flex items-center justify-center text-[11px] font-bold flex-shrink-0">{initial}</span>
                   }
                   {/* Name hidden below 440px: brand + hamburger + full pill is
@@ -343,7 +361,7 @@ export default function TopNav() {
             </button>
 
             {/* Dropdown menu */}
-            {dropdownOpen && user && (
+            {dropdownOpen && shownUser && (
               <div className="absolute right-0 top-full mt-1 w-52 bg-white border border-gray-200 rounded-xl shadow-lg z-50">
                 {/* User info header */}
                 <div className="px-3 py-2.5 border-b border-gray-100">
@@ -453,7 +471,7 @@ export default function TopNav() {
             </div>
 
             {/* User section at bottom */}
-            {user && (
+            {shownUser && (
               <div style={{ borderTop: '1px solid rgba(255,255,255,0.1)', padding: '12px 16px', flexShrink: 0 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
                   {user.hasImage

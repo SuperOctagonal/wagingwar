@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import DataTable from '@/components/admin/DataTable';
 import { C, DateRange, NoData, fmtAud } from '@/components/admin/AdminUi';
@@ -10,28 +10,40 @@ import { aestDay } from '@/lib/aestDay';
 const BUCKET_LABEL = b => (b === 'other' ? 'other' : b);
 const pct = (a, b) => (b ? `${((a / b) * 100).toFixed(1)}%` : '—');
 
+// Uncontrolled fields, read with FormData on submit: what's saved is always
+// what's on screen. (With controlled fields, anything typed before React
+// hydrated stayed visible but never reached state, so the old default date
+// could be saved instead of the one shown.)
 function SpendForm({ onSaved }) {
   const today = aestDay();
-  const [date, setDate] = useState(today);
-  const [ad, setAd] = useState(AD_BUCKETS[0]);
-  const [otherAd, setOtherAd] = useState('');
-  const [amount, setAmount] = useState('');
+  const formRef = useRef(null);
+  const [ad, setAd] = useState(AD_BUCKETS[0]); // only drives showing the "other" field
   const [state, setState] = useState({ busy: false, msg: null, ok: false });
   const input = { fontSize: 12, padding: '6px 8px', border: `1px solid ${C.border}`, borderRadius: 6, color: C.ink };
 
+  // Pick up an ad chosen before hydration.
+  useEffect(() => {
+    const sel = formRef.current?.elements.ad;
+    if (sel) setAd(sel.value);
+  }, []);
+
   async function submit(e) {
     e.preventDefault();
+    const form = e.currentTarget;
+    const fd = new FormData(form);
+    const date = fd.get('date');
+    const utm = fd.get('ad') === '__other' ? fd.get('otherAd') : fd.get('ad');
+    const amount = Number(fd.get('amount'));
     setState({ busy: true, msg: null, ok: false });
-    const utm = ad === '__other' ? otherAd : ad;
     try {
       const r = await fetch('/api/admin/ad-spend', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ date, utm_content: utm, amount_aud: Number(amount) }),
+        body: JSON.stringify({ date, utm_content: utm, amount_aud: amount }),
       });
       const j = await r.json().catch(() => ({}));
       if (!r.ok) { setState({ busy: false, msg: j.error || `Error ${r.status}`, ok: false }); return; }
-      setState({ busy: false, msg: `Saved ${fmtAud(Number(amount))} for ${utm} on ${date}.`, ok: true });
-      setAmount('');
+      setState({ busy: false, msg: `Saved ${fmtAud(amount)} for ${utm} on ${date}.`, ok: true });
+      form.elements.amount.value = '';
       onSaved();
     } catch {
       setState({ busy: false, msg: 'Network error, not saved.', ok: false });
@@ -39,23 +51,23 @@ function SpendForm({ onSaved }) {
   }
 
   return (
-    <form onSubmit={submit} style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'flex-end', padding: 12, background: C.soft, border: `1px solid ${C.border}`, borderRadius: 8, marginBottom: 12 }}>
+    <form ref={formRef} onSubmit={submit} style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'flex-end', padding: 12, background: C.soft, border: `1px solid ${C.border}`, borderRadius: 8, marginBottom: 12 }}>
       <label style={{ fontSize: 11, fontWeight: 700, color: C.muted }}>Date (AEST)<br />
-        <input type="date" required value={date} max={today} onChange={e => setDate(e.target.value)} style={input} />
+        <input name="date" type="date" required defaultValue={today} max={today} style={input} />
       </label>
       <label style={{ fontSize: 11, fontWeight: 700, color: C.muted }}>Ad<br />
-        <select value={ad} onChange={e => setAd(e.target.value)} style={input}>
+        <select name="ad" defaultValue={AD_BUCKETS[0]} onChange={e => setAd(e.target.value)} style={input}>
           {AD_BUCKETS.map(b => <option key={b} value={b}>{b}</option>)}
           <option value="__other">other…</option>
         </select>
       </label>
       {ad === '__other' && (
         <label style={{ fontSize: 11, fontWeight: 700, color: C.muted }}>utm_content<br />
-          <input required value={otherAd} onChange={e => setOtherAd(e.target.value)} placeholder="e.g. spring1" style={input} />
+          <input name="otherAd" required placeholder="e.g. spring1" style={input} />
         </label>
       )}
       <label style={{ fontSize: 11, fontWeight: 700, color: C.muted }}>Amount (A$)<br />
-        <input required type="number" step="0.01" value={amount} onChange={e => setAmount(e.target.value)} placeholder="0.00" style={{ ...input, width: 110 }} />
+        <input name="amount" required type="number" step="0.01" placeholder="0.00" style={{ ...input, width: 110 }} />
       </label>
       <button type="submit" disabled={state.busy} style={{ fontSize: 12, fontWeight: 700, padding: '7px 14px', borderRadius: 6, border: 'none', background: C.accent, color: '#fff', cursor: 'pointer' }}>
         {state.busy ? 'Saving…' : 'Save spend'}
