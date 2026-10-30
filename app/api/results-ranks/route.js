@@ -23,5 +23,10 @@ export async function GET(req) {
   const result = await computeRanksForDate(date);
   if (result === null) return NextResponse.json({ error: 'Supabase error' }, { status: 502 });
 
-  return NextResponse.json(result);
+  // Past racing dates don't change (also cached in memory, see
+  // lib/resultsRanks.js); today's can still move with late scratchings.
+  const today = new Date().toLocaleDateString('sv-SE', { timeZone: 'Australia/Sydney' });
+  return NextResponse.json(result, {
+    headers: { 'Cache-Control': date < today ? 'public, max-age=3600, s-maxage=86400' : 'no-store' },
+  });
 }
