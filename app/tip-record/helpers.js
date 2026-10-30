@@ -35,10 +35,13 @@ export function pl(r) {
   return r[9] === 1 ? r[8] / (r[13] || 1) - 1 : -1;
 }
 
+// Units via pl(), so headline/group ROI applies the same dead-heat rule as
+// the per-tip units and running P&L (sp / dead_heat_winners - 1 on a win).
 export function agg(rows) {
   let w = 0, p = 0, u = 0;
   for (const r of rows) {
-    if (r[9] === 1) { w++; u += r[8] - 1; } else { u -= 1; }
+    if (r[9] === 1) w++;
+    u += pl(r);
     if (r[9] <= 3) p++;
   }
   const n = rows.length;

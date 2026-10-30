@@ -61,7 +61,7 @@ export default function TipHealthPanel({ tip }) {
             {rec.wins} wins · strike rate <b>{rec.strikeRate.toFixed(1)}%</b><br />
             ROI <b style={{ color: rec.roi < 0 ? '#991b1b' : '#166534' }}>{signed(rec.roi, 1)}%</b> · {signed(rec.units)} units
             <div style={{ fontSize: 11, color: C.muted, marginTop: 4 }}>
-              Dead-heat rule applied ({rec.deadHeatWins} dead-heat win{rec.deadHeatWins === 1 ? '' : 's'}: stake split). Public Tip Record headline currently shows {signed(rec.publicPageRoi, 1)}% (no split).
+              Dead-heat rule applied ({rec.deadHeatWins} dead-heat win{rec.deadHeatWins === 1 ? '' : 's'}: stake split), same calculation as the public Tip Record.
             </div>
           </> : 'No settled tips yet.'}
         </Block>
