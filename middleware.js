@@ -1,5 +1,6 @@
 import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server';
 import { NextResponse } from 'next/server';
+import { LANDING_VARIANTS } from '@/lib/landingVariants';
 
 const isProtectedRoute = createRouteMatcher([
   '/races(.*)',
@@ -19,6 +20,16 @@ const isProtectedRoute = createRouteMatcher([
 const SIGN_IN_URL = process.env.NEXT_PUBLIC_CLERK_SIGN_IN_URL || '/sign-in';
 
 export default clerkMiddleware(async (auth, request) => {
+  // Ad landing variants: /?utm_content=<key> renders the prerendered
+  // /landing/<key> (lib/landingVariants.js). Rewrite, not redirect -- the
+  // visitor's URL and its UTM params stay as-is for GA attribution.
+  if (request.nextUrl.pathname === '/') {
+    const key = (request.nextUrl.searchParams.get('utm_content') || '').toLowerCase();
+    if (key && Object.hasOwn(LANDING_VARIANTS, key)) {
+      return NextResponse.rewrite(new URL(`/landing/${key}`, request.url));
+    }
+  }
+
   if (isProtectedRoute(request)) {
     try {
       await auth.protect();

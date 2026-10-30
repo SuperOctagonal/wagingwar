@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { useUser } from '@clerk/nextjs';
-import { CONSENT_EVENT, META_PIXEL_ID, hasConsent, gaEvent, fbqTrack } from '@/lib/analytics';
+import { CONSENT_EVENT, META_PIXEL_ID, UTM_CONTENT_KEY, hasConsent, gaEvent, fbqTrack } from '@/lib/analytics';
 
 // Clerk has no signup-completion webhook wired up, so we detect "just signed
 // up" client-side: a freshly created account (createdAt within the last two
@@ -44,7 +44,9 @@ export default function SignupTracker() {
         localStorage.setItem(sentKey, '1');
         return;
       }
-      pending = { method: user.externalAccounts?.[0]?.provider || 'email', ga: false, fb: false };
+      let utm = null;
+      try { utm = sessionStorage.getItem(UTM_CONTENT_KEY); } catch { /* storage blocked */ }
+      pending = { method: user.externalAccounts?.[0]?.provider || 'email', utm: utm || '(none)', ga: false, fb: false };
       sessionStorage.setItem(pendingKey, JSON.stringify(pending));
     }
 
@@ -55,7 +57,7 @@ export default function SignupTracker() {
     const started = Date.now();
     let timer;
     const tick = () => {
-      if (!pending.ga) pending.ga = gaEvent('sign_up', { method: pending.method });
+      if (!pending.ga) pending.ga = gaEvent('sign_up', { method: pending.method, utm_content: pending.utm || '(none)' });
       if (needFb && !pending.fb) pending.fb = fbqTrack('CompleteRegistration', { method: pending.method });
 
       if (pending.ga && (!needFb || pending.fb)) {

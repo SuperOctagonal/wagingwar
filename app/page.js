@@ -1,7 +1,8 @@
-import Link from 'next/link';
 import CheckoutButton from '@/components/CheckoutButton';
 import PuntersEdgeCredit from '@/components/PuntersEdgeCredit';
+import SignupCta from '@/components/SignupCta';
 import { getHomepageModelStats } from '@/lib/homepageModelStats';
+import { landingVariant } from '@/lib/landingVariants';
 
 export const metadata = {
   title: 'Waging War | Horse Racing Analytics and Bet Tracking Australia',
@@ -277,20 +278,24 @@ function ProductScreenshot() {
   );
 }
 
-export default async function HomePage() {
-  const modelStats = await getHomepageModelStats();
+// `variant` comes from app/landing/[variant]/page.js (ad traffic, via the
+// utm_content rewrite in middleware.js); plain / gets the default copy.
+export default async function HomePage({ variant } = {}) {
+  const copy = landingVariant(variant);
+  const modelStats = copy.noFigures ? null : await getHomepageModelStats();
   return (
     <main className="flex-1 overflow-y-auto flex flex-col">
 
       {/* ── 1. Hero ──────────────────────────────────────────────────────── */}
-      <section style={{ background: GREEN, padding: 'clamp(56px, 10vw, 96px) 24px clamp(64px, 11vw, 104px)', textAlign: 'center' }}>
+      {/* Tighter top spacing on phones so the sign-up button sits in the first screen. */}
+      <section style={{ background: GREEN, padding: 'clamp(32px, 8vw, 96px) 24px clamp(64px, 11vw, 104px)', textAlign: 'center' }}>
         <div style={{ maxWidth: 1100, margin: '0 auto' }}>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-10 md:items-center">
+          <div className={copy.noFigures ? '' : 'grid grid-cols-1 md:grid-cols-2 gap-10 md:items-center'}>
             <div>
               <div
                 className="font-bebas"
-                style={{ fontSize: 'clamp(52px, 12vw, 88px)', letterSpacing: '0.06em', lineHeight: 1, marginBottom: 32 }}
+                style={{ fontSize: 'clamp(48px, 12vw, 88px)', letterSpacing: '0.06em', lineHeight: 1, marginBottom: 'clamp(18px, 4vw, 32px)' }}
               >
                 <span style={{ color: '#fff' }}>WAGING</span>
                 <span style={{ color: GOLD }}> WAR</span>
@@ -298,43 +303,55 @@ export default async function HomePage() {
 
               <h1 style={{
                 fontSize: 'clamp(22px, 5vw, 38px)', fontWeight: 800, color: '#fff',
-                margin: '0 0 18px', letterSpacing: '-0.02em', lineHeight: 1.2,
+                margin: '0 0 14px', letterSpacing: '-0.02em', lineHeight: 1.2,
+                whiteSpace: 'pre-line',
               }}>
-                Back Winners With Data,<br />Not Hunches
+                {copy.headline}
               </h1>
 
               <p style={{
                 fontSize: 'clamp(13px, 2vw, 16px)', color: 'rgba(255,255,255,0.72)',
-                margin: '0 auto 40px', maxWidth: 520, lineHeight: 1.7,
+                margin: '0 auto 24px', maxWidth: 520, lineHeight: 1.6,
               }}>
-                Live bookmaker prices free for every punter. Pro adds scores,
-                pace maps and value.
+                {copy.sub}
               </p>
 
-              <Link
-                href="/sign-up"
+              {/* Free accounts are Clerk-only (no Stripe step); a card is only
+                  asked for in the separate Pro trial checkout below. */}
+              <SignupCta
+                location="hero"
                 style={{
                   display: 'inline-block',
-                  background: '#fff', color: GREEN, fontWeight: 800, fontSize: 15,
-                  padding: '15px 36px', borderRadius: 9, textDecoration: 'none',
+                  background: '#fff', color: GREEN, fontWeight: 800, fontSize: 16,
+                  padding: '15px 30px', borderRadius: 9, textDecoration: 'none',
                   boxShadow: '0 4px 14px rgba(0,0,0,0.18)',
                 }}
               >
-                Sign Up Free
-              </Link>
+                Sign up free, no card needed
+              </SignupCta>
+              <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.72)', margin: '12px 0 0' }}>
+                Data and analytics. We don&apos;t take bets.
+              </p>
             </div>
 
-            <div>
-              <ModelStatsPhone stats={modelStats} />
-            </div>
+            {!copy.noFigures && (
+              <div>
+                <ModelStatsPhone stats={modelStats} />
+              </div>
+            )}
           </div>
 
-          <ProductScreenshot />
-          <div style={{ textAlign: 'center', marginTop: 10 }}>
-            <div style={{ display: 'inline-block', background: '#fff', borderRadius: 6, padding: '4px 10px' }}>
-              <PuntersEdgeCredit />
-            </div>
-          </div>
+          {/* Mockup shows prices, so it always travels with the PuntersEdge credit. */}
+          {!copy.noFigures && (
+            <>
+              <ProductScreenshot />
+              <div style={{ textAlign: 'center', marginTop: 10 }}>
+                <div style={{ display: 'inline-block', background: '#fff', borderRadius: 6, padding: '4px 10px' }}>
+                  <PuntersEdgeCredit />
+                </div>
+              </div>
+            </>
+          )}
         </div>
       </section>
 
@@ -376,8 +393,8 @@ export default async function HomePage() {
                 ))}
               </ul>
 
-              <Link
-                href="/sign-up"
+              <SignupCta
+                location="pricing"
                 style={{
                   display: 'block', textAlign: 'center',
                   background: 'rgba(255,255,255,0.1)', color: '#fff',
@@ -387,7 +404,7 @@ export default async function HomePage() {
                 }}
               >
                 Get Started Free
-              </Link>
+              </SignupCta>
             </div>
 
             {/* Pro tier */}
@@ -518,13 +535,13 @@ export default async function HomePage() {
             fontSize: 'clamp(22px, 4vw, 36px)', fontWeight: 800, color: '#fff',
             marginBottom: 14, letterSpacing: '-0.01em',
           }}>
-            Ready to Find More Winners?
+            Ready to See Every Race Scored?
           </h2>
           <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.65)', marginBottom: 36, lineHeight: 1.7 }}>
-            Join punters who use data to beat the market.
+            Free account, no card needed. Live prices from day one.
           </p>
-          <Link
-            href="/sign-up"
+          <SignupCta
+            location="final"
             style={{
               display: 'inline-block', background: '#fff', color: GREEN,
               fontWeight: 800, fontSize: 15, padding: '16px 40px',
@@ -533,7 +550,7 @@ export default async function HomePage() {
             }}
           >
             Sign Up Free
-          </Link>
+          </SignupCta>
         </div>
       </section>
 

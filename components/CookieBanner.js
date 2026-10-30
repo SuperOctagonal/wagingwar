@@ -23,7 +23,10 @@ export default function CookieBanner() {
 
   return (
     <div style={{
-      position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 2000,
+      // Sits above the RG line so the required 18+/Gambling Help text stays
+      // readable: the fixed mobile RG banner + tab bar, else the desktop RG
+      // strip + footer (both heights measured live by MobileChromeVars).
+      position: 'fixed', bottom: 'var(--mobile-chrome-height, var(--desktop-footer-height, 0px))', left: 0, right: 0, zIndex: 2000,
       background: '#1f2937', color: '#d1d5db',
       display: 'flex', alignItems: 'center', justifyContent: 'center',
       gap: 12, padding: '10px 16px', fontSize: 12, flexWrap: 'wrap',
