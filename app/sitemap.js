@@ -1,15 +1,11 @@
-import { normaliseVenue } from '@/lib/venues';
-import { fetchAllRows } from '@/lib/fetchAllRows';
-
-const SURL = process.env.NEXT_PUBLIC_SUPABASE_URL;
-// Public data, but this runs server-side -- service key for consistency.
-const SKEY = process.env.SUPABASE_SERVICE_KEY;
-
-// Regenerate at most once an hour rather than on every crawl request —
-// this makes a live Supabase call.
+// Static, public pages only. The per-meeting Results URLs
+// (/results?date=...&venue=..., ~190 of them) were removed 2026-10-31: each
+// one triggers up to 30 days of race-card scoring on the server, and
+// crawlers following them were a likely cause of memory pressure on
+// wagingwar-app. Restore from git history once those pages are cheap.
 export const revalidate = 3600;
 
-export default async function sitemap() {
+export default function sitemap() {
   const baseUrl = 'https://wagingwar.com.au';
 
   // Publicly viewable pages only -- sign-in-only routes (middleware.js's
@@ -27,53 +23,8 @@ export default async function sitemap() {
     '/responsible-gambling',
   ];
 
-  const staticEntries = routes.map((route) => ({
+  return routes.map((route) => ({
     url: `${baseUrl}${route}`,
     lastModified: new Date(),
   }));
-
-  const resultsEntries = await getRecentResultsEntries(baseUrl);
-
-  return [...staticEntries, ...resultsEntries];
-}
-
-// One sitemap entry per distinct (date, venue) resulted in the last 30
-// days, matching the ?date=&venue= query params app/results/page.js now
-// reads on load. race_schedule (one row per race) rather than
-// race_results (one row per horse per race) — same date/venue coverage,
-// far fewer rows to page through. Uses fetchAllRows since even 30 days of
-// race_schedule can exceed PostgREST's default 1000-row response cap —
-// the exact silent-truncation bug fixed elsewhere in this codebase.
-async function getRecentResultsEntries(baseUrl) {
-  if (!SURL || !SKEY) return [];
-  try {
-    // AEST dates, capped at today: race_schedule also holds upcoming
-    // meetings, and future-dated Results URLs have no results to show.
-    const tz = { timeZone: 'Australia/Brisbane' };
-    const todayISO = new Date().toLocaleDateString('sv-SE', tz);
-    const since = new Date();
-    since.setDate(since.getDate() - 30);
-    const sinceISO = since.toLocaleDateString('sv-SE', tz);
-    const result = await fetchAllRows(
-      `${SURL}/rest/v1/race_schedule?select=date,venue&date=gte.${sinceISO}&date=lte.${todayISO}`,
-      { apikey: SKEY, Authorization: `Bearer ${SKEY}` },
-    );
-    if (!result.ok) return [];
-
-    const seen = new Set();
-    result.rows.forEach((row) => {
-      if (!row.date || !row.venue) return;
-      seen.add(`${row.date}||${normaliseVenue(row.venue)}`);
-    });
-
-    return [...seen].map((key) => {
-      const [date, venue] = key.split('||');
-      return {
-        url: `${baseUrl}/results?date=${date}&venue=${encodeURIComponent(venue)}`,
-        lastModified: new Date(date),
-      };
-    });
-  } catch {
-    return [];
-  }
 }
