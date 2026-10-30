@@ -11,7 +11,8 @@
     "start": "next start",
     "lint": "next lint",
     "e2e": "playwright test",
-    "e2e:login": "node e2e/login.js"
+    "e2e:login": "node e2e/login.js",
+    "test:unit": "node --test \"tests/*.test.mjs\""
   },
   "dependencies": {
     "@clerk/nextjs": "^6.7.0",
