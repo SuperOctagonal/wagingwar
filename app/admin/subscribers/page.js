@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 import { isSiteAdmin } from '@/lib/admin';
 import { getSubscriberData, signupsByDay } from '@/lib/adminSubscribers';
 import { getAdData } from '@/lib/adminAds';
+import { getDataHealth, healthDates } from '@/lib/adminDataHealth';
 import AdminDashboard from './AdminDashboard';
 
 export const metadata = {
@@ -18,10 +19,11 @@ export default async function AdminSubscribersPage() {
   const { userId } = await auth();
   if (!userId || !isSiteAdmin(userId)) notFound();
 
-  const [{ rows, mrr, stripeError }, ads] = await Promise.all([getSubscriberData(), getAdData()]);
+  const dates = healthDates();
+  const [{ rows, mrr, stripeError }, ads, health] = await Promise.all([getSubscriberData(), getAdData(), getDataHealth(dates[0])]);
   // 120 days so the whole early-August spike is reachable; the panel
   // defaults to the last 90.
   const signups = signupsByDay(rows, 120);
 
-  return <AdminDashboard rows={rows} mrr={mrr} stripeError={stripeError} signups={signups} ads={ads} generatedAt={new Date().toISOString()} />;
+  return <AdminDashboard rows={rows} mrr={mrr} stripeError={stripeError} signups={signups} ads={ads} health={health} healthDates={dates} generatedAt={new Date().toISOString()} />;
 }
