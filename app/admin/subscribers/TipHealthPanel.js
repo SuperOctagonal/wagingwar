@@ -7,6 +7,7 @@ import { HealthChip } from './DataHealthPanel';
 
 const REASON = {
   no_result: { bg: '#fee2e2', color: '#991b1b', label: 'No result' },
+  no_sp:     { bg: '#fef3c7', color: '#92400e', label: 'No SP' },
   scratched: { bg: '#f3f4f6', color: '#374151', label: 'Scratched' },
   abandoned: { bg: '#f3f4f6', color: '#374151', label: 'Abandoned' },
 };
@@ -84,10 +85,10 @@ export default function TipHealthPanel({ tip }) {
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 8 }}>
         <h3 style={{ fontSize: 13, fontWeight: 800, color: C.ink, margin: 0 }}>
-          Rank-1 tips unsettled 3h+ after the jump ({tip.overdue.length}: {tip.byReason.no_result} no result · {tip.byReason.scratched} scratched · {tip.byReason.abandoned} abandoned)
+          Rank-1 tips unsettled 3h+ after the jump ({tip.overdue.length}: {tip.byReason.no_result} no result · {tip.byReason.no_sp} no SP · {tip.byReason.scratched} scratched · {tip.byReason.abandoned} abandoned)
         </h3>
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
-          {['all', 'no_result', 'scratched', 'abandoned'].map(k => (
+          {['all', 'no_result', 'no_sp', 'scratched', 'abandoned'].map(k => (
             <ToggleButton key={k} active={reason === k} onClick={() => setReason(k)}>{k === 'all' ? 'All' : REASON[k].label}</ToggleButton>
           ))}
           <DateRange from={range.from} to={range.to} onChange={setRange} presets={[7, 30]} max={tip.today} />

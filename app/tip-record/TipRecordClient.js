@@ -2,7 +2,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import {
-  DIMS, PL, SL, group, agg, pl, sg, pc, ni, money, ordn, cum, spark,
+  DIMS, PL, SL, group, agg, pl, sg, pc, ni, money, finishLabel, cum, spark,
 } from './helpers';
 
 const POS = '#6fb4ff'; // profit -- blue, per the brief (not green)
@@ -158,7 +158,8 @@ function LedgerTable({ rows, sk, sd, setSort, show, setShow }) {
     { k: 'run', label: 'Running', align: 'left' },
   ];
   const tpl = '92px 1.5fr 44px 1.6fr 56px 70px 70px 84px 74px 1.1fr';
-  const pill = f => (f === 1 ? ['#06203a', '#6fb4ff', '#6fb4ff'] : f <= 3 ? ['transparent', '#9fcbff', '#3c6aa0'] : ['transparent', MUT, '#2b313a']);
+  // f is null for FF/BD (didn't finish): styled as an unplaced loss.
+  const pill = f => (f === 1 ? ['#06203a', '#6fb4ff', '#6fb4ff'] : f >= 1 && f <= 3 ? ['transparent', '#9fcbff', '#3c6aa0'] : ['transparent', MUT, '#2b313a']);
 
   return (
     <>
@@ -187,7 +188,7 @@ function LedgerTable({ rows, sk, sd, setSort, show, setShow }) {
                 <div style={{ ...mono, textAlign: 'right' }}>{r[5]}</div>
                 <div style={{ ...mono, textAlign: 'right' }}>{money(r[7])}</div>
                 <div style={{ ...mono, textAlign: 'right' }}>{money(r[8])}</div>
-                <div><span style={{ display: 'inline-block', minWidth: 48, textAlign: 'center', borderRadius: 999, padding: '2px 10px', fontSize: 13, fontWeight: 700, background: p[0], color: p[1], border: `1px solid ${p[2]}` }}>{ordn(r[9])}</span></div>
+                <div><span style={{ display: 'inline-block', minWidth: 48, textAlign: 'center', borderRadius: 999, padding: '2px 10px', fontSize: 13, fontWeight: 700, background: p[0], color: p[1], border: `1px solid ${p[2]}` }}>{finishLabel(r)}</span></div>
                 <div style={{ ...mono, textAlign: 'right', fontWeight: 600, color: uc }}>{sg(u, 2)}</div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <div style={{ flex: 1, height: 6, background: '#1b1f25', borderRadius: 3, position: 'relative' }}>
@@ -282,7 +283,7 @@ function GroupedTable({ rows, grp, minN, setMinN, open, setOpen }) {
                         <span style={{ ...mono, color: '#b4bcc7' }}>{r[0]}</span>
                         <span>{r[1]} R{r[3]}</span>
                         <span style={{ fontWeight: 600 }}>{r[4]}</span>
-                        <span style={{ color: MUT }}>{ordn(r[9])}</span>
+                        <span style={{ color: MUT }}>{finishLabel(r)}</span>
                         <span style={{ ...mono, textAlign: 'right', color: pl(r) >= 0 ? POS : NEG }}>{sg(pl(r), 2)}</span>
                       </div>
                     ))}
@@ -444,7 +445,7 @@ export default function TipRecordClient() {
 
             <div style={{ color: MUT, fontSize: 13, lineHeight: 1.6, maxWidth: 900, borderTop: '1px solid #232830', paddingTop: 18 }}>
               <div style={{ color: '#e8eaee', fontWeight: 700, marginBottom: 6 }}>How to read this</div>
-              Top picks are the horse our model ranks first in each race. The ranking is recorded just after each race starts and is never edited afterwards -- these are not tips published before the race. Every bet is $1 to win at the official starting price. Units are dollars won or lost. Return on turnover is units divided by bets. &quot;Market price&quot; is the price stored with the ranking at the time it was recorded. {data.meta.excluded.total} tips since results began could not be settled and are not counted here: {data.meta.excluded.abandoned} abandoned meetings, {data.meta.excluded.scratched} scratchings, {data.meta.excluded.no_result} with no result recorded. Today&apos;s races that haven&apos;t run yet aren&apos;t counted as excluded -- they&apos;re simply not settled yet.
+              Top picks are the horse our model ranks first in each race. The ranking is recorded just after each race starts and is never edited afterwards -- these are not tips published before the race. Every bet is $1 to win at the official starting price. Units are dollars won or lost. Return on turnover is units divided by bets. &quot;Market price&quot; is the price stored with the ranking at the time it was recorded. {data.meta.excluded.total} tips since results began could not be settled and are not counted here: {data.meta.excluded.abandoned} abandoned meetings, {data.meta.excluded.scratched} scratchings, {data.meta.excluded.no_sp ?? 0} with no starting price recorded, {data.meta.excluded.no_result} with no result recorded. Today&apos;s races that haven&apos;t run yet aren&apos;t counted as excluded -- they&apos;re simply not settled yet. Horses that started and failed to finish count as losses.
               <div style={{ marginTop: 10 }}>Past results do not predict future results. Gamble responsibly. Gambling Help 1800 858 858.</div>
             </div>
           </>

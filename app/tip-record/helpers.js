@@ -3,7 +3,10 @@
 // mockup's fake day-offset dates to real ISO date strings and to the
 // actual API row shape:
 // [date, venue, state, race, horse, score, ww_price, market_price, sp,
-//  finish_pos, field_size, edge_pct, field_rank, dead_heat_winners]
+//  finish_pos, field_size, edge_pct, field_rank, dead_heat_winners,
+//  result_status]
+// finish_pos is null for a horse that started but didn't finish (FF / BD in
+// result_status) -- settled as a loss, see the tip_results view.
 const DOW = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
@@ -42,7 +45,7 @@ export function agg(rows) {
   for (const r of rows) {
     if (r[9] === 1) w++;
     u += pl(r);
-    if (r[9] <= 3) p++;
+    if (r[9] >= 1 && r[9] <= 3) p++; // FF/BD rows have no position (null), never a place
   }
   const n = rows.length;
   return { n, w, p, u, roi: n ? (u / n) * 100 : 0, sr: n ? (w / n) * 100 : 0, pr: n ? (p / n) * 100 : 0 };
@@ -106,6 +109,11 @@ export function money(v) {
 }
 export function ordn(n) {
   return n === 1 ? 'Won' : n === 2 ? '2nd' : n === 3 ? '3rd' : n + 'th';
+}
+// Result label for a settled row: finishing position, or the result status
+// (FF / BD) for a horse that started and didn't finish.
+export function finishLabel(r) {
+  return r[9] ? ordn(r[9]) : (r[14] || '–');
 }
 export function cum(rows) {
   let s = 0;
