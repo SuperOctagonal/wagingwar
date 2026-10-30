@@ -11,10 +11,15 @@ export default function useIsMobile() {
     // orientationchange can fire before innerWidth/innerHeight finish updating
     // to the new orientation, so reading them synchronously can capture stale
     // pre-rotation values.
+    //
+    // Measures the initial containing block (documentElement.clientWidth/
+    // clientHeight, same basis as CSS media queries), not innerWidth: on phones
+    // the desktop-first server render briefly overflows and inflates innerWidth
+    // to ~1200px, and a check landing in that window stuck on desktop layout.
     const check = () => {
       requestAnimationFrame(() => {
         const coarse = window.matchMedia('(pointer: coarse)').matches;
-        const w = window.innerWidth, h = window.innerHeight;
+        const w = document.documentElement.clientWidth, h = document.documentElement.clientHeight;
         setIsMobile(w <= 768 || (coarse && Math.min(w, h) <= 768));
       });
     };
