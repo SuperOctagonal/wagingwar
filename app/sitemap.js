@@ -12,16 +12,19 @@ export const revalidate = 3600;
 export default async function sitemap() {
   const baseUrl = 'https://wagingwar.com.au';
 
+  // Publicly viewable pages only -- sign-in-only routes (middleware.js's
+  // isProtectedRoute: /races, /mybets, /community, ...) redirect crawlers
+  // to /sign-in, so listing them only produced redirect noise.
   const routes = [
     '',
-    '/races',
     '/results',
-    '/mybets',
-    '/competitions',
-    '/blackbook',
-    '/community',
+    '/tip-record',
     '/how-it-works',
+    '/pricing',
     '/faq',
+    '/terms',
+    '/privacy',
+    '/responsible-gambling',
   ];
 
   const staticEntries = routes.map((route) => ({
@@ -44,11 +47,15 @@ export default async function sitemap() {
 async function getRecentResultsEntries(baseUrl) {
   if (!SURL || !SKEY) return [];
   try {
+    // AEST dates, capped at today: race_schedule also holds upcoming
+    // meetings, and future-dated Results URLs have no results to show.
+    const tz = { timeZone: 'Australia/Brisbane' };
+    const todayISO = new Date().toLocaleDateString('sv-SE', tz);
     const since = new Date();
     since.setDate(since.getDate() - 30);
-    const sinceISO = since.toLocaleDateString('sv-SE');
+    const sinceISO = since.toLocaleDateString('sv-SE', tz);
     const result = await fetchAllRows(
-      `${SURL}/rest/v1/race_schedule?select=date,venue&date=gte.${sinceISO}`,
+      `${SURL}/rest/v1/race_schedule?select=date,venue&date=gte.${sinceISO}&date=lte.${todayISO}`,
       { apikey: SKEY, Authorization: `Bearer ${SKEY}` },
     );
     if (!result.ok) return [];

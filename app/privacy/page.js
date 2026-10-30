@@ -1,5 +1,6 @@
 export const metadata = {
-  title: 'Privacy Policy — Waging War',
+  title: 'Privacy Policy',
+  description: 'How Waging War collects, uses and protects your personal information, including cookies and analytics consent.',
 };
 
 const LAST_UPDATED = '18 July 2026';

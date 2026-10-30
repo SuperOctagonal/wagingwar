@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation';
 import HomePage from '@/app/page';
 import { LANDING_VARIANTS } from '@/lib/landingVariants';
+import { HOME_TITLE, HOME_DESCRIPTION } from '@/lib/seo';
 
 // Ad landing variants of the home page. Reached only through middleware.js's
 // rewrite of /?utm_content=<key> (the visitor's URL stays /?utm_content=...).
@@ -15,8 +16,8 @@ export function generateStaticParams() {
 }
 
 export const metadata = {
-  title: 'Waging War | Horse Racing Analytics and Bet Tracking Australia',
-  description: 'Live bookmaker prices free for every punter. Score and rank every runner, track your bets with real P&L, and follow daily tipping competitions - built for serious Australian punters.',
+  title: { absolute: HOME_TITLE },
+  description: HOME_DESCRIPTION,
   alternates: { canonical: '/' },
   robots: { index: false, follow: true },
 };

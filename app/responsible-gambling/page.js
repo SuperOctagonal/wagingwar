@@ -1,5 +1,6 @@
 export const metadata = {
-  title: 'Responsible Gambling — Waging War',
+  title: 'Responsible Gambling',
+  description: 'Support for safer gambling: Gambling Help 1800 858 858, gamblinghelponline.org.au and BetStop national self-exclusion. 18+.',
 };
 
 function Section({ title, children }) {

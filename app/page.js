@@ -1,12 +1,23 @@
-import CheckoutButton from '@/components/CheckoutButton';
+import PricingCards from '@/components/PricingCards';
 import PuntersEdgeCredit from '@/components/PuntersEdgeCredit';
 import SignupCta from '@/components/SignupCta';
 import { getHomepageModelStats } from '@/lib/homepageModelStats';
 import { landingVariant } from '@/lib/landingVariants';
+import { HOME_TITLE, HOME_DESCRIPTION } from '@/lib/seo';
 
 export const metadata = {
-  title: 'Waging War | Horse Racing Analytics and Bet Tracking Australia',
-  description: 'Live bookmaker prices free for every punter. Score and rank every runner, track your bets with real P&L, and follow daily tipping competitions - built for serious Australian punters.',
+  title: { absolute: HOME_TITLE },
+  description: HOME_DESCRIPTION,
+  alternates: { canonical: '/' },
+};
+
+// Organization + WebSite structured data, home page only.
+const JSON_LD = {
+  '@context': 'https://schema.org',
+  '@graph': [
+    { '@type': 'Organization', name: 'Waging War', url: 'https://wagingwar.com.au', logo: 'https://wagingwar.com.au/images/logo-full.png' },
+    { '@type': 'WebSite', name: 'Waging War', url: 'https://wagingwar.com.au' },
+  ],
 };
 
 const GREEN = '#1B4332';
@@ -51,9 +62,6 @@ function FeatureCard({ icon, title, desc, free }) {
   );
 }
 
-function Check({ dark }) {
-  return <span style={{ color: dark ? GREEN : '#86efac', flexShrink: 0 }}>✓</span>;
-}
 
 function fmtDateAU(d) {
   if (!d) return '';
@@ -285,6 +293,7 @@ export default async function HomePage({ variant } = {}) {
   const modelStats = copy.noFigures ? null : await getHomepageModelStats();
   return (
     <main className="flex-1 overflow-y-auto flex flex-col">
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(JSON_LD) }} />
 
       {/* ── 1. Hero ──────────────────────────────────────────────────────── */}
       {/* Tighter top spacing on phones so the sign-up button sits in the first screen. */}
@@ -365,106 +374,12 @@ export default async function HomePage({ variant } = {}) {
             Simple, Transparent Pricing
           </h2>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6" style={{ marginBottom: 24 }}>
-
-            {/* Free tier */}
-            <div style={{
-              background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.18)',
-              borderRadius: 14, padding: '32px 28px',
-            }}>
-              <div style={{ fontSize: 12, fontWeight: 700, color: 'rgba(255,255,255,0.55)', textTransform: 'uppercase', letterSpacing: '0.7px', marginBottom: 10 }}>
-                Free
-              </div>
-              <div style={{ fontSize: 38, fontWeight: 800, color: '#fff', marginBottom: 4 }}>$0</div>
-              <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)', marginBottom: 28 }}>Forever free</div>
-
-              <ul style={{ listStyle: 'none', padding: 0, display: 'flex', flexDirection: 'column', gap: 11, marginBottom: 28 }}>
-                {[
-                  'Live bookmaker prices',
-                  'Move column (price moves)',
-                  'Firmer/Drifter chips',
-                  'Full odds comparison',
-                  'Race results',
-                ].map(f => (
-                  <li key={f} style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 13, color: 'rgba(255,255,255,0.75)' }}>
-                    <Check />
-                    {f}
-                  </li>
-                ))}
-              </ul>
-
-              <SignupCta
-                location="pricing"
-                style={{
-                  display: 'block', textAlign: 'center',
-                  background: 'rgba(255,255,255,0.1)', color: '#fff',
-                  fontWeight: 700, fontSize: 13, padding: '12px 20px',
-                  borderRadius: 8, textDecoration: 'none',
-                  border: '1px solid rgba(255,255,255,0.25)',
-                }}
-              >
-                Get Started Free
-              </SignupCta>
-            </div>
-
-            {/* Pro tier */}
-            <div style={{
-              background: '#fff', border: `2px solid ${GOLD}`,
-              borderRadius: 14, padding: '32px 28px', position: 'relative',
-            }}>
-              <div style={{
-                position: 'absolute', top: -13, left: '50%', transform: 'translateX(-50%)',
-                background: GOLD, color: '#fff', fontSize: 10, fontWeight: 800,
-                padding: '4px 14px', borderRadius: 20,
-                textTransform: 'uppercase', letterSpacing: '0.8px', whiteSpace: 'nowrap',
-              }}>
-                Most Popular
-              </div>
-
-              <div style={{ fontSize: 12, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.7px', marginBottom: 10 }}>
-                Pro
-              </div>
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginBottom: 4 }}>
-                <span style={{ fontSize: 38, fontWeight: 800, color: TEXT }}>$29</span>
-                <span style={{ fontSize: 14, color: '#6b7280' }}>/month</span>
-              </div>
-              <div style={{ fontSize: 12, color: '#6b7280', marginBottom: 28 }}>or $249/yr — save $99</div>
-
-              <ul style={{ listStyle: 'none', padding: 0, display: 'flex', flexDirection: 'column', gap: 11, marginBottom: 28 }}>
-                {[
-                  'Full scores + edge',
-                  'Pace maps',
-                  'Movers & Value Bets',
-                  'Bet tracker & P&L',
-                  'Blackbook',
-                  'Community posting',
-                  'Daily competition',
-                ].map(f => (
-                  <li key={f} style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 13, color: TEXT }}>
-                    <Check dark />
-                    {f}
-                  </li>
-                ))}
-              </ul>
-
-              <CheckoutButton
-                interval="month"
-                style={{
-                  display: 'block', textAlign: 'center',
-                  background: GREEN, color: '#fff',
-                  fontWeight: 800, fontSize: 14, padding: '13px 20px',
-                  borderRadius: 8,
-                  boxShadow: '0 4px 10px rgba(0,0,0,0.15)',
-                  width: '100%',
-                }}
-              >
-                Start Free 7-Day Trial
-              </CheckoutButton>
-              <p style={{ textAlign: 'center', fontSize: 11, color: '#9ca3af', margin: '10px 0 0' }}>
-                7-day free trial · card required · cancel anytime
-              </p>
-            </div>
-          </div>
+          <PricingCards ctaLocation="pricing" />
+          <p style={{ textAlign: 'center', margin: 0 }}>
+            <a href="/pricing" style={{ color: '#fff', fontSize: 13, fontWeight: 600, textDecoration: 'underline' }}>
+              See full pricing, including Pro annual
+            </a>
+          </p>
         </div>
       </section>
 

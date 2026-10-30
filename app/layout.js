@@ -21,6 +21,9 @@ export const metadata = {
     template: '%s | Waging War',
   },
   description: 'Live bookmaker prices, free for every punter, plus Australian horse racing analytics and community features',
+  // Self-referencing canonical on every page ('./' resolves to each page's
+  // own path, query string dropped); pages with meaningful params override.
+  alternates: { canonical: './' },
   icons: { icon: '/images/icon-app-72.png' },
   openGraph: {
     title: 'Waging War | Horse Racing Analytics and Bet Tracking Australia',
@@ -63,27 +66,7 @@ export default function RootLayout({ children }) {
           <noscript>
             <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css" />
           </noscript>
-          <script
-            type="application/ld+json"
-            dangerouslySetInnerHTML={{
-              __html: JSON.stringify({
-                '@context': 'https://schema.org',
-                '@graph': [
-                  {
-                    '@type': 'Organization',
-                    name: 'Waging War',
-                    url: 'https://wagingwar.com.au',
-                    logo: 'https://wagingwar.com.au/images/logo-full.png',
-                  },
-                  {
-                    '@type': 'WebSite',
-                    name: 'Waging War',
-                    url: 'https://wagingwar.com.au',
-                  },
-                ],
-              }),
-            }}
-          />
+          {/* Organization/WebSite JSON-LD lives on the home page (app/page.js). */}
         </head>
         <body className="font-space text-[13px] bg-slate-100 text-gray-900 h-full flex flex-col overflow-hidden">
           <MobileChromeVars />

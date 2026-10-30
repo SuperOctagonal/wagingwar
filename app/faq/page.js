@@ -1,5 +1,5 @@
 export const metadata = {
-  title: 'FAQ — Waging War',
+  title: 'Frequently Asked Questions',
   description: 'Answers to common questions about Waging War — live bookmaker prices, how the model works, Free vs Pro, bet tracking, and responsible gambling support.',
 };
 

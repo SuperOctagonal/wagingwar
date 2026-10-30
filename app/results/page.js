@@ -37,11 +37,14 @@ export async function generateMetadata({ searchParams }) {
       return {
         title: `${venueName} Results ${formattedDate}`,
         description: `See how Waging War's model ranked every runner at ${venueName} on ${formattedDate}, compared against the real result.`,
+        // Self-canonical including the params: these are the URLs listed in
+        // app/sitemap.js, so they mustn't canonicalise to bare /results.
+        alternates: { canonical: `/results?date=${dateParam}&venue=${encodeURIComponent(normaliseVenue(venueParam))}` },
       };
     }
   }
 
-  return { title: DEFAULT_TITLE, description: DEFAULT_DESCRIPTION };
+  return { title: DEFAULT_TITLE, description: DEFAULT_DESCRIPTION, alternates: { canonical: '/results' } };
 }
 
 export default function ResultsPage() {

@@ -11,7 +11,7 @@ const isProtectedRoute = createRouteMatcher([
   '/competitions(.*)',
   '/blackbook(.*)',
   '/learn(.*)',
-  '/how-it-works(.*)',
+  // /how-it-works is public (static explainer, no user or Pro data).
   '/account(.*)',
   '/settings(.*)',
   '/admin(.*)',

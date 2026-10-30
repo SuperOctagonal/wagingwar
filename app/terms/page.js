@@ -1,5 +1,6 @@
 export const metadata = {
-  title: 'Terms of Service — Waging War',
+  title: 'Terms of Service',
+  description: 'The terms that apply when you use Waging War, an Australian horse racing data and analytics service. We don\'t take bets. 18+.',
 };
 
 const LAST_UPDATED = '18 July 2026';

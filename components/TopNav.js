@@ -11,7 +11,7 @@ import { punterFallback } from '@/lib/punterFallback';
 
 const NAV_LINKS = [
   { id: 'races',        label: 'Races',        href: '/races',        public: true },
-  { id: 'results',      label: 'Results',      href: '/results' },
+  { id: 'results',      label: 'Results',      href: '/results',      public: true },
   { id: 'tip-record',   label: 'Tip Record',   href: '/tip-record',   public: true },
   { id: 'mybets',       label: 'My Bets',      href: '/mybets' },
   { id: 'betting-tools', label: 'Tools',       href: '/betting-tools' },
@@ -19,7 +19,10 @@ const NAV_LINKS = [
   { id: 'games',        label: 'Games',        href: '/games' },
   { id: 'competitions', label: 'Competitions', href: '/competitions' },
   { id: 'blackbook',    label: 'Blackbook',    href: '/blackbook' },
-  { id: 'how-it-works', label: 'How It Works',  href: '/how-it-works' },
+  { id: 'how-it-works', label: 'How It Works',  href: '/how-it-works', public: true },
+  // Drawer only: the desktop row has no room for another item (Pricing is
+  // linked from the footer and the home page pricing section instead).
+  { id: 'pricing',      label: 'Pricing',      href: '/pricing',      public: true, drawerOnly: true },
 ];
 
 const MOB_TABS = [
@@ -41,10 +44,13 @@ const MOB_TABS = [
 // the hamburger button and the drawer itself use this -- the bottom
 // mobile tab bar stays on the real isMobile (768px) breakpoint, since
 // that's a genuinely phone-only affordance, not a squeeze fix.
+//
+// Raised to 1290px (2026-10-30): the row has since grown to 1215px signed
+// out / 1283px signed in, so 1200-1282px windows were scrolling sideways.
 function useIsNarrowNav() {
   const [narrow, setNarrow] = useState(false);
   useEffect(() => {
-    const check = () => setNarrow(window.innerWidth < 1200);
+    const check = () => setNarrow(window.innerWidth < 1290);
     check();
     window.addEventListener('resize', check);
     return () => window.removeEventListener('resize', check);
@@ -89,6 +95,16 @@ export default function TopNav() {
       return;
     }
     router.push(href);
+  }
+
+  // Nav items are real <Link href> anchors (crawlable); this keeps the old
+  // behaviour of opening the sign-in modal for sign-in-only pages when
+  // signed out, instead of following the link.
+  function guardNav(e, href, isPublic) {
+    if (!isPublic && !user) {
+      e.preventDefault();
+      openSignIn({ redirectUrl: href });
+    }
   }
 
   // Pending bet count for "My Bets" badge
@@ -186,13 +202,14 @@ export default function TopNav() {
 
         {/* Desktop nav links */}
         <div className={isNarrowNav ? 'hidden' : 'flex h-full flex-1'}>
-          {NAV_LINKS.map(link => {
+          {NAV_LINKS.filter(link => !link.drawerOnly).map(link => {
             if (link.id === 'races') {
               const racesActive = currentPage === 'races' || currentPage === 'today';
               return (
                 <div key={link.id} style={{ position: 'relative' }} onMouseEnter={() => setShowRacesMenu(true)} onMouseLeave={() => setShowRacesMenu(false)}>
-                  <button
-                    onClick={() => navigate(link.href, link.public)}
+                  <Link
+                    href={link.href}
+                    onClick={e => guardNav(e, link.href, link.public)}
                     className={[
                       'group h-full px-1 font-space text-[10px] font-semibold uppercase tracking-[0.5px]',
                       'border-b-2 whitespace-nowrap flex items-center',
@@ -207,12 +224,13 @@ export default function TopNav() {
                     ].join(' ')}>
                       {link.label} ▾
                     </span>
-                  </button>
+                  </Link>
                   {showRacesMenu && (
                     <div style={{ position: 'absolute', top: '100%', left: 0, zIndex: 200, background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, boxShadow: '0 8px 24px rgba(0,0,0,0.12)', width: 180, padding: '8px 0' }}>
-                      <button
-                        onClick={() => { setShowRacesMenu(false); navigate('/today', false); }}
-                        style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 16px', cursor: 'pointer', background: 'none', border: 'none', width: '100%', textAlign: 'left' }}
+                      <Link
+                        href="/today"
+                        onClick={e => { setShowRacesMenu(false); guardNav(e, '/today', false); }}
+                        style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 16px', cursor: 'pointer', background: 'none', border: 'none', width: '100%', textAlign: 'left', textDecoration: 'none' }}
                         onMouseEnter={e => e.currentTarget.style.background = '#f9fafb'}
                         onMouseLeave={e => e.currentTarget.style.background = 'none'}
                       >
@@ -221,16 +239,17 @@ export default function TopNav() {
                           <div style={{ fontSize: 12, fontWeight: 600, color: '#111827' }}>Today</div>
                           <div style={{ fontSize: 10, color: '#6b7280', marginTop: 1 }}>Today&apos;s race overview</div>
                         </div>
-                      </button>
+                      </Link>
                     </div>
                   )}
                 </div>
               );
             }
             return (
-              <button
+              <Link
                 key={link.id}
-                onClick={() => navigate(link.href, link.public)}
+                href={link.href}
+                onClick={e => guardNav(e, link.href, link.public)}
                 className={[
                   'group h-full px-1 font-space text-[10px] font-semibold uppercase tracking-[0.5px]',
                   'border-b-2 whitespace-nowrap flex items-center',
@@ -253,7 +272,7 @@ export default function TopNav() {
                     <span title="Beat the Model challenge is live" style={{ position: 'absolute', top: -2, right: -4, background: '#fbbf24', borderRadius: '50%', width: 8, height: 8, pointerEvents: 'none' }} />
                   )}
                 </span>
-              </button>
+              </Link>
             );
           })}
         </div>
@@ -406,12 +425,13 @@ export default function TopNav() {
             {/* Nav links */}
             <div style={{ flex: 1, overflowY: 'auto' }}>
               {NAV_LINKS.map(link => (
-                <button
+                <Link
                   key={link.id}
-                  onClick={() => { setDrawerOpen(false); navigate(link.href, link.public); }}
+                  href={link.href}
+                  onClick={e => { setDrawerOpen(false); guardNav(e, link.href, link.public); }}
                   style={{
                     display: 'flex', alignItems: 'center', width: '100%', height: 48,
-                    padding: '0 16px', gap: 12,
+                    padding: '0 16px', gap: 12, textDecoration: 'none',
                     fontSize: 13, fontWeight: 600, textAlign: 'left',
                     background: currentPage === link.id ? 'rgba(255,255,255,0.07)' : 'none',
                     border: 'none', borderLeft: currentPage === link.id ? '3px solid #6ee7b7' : '3px solid transparent',
@@ -428,7 +448,7 @@ export default function TopNav() {
                   {link.id === 'competitions' && btmPending && (
                     <span style={{ marginLeft: 'auto', background: '#fbbf24', borderRadius: '50%', width: 8, height: 8, flexShrink: 0 }} />
                   )}
-                </button>
+                </Link>
               ))}
             </div>
 
