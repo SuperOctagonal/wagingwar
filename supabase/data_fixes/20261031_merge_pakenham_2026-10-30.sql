@@ -1,4 +1,5 @@
--- NOT APPLIED. Draft for review only -- do not run until approved.
+-- APPLIED 2026-10-31 (approved). Before/after counts matched the table
+-- below exactly; the guard passed and the transaction committed.
 --
 -- One-off data fix: the 30 Oct 2026 Pakenham meeting ran on the TURF track
 -- (Soft 6; moved from Moonee Valley). The EveryRace CSV labelled it
