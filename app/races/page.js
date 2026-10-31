@@ -4206,7 +4206,7 @@ function RacesPageInner() {
       if (!wasHistoricalRef.current) return; // initial mount, handled above
       wasHistoricalRef.current = false;
       setAllRaces({}); setAllVenues({}); setRaceKeys([]); setSelectedKey(null);
-      setScratchedRows([]); setRaceResults({}); setTrackConds({});
+      setScratchedRows([]); setRaceResults({}); setTrackConds({}); setVenueTrackConds({});
       const saved = localStorage.getItem('ww_csv');
       const savedName = localStorage.getItem('ww_csv_name') || 'today.csv';
       if (saved) { loadCSV(saved, savedName, null); return; }
@@ -4240,7 +4240,11 @@ function RacesPageInner() {
     setSelectedKey(null);
     setScratchedRows([]);
     setRaceResults({});
+    // Reset on switching date -- the new date's stored conditions are then
+    // applied by the today_meetings effect below (none carried over from the
+    // previous date).
     setTrackConds({});
+    setVenueTrackConds({});
     fetch(`/api/race-cards?date=${selectedDate}`)
       .then(r => {
         if (r.status === 403) { setUpgradeOpen(true); setSelectedDate(todayISO); return null; }
@@ -4290,17 +4294,20 @@ function RacesPageInner() {
     }
   }, [allRaces]);
 
-  // Fetch today_meetings for track conditions and abandoned status
+  // Fetch today_meetings for the selected date: track conditions on every
+  // date (a past date shows and scores on its stored condition, e.g.
+  // Pakenham 30 Oct = Soft 6); abandoned / not-on-calendar badges for today
+  // only, as before.
   useEffect(() => {
     if (!SURL || !SKEY) return;
-    if (isHistoricalMode) return;
-    const todayISO = new Date().toLocaleDateString('sv-SE', { timeZone: 'Australia/Brisbane' });
+    let cancelled = false; // a slower response for a previous date must not land
     fetch(
-      `${SURL}/rest/v1/today_meetings?date=eq.${todayISO}&select=venue,track_condition,condition_override,is_abandoned,calendar_mismatch`,
+      `${SURL}/rest/v1/today_meetings?date=eq.${selectedDate}&select=venue,track_condition,condition_override,is_abandoned,calendar_mismatch`,
       { headers: { apikey: SKEY, Authorization: `Bearer ${SKEY}` } }
     )
       .then(r => r.ok ? r.json() : r.text().then(t => Promise.reject(`HTTP ${r.status}: ${t}`)))
       .then(rows => {
+        if (cancelled) return;
         const tc = {}, aband = new Set(), mismatch = new Set();
         rows.forEach(r => {
           const norm = normaliseVenue(r.venue);
@@ -4319,17 +4326,18 @@ function RacesPageInner() {
           // positively-identified NZ name is suppressed.
           if (r.calendar_mismatch && !isNzVenue(r.venue)) mismatch.add(norm);
         });
-        console.log('[today_meetings] track conds:', Object.keys(tc).length, 'abandoned:', [...aband], 'not on calendar:', [...mismatch]);
+        console.log('[today_meetings]', selectedDate, 'track conds:', Object.keys(tc).length, 'abandoned:', [...aband], 'not on calendar:', [...mismatch]);
         setVenueTrackConds(tc);
-        setVenueAbandoned(aband);
-        setVenueCalendarMismatch(mismatch);
+        setVenueAbandoned(isHistoricalMode ? new Set() : aband);
+        setVenueCalendarMismatch(isHistoricalMode ? new Set() : mismatch);
       })
       .catch(e => console.error('[today_meetings] fetch failed:', e));
-  }, [allRaces, isHistoricalMode]);
+    return () => { cancelled = true; };
+  }, [allRaces, selectedDate, isHistoricalMode]);
 
   // Auto-apply DB track conditions to scoring when venueTrackConds loads
+  // (every date; a venue the user has already set is left alone)
   useEffect(() => {
-    if (isHistoricalMode) return;
     if (!Object.keys(venueTrackConds).length || !Object.keys(allRaces).length) return;
     setTrackConds(prev => {
       const next = { ...prev };
