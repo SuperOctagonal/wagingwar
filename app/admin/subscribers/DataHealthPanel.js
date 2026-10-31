@@ -109,7 +109,7 @@ export default function DataHealthPanel({ initial, dates }) {
         <DataTable columns={overdueCols} rows={overdueRaces} initialSort="minsSinceJump" csvName={`overdue-results-${health.date}`} maxHeight={300} />
       ) : <NoData>No jumped race is missing a result after 45 minutes.</NoData>}
       <div style={{ fontSize: 11, color: C.muted, marginTop: 6 }}>
-        Venues grouped with normaliseVenue (so e.g. PAKENHAM and PAKENHAM SYNTHETIC rows count as one meeting). Jump times are race_schedule post_time (Sydney clock) shown in AEST.
+        Venues grouped with normaliseVenue (so e.g. BEAUMONT and NEWCASTLE rows count as one meeting). Jump times are race_schedule post_time (Sydney clock) shown in AEST.
       </div>
     </div>
   );
