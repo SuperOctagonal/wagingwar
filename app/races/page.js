@@ -52,11 +52,12 @@ function useIsNarrowWidth() {
   return isNarrow;
 }
 import {
-  scoreGroup, blendFirstStarterLivePrices, calcPaceMap, pointsForPlace,
+  calcPaceMap, pointsForPlace,
   formatRacingOdds, getDefaultWeights, FACTORS, FACTOR_GROUPS_DEF, GRP_KEYS, GRP_LABELS,
   computeValueEdge,
 } from '@/lib/scoring';
-import { calculateLiveOdds, CALIBRATION_ENABLED } from '@/lib/livePricing';
+import { CALIBRATION_ENABLED } from '@/lib/livePricing';
+import { renumberBarriers, scoreField, trackCondKey } from '@/lib/fieldScoring';
 import { getConfidenceFlags } from '@/lib/confidence';
 import TabPanelErrorBoundary from '@/components/TabPanelErrorBoundary';
 
@@ -4344,13 +4345,8 @@ function RacesPageInner() {
       Object.values(allRaces).forEach(rc => {
         if (!rc?.venue || next[rc.venue]) return; // skip if user already set
         const rawUpper = (rc.venue || '').toUpperCase();
-        const raw = venueTrackConds[normaliseVenue(rawUpper)] || '';
-        if (!raw) return;
-        const tcl = raw.toLowerCase();
-        next[rc.venue] = tcl.includes('heavy') ? 'heavy'
-                       : tcl.includes('soft') || tcl.includes('slow') ? 'soft'
-                       : tcl.includes('synth') ? 'synthetic'
-                       : 'good';
+        const key = trackCondKey(venueTrackConds[normaliseVenue(rawUpper)]);
+        if (key) next[rc.venue] = key;
       });
       return next;
     });
@@ -4418,20 +4414,12 @@ function RacesPageInner() {
     const scr    = currentRace.horses.filter(h =>  h.scratched || isDbScr(h));
 
     // Renumber barriers 1,2,3... in original BP order across the live field
-    const byOrigBP = [...active].sort((a, b) => (+a['BP'] || 99) - (+b['BP'] || 99));
-    const barrierMap = new Map(byOrigBP.map((h, i) => [h.name, i + 1]));
+    const field = renumberBarriers(active);
 
-    let res = active.map(h => {
-      const liveBarrier = barrierMap.get(h.name) ?? +h['BP'] ?? 99;
-      const hScored = { ...h, 'BP': liveBarrier };
-      if (!isPro) return { ...hScored, grpScores: {}, totalFromGroups: 0, myOdds: null };
-      const grpScores = {};
-      GRP_KEYS.forEach(gk => { grpScores[gk] = scoreGroup(hScored, gk, weights, trackCond); });
-      const totalFromGroups = GRP_KEYS.reduce((a, gk) => a + grpScores[gk].total, 0);
-      return { ...hScored, grpScores, totalFromGroups };
-    }).sort((a, b) => b.totalFromGroups - a.totalFromGroups);
-
-    if (isPro) {
+    let res;
+    if (!isPro) {
+      res = field.map(h => ({ ...h, grpScores: {}, totalFromGroups: 0, myOdds: null }));
+    } else {
       // Calibration (Phase 2) is now the real WW $ for everyone -- the
       // SAME shared function (lib/livePricing.js) lib/valueBets.js's
       // server-side pricing uses, fed by the same active-curve source,
@@ -4450,10 +4438,10 @@ function RacesPageInner() {
       // pass needed any more (was admin-only via a parallel computation,
       // 2809622, until validated for shipping) -- same retirement pattern
       // as Phase 2's Cal $ preview once calibration itself went live.
+      // Scoring, the first-starter blend and pricing live in
+      // lib/fieldScoring.js, shared with Top 3 at a glance.
       const curvePoints = CALIBRATION_ENABLED ? calibrationCurve?.curve_points : null;
-      res = blendFirstStarterLivePrices(res, firstStarterLiveFlags, marketMoveNameKey, curvePoints);
-      const oddsArr = calculateLiveOdds(res, curvePoints);
-      res.forEach((r, i) => { r.myOdds = oddsArr[i]; });
+      res = scoreField(field, { trackCond, weights, liveFlags: firstStarterLiveFlags, nameKeyFn: marketMoveNameKey, curvePoints });
     }
 
     // Best/worst per group for cell highlighting

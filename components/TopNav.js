@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useUser, useClerk } from '@clerk/nextjs';
-import { useState, useEffect, useRef } from 'react';
+import { Fragment, useState, useEffect, useRef } from 'react';
 import useIsPro from '@/hooks/useIsPro';
 import useIsMobile from '@/hooks/useIsMobile';
 import { isSiteAdmin } from '@/lib/admin';
@@ -24,6 +24,10 @@ const NAV_LINKS = [
   // linked from the footer and the home page pricing section instead).
   { id: 'pricing',      label: 'Pricing',      href: '/pricing',      public: true, drawerOnly: true },
 ];
+
+// Races dropdown item and drawer sub-item under Races (a Pro page; the page
+// itself shows the Pro prompt to free plans).
+const TOP3_HREF = '/races/top-3';
 
 const MOB_TABS = [
   { id: 'races',        label: 'Racing',    icon: 'horse-toy',    public: true },
@@ -236,7 +240,7 @@ export default function TopNav() {
                     </span>
                   </Link>
                   {showRacesMenu && (
-                    <div style={{ position: 'absolute', top: '100%', left: 0, zIndex: 200, background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, boxShadow: '0 8px 24px rgba(0,0,0,0.12)', width: 180, padding: '8px 0' }}>
+                    <div style={{ position: 'absolute', top: '100%', left: 0, zIndex: 200, background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, boxShadow: '0 8px 24px rgba(0,0,0,0.12)', width: 200, padding: '8px 0' }}>
                       <Link
                         href="/today"
                         onClick={e => { setShowRacesMenu(false); guardNav(e, '/today', false); }}
@@ -248,6 +252,19 @@ export default function TopNav() {
                         <div>
                           <div style={{ fontSize: 12, fontWeight: 600, color: '#111827' }}>Today</div>
                           <div style={{ fontSize: 10, color: '#6b7280', marginTop: 1 }}>Today&apos;s race overview</div>
+                        </div>
+                      </Link>
+                      <Link
+                        href={TOP3_HREF}
+                        onClick={e => { setShowRacesMenu(false); guardNav(e, TOP3_HREF, false); }}
+                        style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 16px', cursor: 'pointer', background: 'none', border: 'none', width: '100%', textAlign: 'left', textDecoration: 'none' }}
+                        onMouseEnter={e => e.currentTarget.style.background = '#f9fafb'}
+                        onMouseLeave={e => e.currentTarget.style.background = 'none'}
+                      >
+                        <i className="ti ti-list-numbers" style={{ fontSize: 16, color: '#00471b', width: 20, flexShrink: 0 }} />
+                        <div>
+                          <div style={{ fontSize: 12, fontWeight: 600, color: '#111827' }}>Top 3 at a glance</div>
+                          <div style={{ fontSize: 10, color: '#6b7280', marginTop: 1 }}>Top 3 by model score · Pro</div>
                         </div>
                       </Link>
                     </div>
@@ -443,8 +460,8 @@ export default function TopNav() {
             {/* Nav links */}
             <div style={{ flex: 1, overflowY: 'auto' }}>
               {NAV_LINKS.map(link => (
+                <Fragment key={link.id}>
                 <Link
-                  key={link.id}
                   href={link.href}
                   onClick={e => { setDrawerOpen(false); guardNav(e, link.href, link.public); }}
                   style={{
@@ -467,6 +484,24 @@ export default function TopNav() {
                     <span style={{ marginLeft: 'auto', background: '#fbbf24', borderRadius: '50%', width: 8, height: 8, flexShrink: 0 }} />
                   )}
                 </Link>
+                {link.id === 'races' && (
+                  <Link
+                    href={TOP3_HREF}
+                    onClick={e => { setDrawerOpen(false); guardNav(e, TOP3_HREF, false); }}
+                    style={{
+                      display: 'flex', alignItems: 'center', width: '100%', height: 44,
+                      padding: '0 16px 0 32px', gap: 10, textDecoration: 'none',
+                      fontSize: 12, fontWeight: 600, textAlign: 'left',
+                      background: pathname === TOP3_HREF ? 'rgba(255,255,255,0.07)' : 'none',
+                      borderLeft: pathname === TOP3_HREF ? '3px solid #6ee7b7' : '3px solid transparent',
+                      color: pathname === TOP3_HREF ? '#6ee7b7' : 'rgba(255,255,255,0.65)',
+                    }}
+                  >
+                    <i className="ti ti-list-numbers" style={{ fontSize: 15 }} />
+                    Top 3 at a glance
+                  </Link>
+                )}
+                </Fragment>
               ))}
             </div>
 
