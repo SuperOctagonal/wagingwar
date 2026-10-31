@@ -23,6 +23,7 @@ const PLACE = [
 ];
 const TC_LABELS = { good: 'Good', soft: 'Soft', heavy: 'Heavy', synthetic: 'Synth' };
 const POLL_MS = 60 * 1000;
+const VIEW_KEY = 'ww_top3_view';
 
 function countdown(jumpAt, now) {
   if (!jumpAt) return { text: '—' };
@@ -64,10 +65,10 @@ function ValueBadge({ pct }) {
   );
 }
 
-function Countdown({ race, now }) {
+function Countdown({ race, now, align = 'left' }) {
   const cd = countdown(race.jumpAt, now);
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.2, minWidth: 0 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: align === 'right' ? 'flex-end' : 'flex-start', lineHeight: 1.2, minWidth: 0 }}>
       <span style={{ fontSize: 13, fontWeight: 700, fontVariantNumeric: 'tabular-nums', color: cd.urgent ? '#dc2626' : cd.jumped ? '#9ca3af' : '#111827' }}>{cd.text}</span>
       <span style={{ fontSize: 9, color: '#9ca3af' }}>{localTime(race.jumpAt)}</span>
     </div>
@@ -75,24 +76,21 @@ function Countdown({ race, now }) {
 }
 
 const ORDINAL = { 1: '1st', 2: '2nd', 3: '3rd' };
+const ELLIPSIS = { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' };
+// Desktop: race column + three equal 1st/2nd/3rd columns, the same on every
+// row (and the header) so everything lines up row to row.
+const DESKTOP_COLS = { display: 'grid', gridTemplateColumns: '168px repeat(3, minmax(0, 1fr))', columnGap: 16, alignItems: 'center' };
+const ROW_BG = race => (race.status === 'upcoming' ? '#fff' : '#fafafa');
 
-// One of our top 3 on a finished race, ringed with where it actually
-// finished when that was 1st-3rd.
+// One of our top 3 on a finished race, ringed when it actually finished
+// 1st-3rd (the cell beside it says where).
 function MarkedTile({ r, place, size }) {
   const placed = ORDINAL[r.finishPos];
   return (
-    <span title={placed ? `Finished ${placed}` : 'Not in the first 3'} style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
-      <span style={{ display: 'inline-flex', borderRadius: 8, boxShadow: placed ? '0 0 0 2px #fff, 0 0 0 4px #00471b' : 'none', opacity: placed ? 1 : 0.5 }}>
-        <NumTile tab={r.tab} place={place} size={size} />
-      </span>
-      <span style={{ fontSize: 9, fontWeight: 700, lineHeight: 1, color: placed ? '#00471b' : '#9ca3af' }}>{placed || '–'}</span>
+    <span title={placed ? `Finished ${placed}` : 'Not in the first 3'} style={{ display: 'inline-flex', flexShrink: 0, borderRadius: 8, boxShadow: placed ? '0 0 0 2px #fff, 0 0 0 4px #00471b' : 'none', opacity: placed ? 1 : 0.5 }}>
+      <NumTile tab={r.tab} place={place} size={size} />
     </span>
   );
-}
-
-function MarkedTiles({ race, size }) {
-  if (!race.top.length) return null;
-  return <span style={{ display: 'flex', gap: 8 }}>{race.top.map((r, i) => <MarkedTile key={i} r={r} place={i} size={size} />)}</span>;
 }
 
 function ClosedNote({ race, small }) {
@@ -100,138 +98,103 @@ function ClosedNote({ race, small }) {
   return (
     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 11, color: '#6b7280' }}>
       Winner
-      {race.winners.map((w, i) => <NumTile key={i} tab={w.tab} muted size={small ? 22 : 24} />)}
+      {race.winners.map((w, i) => <NumTile key={i} tab={w.tab} muted size={small ? 20 : 22} />)}
     </span>
   );
 }
 
-function DayTapeRow({ race, now, isMobile, onOpen }) {
-  const closed = race.status !== 'upcoming';
-  const pick = race.top[0];
-  const label = <span style={{ fontSize: 12, fontWeight: 700, color: closed ? '#9ca3af' : '#111827', textTransform: 'uppercase', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{race.venue} R{race.raceNum}</span>;
-  return (
-    <button
-      onClick={() => onOpen(race)}
-      className="hover:bg-gray-50"
-      style={{
-        display: 'grid', width: '100%', textAlign: 'left', border: 'none', borderBottom: '1px solid #eef0f3', cursor: 'pointer',
-        background: closed ? '#fafafa' : '#fff', padding: closed ? '6px 12px' : '8px 12px', alignItems: 'center', columnGap: 12, rowGap: 4,
-        gridTemplateColumns: isMobile ? '58px minmax(0,1fr) auto' : '70px minmax(120px,1fr) auto minmax(150px,220px)',
-      }}
-    >
-      {closed ? (
-        <span style={{ fontSize: 10, color: '#9ca3af' }}>{race.status === 'finished' ? 'Resulted' : '—'}</span>
-      ) : <Countdown race={race} now={now} />}
-      {label}
-      {closed ? (
-        isMobile ? (
-          <>
-            <span style={{ justifySelf: 'end' }}><ClosedNote race={race} small /></span>
-            {race.status === 'finished' && race.top.length > 0 && <span style={{ gridColumn: '2 / -1' }}><MarkedTiles race={race} size={24} /></span>}
-          </>
-        ) : (
-          <>
-            {race.status === 'finished' ? <MarkedTiles race={race} size={26} /> : <span />}
-            <span style={{ justifySelf: 'end' }}><ClosedNote race={race} /></span>
-          </>
-        )
-      ) : (
-        <>
-          <span style={{ display: 'flex', gap: 5 }}>
-            {race.top.length ? race.top.map((r, i) => <NumTile key={i} tab={r.tab} place={i} size={isMobile ? 26 : 30} />) : <span style={{ fontSize: 10, color: '#9ca3af' }}>Not ranked</span>}
-          </span>
-          {pick && (
-            <span style={{ gridColumn: isMobile ? '2 / -1' : 'auto', display: 'flex', alignItems: 'center', justifyContent: isMobile ? 'flex-start' : 'flex-end', gap: 8, minWidth: 0 }}>
-              <span style={{ fontSize: 12, fontWeight: 600, color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{pick.name}</span>
-              <span style={{ fontSize: 12, fontWeight: 700, color: '#111827', fontVariantNumeric: 'tabular-nums' }}>{price(pick.price)}</span>
-            </span>
-          )}
-        </>
-      )}
-    </button>
-  );
-}
+const raceTitle = (race, showVenue) => (showVenue ? `${race.venue} R${race.raceNum}` : `R${race.raceNum}`);
 
-function RunnerCell({ r, place }) {
-  if (!r) return <span style={{ fontSize: 10, color: '#d1d5db' }}>—</span>;
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
-      <NumTile tab={r.tab} place={place} size={26} />
-      <div style={{ minWidth: 0 }}>
-        <div style={{ fontSize: 12, fontWeight: 600, color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.name}</div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 10, color: '#6b7280', fontVariantNumeric: 'tabular-nums', flexWrap: 'wrap' }}>
-          <span>Score {r.score?.toFixed(1) ?? '—'}</span>
-          <span>{price(r.price)}</span>
-          <ValueBadge pct={r.valuePct} />
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function FinishedCell({ r, place }) {
-  if (!r) return <span style={{ fontSize: 10, color: '#d1d5db' }}>—</span>;
+// Runner in a 1st/2nd/3rd column: number tile, name (full name on hover),
+// and underneath the price (score first in By meeting) + value badge -- or,
+// once the race has a result, where it finished.
+function RunnerCell({ r, place, race, showScore, tile = 28, compact = false }) {
+  if (!r) return <span style={{ fontSize: 11, color: '#d1d5db' }}>—</span>;
+  const finished = race.status === 'finished';
   const placed = ORDINAL[r.finishPos];
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
-      <MarkedTile r={r} place={place} size={22} />
-      <div style={{ minWidth: 0 }}>
-        <div style={{ fontSize: 11, fontWeight: 600, color: '#6b7280', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.name}</div>
-        <div style={{ fontSize: 10, color: placed ? '#00471b' : '#9ca3af', fontWeight: placed ? 700 : 400 }}>{placed ? `Finished ${placed}` : 'Not in the first 3'}</div>
-      </div>
-    </div>
-  );
-}
-
-function MeetingGrid({ races, now, isMobile, onOpen }) {
-  const head = { fontSize: 10, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '.4px', padding: '6px 12px', textAlign: 'left' };
-  if (isMobile) {
+  if (compact) {
+    // Phones: one line per runner -- name, then price right-aligned with the
+    // value badge after it (or where it finished). Score left out for room.
     return (
-      <div>
-        {races.map(race => (
-          <button key={race.key} onClick={() => onOpen(race)} style={{ display: 'block', width: '100%', textAlign: 'left', border: 'none', borderBottom: '1px solid #eef0f3', background: race.status === 'upcoming' ? '#fff' : '#fafafa', padding: '8px 12px', cursor: 'pointer' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: race.status === 'upcoming' ? 6 : 0 }}>
-              <span style={{ fontSize: 12, fontWeight: 700, color: race.status === 'upcoming' ? '#111827' : '#9ca3af' }}>R{race.raceNum}</span>
-              {race.status === 'upcoming' ? <Countdown race={race} now={now} /> : <ClosedNote race={race} small />}
-            </div>
-            {race.status === 'upcoming' && (
-              <div style={{ display: 'grid', gap: 6 }}>
-                {[0, 1, 2].map(i => <RunnerCell key={i} r={race.top[i]} place={i} />)}
-              </div>
-            )}
-            {race.status === 'finished' && race.top.length > 0 && (
-              <div style={{ marginTop: 6 }}><MarkedTiles race={race} size={24} /></div>
-            )}
-          </button>
-        ))}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+        {finished ? <MarkedTile r={r} place={place} size={tile} /> : <NumTile tab={r.tab} place={place} size={tile} />}
+        <span title={r.name} style={{ flex: 1, minWidth: 0, fontSize: 12, fontWeight: 600, color: finished ? '#6b7280' : '#111827', ...ELLIPSIS }}>{r.name}</span>
+        {finished ? (
+          <span style={{ flexShrink: 0, fontSize: 10, color: placed ? '#00471b' : '#9ca3af', fontWeight: placed ? 700 : 400 }}>{placed ? `Finished ${placed}` : 'Not in the first 3'}</span>
+        ) : (
+          // fixed badge slot so prices line up runner to runner
+          <span style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 600, color: '#111827', fontVariantNumeric: 'tabular-nums' }}>
+            <span style={{ minWidth: 42, textAlign: 'right' }}>{price(r.price)}</span>
+            <span style={{ width: 52, display: 'inline-flex' }}><ValueBadge pct={r.valuePct} /></span>
+          </span>
+        )}
       </div>
     );
   }
   return (
-    <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
-      <colgroup><col style={{ width: 110 }} /><col /><col /><col /></colgroup>
-      <thead>
-        <tr style={{ background: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
-          <th style={head}>Race</th><th style={head}>1st</th><th style={head}>2nd</th><th style={head}>3rd</th>
-        </tr>
-      </thead>
-      <tbody>
-        {races.map(race => (
-          <tr key={race.key} onClick={() => onOpen(race)} className="hover:bg-gray-50" style={{ cursor: 'pointer', borderBottom: '1px solid #eef0f3', background: race.status === 'upcoming' ? undefined : '#fafafa' }}>
-            <td style={{ padding: '8px 12px', verticalAlign: 'middle' }}>
-              <div style={{ fontSize: 12, fontWeight: 700, color: race.status === 'upcoming' ? '#111827' : '#9ca3af' }}>R{race.raceNum}</div>
-              {race.status === 'upcoming' && <Countdown race={race} now={now} />}
-              {race.status === 'finished' && race.top.length > 0 && <div style={{ marginTop: 3 }}><ClosedNote race={race} small /></div>}
-            </td>
-            {race.status === 'upcoming'
-              ? [0, 1, 2].map(i => <td key={i} style={{ padding: '8px 12px', verticalAlign: 'middle' }}><RunnerCell r={race.top[i]} place={i} /></td>)
-              : race.status === 'finished' && race.top.length
-                ? [0, 1, 2].map(i => <td key={i} style={{ padding: '6px 12px', verticalAlign: 'middle' }}><FinishedCell r={race.top[i]} place={i} /></td>)
-                : <td colSpan={3} style={{ padding: '6px 12px' }}><ClosedNote race={race} /></td>}
-          </tr>
-        ))}
-      </tbody>
-    </table>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+      {finished ? <MarkedTile r={r} place={place} size={tile} /> : <NumTile tab={r.tab} place={place} size={tile} />}
+      <div style={{ minWidth: 0, flex: 1 }}>
+        <div title={r.name} style={{ fontSize: 12, fontWeight: 600, color: finished ? '#6b7280' : '#111827', ...ELLIPSIS }}>{r.name}</div>
+        {finished ? (
+          <div style={{ fontSize: 10, marginTop: 2, color: placed ? '#00471b' : '#9ca3af', fontWeight: placed ? 700 : 400 }}>{placed ? `Finished ${placed}` : 'Not in the first 3'}</div>
+        ) : (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 2, fontSize: 11, color: '#374151', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap', overflow: 'hidden' }}>
+            {showScore && <span style={{ color: '#6b7280' }}>Score {r.score?.toFixed(1) ?? '—'}</span>}
+            <span style={{ fontWeight: 600 }}>{price(r.price)}</span>
+            <ValueBadge pct={r.valuePct} />
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function RaceRow({ race, now, isMobile, onOpen, showVenue, showScore }) {
+  const upcoming = race.status === 'upcoming';
+  const title = raceTitle(race, showVenue);
+  const runners = race.status === 'abandoned' ? [] : race.top;
+  const noRunners = <span style={{ fontSize: 11, color: '#9ca3af' }}>{race.status === 'abandoned' ? 'Abandoned' : race.status === 'finished' ? '' : 'Field too small to rank'}</span>;
+
+  if (isMobile) {
+    return (
+      <button data-race={race.key} onClick={() => onOpen(race)} style={{ display: 'block', width: '100%', textAlign: 'left', border: 'none', borderBottom: '1px solid #eef0f3', background: ROW_BG(race), padding: '8px 14px', cursor: 'pointer' }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
+          <span title={title} style={{ fontSize: 12, fontWeight: 700, color: upcoming ? '#111827' : '#9ca3af', textTransform: 'uppercase', minWidth: 0, ...ELLIPSIS }}>{title}</span>
+          <span style={{ flexShrink: 0, textAlign: 'right' }}>{upcoming ? <Countdown race={race} now={now} align="right" /> : <ClosedNote race={race} small />}</span>
+        </div>
+        {runners.length > 0 && (
+          <div style={{ display: 'grid', gap: 4, marginTop: 6 }}>
+            {runners.map((r, i) => <RunnerCell key={i} r={r} place={i} race={race} tile={22} compact />)}
+          </div>
+        )}
+      </button>
+    );
+  }
+  return (
+    <button data-race={race.key} onClick={() => onOpen(race)} className="hover:bg-gray-50" style={{ ...DESKTOP_COLS, width: '100%', height: 64, textAlign: 'left', border: 'none', borderBottom: '1px solid #eef0f3', background: ROW_BG(race), padding: '8px 16px', cursor: 'pointer' }}>
+      <div style={{ minWidth: 0 }}>
+        <div title={title} style={{ fontSize: 12, fontWeight: 700, color: upcoming ? '#111827' : '#9ca3af', textTransform: 'uppercase', ...ELLIPSIS }}>{title}</div>
+        <div style={{ marginTop: 2 }}>{upcoming ? <Countdown race={race} now={now} /> : <ClosedNote race={race} small />}</div>
+      </div>
+      {runners.length
+        ? [0, 1, 2].map(i => <RunnerCell key={i} r={runners[i]} place={i} race={race} showScore={showScore} />)
+        : <div style={{ gridColumn: '2 / -1' }}>{noRunners}</div>}
+    </button>
+  );
+}
+
+function RaceList({ races, now, isMobile, onOpen, showVenue, showScore }) {
+  const head = { fontSize: 10, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '.4px' };
+  return (
+    <>
+      {!isMobile && (
+        <div style={{ ...DESKTOP_COLS, padding: '7px 16px', background: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
+          <span style={head}>Race</span><span style={head}>1st</span><span style={head}>2nd</span><span style={head}>3rd</span>
+        </div>
+      )}
+      {races.map(r => <RaceRow key={r.key} race={r} now={now} isMobile={isMobile} onOpen={onOpen} showVenue={showVenue} showScore={showScore} />)}
+    </>
   );
 }
 
@@ -264,7 +227,15 @@ export default function TopThreePage() {
   const plan = usePlan();
   const isPro = hasFeature(plan, 'full_scores');
   const isMobile = useIsMobile();
-  const [view, setView] = useState('tape');
+  // By meeting by default; the last choice is remembered for the session.
+  const [view, setViewState] = useState('meeting');
+  useEffect(() => {
+    try { const v = sessionStorage.getItem(VIEW_KEY); if (v === 'tape' || v === 'meeting') setViewState(v); } catch {}
+  }, []);
+  const setView = v => {
+    setViewState(v);
+    try { sessionStorage.setItem(VIEW_KEY, v); } catch {}
+  };
   const [data, setData] = useState(null);
   const [status, setStatus] = useState('loading'); // loading | ok | pro | error
   const [meeting, setMeeting] = useState(null);
@@ -365,8 +336,8 @@ export default function TopThreePage() {
             </div>
             {!showPro && (
               <div style={{ display: 'flex', gap: 2, background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, padding: 2 }}>
-                <ToggleBtn active={view === 'tape'} onClick={() => setView('tape')}>Day tape</ToggleBtn>
                 <ToggleBtn active={view === 'meeting'} onClick={() => setView('meeting')}>By meeting</ToggleBtn>
+                <ToggleBtn active={view === 'tape'} onClick={() => setView('tape')}>Day tape</ToggleBtn>
               </div>
             )}
           </div>
@@ -404,8 +375,8 @@ export default function TopThreePage() {
               )}
               <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, overflow: 'hidden' }}>
                 {view === 'tape'
-                  ? tape.map(r => <DayTapeRow key={r.key} race={r} now={now} isMobile={isMobile} onOpen={openRace} />)
-                  : <MeetingGrid races={meetingRaces} now={now} isMobile={isMobile} onOpen={openRace} />}
+                  ? <RaceList races={tape} now={now} isMobile={isMobile} onOpen={openRace} showVenue />
+                  : <RaceList races={meetingRaces} now={now} isMobile={isMobile} onOpen={openRace} showScore />}
               </div>
               <p style={{ fontSize: 10, color: '#6b7280', marginTop: 10, lineHeight: 1.5 }}>
                 Ranked by model score with each meeting&apos;s official track condition, after scratchings. Prices are the best live price across bookmakers.
