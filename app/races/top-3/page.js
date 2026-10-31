@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useUser } from '@clerk/nextjs';
 import ProfileRail from '@/components/ProfileRail';
@@ -74,6 +74,27 @@ function Countdown({ race, now }) {
   );
 }
 
+const ORDINAL = { 1: '1st', 2: '2nd', 3: '3rd' };
+
+// One of our top 3 on a finished race, ringed with where it actually
+// finished when that was 1st-3rd.
+function MarkedTile({ r, place, size }) {
+  const placed = ORDINAL[r.finishPos];
+  return (
+    <span title={placed ? `Finished ${placed}` : 'Not in the first 3'} style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
+      <span style={{ display: 'inline-flex', borderRadius: 8, boxShadow: placed ? '0 0 0 2px #fff, 0 0 0 4px #00471b' : 'none', opacity: placed ? 1 : 0.5 }}>
+        <NumTile tab={r.tab} place={place} size={size} />
+      </span>
+      <span style={{ fontSize: 9, fontWeight: 700, lineHeight: 1, color: placed ? '#00471b' : '#9ca3af' }}>{placed || '–'}</span>
+    </span>
+  );
+}
+
+function MarkedTiles({ race, size }) {
+  if (!race.top.length) return null;
+  return <span style={{ display: 'flex', gap: 8 }}>{race.top.map((r, i) => <MarkedTile key={i} r={r} place={i} size={size} />)}</span>;
+}
+
 function ClosedNote({ race, small }) {
   if (race.status === 'abandoned') return <span style={{ fontSize: 11, color: '#9ca3af' }}>Abandoned</span>;
   return (
@@ -103,7 +124,17 @@ function DayTapeRow({ race, now, isMobile, onOpen }) {
       ) : <Countdown race={race} now={now} />}
       {label}
       {closed ? (
-        <span style={{ gridColumn: isMobile ? 'auto' : 'span 2', justifySelf: 'end' }}><ClosedNote race={race} small={isMobile} /></span>
+        isMobile ? (
+          <>
+            <span style={{ justifySelf: 'end' }}><ClosedNote race={race} small /></span>
+            {race.status === 'finished' && race.top.length > 0 && <span style={{ gridColumn: '2 / -1' }}><MarkedTiles race={race} size={24} /></span>}
+          </>
+        ) : (
+          <>
+            {race.status === 'finished' ? <MarkedTiles race={race} size={26} /> : <span />}
+            <span style={{ justifySelf: 'end' }}><ClosedNote race={race} /></span>
+          </>
+        )
       ) : (
         <>
           <span style={{ display: 'flex', gap: 5 }}>
@@ -138,6 +169,20 @@ function RunnerCell({ r, place }) {
   );
 }
 
+function FinishedCell({ r, place }) {
+  if (!r) return <span style={{ fontSize: 10, color: '#d1d5db' }}>—</span>;
+  const placed = ORDINAL[r.finishPos];
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+      <MarkedTile r={r} place={place} size={22} />
+      <div style={{ minWidth: 0 }}>
+        <div style={{ fontSize: 11, fontWeight: 600, color: '#6b7280', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.name}</div>
+        <div style={{ fontSize: 10, color: placed ? '#00471b' : '#9ca3af', fontWeight: placed ? 700 : 400 }}>{placed ? `Finished ${placed}` : 'Not in the first 3'}</div>
+      </div>
+    </div>
+  );
+}
+
 function MeetingGrid({ races, now, isMobile, onOpen }) {
   const head = { fontSize: 10, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '.4px', padding: '6px 12px', textAlign: 'left' };
   if (isMobile) {
@@ -153,6 +198,9 @@ function MeetingGrid({ races, now, isMobile, onOpen }) {
               <div style={{ display: 'grid', gap: 6 }}>
                 {[0, 1, 2].map(i => <RunnerCell key={i} r={race.top[i]} place={i} />)}
               </div>
+            )}
+            {race.status === 'finished' && race.top.length > 0 && (
+              <div style={{ marginTop: 6 }}><MarkedTiles race={race} size={24} /></div>
             )}
           </button>
         ))}
@@ -173,10 +221,13 @@ function MeetingGrid({ races, now, isMobile, onOpen }) {
             <td style={{ padding: '8px 12px', verticalAlign: 'middle' }}>
               <div style={{ fontSize: 12, fontWeight: 700, color: race.status === 'upcoming' ? '#111827' : '#9ca3af' }}>R{race.raceNum}</div>
               {race.status === 'upcoming' && <Countdown race={race} now={now} />}
+              {race.status === 'finished' && race.top.length > 0 && <div style={{ marginTop: 3 }}><ClosedNote race={race} small /></div>}
             </td>
             {race.status === 'upcoming'
               ? [0, 1, 2].map(i => <td key={i} style={{ padding: '8px 12px', verticalAlign: 'middle' }}><RunnerCell r={race.top[i]} place={i} /></td>)
-              : <td colSpan={3} style={{ padding: '6px 12px' }}><ClosedNote race={race} /></td>}
+              : race.status === 'finished' && race.top.length
+                ? [0, 1, 2].map(i => <td key={i} style={{ padding: '6px 12px', verticalAlign: 'middle' }}><FinishedCell r={race.top[i]} place={i} /></td>)
+                : <td colSpan={3} style={{ padding: '6px 12px' }}><ClosedNote race={race} /></td>}
           </tr>
         ))}
       </tbody>
@@ -224,24 +275,47 @@ export default function TopThreePage() {
     return () => clearInterval(id);
   }, []);
 
+  // Polls once a minute while the tab is visible; paused while hidden and
+  // refreshed as soon as it's visible again; stops once every race has a
+  // result. A failed refresh keeps the last data on screen.
+  const [refreshFailed, setRefreshFailed] = useState(false);
+  const allDoneRef = useRef(false);
   useEffect(() => {
     if (!isLoaded || !isPro) return;
     let cancelled = false;
+    let timer = null;
     const load = async () => {
       try {
-        const res = await fetch('/api/top-three');
+        const res = await fetch('/api/top-three', { cache: 'no-store' });
         if (cancelled) return;
         if (res.status === 403) { setStatus('pro'); return; }
-        if (!res.ok) { setStatus(s => (s === 'ok' ? s : 'error')); return; }
-        setData(await res.json());
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const json = await res.json();
+        if (cancelled) return;
+        allDoneRef.current = json.races.length > 0 && json.races.every(r => r.status !== 'upcoming');
+        setData(json);
         setStatus('ok');
+        setRefreshFailed(false);
       } catch {
-        if (!cancelled) setStatus(s => (s === 'ok' ? s : 'error'));
+        if (cancelled) return;
+        setRefreshFailed(true);
+        setStatus(st => (st === 'ok' ? st : 'error'));
       }
     };
-    load();
-    const id = setInterval(load, POLL_MS);
-    return () => { cancelled = true; clearInterval(id); };
+    const stop = () => { clearInterval(timer); timer = null; };
+    const start = () => {
+      stop();
+      if (document.visibilityState !== 'visible' || allDoneRef.current) return;
+      timer = setInterval(() => { if (allDoneRef.current) stop(); else load(); }, POLL_MS);
+    };
+    const onVisibility = () => {
+      if (document.visibilityState !== 'visible') { stop(); return; }
+      if (!allDoneRef.current) load();
+      start();
+    };
+    load().then(() => { if (!cancelled) start(); });
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => { cancelled = true; stop(); document.removeEventListener('visibilitychange', onVisibility); };
   }, [isLoaded, isPro]);
 
   const races = useMemo(() => data?.races || [], [data]);
@@ -282,6 +356,12 @@ export default function TopThreePage() {
             <div>
               <h1 style={{ fontSize: 20, fontWeight: 700, color: '#111827', margin: 0 }}>Top 3 at a glance</h1>
               <div style={{ fontSize: 11, color: '#6b7280', marginTop: 2 }}>Top 3 by model score · {dateStr}</div>
+              {data?.generatedAt && !showPro && (
+                <div data-testid="updated" style={{ fontSize: 10, color: '#9ca3af', marginTop: 2 }}>
+                  Updated {new Date(data.generatedAt).toLocaleTimeString('en-AU', { hour: 'numeric', minute: '2-digit' }).toUpperCase()}
+                  {races.length > 0 && races.every(r => r.status !== 'upcoming') ? ' · all races resulted' : refreshFailed ? ' · retrying' : ''}
+                </div>
+              )}
             </div>
             {!showPro && (
               <div style={{ display: 'flex', gap: 2, background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, padding: 2 }}>
