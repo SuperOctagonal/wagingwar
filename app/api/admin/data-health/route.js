@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 import { isSiteAdmin } from '@/lib/admin';
 import { getDataHealth, healthDates } from '@/lib/adminDataHealth';
+import { withTimeout } from '@/lib/withTimeout.mjs';
 
 // Admin-only: data health for one racing date (today or the previous 7
 // days), for the dashboard's date picker. Today's is server-rendered with
@@ -15,6 +16,8 @@ export async function GET(req) {
   if (!healthDates().includes(date)) {
     return NextResponse.json({ error: 'Date must be today or one of the previous 7 days.' }, { status: 400 });
   }
-  const health = await getDataHealth(date);
+  // Same limit as the server-rendered panel (app/admin/subscribers/page.js).
+  const health = await withTimeout(getDataHealth(date), 15_000, 'Data health (Supabase)')
+    .catch(err => ({ ok: false, error: `Data health (Supabase) read failed: ${err.message}` }));
   return NextResponse.json(health, { status: health.ok ? 200 : 502 });
 }

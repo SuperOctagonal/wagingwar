@@ -4,6 +4,7 @@ import { isSiteAdmin } from '@/lib/admin';
 import { sbAdminRaw } from '@/lib/supabaseAdmin';
 import { cleanUtm } from '@/lib/attribution';
 import { aestDay } from '@/lib/aestDay';
+import { invalidateAdData } from '@/lib/adminAds';
 
 // Admin-only: set the AUD spend for one ad on one day (dashboard form).
 // Upsert on (date, utm_content): entering the same day/ad again replaces
@@ -20,7 +21,10 @@ export async function POST(req) {
   const date = typeof body?.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(body.date) ? body.date : null;
   const utmContent = cleanUtm(body?.utm_content);
   const amount = Number(body?.amount_aud);
-  if (!date || isNaN(new Date(`${date}T00:00:00Z`)) || date > aestDay()) {
+  // Round-trip check: Date rolls impossible days over (2026-02-31 -> 3 Mar)
+  // instead of failing, so the parsed day must print back as the same string.
+  const parsed = date ? new Date(`${date}T00:00:00Z`) : null;
+  if (!date || isNaN(parsed) || parsed.toISOString().slice(0, 10) !== date || date > aestDay()) {
     return NextResponse.json({ error: 'Date must be a valid day, not in the future (AEST).' }, { status: 400 });
   }
   if (!utmContent) return NextResponse.json({ error: 'Ad (utm_content) is required.' }, { status: 400 });
@@ -39,5 +43,6 @@ export async function POST(req) {
       { status: status === 404 ? 503 : 502 },
     );
   }
+  invalidateAdData();
   return NextResponse.json({ ok: true, row: Array.isArray(data) ? data[0] : data });
 }

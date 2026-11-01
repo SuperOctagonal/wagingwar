@@ -10,6 +10,9 @@ export const HEALTH = {
   amber:     { bg: '#fef3c7', color: '#92400e', label: '! Warning', rank: 1 },
   green:     { bg: '#dcfce7', color: '#166534', label: '✓ OK',      rank: 2 },
   abandoned: { bg: '#f3f4f6', color: '#374151', label: 'Abandoned', rank: 3 },
+  // Neutral banner note (e.g. circuit breaker paused, nothing overdue) --
+  // never counted as a warning or problem.
+  info:      { bg: '#eef2f7', color: '#374151', label: 'i Info',    rank: 4 },
 };
 
 export function HealthChip({ status }) {
@@ -68,11 +71,21 @@ export default function DataHealthPanel({ initial, dates }) {
     { key: 'overdueCount', label: 'Overdue', align: 'right', render: r => (r.overdueCount ? <b style={{ color: '#991b1b' }}>{r.overdueCount}</b> : 0) },
     { key: 'trackCondition', label: 'Track', render: r => r.trackCondition || <span style={{ color: '#92400e' }}>missing</span>, csv: r => r.trackCondition || '' },
     { key: 'scratchings', label: 'Scratchings', align: 'right' },
-    { key: 'scraperErrors', label: 'Scraper errors', align: 'right', render: r => (r.scraperErrors ? <span title={r.lastScraperMsg || ''}>{r.scraperErrors}</span> : 0) },
+    // A muted count unless it's part of a reason (errors while jumped races wait for results).
+    { key: 'scraperErrors', label: 'Scraper errors', align: 'right', render: r => (r.scraperErrors ? <span title={r.lastScraperMsg || ''} style={{ color: r.reasons.some(x => /scraper error/.test(x)) ? C.ink : C.faint }}>{r.scraperErrors}</span> : <span style={{ color: C.faint }}>0</span>) },
     { key: 'cardsUpdated', label: 'Cards updated', render: r => fmtTime(r.cardsUpdated, health.date), csv: r => r.cardsUpdated || '' },
     { key: 'lastResult', label: 'Last result', render: r => fmtTime(r.lastResult, health.date), csv: r => r.lastResult || '' },
     { key: 'lastScratching', label: 'Last scratching', render: r => fmtTime(r.lastScratching, health.date), csv: r => r.lastScratching || '' },
-    { key: 'flags', label: 'Flags', sort: r => r.flags.length, render: r => (r.flags.length ? <span style={{ whiteSpace: 'normal', display: 'inline-block', minWidth: 220, color: C.ink2 }}>{r.flags.join(' · ')}</span> : <span style={{ color: C.faint }}>—</span>), csv: r => r.flags.join(' | ') },
+    {
+      key: 'reasons', label: 'Why', sort: r => r.reasons.length,
+      render: r => (r.reasons.length || r.notes.length ? (
+        <span style={{ whiteSpace: 'normal', display: 'inline-block', minWidth: 240 }}>
+          {r.reasons.length > 0 && <span style={{ color: C.ink, fontWeight: 600 }}>{r.reasons.join(' · ')}</span>}
+          {r.notes.length > 0 && <span style={{ color: C.faint, display: 'block' }}>{r.notes.join(' · ')}</span>}
+        </span>
+      ) : <span style={{ color: C.faint }}>—</span>),
+      csv: r => [...r.reasons, ...r.notes.map(n => `note: ${n}`)].join(' | '),
+    },
   ];
   const overdueCols = [
     { key: 'venue', label: 'Venue', render: r => <b>{r.venue}</b> },

@@ -46,7 +46,10 @@ export default function SubscribersTable({ rows }) {
     const customerIds = [...new Set(rows.map(r => r.stripeCustomerId).filter(Boolean))];
     if (!customerIds.length) return;
     let cancelled = false;
-    fetch(`/api/admin/subscriber-billing?customerIds=${customerIds.join(',')}`)
+    fetch('/api/admin/subscriber-billing', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ customerIds }),
+    })
       .then(r => r.ok ? r.json() : {})
       .then(data => { if (!cancelled) setBilling(data || {}); })
       .catch(() => {});

@@ -1,5 +1,7 @@
 'use client';
 
+import { aestDay } from '@/lib/aestDay';
+
 // Shared building blocks for the admin dashboard (app/admin/subscribers).
 // Same look as the original Subscribers page: inline styles, gray borders,
 // 11px/700 chips, #00471b accent.
@@ -108,7 +110,7 @@ export function KpiTile({ label, value, sub, delta, deltaLabel, spark, sparkLabe
 export function DateRange({ from, to, onChange, presets = [7, 30, 90], min, max }) {
   const input = { fontSize: 12, padding: '5px 6px', border: `1px solid ${C.border}`, borderRadius: 6, color: C.ink2 };
   const preset = (days) => {
-    const end = max || new Date().toISOString().slice(0, 10);
+    const end = max || aestDay();
     const d = new Date(`${end}T00:00:00Z`);
     d.setUTCDate(d.getUTCDate() - (days - 1));
     const start = d.toISOString().slice(0, 10);
@@ -124,9 +126,11 @@ export function DateRange({ from, to, onChange, presets = [7, 30, 90], min, max 
   );
 }
 
+// Brisbane time on both server and browser, so the day shown is the same
+// AEST day the panels bucket by, and SSR matches hydration.
 export function fmtDate(iso) {
   if (!iso) return '—';
-  return new Date(iso).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' });
+  return new Date(iso).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Australia/Brisbane' });
 }
 
 export function fmtDay(ymd) {

@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo } from 'react';
-import { C, Panel, KpiTile, fmtAud } from '@/components/admin/AdminUi';
+import { C, Panel, KpiTile, NoData, fmtAud } from '@/components/admin/AdminUi';
 import SignupsPanel from './SignupsPanel';
 import AdsPanel from './AdsPanel';
 import DataHealthPanel, { HEALTH } from './DataHealthPanel';
@@ -21,8 +21,17 @@ const SECTIONS = [
 
 function sum(arr, key) { return arr.reduce((t, d) => t + d[key], 0); }
 
-export default function AdminDashboard({ rows, mrr, stripeError, signups, ads, health, healthDates, tip, generatedAt }) {
+function Banner({ title, children }) {
+  return (
+    <div role="status" style={{ background: '#fef3c7', color: '#92400e', border: '1px solid #fde68a', borderRadius: 8, padding: '8px 12px', fontSize: 12, marginBottom: 12 }}>
+      <b>{title}</b> {children}
+    </div>
+  );
+}
+
+export default function AdminDashboard({ rows, mrr, clerkError, stripeError, unmatchedSubscriptions, capWarnings = [], signups, ads, health, healthDates, tip, generatedAt }) {
   const rec = tip?.ok ? tip.record : null;
+  const noPlans = !!(clerkError || stripeError);
   const kpi = useMemo(() => {
     const counts = { FREE: 0, TRIAL: 0, PRO: 0, CANCELLED: 0, PAST_DUE: 0 };
     for (const r of rows) counts[r.status] = (counts[r.status] || 0) + 1;
@@ -57,29 +66,37 @@ export default function AdminDashboard({ rows, mrr, stripeError, signups, ads, h
           <div style={{ fontSize: 11, color: C.muted }}>Data as of {new Date(generatedAt).toLocaleString('en-AU', { timeZone: 'Australia/Brisbane', dateStyle: 'medium', timeStyle: 'short' })} AEST</div>
         </div>
 
-        {stripeError && (
-          <div role="status" style={{ background: '#fef3c7', color: '#92400e', border: '1px solid #fde68a', borderRadius: 8, padding: '8px 12px', fontSize: 12, marginBottom: 12 }}>
-            <b>Plan data unavailable:</b> {stripeError} Plan status, plan counts and MRR are shown as unknown, not guessed.
-          </div>
+        {/* One banner per failed source; the rest of the page still renders. */}
+        {clerkError && (
+          <Banner title="Clerk unavailable:">{clerkError} User counts, sign-ups and the subscriber list are not shown (no fake zeros). Reload to retry.</Banner>
         )}
+        {stripeError && (
+          <Banner title="Stripe unavailable:">{stripeError} Plan status, plan counts and MRR are shown as unknown, not guessed.</Banner>
+        )}
+        {unmatchedSubscriptions?.total > 0 && (
+          <Banner title={`${unmatchedSubscriptions.total} Stripe subscription${unmatchedSubscriptions.total === 1 ? '' : 's'} not matched to a user`}>
+            ({unmatchedSubscriptions.active} active or trialing). No Clerk user has their customer ID or email, so they are left out of the plan counts and MRR.
+          </Banner>
+        )}
+        {capWarnings.map(w => <Banner key={w} title="Read limit reached:">{w}</Banner>)}
 
         {/* KPI strip */}
         <section id="overview" style={{ scrollMarginTop: 56, display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 8, marginBottom: 16 }}>
-          <KpiTile label="Total users" value={rows.length.toLocaleString('en-AU')} sub={`${kpi.s30} joined in last 30 days`} />
-          <KpiTile label="Free" value={stripeError ? null : kpi.counts.FREE} />
-          <KpiTile label="Trial" value={stripeError ? null : kpi.counts.TRIAL} />
-          <KpiTile label="Pro" value={stripeError ? null : kpi.counts.PRO} />
-          <KpiTile label="Cancelled" value={stripeError ? null : kpi.counts.CANCELLED} />
-          <KpiTile label="Past due" value={stripeError ? null : kpi.counts.PAST_DUE} />
+          <KpiTile label="Total users" value={clerkError ? null : rows.length.toLocaleString('en-AU')} sub={`${kpi.s30} joined in last 30 days`} />
+          <KpiTile label="Free" value={noPlans ? null : kpi.counts.FREE} />
+          <KpiTile label="Trial" value={noPlans ? null : kpi.counts.TRIAL} />
+          <KpiTile label="Pro" value={noPlans ? null : kpi.counts.PRO} />
+          <KpiTile label="Cancelled" value={noPlans ? null : kpi.counts.CANCELLED} />
+          <KpiTile label="Past due" value={noPlans ? null : kpi.counts.PAST_DUE} />
           <KpiTile
             label="Pro MRR"
             value={mrr ? fmtAud(mrr.aud) : null}
             sub={mrr ? `${kpi.counts.PRO} active Pro, list price${mrr.nonAudSubscriptions ? ` · ${mrr.nonAudSubscriptions} non-AUD not counted` : ''}` : null}
           />
-          <KpiTile label="Sign-ups 7d" value={kpi.s7} delta={kpi.s7d} deltaLabel="vs prior 7d" spark={kpi.spark30} sparkLabel="Daily sign-ups, last 30 days" />
-          <KpiTile label="Sign-ups 30d" value={kpi.s30} delta={kpi.s30d} deltaLabel="vs prior 30d" spark={kpi.spark90} sparkLabel="Daily sign-ups, last 90 days" />
+          <KpiTile label="Sign-ups 7d" value={clerkError ? null : kpi.s7} delta={kpi.s7d} deltaLabel="vs prior 7d" spark={kpi.spark30} sparkLabel="Daily sign-ups, last 30 days" />
+          <KpiTile label="Sign-ups 30d" value={clerkError ? null : kpi.s30} delta={kpi.s30d} deltaLabel="vs prior 30d" spark={kpi.spark90} sparkLabel="Daily sign-ups, last 90 days" />
           <KpiTile label="Ad spend 30d" value={kpi.ads30?.spend != null ? fmtAud(kpi.ads30.spend) : null} sub={kpi.ads30 ? `${kpi.ads30.landings} landing hits` : null} />
-          <KpiTile label="Cost / sign-up 30d" value={kpi.ads30?.costPerSignup != null ? fmtAud(kpi.ads30.costPerSignup) : null} sub={kpi.ads30 ? `${kpi.ads30.signups} attributed sign-ups` : null} />
+          <KpiTile label="Cost / sign-up 30d" value={!clerkError && kpi.ads30?.costPerSignup != null ? fmtAud(kpi.ads30.costPerSignup) : null} sub={!clerkError && kpi.ads30 ? `${kpi.ads30.signups} attributed sign-ups` : null} />
           <KpiTile
             label="Data health today"
             value={health?.ok && health.overall ? HEALTH[health.overall].label : null}
@@ -91,11 +108,11 @@ export default function AdminDashboard({ rows, mrr, stripeError, signups, ads, h
         </section>
 
         <Panel id="signups" title="Sign-ups per day" subtitle="New Clerk accounts per AEST day, split by current plan">
-          <SignupsPanel signups={signups} />
+          {clerkError ? <NoData>Sign-ups can&apos;t be shown: Clerk is unavailable.</NoData> : <SignupsPanel signups={signups} />}
         </Panel>
 
         <Panel id="ads" title="Ads to sign-ups" subtitle="Landing hits, attributed sign-ups, trials, paid and spend (A$) per ad">
-          <AdsPanel ads={ads} users={rows} />
+          <AdsPanel ads={ads} users={rows} usersUnavailable={!!clerkError} />
         </Panel>
 
         <Panel id="data-health" title="Data health" subtitle="Meetings, race cards, results, track conditions, scratchings and scrapers, per racing day">
@@ -106,8 +123,8 @@ export default function AdminDashboard({ rows, mrr, stripeError, signups, ads, h
           <TipHealthPanel tip={tip} />
         </Panel>
 
-        <Panel id="subscribers" title="Subscribers" subtitle={`${rows.length} total users`}>
-          <SubscribersTable rows={rows} />
+        <Panel id="subscribers" title="Subscribers" subtitle={clerkError ? 'Clerk unavailable' : `${rows.length} total users`}>
+          {clerkError ? <NoData>The subscriber list can&apos;t be shown: Clerk is unavailable.</NoData> : <SubscribersTable rows={rows} />}
         </Panel>
       </div>
     </div>

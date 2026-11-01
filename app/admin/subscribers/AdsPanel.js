@@ -78,10 +78,12 @@ function SpendForm({ onSaved }) {
   );
 }
 
-export default function AdsPanel({ ads, users }) {
+export default function AdsPanel({ ads, users, usersUnavailable = false }) {
   const router = useRouter();
   const today = aestDay();
   const start30 = (() => { const d = new Date(`${today}T00:00:00Z`); d.setUTCDate(d.getUTCDate() - 29); return d.toISOString().slice(0, 10); })();
+  // Landing hits are only read back to ads.landingsFrom (lib/adminAds.js).
+  const minDay = ads.landingsFrom || undefined;
   const [range, setRange] = useState({ from: start30, to: today });
 
   const summary = useMemo(() => (ads.ready
@@ -89,18 +91,22 @@ export default function AdsPanel({ ads, users }) {
     : null), [ads, users, range]);
 
   if (!ads.ready) {
-    return <NoData>Not set up yet: {ads.error} Landing hits, attributed sign-ups and spend will show here once the tables exist.</NoData>;
+    return ads.missing
+      ? <NoData>Not set up yet: {ads.error} Landing hits, attributed sign-ups and spend will show here once the tables exist.</NoData>
+      : <NoData>Ads data unavailable: {ads.error} Reload to retry.</NoData>;
   }
+  // Clerk down: sign-up figures would read as zero, so show them as unknown.
+  const signupCell = v => (usersUnavailable ? <span style={{ color: C.faint }}>—</span> : v);
 
   const funnelCols = [
     { key: 'bucket', label: 'Ad (utm_content)', render: r => <b>{BUCKET_LABEL(r.bucket)}</b> },
     { key: 'landings', label: 'Landing hits', align: 'right' },
-    { key: 'signups', label: 'Sign-ups', align: 'right' },
-    { key: 'rate', label: 'Sign-up rate', align: 'right', sort: r => (r.landings ? r.signups / r.landings : null), render: r => pct(r.signups, r.landings), csv: r => (r.landings ? (r.signups / r.landings).toFixed(4) : '') },
-    { key: 'trials', label: 'Trials', align: 'right' },
-    { key: 'paid', label: 'Paid', align: 'right' },
+    { key: 'signups', label: 'Sign-ups', align: 'right', render: r => signupCell(r.signups), csv: r => (usersUnavailable ? '' : r.signups) },
+    { key: 'rate', label: 'Sign-up rate', align: 'right', sort: r => (r.landings ? r.signups / r.landings : null), render: r => signupCell(pct(r.signups, r.landings)), csv: r => (!usersUnavailable && r.landings ? (r.signups / r.landings).toFixed(4) : '') },
+    { key: 'trials', label: 'Trials', align: 'right', render: r => signupCell(r.trials), csv: r => (usersUnavailable ? '' : r.trials) },
+    { key: 'paid', label: 'Paid', align: 'right', render: r => signupCell(r.paid), csv: r => (usersUnavailable ? '' : r.paid) },
     { key: 'spend', label: 'Spend (A$)', align: 'right', render: r => (r.spend == null ? <span style={{ color: C.faint }}>no spend</span> : fmtAud(r.spend)) },
-    { key: 'costPerSignup', label: 'Cost / sign-up', align: 'right', render: r => (r.costPerSignup == null ? '—' : fmtAud(r.costPerSignup)) },
+    { key: 'costPerSignup', label: 'Cost / sign-up', align: 'right', render: r => (usersUnavailable || r.costPerSignup == null ? '—' : fmtAud(r.costPerSignup)), csv: r => (usersUnavailable || r.costPerSignup == null ? '' : r.costPerSignup) },
   ];
 
   const spendRows = ads.spend
@@ -117,16 +123,19 @@ export default function AdsPanel({ ads, users }) {
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 10 }}>
         <div style={{ fontSize: 13, color: C.ink2 }}>
-          <b style={{ color: C.ink }}>{t.landings}</b> landing hits · <b style={{ color: C.ink }}>{t.signups}</b> attributed sign-ups ({pct(t.signups, t.landings)}) · {t.trials} trials · {t.paid} paid ·
-          spend <b style={{ color: C.ink }}>{t.spend == null ? 'none entered' : fmtAud(t.spend)}</b>
-          {t.costPerSignup != null && <> · <b style={{ color: C.ink }}>{fmtAud(t.costPerSignup)}</b> per sign-up</>}
+          <b style={{ color: C.ink }}>{t.landings}</b> landing hits ·{' '}
+          {usersUnavailable
+            ? <>sign-ups unknown (Clerk unavailable) ·</>
+            : <><b style={{ color: C.ink }}>{t.signups}</b> attributed sign-ups ({pct(t.signups, t.landings)}) · {t.trials} trials · {t.paid} paid ·</>}
+          {' '}spend <b style={{ color: C.ink }}>{t.spend == null ? 'none entered' : fmtAud(t.spend)}</b>
+          {!usersUnavailable && t.costPerSignup != null && <> · <b style={{ color: C.ink }}>{fmtAud(t.costPerSignup)}</b> per sign-up</>}
         </div>
-        <DateRange from={range.from} to={range.to} onChange={setRange} presets={[7, 30, 90]} max={today} />
+        <DateRange from={range.from} to={range.to} onChange={setRange} presets={[7, 30, 90]} min={minDay} max={today} />
       </div>
 
       <DataTable columns={funnelCols} rows={summary.rows.map(r => ({ ...r, key: r.bucket }))} csvName="ads-funnel" />
       <div style={{ fontSize: 11, color: C.muted, margin: '6px 0 16px' }}>
-        {summary.unattributed} sign-up{summary.unattributed === 1 ? '' : 's'} in this range had no ad attribution (organic, no consent, or before tracking started).
+        {!usersUnavailable && <>{summary.unattributed} sign-up{summary.unattributed === 1 ? '' : 's'} in this range had no ad attribution (organic, no consent, or before tracking started). </>}
         Trials/paid = those sign-ups&apos; current plan. Landing hits count every page load with utm_content.
       </div>
 
