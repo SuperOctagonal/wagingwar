@@ -1,7 +1,7 @@
 // Run: npm run test:unit
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { meetingStatus, globalFindings, summarise } from '../lib/dataHealthStatus.mjs';
+import { meetingStatus, globalFindings, summarise, unknownVenueFindings } from '../lib/dataHealthStatus.mjs';
 
 const race = (raceNum, o = {}) => ({ raceNum, jump: '2026-11-01T02:00:00.000Z', jumped: false, hasResult: false, hasCard: true, overdue: false, ...o });
 const preRace = [race(1), race(2), race(3)];
@@ -99,4 +99,31 @@ test('past day with complete results -> all OK', () => {
   const s = summarise([m, m], globalFindings({ breaker: null, overdueTotal: 0, staleMins: 900 }));
   assert.equal(s.overall, 'green');
   assert.deepEqual(s.counts, { red: 0, amber: 0, green: 2, abandoned: 0 });
+});
+
+test('unknown venue seen in the last 7 days -> one Warning per venue naming dates and tables, counted', () => {
+  const g = unknownVenueFindings({
+    from: '2026-10-25', to: '2026-11-01', namesChecked: 40,
+    sightings: [
+      { venue: 'MORTLAKE', date: '2026-10-31', table: 'race_cards' },
+      { venue: 'MORTLAKE', date: '2026-10-31', table: 'race_results' },
+      { venue: 'TUMUT', date: '2026-10-31', table: 'race_results' },
+      { venue: 'MORTLAKE', date: '2026-10-26', table: 'race_schedule' },
+    ],
+  });
+  assert.equal(g.length, 2);
+  assert.ok(g.every(x => x.status === 'amber'));
+  assert.match(g[0].text, /^Unknown venue MORTLAKE on 26 Oct, 31 Oct \(race_cards, race_results, race_schedule\): not on the AU venue list/);
+  assert.match(g[1].text, /^Unknown venue TUMUT on 31 Oct \(race_results\)/);
+  const m = meetingStatus({ abandoned: false, races: [race(1, { jumped: true, hasResult: true })], trackCondition: 'Good 4' });
+  const s = summarise([m], g);
+  assert.equal(s.overall, 'amber');
+  assert.equal(s.counts.amber, 2);
+});
+
+test('no unknown venues -> one info line confirming the check, nothing counted', () => {
+  const g = unknownVenueFindings({ from: '2026-10-25', to: '2026-11-01', namesChecked: 41, sightings: [] });
+  assert.deepEqual(g.map(x => x.status), ['info']);
+  assert.match(g[0].text, /Venue check: all 41 venue names .* 25 Oct–1 Nov are on the AU venue list/);
+  assert.equal(summarise([], g).counts.amber, 0);
 });
