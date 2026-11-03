@@ -46,6 +46,14 @@ html, body { height: 100%; }
   border: 2px solid #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.2);
 }
 
+/* /sign-up and /sign-in (components/AuthPageShell.js): the scroll area ENDS
+   above the fixed cookie banner (--cookie-banner-height, set by CookieBanner;
+   0 once dismissed) instead of running underneath it, so Email/Continue are
+   clipped at its edge rather than half-hidden behind it -- whatever part of a
+   button is visible is tappable, and a tap can't land on Decline. Desktop:
+   the footer is in-flow, so only the banner overlays. */
+.auth-page { margin-bottom: var(--cookie-banner-height, 0px); padding-bottom: 16px; }
+
 /* ── Mobile responsive ──────────────────────────────────────────────────────── */
 /* Matches hooks/useIsMobile.js exactly: narrow width = mobile always; short
    height only counts on a genuine touch device, so a maximized laptop browser
@@ -57,6 +65,10 @@ html, body { height: 100%; }
      dynamically from their real rendered heights (components/MobileChromeVars.js);
      80px is only the fallback for before that JS runs. */
   .mob-page { padding-bottom: var(--mobile-chrome-height, 80px) !important; }
+
+  /* Auth pages on mobile: end above the fixed RG banner + tab bar AND the
+     cookie banner stacked on them (see the .auth-page note above). */
+  .auth-page { margin-bottom: calc(var(--mobile-chrome-height, 80px) + var(--cookie-banner-height, 0px)) !important; }
 
   /* Hide desktop-only elements */
   .mob-hidden { display: none !important; }

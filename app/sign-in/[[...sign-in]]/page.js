@@ -1,9 +1,10 @@
 import { SignIn } from '@clerk/nextjs';
+import AuthPageShell from '@/components/AuthPageShell';
 
 export default function SignInPage() {
   return (
-    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh', background: '#f9f9f9' }}>
-      <SignIn />
-    </div>
+    <AuthPageShell>
+      {appearance => <SignIn appearance={appearance} />}
+    </AuthPageShell>
   );
 }

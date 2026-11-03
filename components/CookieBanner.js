@@ -1,13 +1,29 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { CONSENT_KEY, setConsent } from '@/lib/analytics';
 
 export default function CookieBanner() {
   const [visible, setVisible] = useState(false);
+  const ref = useRef(null);
 
   useEffect(() => {
     if (!localStorage.getItem(CONSENT_KEY)) setVisible(true);
   }, []);
+
+  // Layout only: publish the banner's rendered height as
+  // --cookie-banner-height while it's showing, so pages can pad their
+  // bottom past it (the /sign-up and /sign-in .auth-page rule). Cleared
+  // when the banner goes away.
+  useEffect(() => {
+    const root = document.documentElement;
+    if (!visible || !ref.current) { root.style.removeProperty('--cookie-banner-height'); return; }
+    const el = ref.current;
+    const measure = () => root.style.setProperty('--cookie-banner-height', `${el.getBoundingClientRect().height}px`);
+    measure();
+    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(measure) : null;
+    ro?.observe(el);
+    return () => { ro?.disconnect(); root.style.removeProperty('--cookie-banner-height'); };
+  }, [visible]);
 
   if (!visible) return null;
 
@@ -22,7 +38,7 @@ export default function CookieBanner() {
   };
 
   return (
-    <div style={{
+    <div ref={ref} style={{
       // Sits above the RG line so the required 18+/Gambling Help text stays
       // readable: the fixed mobile RG banner + tab bar, else the desktop RG
       // strip + footer (both heights measured live by MobileChromeVars).
