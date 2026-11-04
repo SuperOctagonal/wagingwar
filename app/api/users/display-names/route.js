@@ -31,7 +31,10 @@ export async function GET(req) {
   const ids = [...new Set((searchParams.get('ids') || '').split(',').filter(Boolean))].slice(0, 200);
 
   const fresh = new Map(ids.map(id => [id, cache.get(id)]));
-  const stale = ids.filter(id => fresh.get(id) === undefined);
+  // The caller's own name is always looked up fresh, so a username they just
+  // set (e.g. from the /races welcome card) shows in their Community and
+  // leaderboard rows straight away instead of after the cache expires.
+  const stale = ids.filter(id => id === userId || fresh.get(id) === undefined);
 
   if (stale.length) {
     const clerk = await clerkClient();

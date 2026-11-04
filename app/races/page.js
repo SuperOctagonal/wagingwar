@@ -60,6 +60,7 @@ import { CALIBRATION_ENABLED } from '@/lib/livePricing';
 import { renumberBarriers, scoreField, trackCondKey } from '@/lib/fieldScoring';
 import { getConfidenceFlags } from '@/lib/confidence';
 import TabPanelErrorBoundary from '@/components/TabPanelErrorBoundary';
+import WelcomeCard from '@/components/WelcomeCard';
 
 // ─── small helpers ────────────────────────────────────────────────────────────
 
@@ -4536,6 +4537,17 @@ function RacesPageInner() {
     if (popupRef.current) popupRef.current.style.display = 'none';
   }, []);
 
+  // Welcome card step 2: today's next race still to jump (same pick as the
+  // Ticker's NEXT RACE button), or null when viewing another day or none left.
+  const welcomeNextRace = useMemo(() => {
+    if (!isToday) return null;
+    const now = Date.now();
+    const key = Object.values(allVenues).flat()
+      .filter(k => allRaces[k] && countdownSecs(allRaces[k], now) > 0)
+      .sort((a, b) => countdownSecs(allRaces[a], now) - countdownSecs(allRaces[b], now))[0];
+    return key ? { key, label: `${allRaces[key].venue} R${allRaces[key].num}` } : null;
+  }, [isToday, allRaces, allVenues]);
+
   const showHorsePopup = useCallback((horse, x, y) => {
     if (!popupRef.current) return;
     clearTimeout(hideTimerRef.current);
@@ -4665,6 +4677,7 @@ function RacesPageInner() {
 
       {/* Main */}
       <main className="flex-1 flex flex-col overflow-hidden bg-slate-50">
+        <WelcomeCard nextRace={welcomeNextRace} onOpenRace={handleSelectRace} />
         {!hasData ? (
           (csvLoading || histLoading) ? (
             <div className="flex-1 flex items-center justify-center">
